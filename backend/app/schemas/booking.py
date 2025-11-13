@@ -1,0 +1,259 @@
+"""
+Booking Pydantic schemas for request/response validation.
+"""
+
+from typing import List, Dict, Optional, Any
+from datetime import datetime, date
+from decimal import Decimal
+try:
+    from pydantic import BaseModel, field_validator, ConfigDict
+except ImportError:
+    class BaseModel:
+        pass
+    def field_validator(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    class ConfigDict:
+        def __init__(self, **kwargs):
+            pass
+
+from enum import Enum
+from .ferry import PassengerInfo, VehicleInfo
+
+
+class BookingStatus(str, Enum):
+    """Booking status enumeration."""
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    COMPLETED = "completed"
+    REFUNDED = "refunded"
+
+
+class CabinSelection(BaseModel):
+    """Cabin selection schema."""
+    type: str
+    deck: Optional[str] = None
+    preferences: Optional[List[str]] = None
+    supplement_price: Optional[float] = None
+
+
+class ContactInfo(BaseModel):
+    """Contact information schema."""
+    email: str
+    phone: Optional[str] = None
+    first_name: str
+    last_name: str
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+
+
+class BookingCreate(BaseModel):
+    """Booking creation schema."""
+    sailing_id: str
+    operator: str
+    passengers: List[PassengerInfo]
+    vehicles: Optional[List[VehicleInfo]] = None
+    cabin_selection: Optional[CabinSelection] = None
+    contact_info: ContactInfo
+    special_requests: Optional[str] = None
+    
+    @field_validator('passengers')
+    @classmethod
+    def validate_passengers(cls, v):
+        if not v:
+            raise ValueError('At least one passenger is required')
+        if len(v) > 50:
+            raise ValueError('Maximum 50 passengers allowed per booking')
+        return v
+    
+    @field_validator('vehicles')
+    @classmethod
+    def validate_vehicles(cls, v):
+        if v and len(v) > 10:
+            raise ValueError('Maximum 10 vehicles allowed per booking')
+        return v
+
+
+class BookingPassengerResponse(BaseModel):
+    """Booking passenger response schema."""
+    id: int
+    passenger_type: str
+    first_name: str
+    last_name: str
+    date_of_birth: Optional[date] = None
+    nationality: Optional[str] = None
+    passport_number: Optional[str] = None
+    base_price: float
+    final_price: float
+    special_needs: Optional[str] = None
+
+
+class BookingVehicleResponse(BaseModel):
+    """Booking vehicle response schema."""
+    id: int
+    vehicle_type: str
+    make: Optional[str] = None
+    model: Optional[str] = None
+    license_plate: str
+    length_cm: int
+    width_cm: int
+    height_cm: int
+    base_price: float
+    final_price: float
+
+
+class BookingResponse(BaseModel):
+    """Booking response schema."""
+    id: int
+    booking_reference: str
+    operator_booking_reference: Optional[str] = None
+    status: BookingStatus
+    
+    # Ferry details
+    sailing_id: str
+    operator: str
+    departure_port: str
+    arrival_port: str
+    departure_time: datetime
+    arrival_time: datetime
+    vessel_name: str
+    
+    # Contact information
+    contact_email: str
+    contact_phone: Optional[str] = None
+    contact_first_name: str
+    contact_last_name: str
+    
+    # Booking details
+    total_passengers: int
+    total_vehicles: int
+    
+    # Pricing
+    subtotal: float
+    tax_amount: float
+    total_amount: float
+    currency: str
+    
+    # Cabin information
+    cabin_type: Optional[str] = None
+    cabin_supplement: float
+    
+    # Special requirements
+    special_requests: Optional[str] = None
+    
+    # Timestamps
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    # Related data
+    passengers: List[BookingPassengerResponse]
+    vehicles: List[BookingVehicleResponse]
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BookingUpdate(BaseModel):
+    """Booking update schema."""
+    contact_phone: Optional[str] = None
+    special_requests: Optional[str] = None
+    cabin_selection: Optional[CabinSelection] = None
+
+
+class BookingCancellation(BaseModel):
+    """Booking cancellation schema."""
+    reason: Optional[str] = None
+    refund_requested: bool = True
+
+
+class BookingConfirmation(BaseModel):
+    """Booking confirmation schema."""
+    booking_reference: str
+    operator_reference: str
+    status: str
+    total_amount: float
+    currency: str
+    confirmation_details: Optional[Dict[str, Any]] = None
+    
+    # Booking instructions
+    check_in_time: Optional[str] = None
+    boarding_time: Optional[str] = None
+    terminal_info: Optional[str] = None
+    documents_required: Optional[List[str]] = None
+
+
+class BookingSearchParams(BaseModel):
+    """Booking search parameters."""
+    user_id: Optional[int] = None
+    status: Optional[BookingStatus] = None
+    operator: Optional[str] = None
+    departure_date_from: Optional[date] = None
+    departure_date_to: Optional[date] = None
+    booking_reference: Optional[str] = None
+    contact_email: Optional[str] = None
+
+
+class BookingListResponse(BaseModel):
+    """Booking list response schema."""
+    bookings: List[BookingResponse]
+    total_count: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class BookingStatistics(BaseModel):
+    """Booking statistics schema."""
+    total_bookings: int
+    confirmed_bookings: int
+    cancelled_bookings: int
+    pending_bookings: int
+    total_revenue: float
+    average_booking_value: float
+    top_routes: List[Dict[str, Any]]
+    bookings_by_operator: Dict[str, int]
+
+
+class BookingModification(BaseModel):
+    """Booking modification schema."""
+    new_sailing_id: Optional[str] = None
+    passenger_changes: Optional[List[Dict[str, Any]]] = None
+    vehicle_changes: Optional[List[Dict[str, Any]]] = None
+    cabin_changes: Optional[CabinSelection] = None
+    modification_reason: str
+    
+    @field_validator('modification_reason')
+    @classmethod
+    def validate_modification_reason(cls, v):
+        if not v or len(v.strip()) < 5:
+            raise ValueError('Modification reason must be at least 5 characters')
+        return v
+
+
+class BookingPaymentInfo(BaseModel):
+    """Booking payment information schema."""
+    booking_id: int
+    total_amount: float
+    paid_amount: float
+    outstanding_amount: float
+    currency: str
+    payment_status: str
+    payment_methods: List[str]
+    last_payment_date: Optional[datetime] = None
+
+
+class BookingDocument(BaseModel):
+    """Booking document schema."""
+    document_type: str  # ticket, invoice, boarding_pass
+    document_url: str
+    generated_at: datetime
+    expires_at: Optional[datetime] = None
+
+
+class BookingDocumentsResponse(BaseModel):
+    """Booking documents response schema."""
+    booking_reference: str
+    documents: List[BookingDocument] 

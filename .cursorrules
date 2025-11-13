@@ -1,0 +1,151 @@
+# Maritime Reservation Website Development - Professional Prompt
+
+## Project Overview
+I need to develop a professional maritime reservation website for a Tunisian travel agency that specializes in ferry bookings between Italy/France and Tunisia. The website should integrate with multiple ferry operators' APIs and provide a complete booking experience.
+
+## Core Requirements
+
+### 1. Ferry Operators Integration
+- **Primary operators**: CTN (Compagnie Tunisienne de Navigation), Danel Casanova, GNV (Grandi Navi Veloci), Corsica Lines
+- **Secondary operators**: Consider additional operators serving Italy-Tunisia and France-Tunisia routes
+- Integrate with their booking APIs for real-time availability, pricing, and reservations
+- Handle different API formats and authentication methods
+
+### 2. Route Coverage
+- **Italy to Tunisia**: Genoa-Tunis, Civitavecchia-Tunis, Palermo-Tunis, Salerno-Tunis
+- **France to Tunisia**: Marseille-Tunis, Nice-Tunis
+- **Return routes**: All corresponding Tunisia to Italy/France routes
+- Display route maps and journey information
+
+### 3. Booking Features
+- **Search functionality**: Date, route, passenger count, vehicle options
+- **Real-time availability**: Live ferry schedules and capacity
+- **Multi-passenger booking**: Different passenger types (adult, child, infant)
+- **Vehicle booking**: Cars, motorcycles, campers with dimensions
+- **Cabin selection**: Different cabin types and deck levels
+- **Seat selection**: Where applicable
+- **Price comparison**: Between different operators and sailing times
+
+### 4. Payment Processing
+- **Multiple payment methods**: Credit cards, PayPal, bank transfers
+- **Secure payment gateway**: PCI DSS compliant
+- **Multi-currency support**: EUR, TND (Tunisian Dinar), USD
+- **Payment confirmation**: Instant confirmation and receipts
+
+### 5. User Experience
+- **Multilingual support**: Arabic, French, Italian, English
+- **Responsive design**: Mobile-first approach
+- **User accounts**: Registration, login, booking history
+- **Guest booking**: Option to book without registration
+- **Email notifications**: Booking confirmations, reminders, updates
+
+## Technical Specifications
+
+### Backend (Python)
+- **Framework**: FastAPI or Django REST Framework
+- **Database**: PostgreSQL for production, SQLite for development
+- **API Integration**: Requests library for ferry operator APIs
+- **Authentication**: JWT tokens for user sessions
+- **Payment**: Stripe or similar payment processor integration
+- **Email**: SMTP integration for notifications
+- **Caching**: Redis for API response caching
+- **Task Queue**: Celery for background tasks (booking confirmations, email sending)
+
+### Frontend
+- **Framework**: React.js with TypeScript
+- **Styling**: Tailwind CSS or Material-UI
+- **State Management**: Redux Toolkit or Zustand
+- **Form Handling**: React Hook Form with validation
+- **API Calls**: Axios or React Query
+- **Routing**: React Router
+- **Internationalization**: i18next for multilingual support
+
+### Infrastructure
+- **Hosting**: AWS, DigitalOcean, or similar cloud provider
+- **Database**: Managed PostgreSQL service
+- **CDN**: CloudFront or similar for static assets
+- **SSL**: Let's Encrypt or CloudFlare SSL
+- **Monitoring**: Application and infrastructure monitoring
+- **Backup**: Automated database backups
+
+## Development Phases
+
+### Phase 1: Foundation (Weeks 1-2)
+- Set up development environment
+- Create project structure
+- Implement basic API endpoints
+- Set up database schema
+- Create basic React application structure
+
+### Phase 2: Core Features (Weeks 3-5)
+- Implement search functionality
+- Integrate with first ferry operator API
+- Develop booking flow
+- Create user authentication system
+- Build responsive UI components
+
+### Phase 3: Advanced Features (Weeks 6-8)
+- Integrate remaining ferry operators
+- Implement payment processing
+- Add multilingual support
+- Develop admin dashboard
+- Create email notification system
+
+### Phase 4: Testing & Optimization (Weeks 9-10)
+- Comprehensive testing (unit, integration, e2e)
+- Performance optimization
+- Security audit
+- Load testing
+- Bug fixes and refinements
+
+### Phase 5: Deployment & Launch (Weeks 11-12)
+- Production deployment
+- DNS configuration
+- SSL certificate setup
+- Monitoring implementation
+- User training and documentation
+
+## Security Considerations
+- **Data encryption**: All sensitive data encrypted at rest and in transit
+- **API security**: Rate limiting, API key management
+- **Payment security**: PCI DSS compliance
+- **User data protection**: GDPR compliance for EU users
+- **Input validation**: Comprehensive validation on all user inputs
+- **Authentication**: Secure password policies and session management
+
+## Performance Requirements
+- **Page load time**: < 3 seconds for main pages
+- **API response time**: < 2 seconds for search results
+- **Concurrent users**: Support for 500+ simultaneous users
+- **Uptime**: 99.9% availability target
+- **Mobile performance**: Optimized for mobile devices
+
+## Specific Development Requests
+
+1. **Create a detailed project structure** with all necessary files and folders
+2. **Implement API integration patterns** that can be easily extended for new ferry operators
+3. **Design a flexible booking system** that handles different operator requirements
+4. **Build a comprehensive admin dashboard** for managing bookings and monitoring
+5. **Implement robust error handling** for API failures and edge cases
+6. **Create detailed documentation** for API endpoints and system architecture
+7. **Set up automated testing** for critical booking flows
+8. **Implement logging and monitoring** for production deployment
+
+## Additional Features to Consider
+- **Loyalty program**: Points system for frequent customers
+- **Group bookings**: Special rates for group reservations
+- **Mobile app**: React Native version for mobile users
+- **Analytics**: Booking trends and customer behavior analysis
+- **Customer support**: Live chat integration
+- **Promotional codes**: Discount and coupon system
+- **Weather integration**: Ferry schedule updates based on weather conditions
+
+## Business Logic Considerations
+- **Booking holds**: Temporary reservations while payment is processed
+- **Cancellation policy**: Different policies per operator
+- **Refund processing**: Automated refund handling
+- **Overbooking protection**: Prevent double bookings
+- **Dynamic pricing**: Integration with operator pricing models
+- **Commission tracking**: Agency commission calculation and reporting
+
+Please provide a complete implementation plan with code examples, detailed architecture diagrams, database schemas, and step-by-step development instructions. Include best practices for API integration, error handling, and production deployment.

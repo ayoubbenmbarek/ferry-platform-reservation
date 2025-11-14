@@ -62,7 +62,7 @@ try:
         get_common_params, validate_booking_access
     )
     from app.models.user import User
-    from app.models.booking import Booking, BookingPassenger, BookingVehicle
+    from app.models.booking import Booking, BookingPassenger, BookingVehicle, BookingStatusEnum, PassengerTypeEnum, VehicleTypeEnum
     from app.models.ferry import Schedule
     from app.schemas.booking import (
         BookingCreate, BookingResponse, BookingUpdate, BookingCancellation,
@@ -128,6 +128,68 @@ def generate_booking_reference() -> str:
     return f"MR{uuid.uuid4().hex[:8].upper()}"
 
 
+def booking_to_response(db_booking: Booking) -> BookingResponse:
+    """Convert a Booking model to BookingResponse, handling enum conversions."""
+    return BookingResponse(
+        id=db_booking.id,
+        booking_reference=db_booking.booking_reference,
+        operator_booking_reference=db_booking.operator_booking_reference,
+        status=db_booking.status.value if hasattr(db_booking.status, 'value') else db_booking.status,
+        sailing_id=db_booking.sailing_id,
+        operator=db_booking.operator,
+        # Ferry schedule details
+        departure_port=db_booking.departure_port,
+        arrival_port=db_booking.arrival_port,
+        departure_time=db_booking.departure_time,
+        arrival_time=db_booking.arrival_time,
+        vessel_name=db_booking.vessel_name,
+        contact_email=db_booking.contact_email,
+        contact_phone=db_booking.contact_phone,
+        contact_first_name=db_booking.contact_first_name,
+        contact_last_name=db_booking.contact_last_name,
+        total_passengers=db_booking.total_passengers,
+        total_vehicles=db_booking.total_vehicles,
+        subtotal=db_booking.subtotal,
+        tax_amount=db_booking.tax_amount,
+        total_amount=db_booking.total_amount,
+        currency=db_booking.currency,
+        cabin_supplement=db_booking.cabin_supplement or 0.0,
+        special_requests=db_booking.special_requests,
+        created_at=db_booking.created_at,
+        updated_at=db_booking.updated_at,
+        passengers=[
+            {
+                "id": p.id,
+                "passenger_type": p.passenger_type.value if hasattr(p.passenger_type, 'value') else p.passenger_type,
+                "first_name": p.first_name,
+                "last_name": p.last_name,
+                "date_of_birth": p.date_of_birth,
+                "nationality": p.nationality,
+                "passport_number": p.passport_number,
+                "base_price": p.base_price,
+                "final_price": p.final_price,
+                "special_needs": p.special_needs
+            }
+            for p in db_booking.passengers
+        ],
+        vehicles=[
+            {
+                "id": v.id,
+                "vehicle_type": v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else v.vehicle_type,
+                "make": v.make,
+                "model": v.model,
+                "license_plate": v.license_plate,
+                "length_cm": v.length_cm,
+                "width_cm": v.width_cm,
+                "height_cm": v.height_cm,
+                "base_price": v.base_price,
+                "final_price": v.final_price
+            }
+            for v in db_booking.vehicles
+        ]
+    )
+
+
 @router.post("/", response_model=BookingResponse)
 async def create_booking(
     booking_data: BookingCreate,
@@ -186,6 +248,12 @@ async def create_booking(
             contact_last_name=booking_data.contact_info.last_name,
             sailing_id=booking_data.sailing_id,
             operator=booking_data.operator,
+            # Ferry schedule details
+            departure_port=booking_data.departure_port,
+            arrival_port=booking_data.arrival_port,
+            departure_time=booking_data.departure_time,
+            arrival_time=booking_data.arrival_time,
+            vessel_name=booking_data.vessel_name,
             total_passengers=total_passengers,
             total_vehicles=total_vehicles,
             subtotal=subtotal,
@@ -194,7 +262,7 @@ async def create_booking(
             currency="EUR",
             cabin_supplement=cabin_supplement,
             special_requests=booking_data.special_requests,
-            status="pending"
+            status=BookingStatusEnum.PENDING
         )
         
         db.add(db_booking)
@@ -202,17 +270,25 @@ async def create_booking(
         
         # Add passengers
         for passenger_data in booking_data.passengers:
+            # Convert passenger type from API enum to database enum
+            passenger_type_map = {
+                "adult": PassengerTypeEnum.ADULT,
+                "child": PassengerTypeEnum.CHILD,
+                "infant": PassengerTypeEnum.INFANT
+            }
+            db_passenger_type = passenger_type_map.get(passenger_data.type, PassengerTypeEnum.ADULT)
+
             db_passenger = BookingPassenger(
                 booking_id=db_booking.id,
-                passenger_type=passenger_data.type,
+                passenger_type=db_passenger_type,
                 first_name=passenger_data.first_name,
                 last_name=passenger_data.last_name,
                 date_of_birth=passenger_data.date_of_birth,
                 nationality=passenger_data.nationality,
                 passport_number=passenger_data.passport_number,
-                base_price=base_adult_price if passenger_data.type == "adult" else 
+                base_price=base_adult_price if passenger_data.type == "adult" else
                           (base_child_price if passenger_data.type == "child" else 0.0),
-                final_price=base_adult_price if passenger_data.type == "adult" else 
+                final_price=base_adult_price if passenger_data.type == "adult" else
                            (base_child_price if passenger_data.type == "child" else 0.0),
                 special_needs=passenger_data.special_needs
             )
@@ -221,9 +297,21 @@ async def create_booking(
         # Add vehicles if any
         if booking_data.vehicles:
             for vehicle_data in booking_data.vehicles:
+                # Convert vehicle type from API enum to database enum
+                vehicle_type_map = {
+                    "car": VehicleTypeEnum.CAR,
+                    "suv": VehicleTypeEnum.SUV,
+                    "van": VehicleTypeEnum.VAN,
+                    "motorcycle": VehicleTypeEnum.MOTORCYCLE,
+                    "camper": VehicleTypeEnum.CAMPER,
+                    "caravan": VehicleTypeEnum.CARAVAN,
+                    "truck": VehicleTypeEnum.TRUCK
+                }
+                db_vehicle_type = vehicle_type_map.get(vehicle_data.type, VehicleTypeEnum.CAR)
+
                 db_vehicle = BookingVehicle(
                     booking_id=db_booking.id,
-                    vehicle_type=vehicle_data.type,
+                    vehicle_type=db_vehicle_type,
                     make=vehicle_data.make,
                     model=vehicle_data.model,
                     license_plate=vehicle_data.registration or "TEMP",
@@ -237,7 +325,7 @@ async def create_booking(
         
         db.commit()
         db.refresh(db_booking)
-        
+
         # Create booking with ferry operator
         try:
             operator_confirmation = await ferry_service.create_booking(
@@ -249,18 +337,20 @@ async def create_booking(
                 contact_info=booking_data.contact_info.dict(),
                 special_requests=booking_data.special_requests
             )
-            
+
             # Update booking with operator reference
             db_booking.operator_booking_reference = operator_confirmation.operator_reference
-            db_booking.status = "confirmed"
+            db_booking.status = BookingStatusEnum.CONFIRMED
             db.commit()
-            
+
         except FerryAPIError as e:
             # If operator booking fails, mark as pending for manual processing
-            db_booking.status = "pending"
+            db_booking.status = BookingStatusEnum.PENDING
             db.commit()
-        
-        return BookingResponse.from_orm(db_booking)
+
+        # Convert to response model manually to handle enum conversions
+        db.refresh(db_booking)
+        return booking_to_response(db_booking)
         
     except HTTPException:
         raise
@@ -297,7 +387,13 @@ async def list_bookings(
         
         # Apply filters
         if status_filter:
-            query = query.filter(Booking.status == status_filter)
+            # Convert string status to enum
+            try:
+                status_enum = BookingStatusEnum[status_filter.upper()]
+                query = query.filter(Booking.status == status_enum)
+            except KeyError:
+                # Invalid status, ignore filter
+                pass
         
         if operator:
             query = query.filter(Booking.operator == operator)
@@ -318,7 +414,7 @@ async def list_bookings(
         total_pages = (total_count + common_params.page_size - 1) // common_params.page_size
         
         return BookingListResponse(
-            bookings=[BookingResponse.from_orm(booking) for booking in bookings],
+            bookings=[booking_to_response(booking) for booking in bookings],
             total_count=total_count,
             page=common_params.page,
             page_size=common_params.page_size,
@@ -357,8 +453,8 @@ async def get_booking(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
-        
-        return BookingResponse.from_orm(booking)
+
+        return booking_to_response(booking)
         
     except HTTPException:
         raise
@@ -413,8 +509,8 @@ async def update_booking(
         booking.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(booking)
-        
-        return BookingResponse.from_orm(booking)
+
+        return booking_to_response(booking)
         
     except HTTPException:
         raise
@@ -479,7 +575,7 @@ async def cancel_booking(
             pass
         
         # Update booking status
-        booking.status = "cancelled"
+        booking.status = BookingStatusEnum.CANCELLED
         booking.cancellation_reason = cancellation_data.reason
         booking.cancelled_at = datetime.utcnow()
         booking.updated_at = datetime.utcnow()
@@ -578,8 +674,8 @@ async def get_booking_by_reference(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Booking not found or email doesn't match"
             )
-        
-        return BookingResponse.from_orm(booking)
+
+        return booking_to_response(booking)
         
     except HTTPException:
         raise

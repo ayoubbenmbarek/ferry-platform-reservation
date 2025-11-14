@@ -20,15 +20,28 @@ except ImportError:
         APP_NAME = "Maritime Reservation Platform"
         VERSION = "1.0.0"
         DEBUG = True
-        ALLOWED_ORIGINS = ["http://localhost:3010"]
+        ALLOWED_ORIGINS = ["http://localhost:3001"]
+        ALLOWED_ORIGINS_LIST = ["http://localhost:3001"]
     settings = Settings()
 
-# Import API routes
+# Import API routes using importlib to avoid __init__.py conflicts
+import importlib
+auth = users = ferries = bookings = payments = None
+
 try:
-    from app.api.v1 import auth, users, ferries, bookings, payments
+    auth = importlib.import_module('app.api.v1.auth')
 except ImportError:
-    # Create placeholder modules for development
-    auth = users = ferries = bookings = payments = None
+    pass
+
+try:
+    ferries = importlib.import_module('app.api.v1.ferries')
+except ImportError:
+    pass
+
+try:
+    bookings = importlib.import_module('app.api.v1.bookings')
+except ImportError:
+    pass
 
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware

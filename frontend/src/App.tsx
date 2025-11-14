@@ -5,10 +5,11 @@ import { useTranslation } from 'react-i18next';
 import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 
 // Lazy load pages for better performance
-const HomePage = React.lazy(() => import('./pages/HomePage'));
-const SearchPage = React.lazy(() => import('./pages/SearchPage'));
+const HomePage = React.lazy(() => import('./pages/NewHomePage'));
+const SearchPage = React.lazy(() => import('./pages/NewSearchPage'));
 const BookingPage = React.lazy(() => import('./pages/BookingPage'));
 const BookingConfirmationPage = React.lazy(() => import('./pages/BookingConfirmationPage'));
 const MyBookingsPage = React.lazy(() => import('./pages/MyBookingsPage'));
@@ -46,9 +47,9 @@ function App() {
               <Route path="/contact" element={<ContactPage />} />
               
               {/* Protected routes */}
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/my-bookings" element={<MyBookingsPage />} />
-              <Route path="/booking/:id" element={<BookingDetailsPage />} />
+              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+              <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
+              <Route path="/booking/:id" element={<ProtectedRoute><BookingDetailsPage /></ProtectedRoute>} />
               
               {/* 404 page */}
               <Route path="*" element={<NotFoundPage />} />

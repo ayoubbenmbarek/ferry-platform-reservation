@@ -99,10 +99,31 @@ services:
     networks:
       - maritime-dev-network
 
+  # pgAdmin for Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: maritime-pgadmin-dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@maritime.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"  # Access pgAdmin at http://localhost:5050
+    depends_on:
+      - postgres
+    networks:
+      - maritime-dev-network
+
 volumes:
   postgres_dev_data:
     driver: local
   redis_dev_data:
+    driver: local
+  pgadmin_dev_data:
     driver: local
 
 networks:

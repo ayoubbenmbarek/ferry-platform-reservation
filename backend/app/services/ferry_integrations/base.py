@@ -73,6 +73,21 @@ class FerryResult:
         self.cabin_types = cabin_types or []
         self.available_spaces = available_spaces or {}
 
+    def to_dict(self) -> Dict:
+        """Convert FerryResult to dictionary for Pydantic validation."""
+        return {
+            "sailing_id": self.sailing_id,
+            "operator": self.operator,
+            "departure_port": self.departure_port,
+            "arrival_port": self.arrival_port,
+            "departure_time": self.departure_time,
+            "arrival_time": self.arrival_time,
+            "vessel_name": self.vessel_name,
+            "prices": self.prices,
+            "cabin_types": self.cabin_types,
+            "available_spaces": self.available_spaces
+        }
+
 
 class BookingRequest:
     """Ferry booking request model."""

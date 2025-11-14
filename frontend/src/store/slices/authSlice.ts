@@ -15,6 +15,18 @@ export interface User {
   lastLogin?: string;
 }
 
+// Helper function to convert snake_case to camelCase
+const snakeToCamel = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+
+  return Object.keys(obj).reduce((acc: any, key: string) => {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    acc[camelKey] = snakeToCamel(obj[key]);
+    return acc;
+  }, {});
+};
+
 export interface AuthState {
   user: User | null;
   token: string | null;
@@ -34,11 +46,19 @@ const initialState: AuthState = {
 // Async thunks
 export const loginUser = createAsyncThunk(
   'auth/login',
-  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
+  async (credentials: { email: string; password: string }, { rejectWithValue, dispatch }) => {
     try {
       const response = await authAPI.login(credentials);
       localStorage.setItem('token', response.access_token);
-      return response;
+
+      // Fetch user data after successful login
+      try {
+        const userData = await authAPI.getCurrentUser();
+        return { ...response, user: snakeToCamel(userData) };
+      } catch (userError) {
+        // Login succeeded but couldn't fetch user data
+        return response;
+      }
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || 'Login failed');
     }
@@ -58,7 +78,7 @@ export const registerUser = createAsyncThunk(
   }, { rejectWithValue }) => {
     try {
       const response = await authAPI.register(userData);
-      return response;
+      return snakeToCamel(response);
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || 'Registration failed');
     }
@@ -70,7 +90,7 @@ export const getCurrentUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await authAPI.getCurrentUser();
-      return response;
+      return snakeToCamel(response);
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || 'Failed to get user info');
     }
@@ -102,6 +122,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.error = null;
       localStorage.removeItem('token');
+      // Note: Ferry state will be cleared via extraReducers listening to this action
     },
     clearError: (state) => {
       state.error = null;
@@ -127,6 +148,7 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.token = action.payload.access_token;
         state.isAuthenticated = true;
+        state.user = (action.payload as any).user || null;
         state.error = null;
       })
       .addCase(loginUser.rejected, (state, action) => {

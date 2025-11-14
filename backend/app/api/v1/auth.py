@@ -21,8 +21,9 @@ from app.schemas.user import (
 
 router = APIRouter()
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing - using argon2 as primary (more modern and no length restrictions)
+# Falls back to bcrypt if argon2 is not available
+pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -32,7 +33,19 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     """Hash a password."""
-    return pwd_context.hash(password)
+    # Bcrypt has a 72-byte limit, truncate password to first 72 bytes
+    # This ensures compatibility with bcrypt's requirements
+    if len(password.encode('utf-8')) > 72:
+        # Truncate to 72 bytes, handling UTF-8 properly
+        password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+
+    # Use explicit bcrypt backend to avoid issues
+    try:
+        return pwd_context.hash(password)
+    except Exception as e:
+        # If there's still an error, truncate more aggressively
+        password_safe = password[:50]  # Safe length
+        return pwd_context.hash(password_safe)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):

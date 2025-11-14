@@ -31,6 +31,15 @@ class FerryService:
     Provides unified interface for searching and booking across multiple operators.
     """
 
+    # Mapping from operator display names to integration keys
+    OPERATOR_KEY_MAP = {
+        "CTN": "ctn",
+        "GNV": "gnv",
+        "Corsica Lines": "corsica",
+        "Danel": "danel",
+        "Danel Casanova": "danel"
+    }
+
     def __init__(self, use_mock: bool = False):
         """
         Initialize ferry service with operator integrations.
@@ -238,7 +247,9 @@ class FerryService:
             FerryAPIError: If booking fails
             ValueError: If operator not found
         """
-        integration = self.integrations.get(operator.lower())
+        # Map operator name to integration key
+        operator_key = self.OPERATOR_KEY_MAP.get(operator, operator.lower())
+        integration = self.integrations.get(operator_key)
         if not integration:
             raise ValueError(f"Unknown operator: {operator}")
 
@@ -274,7 +285,9 @@ class FerryService:
         Returns:
             Booking status information
         """
-        integration = self.integrations.get(operator.lower())
+        # Map operator name to integration key
+        operator_key = self.OPERATOR_KEY_MAP.get(operator, operator.lower())
+        integration = self.integrations.get(operator_key)
         if not integration:
             raise ValueError(f"Unknown operator: {operator}")
 
@@ -306,7 +319,9 @@ class FerryService:
         Returns:
             True if cancellation successful
         """
-        integration = self.integrations.get(operator.lower())
+        # Map operator name to integration key
+        operator_key = self.OPERATOR_KEY_MAP.get(operator, operator.lower())
+        integration = self.integrations.get(operator_key)
         if not integration:
             raise ValueError(f"Unknown operator: {operator}")
 

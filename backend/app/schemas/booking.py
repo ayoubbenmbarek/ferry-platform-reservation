@@ -60,6 +60,13 @@ class BookingCreate(BaseModel):
     cabin_selection: Optional[CabinSelection] = None
     contact_info: ContactInfo
     special_requests: Optional[str] = None
+
+    # Ferry schedule details
+    departure_port: Optional[str] = None
+    arrival_port: Optional[str] = None
+    departure_time: Optional[datetime] = None
+    arrival_time: Optional[datetime] = None
+    vessel_name: Optional[str] = None
     
     @field_validator('passengers')
     @classmethod
@@ -91,6 +98,8 @@ class BookingPassengerResponse(BaseModel):
     final_price: float
     special_needs: Optional[str] = None
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class BookingVehicleResponse(BaseModel):
     """Booking vehicle response schema."""
@@ -105,22 +114,24 @@ class BookingVehicleResponse(BaseModel):
     base_price: float
     final_price: float
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class BookingResponse(BaseModel):
     """Booking response schema."""
     id: int
     booking_reference: str
     operator_booking_reference: Optional[str] = None
-    status: BookingStatus
+    status: str
     
     # Ferry details
     sailing_id: str
     operator: str
-    departure_port: str
-    arrival_port: str
-    departure_time: datetime
-    arrival_time: datetime
-    vessel_name: str
+    departure_port: Optional[str] = None
+    arrival_port: Optional[str] = None
+    departure_time: Optional[datetime] = None
+    arrival_time: Optional[datetime] = None
+    vessel_name: Optional[str] = None
     
     # Contact information
     contact_email: str

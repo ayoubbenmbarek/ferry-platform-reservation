@@ -55,8 +55,12 @@ class MockFerryIntegration(BaseFerryIntegration):
         try:
             logger.info(f"Mock search: {search_request.departure_port} -> {search_request.arrival_port}")
 
+            # Normalize port names to uppercase for lookup
+            departure_port = search_request.departure_port.upper()
+            arrival_port = search_request.arrival_port.upper()
+
             # Get route info
-            route_key = (search_request.departure_port, search_request.arrival_port)
+            route_key = (departure_port, arrival_port)
             route_info = self.routes.get(route_key)
 
             if not route_info:

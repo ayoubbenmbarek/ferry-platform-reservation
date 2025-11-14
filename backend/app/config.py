@@ -44,8 +44,8 @@ class Settings(BaseSettings):
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
-    SMTP_PASSWORD: str = ""
-    FROM_EMAIL: str = "noreply@maritime-reservations.com"
+    SMTP_PASSWORD: str = "09388906aA@"
+    FROM_EMAIL: str = "ayoubenmbarek@gmail.com"
     
     # Payment Configuration
     STRIPE_SECRET_KEY: str = "sk_test_development_key"

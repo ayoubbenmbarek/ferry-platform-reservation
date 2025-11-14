@@ -1,7 +1,8 @@
 import axios, { AxiosResponse } from 'axios';
 
-// API base URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+// API base URL - Using relative path because of proxy in package.json
+// The proxy setting redirects all relative API calls to http://localhost:8010
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
 
 // Create axios instance
 const api = axios.create({
@@ -169,7 +170,16 @@ export const authAPI = {
   },
 
   register: async (userData: RegisterData): Promise<User> => {
-    const response: AxiosResponse<User> = await api.post('/auth/register', userData);
+    // Convert camelCase to snake_case for backend
+    const response: AxiosResponse<any> = await api.post('/auth/register', {
+      email: userData.email,
+      password: userData.password,
+      first_name: userData.firstName,
+      last_name: userData.lastName,
+      phone: userData.phone,
+      preferred_language: userData.preferredLanguage || 'en',
+      preferred_currency: userData.preferredCurrency || 'EUR'
+    });
     return response.data;
   },
 
@@ -200,8 +210,18 @@ export const authAPI = {
 
 // Ferry search API
 export const ferryAPI = {
-  search: async (params: SearchParams): Promise<Ferry[]> => {
-    const response: AxiosResponse<Ferry[]> = await api.get('/ferries/search', { params });
+  search: async (params: SearchParams): Promise<any> => {
+    // Backend expects POST with body, not GET with query params
+    const response: AxiosResponse<any> = await api.post('/ferries/search', {
+      departure_port: params.departurePort,
+      arrival_port: params.arrivalPort,
+      departure_date: params.departureDate,
+      return_date: params.returnDate,
+      adults: params.passengers || 1,
+      children: 0,
+      infants: 0,
+      operators: params.operator ? [params.operator] : undefined
+    });
     return response.data;
   },
 
@@ -240,7 +260,7 @@ export const bookingAPI = {
     pageSize: number;
     totalPages: number;
   }> => {
-    const response = await api.get('/bookings', { params });
+    const response = await api.get('/bookings/', { params });
     return response.data;
   },
 

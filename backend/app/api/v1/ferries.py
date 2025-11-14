@@ -99,7 +99,7 @@ async def search_ferries(
     """
     try:
         start_time = time.time()
-        
+
         # Convert Pydantic model to service parameters
         results = await ferry_service.search_ferries(
             departure_port=search_params.departure_port,
@@ -112,14 +112,17 @@ async def search_ferries(
             vehicles=[v.dict() for v in search_params.vehicles] if search_params.vehicles else None,
             operators=search_params.operators
         )
-        
+
         search_time = (time.time() - start_time) * 1000
-        
+
         # Get list of operators that were actually searched
         operators_searched = search_params.operators or ferry_service.get_available_operators()
-        
+
+        # Convert FerryResult objects to dictionaries for Pydantic validation
+        results_dict = [result.to_dict() for result in results]
+
         return FerrySearchResponse(
-            results=results,
+            results=results_dict,
             total_results=len(results),
             search_params=search_params,
             operators_searched=operators_searched,

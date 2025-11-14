@@ -24,8 +24,11 @@ from enum import Enum
 class VehicleType(str, Enum):
     """Vehicle type enumeration."""
     CAR = "car"
+    SUV = "suv"
+    VAN = "van"
     MOTORCYCLE = "motorcycle"
     CAMPER = "camper"
+    CARAVAN = "caravan"
     TRUCK = "truck"
 
 

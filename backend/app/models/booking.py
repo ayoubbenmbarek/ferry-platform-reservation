@@ -11,26 +11,29 @@ import enum
 
 class BookingStatusEnum(enum.Enum):
     """Booking status enum."""
-    PENDING = "pending"
-    CONFIRMED = "confirmed"
-    CANCELLED = "cancelled"
-    COMPLETED = "completed"
-    REFUNDED = "refunded"
+    PENDING = "PENDING"
+    CONFIRMED = "CONFIRMED"
+    CANCELLED = "CANCELLED"
+    COMPLETED = "COMPLETED"
+    REFUNDED = "REFUNDED"
 
 
 class PassengerTypeEnum(enum.Enum):
     """Passenger type enum."""
-    ADULT = "adult"
-    CHILD = "child"
-    INFANT = "infant"
+    ADULT = "ADULT"
+    CHILD = "CHILD"
+    INFANT = "INFANT"
 
 
 class VehicleTypeEnum(enum.Enum):
     """Vehicle type enum."""
-    CAR = "car"
-    MOTORCYCLE = "motorcycle"
-    CAMPER = "camper"
-    TRUCK = "truck"
+    CAR = "CAR"
+    SUV = "SUV"
+    VAN = "VAN"
+    MOTORCYCLE = "MOTORCYCLE"
+    CAMPER = "CAMPER"
+    CARAVAN = "CARAVAN"
+    TRUCK = "TRUCK"
 
 
 class Booking(Base):
@@ -40,8 +43,19 @@ class Booking(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Nullable for guest bookings
-    schedule_id = Column(Integer, ForeignKey("schedules.id"), nullable=False)
-    
+    schedule_id = Column(Integer, ForeignKey("schedules.id"), nullable=True)  # Optional - we use sailing_id for operator bookings
+
+    # Operator booking details
+    sailing_id = Column(String(100), nullable=True)  # Operator's sailing identifier
+    operator = Column(String(50), nullable=True)  # Ferry operator name (CTN, GNV, etc.)
+
+    # Ferry schedule details
+    departure_port = Column(String(100), nullable=True)
+    arrival_port = Column(String(100), nullable=True)
+    departure_time = Column(DateTime(timezone=True), nullable=True)
+    arrival_time = Column(DateTime(timezone=True), nullable=True)
+    vessel_name = Column(String(100), nullable=True)
+
     # Booking reference
     booking_reference = Column(String(20), unique=True, nullable=False, index=True)
     operator_booking_reference = Column(String(100), nullable=True)  # Operator's booking ref
@@ -125,6 +139,7 @@ class BookingPassenger(Base):
     # Special requirements
     dietary_requirements = Column(Text, nullable=True)
     mobility_assistance = Column(Boolean, default=False)
+    special_needs = Column(Text, nullable=True)  # General special needs/requirements
     
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())

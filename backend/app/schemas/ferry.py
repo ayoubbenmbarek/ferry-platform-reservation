@@ -129,8 +129,8 @@ class FerrySearch(BaseModel):
     
     @field_validator('return_date')
     @classmethod
-    def validate_return_date(cls, v, values):
-        if v and 'departure_date' in values and v <= values['departure_date']:
+    def validate_return_date(cls, v, info):
+        if v and info.data.get('departure_date') and v <= info.data['departure_date']:
             raise ValueError('Return date must be after departure date')
         return v
 

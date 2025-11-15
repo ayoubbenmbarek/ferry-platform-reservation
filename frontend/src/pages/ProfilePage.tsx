@@ -58,14 +58,14 @@ const ProfilePage: React.FC = () => {
     setMessage(null);
 
     try {
-      dispatch(updateUser({
+      await dispatch(updateUser({
         firstName: profileData.firstName,
         lastName: profileData.lastName,
         phone: profileData.phone,
-      }));
+      })).unwrap();
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to update profile' });
+      setMessage({ type: 'error', text: error || 'Failed to update profile' });
     } finally {
       setIsSaving(false);
     }
@@ -108,13 +108,13 @@ const ProfilePage: React.FC = () => {
     setMessage(null);
 
     try {
-      dispatch(updateUser({
+      await dispatch(updateUser({
         preferredLanguage: preferencesData.preferredLanguage,
         preferredCurrency: preferencesData.preferredCurrency,
-      }));
+      })).unwrap();
       setMessage({ type: 'success', text: 'Preferences updated successfully!' });
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to update preferences' });
+      setMessage({ type: 'error', text: error || 'Failed to update preferences' });
     } finally {
       setIsSaving(false);
     }

@@ -97,6 +97,24 @@ export const getCurrentUser = createAsyncThunk(
   }
 );
 
+export const updateUser = createAsyncThunk(
+  'auth/updateUser',
+  async (userData: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    preferredLanguage?: string;
+    preferredCurrency?: string;
+  }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.updateUser(userData);
+      return snakeToCamel(response);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || 'Failed to update profile');
+    }
+  }
+);
+
 export const changePassword = createAsyncThunk(
   'auth/changePassword',
   async (passwordData: {
@@ -131,7 +149,7 @@ const authSlice = createSlice({
       state.token = action.payload;
       localStorage.setItem('token', action.payload);
     },
-    updateUser: (state, action: PayloadAction<Partial<User>>) => {
+    setUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
         state.user = { ...state.user, ...action.payload };
       }
@@ -192,6 +210,22 @@ const authSlice = createSlice({
         localStorage.removeItem('token');
       });
 
+    // Update user
+    builder
+      .addCase(updateUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+        state.error = null;
+      })
+      .addCase(updateUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
     // Change password
     builder
       .addCase(changePassword.pending, (state) => {
@@ -209,5 +243,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setToken, updateUser } = authSlice.actions;
+export const { logout, clearError, setToken, setUser } = authSlice.actions;
 export default authSlice.reducer; 

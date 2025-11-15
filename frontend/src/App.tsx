@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 const HomePage = React.lazy(() => import('./pages/NewHomePage'));
 const SearchPage = React.lazy(() => import('./pages/NewSearchPage'));
 const BookingPage = React.lazy(() => import('./pages/BookingPage'));
+const PaymentPage = React.lazy(() => import('./pages/PaymentPage'));
 const BookingConfirmationPage = React.lazy(() => import('./pages/BookingConfirmationPage'));
 const MyBookingsPage = React.lazy(() => import('./pages/MyBookingsPage'));
 const BookingDetailsPage = React.lazy(() => import('./pages/BookingDetailsPage'));
@@ -40,6 +41,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/booking" element={<BookingPage />} />
+              <Route path="/payment" element={<PaymentPage />} />
               <Route path="/booking/confirmation" element={<BookingConfirmationPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />

@@ -43,6 +43,11 @@ try:
 except ImportError:
     pass
 
+try:
+    payments = importlib.import_module('app.api.v1.payments')
+except ImportError:
+    pass
+
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
 setup_logging()

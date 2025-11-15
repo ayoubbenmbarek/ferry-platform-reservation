@@ -188,11 +188,32 @@ export const authAPI = {
     return response.data;
   },
 
+  updateUser: async (userData: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    preferredLanguage?: string;
+    preferredCurrency?: string;
+  }): Promise<User> => {
+    // Convert camelCase to snake_case for backend
+    const response: AxiosResponse<any> = await api.put('/auth/me', {
+      first_name: userData.firstName,
+      last_name: userData.lastName,
+      phone: userData.phone,
+      preferred_language: userData.preferredLanguage,
+      preferred_currency: userData.preferredCurrency,
+    });
+    return response.data;
+  },
+
   changePassword: async (passwordData: {
     currentPassword: string;
     newPassword: string;
   }): Promise<void> => {
-    await api.post('/auth/change-password', passwordData);
+    await api.post('/auth/change-password', {
+      current_password: passwordData.currentPassword,
+      new_password: passwordData.newPassword,
+    });
   },
 
   forgotPassword: async (email: string): Promise<void> => {
@@ -293,23 +314,33 @@ export const bookingAPI = {
 
 // Payment API
 export const paymentAPI = {
-  createPaymentIntent: async (bookingId: number, paymentMethod: string): Promise<any> => {
-    const response = await api.post('/payments/create-intent', {
-      bookingId,
-      paymentMethod,
-    });
+  createPaymentIntent: async (paymentData: {
+    booking_id: number;
+    amount: number;
+    currency?: string;
+    payment_method: string;
+  }): Promise<any> => {
+    const response = await api.post('/payments/create-intent', paymentData);
     return response.data;
   },
 
   confirmPayment: async (paymentIntentId: string): Promise<any> => {
-    const response = await api.post('/payments/confirm', {
-      paymentIntentId,
-    });
+    const response = await api.post(`/payments/confirm/${paymentIntentId}`);
     return response.data;
   },
 
   getPaymentMethods: async (): Promise<any[]> => {
     const response = await api.get('/payments/methods');
+    return response.data;
+  },
+
+  getStripeConfig: async (): Promise<{ publishableKey: string; currency: string }> => {
+    const response = await api.get('/payments/config');
+    return response.data;
+  },
+
+  getBookingPayment: async (bookingId: number): Promise<any> => {
+    const response = await api.get(`/payments/booking/${bookingId}`);
     return response.data;
   },
 };

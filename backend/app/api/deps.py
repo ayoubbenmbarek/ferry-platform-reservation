@@ -87,7 +87,7 @@ def get_current_user(
 ) -> User:
     """
     Get current authenticated user from JWT token.
-    
+
     Validates the JWT token and returns the corresponding user.
     """
     credentials_exception = HTTPException(
@@ -95,7 +95,11 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
+    # Check if token is None
+    if token is None:
+        raise credentials_exception
+
     try:
         # Decode JWT token
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

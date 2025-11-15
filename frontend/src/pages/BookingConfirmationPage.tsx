@@ -8,7 +8,8 @@ const BookingConfirmationPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const booking = location.state?.booking || useSelector((state: RootState) => state.ferry.currentBooking);
+  const currentBooking = useSelector((state: RootState) => state.ferry.currentBooking);
+  const booking = location.state?.booking || currentBooking;
 
   useEffect(() => {
     // If no booking data, redirect to home

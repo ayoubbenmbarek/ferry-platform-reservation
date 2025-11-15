@@ -15,7 +15,7 @@ from app.api.deps import get_db, get_current_user, get_current_active_user
 from app.config import settings
 from app.models.user import User
 from app.schemas.user import (
-    UserCreate, UserResponse, UserLogin, Token, 
+    UserCreate, UserResponse, UserUpdate, UserLogin, Token,
     PasswordChange, PasswordReset, PasswordResetConfirm
 )
 
@@ -233,10 +233,49 @@ async def get_current_user_info(
 ):
     """
     Get current user information.
-    
+
     Returns the profile information of the currently authenticated user.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.put("/me", response_model=UserResponse)
+async def update_current_user(
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update current user information.
+
+    Allows authenticated users to update their profile information.
+    """
+    try:
+        # Update user fields
+        if user_update.first_name is not None:
+            current_user.first_name = user_update.first_name
+        if user_update.last_name is not None:
+            current_user.last_name = user_update.last_name
+        if user_update.phone is not None:
+            current_user.phone = user_update.phone
+        if user_update.preferred_language is not None:
+            current_user.preferred_language = user_update.preferred_language
+        if user_update.preferred_currency is not None:
+            current_user.preferred_currency = user_update.preferred_currency
+
+        db.commit()
+        db.refresh(current_user)
+
+        return UserResponse.model_validate(current_user)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Profile update failed: {str(e)}"
+        )
 
 
 @router.post("/change-password")

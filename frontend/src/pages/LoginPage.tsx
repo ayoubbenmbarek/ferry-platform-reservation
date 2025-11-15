@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { loginUser } from '../store/slices/authSlice';
+import { loginUser, clearError } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
 
 const LoginPage: React.FC = () => {
@@ -14,6 +14,14 @@ const LoginPage: React.FC = () => {
     password: ''
   });
 
+  // Clear error only on initial mount, not on every render
+  useEffect(() => {
+    // Clear error when component first mounts
+    return () => {
+      dispatch(clearError());
+    };
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
@@ -21,6 +29,10 @@ const LoginPage: React.FC = () => {
   }, [isAuthenticated, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Clear error when user starts typing
+    if (error) {
+      dispatch(clearError());
+    }
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -108,9 +120,9 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+              <Link to="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
                 Forgot your password?
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -128,8 +140,8 @@ const LoginPage: React.FC = () => {
         {/* Test Credentials Info */}
         <div className="mt-4 p-4 bg-blue-50 rounded-md">
           <p className="text-xs text-blue-800 font-semibold mb-2">Test Credentials:</p>
-          <p className="text-xs text-blue-700">Email: testuser@example.com</p>
-          <p className="text-xs text-blue-700">Password: password123</p>
+          <p className="text-xs text-blue-700">Email: demo@maritime.com</p>
+          <p className="text-xs text-blue-700">Password: Demo1234</p>
         </div>
       </div>
     </div>

@@ -467,6 +467,7 @@ The booking system is **fully functional** at the API level. You can now:
 The frontend integration is 90% complete - just add the UI components using the examples provided above!
 
 ---
-TODO: add button voice and saind in tunisian lawej arkhes billet etc etc with meta osmmultilingue and it will do search by itself
+TODO: add button voice and said in tunisian lawej arkhes billet etc etc with meta osmmultilingue and it will do search by itself
 TODO: booking could pass twice for the same booking, correct that
+TODO: add paiment by apple pay and cards etc
 **Congratulations! Your booking system is ready for production use!** 🎉

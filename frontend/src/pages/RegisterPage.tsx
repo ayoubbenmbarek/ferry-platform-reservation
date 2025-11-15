@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { registerUser } from '../store/slices/authSlice';
+import { registerUser, clearError } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
 
 const RegisterPage: React.FC = () => {
@@ -22,6 +22,11 @@ const RegisterPage: React.FC = () => {
 
   const [formError, setFormError] = useState('');
 
+  // Clear error on component mount
+  useEffect(() => {
+    dispatch(clearError());
+  }, [dispatch]);
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
@@ -29,6 +34,10 @@ const RegisterPage: React.FC = () => {
   }, [isAuthenticated, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    // Clear errors when user starts typing
+    if (error) {
+      dispatch(clearError());
+    }
     setFormData({
       ...formData,
       [e.target.name]: e.target.value

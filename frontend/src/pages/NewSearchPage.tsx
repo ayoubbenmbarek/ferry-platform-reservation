@@ -35,12 +35,16 @@ const NewSearchPage: React.FC = () => {
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [showAddPassenger, setShowAddPassenger] = useState(false);
 
+  const [hasSearchParams, setHasSearchParams] = useState(true);
+
   useEffect(() => {
-    // If no search params, redirect to home
+    // Check if we have search params
     if (!searchParams.departurePort || !searchParams.arrivalPort || !searchParams.departureDate) {
-      navigate('/');
+      setHasSearchParams(false);
       return;
     }
+
+    setHasSearchParams(true);
 
     // Perform search on mount if we don't have results
     if (searchResults.length === 0 && !isSearching) {
@@ -93,6 +97,41 @@ const NewSearchPage: React.FC = () => {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
   };
+
+  // Show message if no search params
+  if (!hasSearchParams) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-lg p-12 text-center">
+            <svg
+              className="mx-auto h-16 w-16 text-blue-600 mb-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Search for Ferries</h1>
+            <p className="text-gray-600 mb-8">
+              Start your journey by searching for available ferry routes and schedules.
+            </p>
+            <button
+              onClick={() => navigate('/')}
+              className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Go to Search
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Step 1: Enter passenger details
   if (currentStep === 1) {

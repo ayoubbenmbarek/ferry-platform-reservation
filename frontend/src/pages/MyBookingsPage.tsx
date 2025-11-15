@@ -28,9 +28,14 @@ const MyBookingsPage: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await bookingAPI.getAll({
-        status: filterStatus !== 'all' ? filterStatus.toUpperCase() : undefined,
-      });
+
+      // Build params object - backend expects status_filter not status
+      const params: any = {};
+      if (filterStatus !== 'all') {
+        params.status_filter = filterStatus.toUpperCase();
+      }
+
+      const response = await bookingAPI.getAll(params);
       // Convert snake_case to camelCase
       const convertedBookings = response.bookings.map(snakeToCamel);
       setBookings(convertedBookings);

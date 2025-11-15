@@ -2,12 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { bookingAPI } from '../services/api';
 
+// Helper to convert snake_case to camelCase
+const snakeToCamel = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+  return Object.keys(obj).reduce((acc: any, key: string) => {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    acc[camelKey] = snakeToCamel(obj[key]);
+    return acc;
+  }, {});
+};
+
 const BookingDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [booking, setBooking] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -19,7 +33,8 @@ const BookingDetailsPage: React.FC = () => {
       try {
         setIsLoading(true);
         const response = await bookingAPI.getById(parseInt(id));
-        setBooking(response);
+        // Convert snake_case to camelCase
+        setBooking(snakeToCamel(response));
       } catch (err: any) {
         setError(err.response?.data?.detail || 'Failed to load booking');
       } finally {
@@ -66,6 +81,35 @@ const BookingDetailsPage: React.FC = () => {
     if (s === 'cancelled') return 'bg-red-100 text-red-800';
     if (s === 'completed') return 'bg-blue-100 text-blue-800';
     return 'bg-gray-100 text-gray-800';
+  };
+
+  const handleCancelBooking = async () => {
+    if (!cancelReason.trim()) {
+      alert('Please provide a reason for cancellation');
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      await bookingAPI.cancel(parseInt(id!), cancelReason);
+      // Refresh booking data
+      const response = await bookingAPI.getById(parseInt(id!));
+      setBooking(snakeToCamel(response));
+      setShowCancelModal(false);
+      setCancelReason('');
+      // Show success message
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to cancel booking');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const canCancelBooking = () => {
+    if (!booking) return false;
+    const status = booking.status.toLowerCase();
+    return status === 'confirmed' || status === 'pending';
   };
 
   return (
@@ -195,7 +239,7 @@ const BookingDetailsPage: React.FC = () => {
                           </p>
                         )}
                         <p className="text-xs text-gray-500 mt-1">
-                          Dimensions: {(v.lengthCm / 100).toFixed(1)}m × {(v.widthCm / 100).toFixed(1)}m × {(v.heightCm / 100).toFixed(1)}m
+                          Dimensions: {((v.lengthCm || 0) / 100).toFixed(1)}m × {((v.widthCm || 0) / 100).toFixed(1)}m × {((v.heightCm || 0) / 100).toFixed(1)}m
                         </p>
                       </div>
                       <div className="text-right">
@@ -216,32 +260,110 @@ const BookingDetailsPage: React.FC = () => {
             </div>
           )}
 
+          {/* Cancellation Info */}
+          {booking.status?.toLowerCase() === 'cancelled' && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h2 className="text-lg font-semibold text-red-900 mb-2">Booking Cancelled</h2>
+                {booking.cancelledAt && (
+                  <p className="text-sm text-red-800 mb-2">
+                    Cancelled on {new Date(booking.cancelledAt).toLocaleDateString()} at {new Date(booking.cancelledAt).toLocaleTimeString()}
+                  </p>
+                )}
+                {booking.cancellationReason && (
+                  <div>
+                    <p className="text-sm font-medium text-red-900 mb-1">Reason:</p>
+                    <p className="text-sm text-red-800">{booking.cancellationReason}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Price Summary */}
           <div className="mb-6">
             <h2 className="text-lg font-semibold mb-3">Price Summary</h2>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal</span>
-                <span>€{booking.subtotal.toFixed(2)}</span>
+                <span>€{(booking.subtotal || 0).toFixed(2)}</span>
               </div>
               {booking.cabinSupplement > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Cabin Supplement</span>
-                  <span>€{booking.cabinSupplement.toFixed(2)}</span>
+                  <span>€{(booking.cabinSupplement || 0).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Tax</span>
-                <span>€{booking.taxAmount.toFixed(2)}</span>
+                <span>€{(booking.taxAmount || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
                 <span>Total</span>
-                <span className="text-blue-600">€{booking.totalAmount.toFixed(2)} {booking.currency}</span>
+                <span className="text-blue-600">€{(booking.totalAmount || 0).toFixed(2)} {booking.currency || 'EUR'}</span>
               </div>
             </div>
           </div>
+
+          {/* Cancel Booking Button */}
+          {canCancelBooking() && (
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="w-full bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+              >
+                Cancel Booking
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Cancellation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Cancel Booking</h2>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to cancel this booking? This action cannot be undone.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for Cancellation
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                rows={4}
+                placeholder="Please provide a reason for cancelling..."
+                required
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelReason('');
+                }}
+                disabled={isCancelling}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={handleCancelBooking}
+                disabled={isCancelling}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {isCancelling ? 'Cancelling...' : 'Confirm Cancellation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

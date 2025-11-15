@@ -677,6 +677,7 @@ TODO:choose meals
 TODO all remaining previous steps like refund, cancel bookin etc etc
 TODO:real api integration
 TODO:Devops best practice
+TODO: add apple pay
 Everything is now documented and ready to implement! 🚀
 
 For detailed frontend components code, see: **ADMIN_DASHBOARD_COMPONENTS.md**

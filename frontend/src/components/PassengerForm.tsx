@@ -7,6 +7,7 @@ interface PassengerFormProps {
   onSave: (passenger: PassengerInfo) => void;
   onRemove?: (id: string) => void;
   isExpanded?: boolean;
+  defaultType?: PassengerType;
 }
 
 export const PassengerForm: React.FC<PassengerFormProps> = ({
@@ -15,12 +16,13 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
   onSave,
   onRemove,
   isExpanded = false,
+  defaultType = PassengerType.ADULT,
 }) => {
   const [expanded, setExpanded] = useState(isExpanded || !passenger);
   const [formData, setFormData] = useState<Partial<PassengerInfo>>(
     passenger || {
       id: Date.now().toString() + passengerNumber,
-      type: PassengerType.ADULT,
+      type: defaultType,
       firstName: '',
       lastName: '',
     }

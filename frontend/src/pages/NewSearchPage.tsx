@@ -81,6 +81,29 @@ const NewSearchPage: React.FC = () => {
                          (searchParams.passengers?.children || 0) +
                          (searchParams.passengers?.infants || 0);
 
+  // Calculate the default passenger type for the next passenger
+  const getNextPassengerType = (): PassengerType => {
+    const adultsNeeded = searchParams.passengers?.adults || 0;
+    const childrenNeeded = searchParams.passengers?.children || 0;
+    const infantsNeeded = searchParams.passengers?.infants || 0;
+
+    const currentAdults = passengers.filter(p => p.type === PassengerType.ADULT).length;
+    const currentChildren = passengers.filter(p => p.type === PassengerType.CHILD).length;
+    const currentInfants = passengers.filter(p => p.type === PassengerType.INFANT).length;
+
+    // Fill adults first, then children, then infants
+    if (currentAdults < adultsNeeded) {
+      return PassengerType.ADULT;
+    } else if (currentChildren < childrenNeeded) {
+      return PassengerType.CHILD;
+    } else if (currentInfants < infantsNeeded) {
+      return PassengerType.INFANT;
+    }
+
+    // Default to adult if somehow we're over
+    return PassengerType.ADULT;
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
@@ -202,6 +225,7 @@ const NewSearchPage: React.FC = () => {
                 passengerNumber={passengers.length + 1}
                 onSave={handlePassengerSave}
                 isExpanded={true}
+                defaultType={getNextPassengerType()}
               />
             )}
           </div>

@@ -17,7 +17,7 @@ const SearchPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const { ferries, isLoading, error } = useSelector((state: RootState) => state.ferry);
+  const { searchResults, isSearching, searchError } = useSelector((state: RootState) => state.ferry);
 
   const [searchForm, setSearchForm] = useState<SearchForm>({
     departurePort: '',
@@ -52,10 +52,16 @@ const SearchPage: React.FC = () => {
 
     try {
       await dispatch(searchFerries({
-        departure_port: searchParams.departurePort,
-        arrival_port: searchParams.arrivalPort,
-        departure_date: searchParams.departureDate,
-        return_date: searchParams.returnDate || undefined,
+        departurePort: searchParams.departurePort,
+        arrivalPort: searchParams.arrivalPort,
+        departureDate: searchParams.departureDate,
+        returnDate: searchParams.returnDate || undefined,
+        passengers: {
+          adults: searchParams.passengers,
+          children: 0,
+          infants: 0,
+        },
+        vehicles: [],
       })).unwrap();
     } catch (err) {
       console.error('Search failed:', err);
@@ -193,9 +199,9 @@ const SearchPage: React.FC = () => {
                   <button
                     type="submit"
                     className="btn-primary w-full btn-lg"
-                    disabled={isLoading}
+                    disabled={isSearching}
                   >
-                    {isLoading ? 'Searching...' : 'Search Ferries'}
+                    {isSearching ? 'Searching...' : 'Search Ferries'}
                   </button>
                 </div>
               </div>
@@ -207,7 +213,7 @@ const SearchPage: React.FC = () => {
       {/* Search Results Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Loading State */}
-        {isLoading && (
+        {isSearching && (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-maritime-600 mb-4"></div>
             <p className="text-gray-600">Searching for available ferries...</p>
@@ -215,14 +221,14 @@ const SearchPage: React.FC = () => {
         )}
 
         {/* Error State */}
-        {error && (
+        {searchError && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-            <p className="text-red-800 font-medium">{error}</p>
+            <p className="text-red-800 font-medium">{searchError}</p>
           </div>
         )}
 
         {/* No Results State */}
-        {!isLoading && !error && ferries.length === 0 && searchForm.departurePort && (
+        {!isSearching && !searchError && searchResults.length === 0 && searchForm.departurePort && (
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <svg
               className="mx-auto h-16 w-16 text-gray-400 mb-4"
@@ -245,11 +251,11 @@ const SearchPage: React.FC = () => {
         )}
 
         {/* Results List */}
-        {!isLoading && !error && ferries.length > 0 && (
+        {!isSearching && !searchError && searchResults.length > 0 && (
           <>
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900">
-                Available Ferries ({ferries.length} found)
+                Available Ferries ({searchResults.length} found)
               </h2>
               <p className="text-gray-600">
                 {searchForm.departurePort} → {searchForm.arrivalPort} on {formatDate(searchForm.departureDate)}
@@ -257,7 +263,7 @@ const SearchPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {ferries.map((ferry: any, index: number) => (
+              {searchResults.map((ferry: any, index: number) => (
                 <div
                   key={index}
                   className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6"
@@ -268,17 +274,17 @@ const SearchPage: React.FC = () => {
                         <div className="bg-maritime-100 text-maritime-800 px-3 py-1 rounded-full text-sm font-semibold">
                           {ferry.operator}
                         </div>
-                        {ferry.vessel_name && (
-                          <span className="ml-3 text-gray-600 text-sm">{ferry.vessel_name}</span>
+                        {ferry.vesselName && (
+                          <span className="ml-3 text-gray-600 text-sm">{ferry.vesselName}</span>
                         )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <p className="text-sm text-gray-600">Departure</p>
-                          <p className="font-semibold text-gray-900">{ferry.departure_port}</p>
+                          <p className="font-semibold text-gray-900">{ferry.departurePort}</p>
                           <p className="text-sm text-gray-600">
-                            {formatDate(ferry.departure_time)} at {formatTime(ferry.departure_time)}
+                            {formatDate(ferry.departureTime)} at {formatTime(ferry.departureTime)}
                           </p>
                         </div>
 
@@ -293,9 +299,9 @@ const SearchPage: React.FC = () => {
 
                         <div>
                           <p className="text-sm text-gray-600">Arrival</p>
-                          <p className="font-semibold text-gray-900">{ferry.arrival_port}</p>
+                          <p className="font-semibold text-gray-900">{ferry.arrivalPort}</p>
                           <p className="text-sm text-gray-600">
-                            {formatDate(ferry.arrival_time)} at {formatTime(ferry.arrival_time)}
+                            {formatDate(ferry.arrivalTime)} at {formatTime(ferry.arrivalTime)}
                           </p>
                         </div>
                       </div>
@@ -315,7 +321,7 @@ const SearchPage: React.FC = () => {
                       <div className="mb-4">
                         <p className="text-sm text-gray-600 mb-1">From</p>
                         <p className="text-3xl font-bold text-maritime-600">
-                          €{ferry.prices?.adult || ferry.base_price || '85'}
+                          €{ferry.prices?.adult || '85'}
                         </p>
                         <p className="text-xs text-gray-500">per adult</p>
                       </div>
@@ -327,9 +333,9 @@ const SearchPage: React.FC = () => {
                         Select Ferry
                       </button>
 
-                      {ferry.available_seats && (
+                      {ferry.availableSpaces?.passengers && (
                         <p className="text-xs text-gray-500 mt-2">
-                          {ferry.available_seats} seats available
+                          {ferry.availableSpaces.passengers} seats available
                         </p>
                       )}
                     </div>
@@ -341,7 +347,7 @@ const SearchPage: React.FC = () => {
         )}
 
         {/* Initial State - No search performed yet */}
-        {!isLoading && !error && ferries.length === 0 && !searchForm.departurePort && (
+        {!isSearching && !searchError && searchResults.length === 0 && !searchForm.departurePort && (
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <svg
               className="mx-auto h-16 w-16 text-maritime-300 mb-4"

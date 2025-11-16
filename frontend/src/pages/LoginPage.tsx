@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { loginUser, clearError } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
 
 const LoginPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, isLoading, error } = useSelector((state: RootState) => state.auth);
+
+  // Get the redirect path from query params or location state, default to home
+  const searchParams = new URLSearchParams(location.search);
+  const returnTo = searchParams.get('returnTo');
+  const from = returnTo || (location.state as any)?.from?.pathname || '/';
 
   const [formData, setFormData] = useState({
     email: '',
@@ -24,9 +30,9 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/');
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, from]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Clear error when user starts typing
@@ -43,7 +49,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     try {
       await dispatch(loginUser(formData)).unwrap();
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err) {
       console.error('Login failed:', err);
     }

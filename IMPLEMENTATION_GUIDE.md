@@ -681,3 +681,18 @@ TODO: add apple pay
 Everything is now documented and ready to implement! 🚀
 
 For detailed frontend components code, see: **ADMIN_DASHBOARD_COMPONENTS.md**
+
+docker-compose -f /Users/ayoubmbarek/Projects/maritime-reservation-website/docker-compose.dev.yml logs backend 
+
+{error: true, message: "Failed to cancel booking: 'Booking' object has no attribute 'payment_status'",…}
+error
+: 
+true
+message
+: 
+"Failed to cancel booking: 'Booking' object has no attribute 'payment_status'"
+status_code
+: 
+400
+
+docker-compose -f /Users/ayoubmbarek/Projects/maritime-reservation-website/docker-compose.dev.yml logs -f backend

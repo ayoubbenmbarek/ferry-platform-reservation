@@ -49,6 +49,7 @@ class Payment(Base):
     # External references
     stripe_payment_intent_id = Column(String(100), nullable=True)
     stripe_charge_id = Column(String(100), nullable=True)
+    stripe_refund_id = Column(String(100), nullable=True)
     external_transaction_id = Column(String(100), nullable=True)
     
     # Card details (last 4 digits only for security)

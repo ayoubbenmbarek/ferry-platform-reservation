@@ -103,6 +103,7 @@ class Booking(Base):
     passengers = relationship("BookingPassenger", back_populates="booking", cascade="all, delete-orphan")
     vehicles = relationship("BookingVehicle", back_populates="booking", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="booking")
+    meals = relationship("BookingMeal", back_populates="booking", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Booking(id={self.id}, ref='{self.booking_reference}', status='{self.status.value}')>"

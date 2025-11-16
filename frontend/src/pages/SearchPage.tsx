@@ -31,10 +31,23 @@ const SearchPage: React.FC = () => {
   // Initialize form from navigation state if available
   useEffect(() => {
     if (location.state?.searchParams) {
-      setSearchForm(location.state.searchParams);
+      const params = location.state.searchParams;
+      setSearchForm(params);
       // Auto-search if params are provided
-      handleSearch(null, location.state.searchParams);
+      dispatch(searchFerries({
+        departurePort: params.departurePort,
+        arrivalPort: params.arrivalPort,
+        departureDate: params.departureDate,
+        returnDate: params.returnDate || undefined,
+        passengers: {
+          adults: params.passengers,
+          children: 0,
+          infants: 0,
+        },
+        vehicles: [],
+      }));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

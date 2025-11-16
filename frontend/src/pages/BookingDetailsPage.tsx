@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
 import { bookingAPI } from '../services/api';
 
 // Helper to convert snake_case to camelCase
@@ -16,6 +18,8 @@ const snakeToCamel = (obj: any): any => {
 const BookingDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
   const [booking, setBooking] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +30,19 @@ const BookingDetailsPage: React.FC = () => {
   useEffect(() => {
     const fetchBooking = async () => {
       if (!id) {
-        navigate('/my-bookings');
+        navigate(isAuthenticated ? '/my-bookings' : '/');
         return;
       }
 
+      // If booking data was passed from FindBookingPage, use it
+      const locationState = location.state as any;
+      if (locationState?.booking) {
+        setBooking(snakeToCamel(locationState.booking));
+        setIsLoading(false);
+        return;
+      }
+
+      // Otherwise, fetch from API
       try {
         setIsLoading(true);
         const response = await bookingAPI.getById(parseInt(id));
@@ -43,7 +56,7 @@ const BookingDetailsPage: React.FC = () => {
     };
 
     fetchBooking();
-  }, [id, navigate]);
+  }, [id, navigate, location.state, isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -63,10 +76,10 @@ const BookingDetailsPage: React.FC = () => {
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
             <p className="text-red-800">{error || 'Booking not found'}</p>
             <button
-              onClick={() => navigate('/my-bookings')}
+              onClick={() => navigate(isAuthenticated ? '/my-bookings' : '/')}
               className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              Back to My Bookings
+              {isAuthenticated ? 'Back to My Bookings' : 'Back to Home'}
             </button>
           </div>
         </div>
@@ -118,13 +131,13 @@ const BookingDetailsPage: React.FC = () => {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <button
-            onClick={() => navigate('/my-bookings')}
+            onClick={() => navigate(isAuthenticated ? '/my-bookings' : '/')}
             className="text-blue-600 hover:text-blue-700 flex items-center"
           >
             <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to My Bookings
+            {isAuthenticated ? 'Back to My Bookings' : 'Back to Home'}
           </button>
         </div>
 

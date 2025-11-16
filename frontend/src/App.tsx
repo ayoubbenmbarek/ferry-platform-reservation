@@ -20,6 +20,7 @@ const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const AboutPage = React.lazy(() => import('./pages/AboutPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
+const FindBookingPage = React.lazy(() => import('./pages/FindBookingPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
 function App() {
@@ -47,11 +48,14 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/find-booking" element={<FindBookingPage />} />
               
               {/* Protected routes */}
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
-              <Route path="/booking/:id" element={<ProtectedRoute><BookingDetailsPage /></ProtectedRoute>} />
+
+              {/* Booking details - accessible to both authenticated users and guests */}
+              <Route path="/booking/:id" element={<BookingDetailsPage />} />
               
               {/* 404 page */}
               <Route path="*" element={<NotFoundPage />} />

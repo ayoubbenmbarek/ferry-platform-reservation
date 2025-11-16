@@ -13,10 +13,175 @@ import {
   selectFerry,
   nextStep,
   previousStep,
+  setSearchParams,
 } from '../store/slices/ferrySlice';
 import { PassengerForm } from '../components/PassengerForm';
 import { VehicleCard } from '../components/VehicleCard';
-import { PassengerInfo, PassengerType, VehicleInfo, FerryResult } from '../types/ferry';
+import { PassengerInfo, PassengerType, VehicleInfo, FerryResult, SearchParams, PORTS } from '../types/ferry';
+
+// Search Form Component
+interface SearchFormProps {
+  onSearch: (params: SearchParams) => void;
+}
+
+const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const [form, setForm] = useState({
+    departurePort: '',
+    arrivalPort: '',
+    departureDate: '',
+    returnDate: '',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!form.departurePort) newErrors.departurePort = 'Please select departure port';
+    if (!form.arrivalPort) newErrors.arrivalPort = 'Please select arrival port';
+    if (!form.departureDate) newErrors.departureDate = 'Please select departure date';
+    if (form.departurePort === form.arrivalPort) {
+      newErrors.arrivalPort = 'Arrival port must be different';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    const searchParams: SearchParams = {
+      departurePort: form.departurePort,
+      arrivalPort: form.arrivalPort,
+      departureDate: form.departureDate,
+      returnDate: form.returnDate || undefined,
+      passengers: {
+        adults: form.adults,
+        children: form.children,
+        infants: form.infants,
+      },
+      vehicles: [],
+    };
+
+    dispatch(setSearchParams(searchParams));
+    onSearch(searchParams);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32">
+          <div className="text-center mb-12">
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
+              ⚓ Ferry to Tunisia
+            </h1>
+            <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto">
+              Book your Mediterranean crossing from Italy & France to Tunisia
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8">
+              <form onSubmit={handleSearch} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">🛳️ From</label>
+                    <select
+                      value={form.departurePort}
+                      onChange={(e) => setForm({ ...form, departurePort: e.target.value })}
+                      className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departurePort ? 'border-red-500' : 'border-gray-300'}`}
+                    >
+                      <option value="">Select departure port</option>
+                      {PORTS.filter(p => p.countryCode !== 'TN').map(port => (
+                        <option key={port.code} value={port.code}>{port.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">🏁 To</label>
+                    <select
+                      value={form.arrivalPort}
+                      onChange={(e) => setForm({ ...form, arrivalPort: e.target.value })}
+                      className={`w-full px-4 py-3 border-2 rounded-lg ${errors.arrivalPort ? 'border-red-500' : 'border-gray-300'}`}
+                    >
+                      <option value="">Select arrival port</option>
+                      {PORTS.filter(p => p.countryCode === 'TN').map(port => (
+                        <option key={port.code} value={port.code}>{port.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">📅 Departure Date</label>
+                    <input
+                      type="date"
+                      value={form.departureDate}
+                      onChange={(e) => setForm({ ...form, departureDate: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departureDate ? 'border-red-500' : 'border-gray-300'}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">🔄 Return Date (Optional)</label>
+                    <input
+                      type="date"
+                      value={form.returnDate}
+                      onChange={(e) => setForm({ ...form, returnDate: e.target.value })}
+                      min={form.departureDate || new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">👥 Passengers</label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <label className="text-sm text-gray-600 mb-2 block">Adults (12+)</label>
+                      <div className="flex items-center justify-between">
+                        <button type="button" onClick={() => form.adults > 1 && setForm({ ...form, adults: form.adults - 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">-</button>
+                        <span className="font-semibold">{form.adults}</span>
+                        <button type="button" onClick={() => setForm({ ...form, adults: form.adults + 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">+</button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <label className="text-sm text-gray-600 mb-2 block">Children (4-11)</label>
+                      <div className="flex items-center justify-between">
+                        <button type="button" onClick={() => form.children > 0 && setForm({ ...form, children: form.children - 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">-</button>
+                        <span className="font-semibold">{form.children}</span>
+                        <button type="button" onClick={() => setForm({ ...form, children: form.children + 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">+</button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <label className="text-sm text-gray-600 mb-2 block">Infants (0-3)</label>
+                      <div className="flex items-center justify-between">
+                        <button type="button" onClick={() => form.infants > 0 && setForm({ ...form, infants: form.infants - 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">-</button>
+                        <span className="font-semibold">{form.infants}</span>
+                        <button type="button" onClick={() => setForm({ ...form, infants: form.infants + 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">+</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all">
+                  🔍 Search Ferries
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const NewSearchPage: React.FC = () => {
   const navigate = useNavigate();
@@ -122,38 +287,12 @@ const NewSearchPage: React.FC = () => {
   };
 
   // Show message if no search params
+  // Show search form if no search params
   if (!hasSearchParams) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-3xl mx-auto px-4">
-          <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-            <svg
-              className="mx-auto h-16 w-16 text-blue-600 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Search for Ferries</h1>
-            <p className="text-gray-600 mb-8">
-              Start your journey by searching for available ferry routes and schedules.
-            </p>
-            <button
-              onClick={() => navigate('/')}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Go to Search
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <SearchFormComponent onSearch={(params) => {
+      dispatch(searchFerries(params as any));
+      setHasSearchParams(true);
+    }} />;
   }
 
   // Step 1: Enter passenger details

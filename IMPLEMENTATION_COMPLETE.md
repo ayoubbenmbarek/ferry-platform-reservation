@@ -470,4 +470,6 @@ The frontend integration is 90% complete - just add the UI components using the 
 TODO: add button voice and said in tunisian lawej arkhes billet etc etc with meta osmmultilingue and it will do search by itself
 TODO: booking could pass twice for the same booking, correct that
 TODO: add paiment by apple pay and cards etc
+TODO:add dishes and add them to invoice,
+TODO:add romm choices, suite, etc single bed etc
 **Congratulations! Your booking system is ready for production use!** 🎉

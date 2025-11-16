@@ -3,8 +3,12 @@ Booking API endpoints for creating, managing, and retrieving ferry bookings.
 """
 
 import uuid
+import os
+import logging
 from typing import List, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 try:
     from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -71,6 +75,7 @@ try:
     )
     from app.services.ferry_service import FerryService
     from app.services.ferry_integrations.base import FerryAPIError
+    from app.services.email_service import email_service
 except ImportError:
     # Fallback for development
     def get_db():
@@ -350,6 +355,40 @@ async def create_booking(
 
         # Convert to response model manually to handle enum conversions
         db.refresh(db_booking)
+
+        # Send booking confirmation email
+        try:
+            booking_dict = {
+                "id": db_booking.id,
+                "booking_reference": db_booking.booking_reference,
+                "operator": db_booking.operator,
+                "vessel_name": db_booking.vessel_name,
+                "departure_port": db_booking.departure_port,
+                "arrival_port": db_booking.arrival_port,
+                "departure_time": db_booking.departure_time,
+                "arrival_time": db_booking.arrival_time,
+                "contact_first_name": db_booking.contact_first_name,
+                "contact_last_name": db_booking.contact_last_name,
+                "contact_email": db_booking.contact_email,
+                "total_passengers": db_booking.total_passengers,
+                "total_vehicles": db_booking.total_vehicles,
+                "subtotal": db_booking.subtotal,
+                "tax_amount": db_booking.tax_amount,
+                "total_amount": db_booking.total_amount,
+                "payment_status": "PENDING",
+                "status": db_booking.status.value,
+                "operator_booking_reference": db_booking.operator_booking_reference,
+            }
+            booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
+
+            email_service.send_booking_confirmation(
+                booking_data=booking_dict,
+                to_email=db_booking.contact_email
+            )
+        except Exception as e:
+            # Log email error but don't fail the booking
+            print(f"Failed to send booking confirmation email: {str(e)}")
+
         return booking_to_response(db_booking)
         
     except HTTPException:
@@ -531,8 +570,8 @@ async def cancel_booking(
 ):
     """
     Cancel a booking.
-    
-    Cancels the booking with the ferry operator and updates the status.
+
+    Cancels the booking with the ferry operator, refunds the payment via Stripe, and updates the status.
     """
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
@@ -541,21 +580,21 @@ async def cancel_booking(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Booking not found"
             )
-        
+
         # Check access permissions
         if not validate_booking_access(booking_id, current_user, db):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
-        
+
         # Check if booking can be cancelled
         if booking.status in ["cancelled", "completed"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Booking cannot be cancelled"
             )
-        
+
         # Cancel with ferry operator
         try:
             if booking.operator_booking_reference:
@@ -564,7 +603,7 @@ async def cancel_booking(
                     booking_reference=booking.operator_booking_reference,
                     reason=cancellation_data.reason
                 )
-                
+
                 if not cancelled:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -573,17 +612,84 @@ async def cancel_booking(
         except FerryAPIError as e:
             # Log the error but continue with local cancellation
             pass
-        
+
+        # Process refund if payment was made
+        from app.models.payment import Payment, PaymentStatusEnum as PaymentStatus
+        import stripe
+
+        payment = (
+            db.query(Payment)
+            .filter(
+                Payment.booking_id == booking_id,
+                Payment.status == PaymentStatus.COMPLETED
+            )
+            .first()
+        )
+
+        if payment and payment.stripe_charge_id:
+            try:
+                # Create refund in Stripe
+                refund = stripe.Refund.create(
+                    charge=payment.stripe_charge_id,
+                    reason="requested_by_customer",
+                    metadata={
+                        "booking_id": booking_id,
+                        "booking_reference": booking.booking_reference,
+                        "cancellation_reason": cancellation_data.reason
+                    }
+                )
+
+                # Update payment status
+                payment.status = PaymentStatus.REFUNDED
+                payment.refund_amount = float(refund.amount) / 100  # Convert from cents
+                payment.stripe_refund_id = refund.id
+
+                logger.info(f"Refund created for booking {booking_id}: {refund.id}")
+
+            except stripe.StripeError as e:
+                logger.error(f"Failed to create Stripe refund for booking {booking_id}: {str(e)}")
+                # Continue with cancellation even if refund fails
+                # Admin can manually process refund later
+
         # Update booking status
         booking.status = BookingStatusEnum.CANCELLED
         booking.cancellation_reason = cancellation_data.reason
         booking.cancelled_at = datetime.utcnow()
         booking.updated_at = datetime.utcnow()
-        
+        if payment:
+            booking.refund_amount = payment.refund_amount
+
         db.commit()
-        
-        return {"message": "Booking cancelled successfully", "booking_id": booking_id}
-        
+
+        # Send cancellation confirmation email
+        try:
+            booking_dict = {
+                "id": booking.id,
+                "booking_reference": booking.booking_reference,
+                "operator": booking.operator,
+                "departure_port": booking.departure_port,
+                "arrival_port": booking.arrival_port,
+                "departure_time": booking.departure_time,
+                "contact_email": booking.contact_email,
+                "cancellation_reason": cancellation_data.reason,
+                "refund_amount": payment.refund_amount if payment else None,
+            }
+            booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
+
+            email_service.send_cancellation_confirmation(
+                booking_data=booking_dict,
+                to_email=booking.contact_email
+            )
+        except Exception as e:
+            logger.error(f"Failed to send cancellation email: {str(e)}")
+
+        return {
+            "message": "Booking cancelled successfully",
+            "booking_id": booking_id,
+            "refund_issued": payment is not None,
+            "refund_amount": payment.refund_amount if payment else None
+        }
+
     except HTTPException:
         raise
     except Exception as e:

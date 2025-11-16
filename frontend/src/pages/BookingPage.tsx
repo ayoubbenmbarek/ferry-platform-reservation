@@ -45,16 +45,6 @@ const BookingPage: React.FC = () => {
       return;
     }
 
-    // Check if user is authenticated
-    if (!user) {
-      // Save the current state and redirect to login
-      setError('Please log in or register to continue with payment');
-      setTimeout(() => {
-        navigate('/login', { state: { from: '/booking' } });
-      }, 2000);
-      return;
-    }
-
     // Update contact info in Redux
     dispatch(setContactInfo({
       first_name: localContactInfo.firstName,
@@ -98,24 +88,21 @@ const BookingPage: React.FC = () => {
           <p className="mt-2 text-gray-600">Review your details and confirm your reservation</p>
         </div>
 
-        {/* Login Notice for Non-authenticated Users */}
+        {/* Guest Checkout Notice */}
         {!user && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg className="w-5 h-5 text-green-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <h3 className="text-sm font-medium text-blue-900">Login Required for Payment</h3>
-                <p className="mt-1 text-sm text-blue-700">
-                  You'll need to log in or create an account to complete your booking and payment.{' '}
-                  <a href="/login" className="font-semibold underline hover:text-blue-800">
-                    Log in now
+                <h3 className="text-sm font-medium text-green-900">Guest Checkout Available</h3>
+                <p className="mt-1 text-sm text-green-700">
+                  Continue as guest or{' '}
+                  <a href="/login" className="font-semibold underline hover:text-green-800">
+                    log in
                   </a>{' '}
-                  or{' '}
-                  <a href="/register" className="font-semibold underline hover:text-blue-800">
-                    create an account
-                  </a>
+                  to save your booking to your account.
                 </p>
               </div>
             </div>

@@ -32,7 +32,10 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Store the current path to redirect back after login
+      const currentPath = window.location.pathname + window.location.search;
+      // Redirect to login with return URL
+      window.location.href = `/login?returnTo=${encodeURIComponent(currentPath)}`;
     }
     return Promise.reject(error);
   }

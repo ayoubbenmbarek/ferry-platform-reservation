@@ -58,6 +58,14 @@ services:
       STRIPE_SECRET_KEY: sk_test_51Q19DVL40zLTUQ47PR5btWyg3UgtrzcVKwtprQ3z3L6esVurfqY3uUnzSVU7sCafg5HCUa3tABY8Kkdi8RbbicgP00gADM5Xa2
       STRIPE_PUBLISHABLE_KEY: pk_test_51Q19DVL40zLTUQ47tUXkuAGMIAmolt6Me8ofAZjxC7yJm7TcPhJllSerGGjsZWYx16UzrR1Kb2ASIKmYn8LDhTy900OM8gz2fF
       STRIPE_WEBHOOK_SECRET: whsec_da5a8e4aab85b88a18513757500c75245fb403e3319232602d0ae5e92d2160fd
+      # Email Configuration (Gmail SMTP)
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: ayoubenmbarek@gmail.com
+      SMTP_PASSWORD: "uojt dktu yfrw vrdn"
+      FROM_EMAIL: ayoubenmbarek@gmail.com
+      FROM_NAME: "Maritime Ferry Booking"
+      BASE_URL: http://localhost:3001
       LOG_LEVEL: DEBUG
     volumes:
       - ./backend:/app

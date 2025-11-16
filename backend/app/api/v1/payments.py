@@ -20,6 +20,8 @@ from app.schemas.payment import (
     PaymentConfirmation,
 )
 from app.api.v1.auth import get_current_active_user
+from app.api.deps import get_optional_current_user
+from app.services.email_service import email_service
 
 # Load environment variables
 load_dotenv()
@@ -33,7 +35,7 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 @router.post("/create-intent", response_model=PaymentIntent)
 async def create_payment_intent(
     payment_data: PaymentCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -48,10 +50,18 @@ async def create_payment_intent(
             )
 
         # Check if user has permission to pay for this booking
-        if booking.user_id != current_user.id and not current_user.is_admin:
+        # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin
+        if current_user:
+            if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to process payment for this booking",
+                )
+        elif booking.user_id:
+            # Guest trying to pay for a registered user's booking
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to process payment for this booking",
+                detail="This booking requires authentication",
             )
 
         # Check if booking is already paid
@@ -78,7 +88,7 @@ async def create_payment_intent(
             currency=payment_data.currency.value.lower(),
             metadata={
                 "booking_id": payment_data.booking_id,
-                "user_id": current_user.id,
+                "user_id": current_user.id if current_user else "guest",
                 "booking_reference": booking.booking_reference,
             },
             automatic_payment_methods={"enabled": True},
@@ -90,7 +100,7 @@ async def create_payment_intent(
 
         payment = Payment(
             booking_id=payment_data.booking_id,
-            user_id=current_user.id,
+            user_id=current_user.id if current_user else None,
             amount=payment_data.amount,
             currency=payment_data.currency.value,
             status=PaymentStatusEnum.PENDING,
@@ -125,7 +135,7 @@ async def create_payment_intent(
 @router.post("/confirm/{payment_intent_id}", response_model=PaymentConfirmation)
 async def confirm_payment(
     payment_intent_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -152,10 +162,18 @@ async def confirm_payment(
             )
 
         # Verify user has permission
-        if payment.user_id != current_user.id and not current_user.is_admin:
+        # Allow if: 1) Guest payment (no user), 2) Payment belongs to logged-in user, 3) User is admin
+        if current_user:
+            if payment.user_id and payment.user_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to confirm this payment",
+                )
+        elif payment.user_id:
+            # Guest trying to confirm a registered user's payment
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to confirm this payment",
+                detail="This payment requires authentication",
             )
 
         # Update payment based on Stripe status
@@ -209,6 +227,36 @@ async def confirm_payment(
             else:
                 charge = latest_charge
             receipt_url = getattr(charge, 'receipt_url', None)
+
+        # Send payment confirmation email if payment succeeded
+        if intent.status == "succeeded" and booking:
+            try:
+                booking_dict = {
+                    "id": booking.id,
+                    "booking_reference": booking.booking_reference,
+                    "operator": booking.operator,
+                    "departure_port": booking.departure_port,
+                    "arrival_port": booking.arrival_port,
+                    "departure_time": booking.departure_time,
+                    "contact_email": booking.contact_email,
+                }
+                booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
+
+                payment_dict = {
+                    "amount": float(payment.amount),
+                    "payment_method": payment.payment_method.value if payment.payment_method else "Credit Card",
+                    "transaction_id": payment.stripe_charge_id or payment_intent_id,
+                    "created_at": payment.created_at,
+                }
+
+                email_service.send_payment_confirmation(
+                    booking_data=booking_dict,
+                    payment_data=payment_dict,
+                    to_email=booking.contact_email
+                )
+            except Exception as e:
+                # Log email error but don't fail the payment confirmation
+                print(f"Failed to send payment confirmation email: {str(e)}")
 
         return PaymentConfirmation(
             payment_id=payment.id,

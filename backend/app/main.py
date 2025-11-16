@@ -45,8 +45,10 @@ except ImportError:
 
 try:
     payments = importlib.import_module('app.api.v1.payments')
-except ImportError:
-    pass
+except ImportError as e:
+    print(f"Failed to import payments module: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
@@ -143,6 +145,52 @@ async def health_check():
         "version": settings.VERSION,
         "timestamp": time.time()
     }
+
+
+# Test email endpoint
+@app.get("/api/v1/test-email")
+async def test_email():
+    """Test email sending functionality."""
+    try:
+        from app.services.email_service import email_service
+
+        # Send a test email
+        success = email_service.send_email(
+            to_email="ayoubenmbarek@gmail.com",
+            subject="Test Email from Maritime Booking System",
+            html_content="""
+            <html>
+                <body style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h1 style="color: #0ea5e9;">🚢 Test Email</h1>
+                    <p>This is a test email from your Maritime Booking System.</p>
+                    <p>If you're reading this, your email configuration is working correctly! ✅</p>
+                    <hr>
+                    <p style="color: #666; font-size: 12px;">Sent at: {}</p>
+                </body>
+            </html>
+            """.format(time.strftime("%Y-%m-%d %H:%M:%S")),
+            text_content="This is a test email from Maritime Booking System. If you're reading this, your email is working!"
+        )
+
+        if success:
+            return {
+                "status": "success",
+                "message": "Test email sent successfully to ayoubenmbarek@gmail.com",
+                "timestamp": time.time()
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to send test email. Check backend logs for details.",
+                "timestamp": time.time()
+            }
+    except Exception as e:
+        logger.error(f"Test email error: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"Error sending test email: {str(e)}",
+            "timestamp": time.time()
+        }
 
 
 # Root endpoint

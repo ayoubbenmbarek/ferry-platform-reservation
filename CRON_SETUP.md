@@ -83,7 +83,7 @@ The default schedule is every hour (`0 * * * *`). To change this:
 1. Edit `backend/Dockerfile.cron`
 2. Modify line 15:
    ```dockerfile
-   RUN echo "0 * * * * cd /app && python scripts/expire_bookings_cron.py >> /var/log/cron.log 2>&1" > /etc/cron.d/expire-bookings
+   RUN echo "0 * * * * cd /app && /usr/local/bin/python3 scripts/expire_bookings_cron.py >> /var/log/cron.log 2>&1" > /etc/cron.d/expire-bookings
    ```
 
 ### Example Schedules

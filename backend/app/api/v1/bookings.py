@@ -142,12 +142,19 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
         status=db_booking.status.value if hasattr(db_booking.status, 'value') else db_booking.status,
         sailing_id=db_booking.sailing_id,
         operator=db_booking.operator,
-        # Ferry schedule details
+        # Ferry schedule details (outbound)
         departure_port=db_booking.departure_port,
         arrival_port=db_booking.arrival_port,
         departure_time=db_booking.departure_time,
         arrival_time=db_booking.arrival_time,
         vessel_name=db_booking.vessel_name,
+        # Round trip information
+        is_round_trip=db_booking.is_round_trip or False,
+        return_sailing_id=db_booking.return_sailing_id,
+        return_departure_time=db_booking.return_departure_time,
+        return_arrival_time=db_booking.return_arrival_time,
+        return_vessel_name=db_booking.return_vessel_name,
+        # Contact information
         contact_email=db_booking.contact_email,
         contact_phone=db_booking.contact_phone,
         contact_first_name=db_booking.contact_first_name,
@@ -158,10 +165,19 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
         tax_amount=db_booking.tax_amount,
         total_amount=db_booking.total_amount,
         currency=db_booking.currency,
+        # Cabin information
+        cabin_id=db_booking.cabin_id,
         cabin_supplement=db_booking.cabin_supplement or 0.0,
+        return_cabin_id=db_booking.return_cabin_id,
+        return_cabin_supplement=db_booking.return_cabin_supplement or 0.0,
+        # Special requirements
         special_requests=db_booking.special_requests,
+        # Timestamps
         created_at=db_booking.created_at,
         updated_at=db_booking.updated_at,
+        expires_at=db_booking.expires_at,
+        cancelled_at=db_booking.cancelled_at,
+        cancellation_reason=db_booking.cancellation_reason,
         passengers=[
             {
                 "id": p.id,
@@ -306,9 +322,9 @@ async def create_booking(
         tax_amount = subtotal * 0.10
         total_amount = subtotal + tax_amount
 
-        # Calculate expiration time (3 days from now for pending bookings)
+        # Calculate expiration time (30 minutes from now for pending bookings)
         from datetime import datetime, timedelta
-        expires_at = datetime.utcnow() + timedelta(days=3)
+        expires_at = datetime.utcnow() + timedelta(minutes=30)
 
         # Create booking record
         db_booking = Booking(
@@ -344,7 +360,7 @@ async def create_booking(
             return_cabin_supplement=return_cabin_supplement,
             special_requests=booking_data.special_requests,
             status=BookingStatusEnum.PENDING,
-            expires_at=expires_at  # Expires 3 days from creation
+            expires_at=expires_at  # Expires 30 minutes from creation
         )
         
         db.add(db_booking)

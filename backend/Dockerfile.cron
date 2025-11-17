@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create cron job file
-RUN echo "0 * * * * cd /app && python scripts/expire_bookings_cron.py >> /var/log/cron.log 2>&1" > /etc/cron.d/expire-bookings
+RUN echo "0 * * * * cd /app && python3 scripts/expire_bookings_cron.py >> /var/log/cron.log 2>&1" > /etc/cron.d/expire-bookings
 RUN echo "" >> /etc/cron.d/expire-bookings
 
 # Give execution rights on the cron job

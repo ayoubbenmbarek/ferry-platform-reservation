@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { loadStripe } from '@stripe/stripe-js';
@@ -7,6 +7,7 @@ import { RootState, AppDispatch } from '../store';
 import { createBooking } from '../store/slices/ferrySlice';
 import { paymentAPI, bookingAPI } from '../services/api';
 import StripePaymentForm from '../components/Payment/StripePaymentForm';
+import BookingExpirationTimer from '../components/BookingExpirationTimer';
 
 // Initialize Stripe (will be loaded with publishable key from backend)
 let stripePromise: Promise<any> | null = null;
@@ -19,6 +20,7 @@ const PaymentPage: React.FC = () => {
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<number | null>(null);
@@ -29,31 +31,15 @@ const PaymentPage: React.FC = () => {
   const initializingRef = useRef(false);
   const initializedRef = useRef(false);
 
-  useEffect(() => {
-    // If paying for existing booking, skip ferry/passenger checks
-    if (existingBookingId) {
-      if (initializingRef.current || initializedRef.current) {
-        return;
-      }
-      initializePayment();
-      return;
-    }
+  const calculateTotal = () => {
+    // This should match the calculation in BookingPage
+    const basePrice = 85.0; // Base adult price
+    const total = passengers.length * basePrice + vehicles.length * 120.0;
+    const tax = total * 0.1;
+    return total + tax;
+  };
 
-    // Redirect if no booking in progress (for new bookings)
-    if (!selectedFerry || passengers.length === 0) {
-      navigate('/');
-      return;
-    }
-
-    // Prevent duplicate initialization (important for React StrictMode in development)
-    if (initializingRef.current || initializedRef.current) {
-      return;
-    }
-
-    initializePayment();
-  }, [selectedFerry, passengers, navigate, existingBookingId]);
-
-  const initializePayment = async () => {
+  const initializePayment = useCallback(async () => {
     // Mark as initializing to prevent duplicate calls
     if (initializingRef.current || initializedRef.current) {
       return;
@@ -106,17 +92,35 @@ const PaymentPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingBookingId, dispatch]);
 
-  const calculateTotal = () => {
-    // This should match the calculation in BookingPage
-    const basePrice = 85.0; // Base adult price
-    const total = passengers.length * basePrice + vehicles.length * 120.0;
-    const tax = total * 0.1;
-    return total + tax;
-  };
+  useEffect(() => {
+    // If paying for existing booking, skip ferry/passenger checks
+    if (existingBookingId) {
+      if (initializingRef.current || initializedRef.current) {
+        return;
+      }
+      initializePayment();
+      return;
+    }
+
+    // Redirect if no booking in progress (for new bookings)
+    if (!selectedFerry || passengers.length === 0) {
+      navigate('/');
+      return;
+    }
+
+    // Prevent duplicate initialization (important for React StrictMode in development)
+    if (initializingRef.current || initializedRef.current) {
+      return;
+    }
+
+    initializePayment();
+  }, [selectedFerry, passengers, navigate, existingBookingId, initializePayment]);
 
   const handlePaymentSuccess = async (paymentIntentId: string) => {
+    setIsConfirming(true);
     try {
       // Confirm payment with backend
       const confirmation = await paymentAPI.confirmPayment(paymentIntentId);
@@ -145,6 +149,7 @@ const PaymentPage: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message || 'Failed to confirm payment');
+      setIsConfirming(false);
     }
   };
 
@@ -181,6 +186,13 @@ const PaymentPage: React.FC = () => {
     );
   }
 
+  const handleBookingExpired = () => {
+    setError('Your booking has expired. Please start a new search.');
+    setTimeout(() => {
+      navigate('/');
+    }, 3000);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -189,6 +201,16 @@ const PaymentPage: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Payment</h1>
           <p className="mt-2 text-gray-600">Complete your payment to confirm your booking</p>
         </div>
+
+        {/* Expiration Timer */}
+        {bookingDetails?.expiresAt && new Date(bookingDetails.expiresAt) > new Date() && (
+          <div className="mb-6">
+            <BookingExpirationTimer
+              expiresAt={bookingDetails.expiresAt}
+              onExpired={handleBookingExpired}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Payment Form */}
@@ -238,6 +260,7 @@ const PaymentPage: React.FC = () => {
                     amount={bookingTotal}
                     onSuccess={handlePaymentSuccess}
                     onError={handlePaymentError}
+                    isConfirming={isConfirming}
                   />
                 </Elements>
               )}
@@ -335,7 +358,7 @@ const PaymentPage: React.FC = () => {
                   <p className="text-sm text-gray-600 mt-1">
                     {bookingDetails?.operator || selectedFerry?.operator}
                   </p>
-                  {bookingDetails?.departureTime || bookingDetails?.departure_time && (
+                  {(bookingDetails?.departureTime || bookingDetails?.departure_time) && (
                     <p className="text-xs text-gray-500 mt-1">
                       Departure: {new Date(bookingDetails.departureTime || bookingDetails.departure_time).toLocaleString()}
                     </p>

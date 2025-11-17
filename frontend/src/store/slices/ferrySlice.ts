@@ -175,10 +175,10 @@ export const createBooking = createAsyncThunk(
           type: p.type,
           firstName: p.firstName,
           lastName: p.lastName,
-          dateOfBirth: p.dateOfBirth,
-          nationality: p.nationality,
-          passportNumber: p.passportNumber,
-          specialNeeds: p.specialNeeds,
+          dateOfBirth: p.dateOfBirth || null,  // Send null instead of empty string
+          nationality: p.nationality || null,
+          passportNumber: p.passportNumber || null,
+          specialNeeds: p.specialNeeds || null,
         })),
         vehicles: vehicles.length > 0 ? vehicles.map((v: VehicleInfo) => ({
           type: v.type,

@@ -119,6 +119,14 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/maritime_reservations_dev
       DEBUG: "True"
       ENVIRONMENT: development
+      # Email Configuration (Gmail SMTP)
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: ayoubenmbarek@gmail.com
+      SMTP_PASSWORD: "uojt dktu yfrw vrdn"
+      FROM_EMAIL: ayoubenmbarek@gmail.com
+      FROM_NAME: "Maritime Ferry Booking"
+      BASE_URL: http://localhost:3001
     volumes:
       - ./backend/logs:/app/logs
     depends_on:

@@ -468,21 +468,27 @@ The frontend integration is 90% complete - just add the UI components using the 
 
 ---
 TODO: add button voice and said in tunisian lawej arkhes billet etc etc with meta osmmultilingue and it will do search by itself
-TODO: booking could pass twice for the same booking, correct that
+TODO: booking could pass twice for the same booking, correct that:done
 TODO: add paiment by apple pay and cards etc
-TODO:add dishes and add them to invoice,
-TODO:add room choices, suite, etc single bed etc
+TODO:add dishes and add them to invoice:done
+TODO:generate invoices
+TODO:add room choices, suite, etc single bed etc:done
 TODO:generate invoice and send it by email
 TODO:confiromation link by email when register
 TODO:show meals for aller and retour if specified: done
-TODO: can't deactivate return if for example i want modify my actual search
+TODO: can't deactivate return if for example i want modify my actual search:doe
 TODO: continue with Dockerfile.cron: done
-TODO:on pending reservations when i click complete paiment, i redirect to booking page with cancel booking button and not other thing to pay
-TODO:i choosed ferry for 100 then i found it with 93.50 in detail, i also start booking with user ayoubenmbarek@gmail.com i received email booking confirmed(to change to reservation confirmed beacuse it is just a reservation for now) with reference(MRB0F66F9D) but later i connect to account and i can't find that reservation pending
+TODO:on pending reservations when i click complete paiment, i redirect to booking page with cancel booking button and not other thing to pay:done
+TODO:i choosed ferry for 100 then i found it with 93.50 in detail, i also start booking with user ayoubenmbarek@gmail.com i received email booking confirmed(to change to reservation confirmed beacuse it is just a reservation for now) with reference(MRB0F66F9D) but later i connect to account and i can't find that reservation pending:done
 TODO:in complete your ooking page email first name etc are mandatory but when i click continue to paiment it goes and later throm 422 error, it should no pass to next page ig values are empty:done
 
 TODOcontinue on previous task and i want checkbox to clear return date or any
   easier solution for 1 click
+  TODO: on pending add expires on in the frontend or somthing like that tell customer
+  in which hour it will be cancelled if he don't pay 
+  TODO:send email before sometimes when booking will be cancelled
+  TODO: add redis and celery to handle email sending while paiment in progress
+────────────────────────────────────────────────────────
 
 
 monitor cron docker exec maritime-cron-dev tail -f /var/log/cron.log

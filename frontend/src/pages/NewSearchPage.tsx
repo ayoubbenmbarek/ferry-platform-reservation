@@ -244,6 +244,21 @@ const NewSearchPage: React.FC = () => {
     }
   }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, searchResults.length, isSearching, dispatch]);
 
+  // Warn user before leaving if they have an active booking in progress
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only warn if user has selected a ferry or added passengers (booking in progress)
+      if (selectedFerry || passengers.length > 0) {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+        return ''; // Some browsers show this message
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [selectedFerry, passengers.length]);
+
   const handlePassengerSave = (passenger: PassengerInfo) => {
     const existing = passengers.find(p => p.id === passenger.id);
     if (existing) {

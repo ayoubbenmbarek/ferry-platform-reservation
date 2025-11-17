@@ -42,7 +42,7 @@ def cleanup_duplicate_bookings():
                 print(f"\nEmail: {email} has {len(bookings)} bookings:")
                 for i, booking in enumerate(bookings):
                     print(f"  {i+1}. ID: {booking.id}, Ref: {booking.booking_reference}, "
-                          f"Created: {booking.created_at}, Status: {booking.booking_status}")
+                          f"Created: {booking.created_at}, Status: {booking.status.value}")
 
                 # Keep the most recent one (first in sorted list)
                 keep_booking = bookings[0]

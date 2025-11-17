@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { bookingAPI } from '../services/api';
+import BookingExpirationTimer from '../components/BookingExpirationTimer';
 
 // Helper to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -151,13 +152,26 @@ const BookingDetailsPage: React.FC = () => {
                 Reference: <span className="font-semibold text-blue-600">{booking.bookingReference}</span>
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Booked on {new Date(booking.createdAt).toLocaleDateString()}
+                Booked on {new Date(booking.createdAt).toLocaleString()}
               </p>
             </div>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
               {booking.status}
             </span>
           </div>
+
+          {/* Expiration Timer for Pending Bookings */}
+          {booking.status === 'PENDING' && booking.expiresAt && new Date(booking.expiresAt) > new Date() && (
+            <div className="mb-6">
+              <BookingExpirationTimer
+                expiresAt={booking.expiresAt}
+                onExpired={() => {
+                  // Reload the page to show expired status
+                  window.location.reload();
+                }}
+              />
+            </div>
+          )}
 
           {/* Ferry Information */}
           <div className="mb-6 pb-6 border-b border-gray-200">

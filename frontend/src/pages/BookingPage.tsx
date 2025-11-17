@@ -45,6 +45,21 @@ const BookingPage: React.FC = () => {
     }
   }, [selectedFerry, passengers, navigate]);
 
+  // Warn user before leaving page during booking
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Warn if booking is in progress and not yet created
+      if (selectedFerry && !isCreatingBooking) {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [selectedFerry, isCreatingBooking]);
+
   const handleCabinSelect = (cabinId: number | null, price: number, journey?: 'outbound' | 'return') => {
     if (journey === 'return') {
       setSelectedReturnCabinId(cabinId);
@@ -143,6 +158,26 @@ const BookingPage: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Complete Your Booking</h1>
           <p className="mt-2 text-gray-600">Review your details and confirm your reservation</p>
+
+          {/* Round trip notice */}
+          {isRoundTrip && (
+            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-medium text-blue-900">Round Trip Booking</h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    {selectedReturnFerry
+                      ? `You can select different cabins and meals for your outbound and return journeys using the tabs below.`
+                      : `Note: Return ferry will be automatically selected with the same options as your outbound journey. Select cabins and meals for both journeys using the tabs below.`
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Guest Checkout Notice */}

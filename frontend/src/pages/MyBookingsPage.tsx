@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { bookingAPI, Booking } from '../services/api';
+import BookingExpirationTimer from '../components/BookingExpirationTimer';
 
 // Helper to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -19,12 +20,16 @@ const MyBookingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const isFetchingRef = useRef(false);
 
-  useEffect(() => {
-    fetchBookings();
-  }, [filterStatus]);
+  const fetchBookings = useCallback(async () => {
+    // Prevent multiple concurrent fetches
+    if (isFetchingRef.current) {
+      return;
+    }
 
-  const fetchBookings = async () => {
+    isFetchingRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
@@ -44,8 +49,13 @@ const MyBookingsPage: React.FC = () => {
       console.error('Fetch bookings error:', err);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [filterStatus]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
@@ -214,13 +224,20 @@ const MyBookingsPage: React.FC = () => {
                               {booking.totalVehicles} vehicle{booking.totalVehicles !== 1 ? 's' : ''}
                             </span>
                           )}
-                          <span>Booked on {formatDate(booking.createdAt)}</span>
-                          {booking.status === 'PENDING' && booking.expiresAt && (
-                            <span className="text-orange-600 font-medium">
-                              ⏰ Expires {formatDate(booking.expiresAt)}
-                            </span>
-                          )}
+                          <span>
+                            Booked on {formatDate(booking.createdAt)} at {formatTime(booking.createdAt)}
+                          </span>
                         </div>
+
+                        {/* Expiration Timer for Pending Bookings */}
+                        {booking.status === 'PENDING' && booking.expiresAt && new Date(booking.expiresAt) > new Date() && (
+                          <div className="mt-3">
+                            <BookingExpirationTimer
+                              expiresAt={booking.expiresAt}
+                              onExpired={() => fetchBookings()}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       <div className="mt-4 md:mt-0 md:ml-6 md:text-right">

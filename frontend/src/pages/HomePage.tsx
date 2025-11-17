@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { setSearchParams, setIsRoundTrip, startNewSearch, searchFerries } from '../store/slices/ferrySlice';
+import { AppDispatch } from '../store';
 
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
+
   const [searchForm, setSearchForm] = useState({
     departurePort: '',
     arrivalPort: '',
@@ -18,10 +25,34 @@ const HomePage: React.FC = () => {
     }));
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Search form submitted:', searchForm);
-    // TODO: Implement search functionality
+
+    // Reset any existing booking state and set step to 2 for search results
+    dispatch(startNewSearch());
+
+    // Set search params in Redux store
+    const searchParams = {
+      departurePort: searchForm.departurePort,
+      arrivalPort: searchForm.arrivalPort,
+      departureDate: searchForm.departureDate,
+      returnDate: searchForm.returnDate || undefined,
+      passengers: {
+        adults: searchForm.passengers,
+        children: 0,
+        infants: 0,
+      },
+      vehicles: [],
+    };
+
+    dispatch(setSearchParams(searchParams));
+    dispatch(setIsRoundTrip(!!searchForm.returnDate));
+
+    // Trigger search immediately to avoid issues with stale state
+    dispatch(searchFerries(searchParams as any));
+
+    // Navigate to search page
+    navigate('/search');
   };
 
   return (

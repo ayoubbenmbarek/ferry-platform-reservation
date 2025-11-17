@@ -19,10 +19,24 @@ class OperatorEnum(enum.Enum):
 
 class CabinTypeEnum(enum.Enum):
     """Cabin types enum."""
-    INTERIOR = "interior"
-    EXTERIOR = "exterior"
-    SUITE = "suite"
-    DECK = "deck"
+    SEAT = "SEAT"  # Reclining seat
+    INSIDE = "INSIDE"  # Inside cabin (no window)
+    OUTSIDE = "OUTSIDE"  # Outside cabin (with window)
+    BALCONY = "BALCONY"  # Cabin with private balcony
+    SUITE = "SUITE"  # Suite accommodation
+    # Legacy values for backward compatibility
+    INTERIOR = "INTERIOR"
+    EXTERIOR = "EXTERIOR"
+    DECK = "DECK"
+
+
+class BedTypeEnum(enum.Enum):
+    """Bed configuration types."""
+    SINGLE = "SINGLE"  # Single bed
+    DOUBLE = "DOUBLE"  # Double bed
+    TWIN = "TWIN"  # Two single beds
+    BUNK = "BUNK"  # Bunk beds
+    PULLMAN = "PULLMAN"  # Pull-out bed
 
 
 class VehicleTypeEnum(enum.Enum):
@@ -144,36 +158,52 @@ class Schedule(Base):
 
 class Cabin(Base):
     """Cabin model for ferry accommodations."""
-    
+
     __tablename__ = "cabins"
-    
+    __table_args__ = {'extend_existing': True}
+
     id = Column(Integer, primary_key=True, index=True)
-    ferry_id = Column(Integer, ForeignKey("ferries.id"), nullable=False)
-    
-    # Cabin details
-    cabin_type = Column(Enum(CabinTypeEnum), nullable=False)
+    ferry_id = Column(Integer, ForeignKey("ferries.id"), nullable=True)  # Made nullable for generic cabins
+
+    # Cabin identification
+    name = Column(String(100), nullable=False, default="Standard Cabin")  # e.g., "Deluxe Suite"
+    description = Column(Text, nullable=True)
     cabin_number = Column(String(20), nullable=True)
+    cabin_type = Column(Enum(CabinTypeEnum), nullable=False)
+
+    # Bed configuration
+    bed_type = Column(Enum(BedTypeEnum), nullable=False, default=BedTypeEnum.TWIN)
+    max_occupancy = Column(Integer, nullable=False, default=2)
     deck_level = Column(Integer, nullable=True)
-    capacity = Column(Integer, nullable=False, default=2)
-    
-    # Amenities
-    has_bathroom = Column(Boolean, default=False)
+
+    # Amenities (enhanced)
+    has_private_bathroom = Column(Boolean, default=True)
     has_window = Column(Boolean, default=False)
     has_balcony = Column(Boolean, default=False)
     has_air_conditioning = Column(Boolean, default=True)
-    
+    has_tv = Column(Boolean, default=False)
+    has_minibar = Column(Boolean, default=False)
+    has_wifi = Column(Boolean, default=False)
+    is_accessible = Column(Boolean, default=False)  # Wheelchair accessible
+
     # Pricing
-    price_supplement = Column(Numeric(10, 2), nullable=False, default=0.00)
-    
-    # Status
+    base_price = Column(Numeric(10, 2), nullable=False, default=0.00)  # Base price per crossing
+    price_supplement = Column(Numeric(10, 2), nullable=False, default=0.00)  # Legacy field
+    currency = Column(String(3), default="EUR")
+
+    # Availability
     is_active = Column(Boolean, default=True)
-    
+    is_available = Column(Boolean, default=True)
+
+    # Operator reference (for generic cabins not tied to specific ferry)
+    operator = Column(String(50), nullable=True)
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     ferry = relationship("Ferry", back_populates="cabins")
-    
+
     def __repr__(self):
-        return f"<Cabin(id={self.id}, type={self.cabin_type.value}, ferry={self.ferry_id})>" 
+        return f"<Cabin(id={self.id}, type={self.cabin_type.value}, name='{self.name}')>" 

@@ -44,7 +44,11 @@ interface FerryState {
   // Booking flow state
   currentStep: number;
   selectedFerry: FerryResult | null;
+  selectedReturnFerry: FerryResult | null;  // For return journey
   selectedCabin: string | null;
+  selectedCabinId: number | null;
+  selectedReturnCabinId: number | null;  // For return journey cabin
+  selectedMeals: any[];
   contactInfo: ContactInfo | null;
 
   // Passenger and vehicle management
@@ -55,6 +59,9 @@ interface FerryState {
   currentBooking: any | null;
   isCreatingBooking: boolean;
   bookingError: string | null;
+
+  // Round trip state
+  isRoundTrip: boolean;
 
   // UI state
   isLoading: boolean;
@@ -75,13 +82,18 @@ const initialState: FerryState = {
   searchError: null,
   currentStep: 1,
   selectedFerry: null,
+  selectedReturnFerry: null,
   selectedCabin: null,
+  selectedCabinId: null,
+  selectedReturnCabinId: null,
+  selectedMeals: [],
   contactInfo: null,
   passengers: [],
   vehicles: [],
   currentBooking: null,
   isCreatingBooking: false,
   bookingError: null,
+  isRoundTrip: false,
   isLoading: false,
   error: null,
 };
@@ -115,7 +127,17 @@ export const createBooking = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any;
-      const { selectedFerry, passengers, vehicles, selectedCabin, contactInfo } = state.ferry;
+      const {
+        selectedFerry,
+        selectedReturnFerry,
+        passengers,
+        vehicles,
+        selectedCabinId,
+        selectedReturnCabinId,
+        selectedMeals,
+        contactInfo,
+        isRoundTrip
+      } = state.ferry;
 
       if (!selectedFerry) {
         return rejectWithValue('No ferry selected');
@@ -129,17 +151,25 @@ export const createBooking = createAsyncThunk(
       const bookingData = camelToSnake({
         sailingId: selectedFerry.sailingId,
         operator: selectedFerry.operator,
-        // Ferry schedule details
+        // Ferry schedule details (outbound)
         departurePort: selectedFerry.departurePort,
         arrivalPort: selectedFerry.arrivalPort,
         departureTime: selectedFerry.departureTime,
         arrivalTime: selectedFerry.arrivalTime,
         vesselName: selectedFerry.vesselName,
+        // Ferry prices from selected ferry (important for accurate pricing!)
+        ferryPrices: selectedFerry.prices,
+        // Round trip information
+        isRoundTrip: isRoundTrip,
+        returnSailingId: selectedReturnFerry?.sailingId,
+        returnDepartureTime: selectedReturnFerry?.departureTime,
+        returnArrivalTime: selectedReturnFerry?.arrivalTime,
+        returnVesselName: selectedReturnFerry?.vesselName,
         contactInfo: {
           email: contactInfo.email,
           phone: contactInfo.phone || '',
-          firstName: contactInfo.first_name,
-          lastName: contactInfo.last_name,
+          firstName: contactInfo.first_name || contactInfo.firstName,
+          lastName: contactInfo.last_name || contactInfo.lastName,
         },
         passengers: passengers.map((p: PassengerInfo) => ({
           type: p.type,
@@ -160,10 +190,9 @@ export const createBooking = createAsyncThunk(
           make: v.make,
           model: v.model,
         })) : undefined,
-        cabinSelection: selectedCabin ? {
-          type: selectedCabin,
-          supplementPrice: 0, // This should come from cabin pricing
-        } : undefined,
+        cabinId: selectedCabinId,
+        returnCabinId: selectedReturnCabinId,
+        meals: selectedMeals && selectedMeals.length > 0 ? selectedMeals : undefined,
       });
 
       // Use axios directly to send snake_case data
@@ -211,6 +240,26 @@ const ferrySlice = createSlice({
 
     selectCabin: (state, action: PayloadAction<string | null>) => {
       state.selectedCabin = action.payload;
+    },
+
+    setCabinId: (state, action: PayloadAction<number | null>) => {
+      state.selectedCabinId = action.payload;
+    },
+
+    setReturnCabinId: (state, action: PayloadAction<number | null>) => {
+      state.selectedReturnCabinId = action.payload;
+    },
+
+    setReturnFerry: (state, action: PayloadAction<FerryResult | null>) => {
+      state.selectedReturnFerry = action.payload;
+    },
+
+    setIsRoundTrip: (state, action: PayloadAction<boolean>) => {
+      state.isRoundTrip = action.payload;
+    },
+
+    setMeals: (state, action: PayloadAction<any[]>) => {
+      state.selectedMeals = action.payload;
     },
 
     setContactInfo: (state, action: PayloadAction<ContactInfo>) => {
@@ -292,6 +341,25 @@ const ferrySlice = createSlice({
       state.searchError = null;
     },
 
+    // Start a new search - resets booking state but keeps step at 2 for search results
+    startNewSearch: (state) => {
+      state.currentStep = 2;  // Set to ferry selection step
+      state.selectedFerry = null;
+      state.selectedReturnFerry = null;
+      state.selectedCabin = null;
+      state.selectedCabinId = null;
+      state.selectedReturnCabinId = null;
+      state.selectedMeals = [];
+      state.contactInfo = null;
+      state.passengers = [];
+      state.vehicles = [];
+      state.searchResults = [];
+      state.searchError = null;
+      state.currentBooking = null;
+      state.isCreatingBooking = false;
+      state.bookingError = null;
+    },
+
     // Reset all ferry state (used on logout)
     resetAllState: () => initialState,
   },
@@ -340,6 +408,11 @@ export const {
   previousStep,
   selectFerry,
   selectCabin,
+  setCabinId,
+  setReturnCabinId,
+  setReturnFerry,
+  setIsRoundTrip,
+  setMeals,
   setContactInfo,
   addPassenger,
   updatePassenger,
@@ -350,6 +423,7 @@ export const {
   removeVehicle,
   clearVehicles,
   resetBooking,
+  startNewSearch,
   clearError,
   resetSearchState,
   resetAllState,

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { RootState, AppDispatch } from '../store';
 import { createBooking } from '../store/slices/ferrySlice';
-import { paymentAPI } from '../services/api';
+import { paymentAPI, bookingAPI } from '../services/api';
 import StripePaymentForm from '../components/Payment/StripePaymentForm';
 
 // Initialize Stripe (will be loaded with publishable key from backend)
@@ -14,6 +14,7 @@ let stripePromise: Promise<any> | null = null;
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { bookingId: existingBookingId } = useParams<{ bookingId: string }>();
   const { selectedFerry, passengers, vehicles, currentBooking } = useSelector((state: RootState) => state.ferry);
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
@@ -21,18 +22,44 @@ const PaymentPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<number | null>(null);
+  const [bookingTotal, setBookingTotal] = useState<number>(0);
+  const [bookingDetails, setBookingDetails] = useState<any>(null);
+
+  // Use ref to prevent double initialization in React StrictMode
+  const initializingRef = useRef(false);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    // Redirect if no booking in progress
+    // If paying for existing booking, skip ferry/passenger checks
+    if (existingBookingId) {
+      if (initializingRef.current || initializedRef.current) {
+        return;
+      }
+      initializePayment();
+      return;
+    }
+
+    // Redirect if no booking in progress (for new bookings)
     if (!selectedFerry || passengers.length === 0) {
       navigate('/');
       return;
     }
 
+    // Prevent duplicate initialization (important for React StrictMode in development)
+    if (initializingRef.current || initializedRef.current) {
+      return;
+    }
+
     initializePayment();
-  }, [selectedFerry, passengers, navigate]);
+  }, [selectedFerry, passengers, navigate, existingBookingId]);
 
   const initializePayment = async () => {
+    // Mark as initializing to prevent duplicate calls
+    if (initializingRef.current || initializedRef.current) {
+      return;
+    }
+    initializingRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
@@ -41,21 +68,41 @@ const PaymentPage: React.FC = () => {
       const config = await paymentAPI.getStripeConfig();
       stripePromise = loadStripe(config.publishableKey);
 
-      // Create booking first
-      const booking = await dispatch(createBooking()).unwrap();
-      setBookingId(booking.id);
+      let booking: any;
+
+      // Check if paying for existing booking or creating new one
+      if (existingBookingId) {
+        // Fetch existing booking
+        booking = await bookingAPI.getById(parseInt(existingBookingId));
+        setBookingId(booking.id);
+        setBookingDetails(booking);
+      } else {
+        // Create new booking
+        booking = await dispatch(createBooking()).unwrap();
+        setBookingId(booking.id);
+        setBookingDetails(booking);
+      }
+
+      // Use the actual total from the booking (includes cabin, meals, tax, etc.)
+      const totalAmount = booking.totalAmount || booking.total_amount || calculateTotal();
+      setBookingTotal(totalAmount);
 
       // Create payment intent
       const paymentIntent = await paymentAPI.createPaymentIntent({
         booking_id: booking.id,
-        amount: calculateTotal(),
+        amount: totalAmount,
         currency: 'EUR',
         payment_method: 'credit_card',
       });
 
       setClientSecret(paymentIntent.client_secret);
+
+      // Mark as successfully initialized
+      initializedRef.current = true;
     } catch (err: any) {
       setError(err.message || err || 'Failed to initialize payment');
+      // Reset on error so user can retry
+      initializingRef.current = false;
     } finally {
       setIsLoading(false);
     }
@@ -74,16 +121,28 @@ const PaymentPage: React.FC = () => {
       // Confirm payment with backend
       const confirmation = await paymentAPI.confirmPayment(paymentIntentId);
 
-      // Navigate to confirmation page
-      navigate('/booking/confirmation', {
-        state: {
-          booking: {
-            ...currentBooking,
-            id: bookingId,
-            booking_reference: confirmation.booking_reference || confirmation.confirmationNumber,
+      // Fetch the updated booking to get the latest status
+      if (bookingId) {
+        const updatedBooking = await bookingAPI.getById(bookingId);
+
+        // Navigate to confirmation page with updated booking data
+        navigate('/booking/confirmation', {
+          state: {
+            booking: updatedBooking,
           },
-        },
-      });
+        });
+      } else {
+        // Fallback if no bookingId (shouldn't happen)
+        navigate('/booking/confirmation', {
+          state: {
+            booking: {
+              ...currentBooking,
+              id: bookingId,
+              booking_reference: confirmation.booking_reference || confirmation.confirmationNumber,
+            },
+          },
+        });
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to confirm payment');
     }
@@ -176,7 +235,7 @@ const PaymentPage: React.FC = () => {
                 <Elements stripe={stripePromise} options={{ clientSecret }}>
                   <StripePaymentForm
                     clientSecret={clientSecret}
-                    amount={calculateTotal()}
+                    amount={bookingTotal}
                     onSuccess={handlePaymentSuccess}
                     onError={handlePaymentError}
                   />
@@ -198,40 +257,89 @@ const PaymentPage: React.FC = () => {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h2>
 
               <div className="space-y-3 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Passengers ({passengers.length})</span>
-                  <span className="font-medium">€{(passengers.length * 85).toFixed(2)}</span>
-                </div>
+                {bookingDetails ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="font-medium">€{((bookingDetails.subtotal || 0)).toFixed(2)}</span>
+                    </div>
 
-                {vehicles.length > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Vehicles ({vehicles.length})</span>
-                    <span className="font-medium">€{(vehicles.length * 120).toFixed(2)}</span>
-                  </div>
+                    {(bookingDetails.cabinSupplement || bookingDetails.cabin_supplement) > 0 && (
+                      <div className="flex justify-between text-sm text-gray-500 pl-4">
+                        <span>• Cabin Supplement</span>
+                        <span>€{(bookingDetails.cabinSupplement || bookingDetails.cabin_supplement).toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {bookingDetails.meals && bookingDetails.meals.length > 0 && (
+                      <div className="flex justify-between text-sm text-gray-500 pl-4">
+                        <span>• Meals ({bookingDetails.meals.length})</span>
+                        <span>€{bookingDetails.meals.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0).toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Tax (10%)</span>
+                      <span className="font-medium">€{(bookingDetails.taxAmount || bookingDetails.tax_amount || 0).toFixed(2)}</span>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3 mt-3">
+                      <div className="flex justify-between">
+                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-lg font-bold text-blue-600">€{bookingTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                      <div className="text-xs text-blue-800">
+                        <p className="font-medium">Booking Reference:</p>
+                        <p className="font-mono">{bookingDetails.bookingReference || bookingDetails.booking_reference}</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Passengers ({passengers.length})</span>
+                      <span className="font-medium">€{(passengers.length * 85).toFixed(2)}</span>
+                    </div>
+
+                    {vehicles.length > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Vehicles ({vehicles.length})</span>
+                        <span className="font-medium">€{(vehicles.length * 120).toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Tax (10%)</span>
+                      <span className="font-medium">€{(calculateTotal() - calculateTotal() / 1.1).toFixed(2)}</span>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3 mt-3">
+                      <div className="flex justify-between">
+                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-lg font-bold text-blue-600">€{calculateTotal().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </>
                 )}
-
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Tax (10%)</span>
-                  <span className="font-medium">€{(calculateTotal() - calculateTotal() / 1.1).toFixed(2)}</span>
-                </div>
-
-                <div className="border-t border-gray-200 pt-3 mt-3">
-                  <div className="flex justify-between">
-                    <span className="text-lg font-bold">Total</span>
-                    <span className="text-lg font-bold text-blue-600">€{calculateTotal().toFixed(2)}</span>
-                  </div>
-                </div>
               </div>
 
-              {selectedFerry && (
+              {(selectedFerry || bookingDetails) && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <h3 className="font-medium text-gray-900 mb-2">Route</h3>
                   <p className="text-sm text-gray-600">
-                    {selectedFerry.departurePort} → {selectedFerry.arrivalPort}
+                    {bookingDetails?.departurePort || bookingDetails?.departure_port || selectedFerry?.departurePort} → {bookingDetails?.arrivalPort || bookingDetails?.arrival_port || selectedFerry?.arrivalPort}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">
-                    {selectedFerry.operator}
+                    {bookingDetails?.operator || selectedFerry?.operator}
                   </p>
+                  {bookingDetails?.departureTime || bookingDetails?.departure_time && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Departure: {new Date(bookingDetails.departureTime || bookingDetails.departure_time).toLocaleString()}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

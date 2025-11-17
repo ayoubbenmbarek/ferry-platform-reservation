@@ -29,9 +29,9 @@ const MyBookingsPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Build params object - backend expects status_filter not status
+      // Build params object
       const params: any = {};
-      if (filterStatus !== 'all') {
+      if (filterStatus && filterStatus !== 'all') {
         params.status_filter = filterStatus.toUpperCase();
       }
 
@@ -215,6 +215,11 @@ const MyBookingsPage: React.FC = () => {
                             </span>
                           )}
                           <span>Booked on {formatDate(booking.createdAt)}</span>
+                          {booking.status === 'PENDING' && booking.expiresAt && (
+                            <span className="text-orange-600 font-medium">
+                              ⏰ Expires {formatDate(booking.expiresAt)}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -223,9 +228,21 @@ const MyBookingsPage: React.FC = () => {
                         <p className="text-2xl font-bold text-blue-600">
                           {booking.currency} {booking.totalAmount.toFixed(2)}
                         </p>
-                        <button className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
-                          View Details →
-                        </button>
+                        {booking.status === 'PENDING' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/booking/${booking.id}`);
+                            }}
+                            className="mt-2 bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 text-sm font-medium"
+                          >
+                            Complete Payment →
+                          </button>
+                        ) : (
+                          <button className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
+                            View Details →
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

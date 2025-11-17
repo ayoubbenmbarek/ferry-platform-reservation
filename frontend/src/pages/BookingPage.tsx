@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { createBooking, setContactInfo } from '../store/slices/ferrySlice';
+import { createBooking, setContactInfo, setCabinId, setReturnCabinId, setMeals } from '../store/slices/ferrySlice';
+import CabinSelector from '../components/CabinSelector';
+import MealSelector from '../components/MealSelector';
 
 const BookingPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { selectedFerry, passengers, vehicles, isCreatingBooking, bookingError } = useSelector(
+  const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip } = useSelector(
     (state: RootState) => state.ferry
   );
   const { user } = useSelector((state: RootState) => state.auth);
@@ -18,6 +20,13 @@ const BookingPage: React.FC = () => {
     email: user?.email || '',
     phone: user?.phone || '',
   });
+
+  const [selectedCabinId, setSelectedCabinId] = useState<number | null>(null);
+  const [selectedReturnCabinId, setSelectedReturnCabinId] = useState<number | null>(null);
+  const [cabinPrice, setCabinPrice] = useState(0);
+  const [returnCabinPrice, setReturnCabinPrice] = useState(0);
+  const [selectedMeals, setSelectedMeals] = useState<any[]>([]);
+  const [mealsPrice, setMealsPrice] = useState(0);
 
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +45,56 @@ const BookingPage: React.FC = () => {
     }
   }, [selectedFerry, passengers, navigate]);
 
+  const handleCabinSelect = (cabinId: number | null, price: number, journey?: 'outbound' | 'return') => {
+    if (journey === 'return') {
+      setSelectedReturnCabinId(cabinId);
+      setReturnCabinPrice(price);
+      dispatch(setReturnCabinId(cabinId));
+    } else {
+      setSelectedCabinId(cabinId);
+      setCabinPrice(price);
+      dispatch(setCabinId(cabinId));
+    }
+  };
+
+  const handleMealSelect = (meals: any[], totalPrice: number) => {
+    setSelectedMeals(meals);
+    setMealsPrice(totalPrice);
+    // Dispatch to Redux store
+    dispatch(setMeals(meals));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Validate required contact information fields
+    if (!localContactInfo.firstName || !localContactInfo.firstName.trim()) {
+      setError('Please enter your first name');
+      return;
+    }
+
+    if (!localContactInfo.lastName || !localContactInfo.lastName.trim()) {
+      setError('Please enter your last name');
+      return;
+    }
+
+    if (!localContactInfo.email || !localContactInfo.email.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(localContactInfo.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (!localContactInfo.phone || !localContactInfo.phone.trim()) {
+      setError('Please enter your phone number');
+      return;
+    }
 
     if (!acceptTerms) {
       setError('Please accept the terms and conditions');
@@ -76,7 +132,8 @@ const BookingPage: React.FC = () => {
   }, 0);
 
   const vehiclesTotal = vehicles.length * vehiclePrice;
-  const subtotal = passengersTotal + vehiclesTotal;
+  const totalCabinPrice = cabinPrice + (isRoundTrip ? returnCabinPrice : 0);
+  const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice;
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + tax;
 
@@ -177,6 +234,27 @@ const BookingPage: React.FC = () => {
               </form>
             </div>
 
+            {/* Cabin Selection */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <CabinSelector
+                selectedCabinId={selectedCabinId}
+                selectedReturnCabinId={selectedReturnCabinId}
+                onCabinSelect={handleCabinSelect}
+                passengerCount={totalPassengers}
+                isRoundTrip={isRoundTrip}
+              />
+            </div>
+
+            {/* Meal Selection */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <MealSelector
+                selectedMeals={selectedMeals}
+                onMealSelect={handleMealSelect}
+                passengerCount={totalPassengers}
+                isRoundTrip={isRoundTrip}
+              />
+            </div>
+
             {/* Terms and Conditions */}
             <div className="bg-white rounded-lg shadow p-6">
               <label className="flex items-start">
@@ -214,7 +292,9 @@ const BookingPage: React.FC = () => {
 
               {/* Ferry Details */}
               <div className="mb-4 pb-4 border-b border-gray-200">
-                <p className="text-sm text-gray-600 mb-1">Operator</p>
+                <p className="text-sm text-gray-600 mb-1">
+                  {isRoundTrip ? '🚢 Outbound Journey' : 'Operator'}
+                </p>
                 <p className="font-semibold">{selectedFerry.operator}</p>
                 <p className="text-sm text-gray-600 mt-2">
                   {selectedFerry.departurePort} → {selectedFerry.arrivalPort}
@@ -223,6 +303,20 @@ const BookingPage: React.FC = () => {
                   {new Date(selectedFerry.departureTime).toLocaleDateString()}
                 </p>
               </div>
+
+              {/* Return Ferry Details */}
+              {isRoundTrip && selectedReturnFerry && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <p className="text-sm text-gray-600 mb-1">🔙 Return Journey</p>
+                  <p className="font-semibold">{selectedReturnFerry.operator}</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {selectedReturnFerry.departurePort} → {selectedReturnFerry.arrivalPort}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {new Date(selectedReturnFerry.departureTime).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
 
               {/* Passengers */}
               <div className="mb-4 pb-4 border-b border-gray-200">
@@ -264,6 +358,33 @@ const BookingPage: React.FC = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Vehicles</span>
                     <span>€{vehiclesTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                {cabinPrice > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{isRoundTrip ? 'Cabin (Outbound)' : 'Cabin'}</span>
+                    <span>€{cabinPrice.toFixed(2)}</span>
+                  </div>
+                )}
+                {isRoundTrip && returnCabinPrice > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Cabin (Return)</span>
+                    <span>€{returnCabinPrice.toFixed(2)}</span>
+                  </div>
+                )}
+                {mealsPrice > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      Meals ({selectedMeals.length})
+                      {isRoundTrip && (
+                        <span className="text-xs text-gray-500">
+                          {' '}
+                          ({selectedMeals.filter((m) => m.journey_type === 'outbound').length} out,{' '}
+                          {selectedMeals.filter((m) => m.journey_type === 'return').length} ret)
+                        </span>
+                      )}
+                    </span>
+                    <span>€{mealsPrice.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">

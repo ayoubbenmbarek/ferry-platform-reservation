@@ -14,6 +14,9 @@ import {
   nextStep,
   previousStep,
   setSearchParams,
+  setIsRoundTrip,
+  startNewSearch,
+  setCurrentStep,
 } from '../store/slices/ferrySlice';
 import { PassengerForm } from '../components/PassengerForm';
 import { VehicleCard } from '../components/VehicleCard';
@@ -54,6 +57,8 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch }) => {
     e.preventDefault();
     if (!validate()) return;
 
+    const isRoundTrip = !!form.returnDate;
+
     const searchParams: SearchParams = {
       departurePort: form.departurePort,
       arrivalPort: form.arrivalPort,
@@ -68,6 +73,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch }) => {
     };
 
     dispatch(setSearchParams(searchParams));
+    dispatch(setIsRoundTrip(isRoundTrip));
     onSearch(searchParams);
   };
 
@@ -130,14 +136,35 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">🔄 Return Date (Optional)</label>
-                    <input
-                      type="date"
-                      value={form.returnDate}
-                      onChange={(e) => setForm({ ...form, returnDate: e.target.value })}
-                      min={form.departureDate || new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg"
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Return Date (Optional)</label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={form.returnDate}
+                        onChange={(e) => {
+                          setForm({ ...form, returnDate: e.target.value });
+                          // Update Redux state immediately when return date changes
+                          dispatch(setIsRoundTrip(!!e.target.value));
+                        }}
+                        min={form.departureDate || new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-3 pr-12 border-2 border-gray-300 rounded-lg"
+                      />
+                      {form.returnDate && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setForm({ ...form, returnDate: '' });
+                            // Clear round-trip flag in Redux immediately
+                            dispatch(setIsRoundTrip(false));
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-600 bg-white px-1.5 py-0.5 rounded-full hover:bg-red-50 font-bold text-lg z-10 cursor-pointer"
+                          title="Clear return date"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -211,11 +238,11 @@ const NewSearchPage: React.FC = () => {
 
     setHasSearchParams(true);
 
-    // Perform search on mount if we don't have results
+    // Perform search if we don't have results
     if (searchResults.length === 0 && !isSearching) {
       dispatch(searchFerries(searchParams as any));
     }
-  }, []);
+  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, searchResults.length, isSearching, dispatch]);
 
   const handlePassengerSave = (passenger: PassengerInfo) => {
     const existing = passengers.find(p => p.id === passenger.id);
@@ -239,7 +266,8 @@ const NewSearchPage: React.FC = () => {
 
   const handleSelectFerry = (ferry: FerryResult) => {
     dispatch(selectFerry(ferry));
-    dispatch(nextStep());
+    // Move to step 1 (passenger details) after selecting ferry
+    dispatch(setCurrentStep(1));
   };
 
   const totalPassengers = (searchParams.passengers?.adults || 0) +
@@ -290,6 +318,7 @@ const NewSearchPage: React.FC = () => {
   // Show search form if no search params
   if (!hasSearchParams) {
     return <SearchFormComponent onSearch={(params) => {
+      dispatch(startNewSearch()); // Reset state and set to step 2
       dispatch(searchFerries(params as any));
       setHasSearchParams(true);
     }} />;
@@ -303,17 +332,38 @@ const NewSearchPage: React.FC = () => {
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-600">Step 1 of 3</span>
+              <span className="text-sm font-medium text-blue-600">
+                {selectedFerry ? 'Step 2 of 3' : 'Step 1 of 3'}
+              </span>
               <span className="text-sm font-medium text-gray-600">Passenger Details</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full" style={{ width: '33%' }}></div>
+              <div className="bg-blue-600 h-2 rounded-full" style={{ width: selectedFerry ? '66%' : '33%' }}></div>
             </div>
           </div>
 
           {/* Header */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Passenger Information</h1>
+
+            {/* Show selected ferry if available */}
+            {selectedFerry && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800 font-medium mb-2">Selected Ferry</p>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-semibold text-gray-900">{selectedFerry.operator} - {selectedFerry.vesselName}</p>
+                    <p className="text-sm text-gray-600">
+                      {formatDate(selectedFerry.departureTime)} at {formatTime(selectedFerry.departureTime)}
+                    </p>
+                  </div>
+                  <p className="text-xl font-bold text-blue-600">
+                    €{Object.values(selectedFerry.prices)[0]?.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <p className="text-gray-600">Route</p>
@@ -415,7 +465,14 @@ const NewSearchPage: React.FC = () => {
           {/* Navigation */}
           <div className="flex justify-between items-center bg-white rounded-lg shadow-md p-6">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => {
+                // If ferry already selected, go back to ferry selection (step 2)
+                if (selectedFerry) {
+                  dispatch(setCurrentStep(2));
+                } else {
+                  navigate('/');
+                }
+              }}
               className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium"
             >
               ← Back to Search
@@ -423,7 +480,13 @@ const NewSearchPage: React.FC = () => {
             <button
               onClick={() => {
                 if (passengers.length === totalPassengers) {
-                  dispatch(nextStep());
+                  // If ferry is selected, go to review (step 3)
+                  // Otherwise go to ferry selection (step 2)
+                  if (selectedFerry) {
+                    dispatch(setCurrentStep(3));
+                  } else {
+                    dispatch(nextStep());
+                  }
                 } else {
                   alert(`Please add details for all ${totalPassengers} passengers`);
                 }
@@ -431,7 +494,7 @@ const NewSearchPage: React.FC = () => {
               disabled={passengers.length < totalPassengers}
               className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Continue to Ferry Selection →
+              {selectedFerry ? 'Continue to Review →' : 'Continue to Ferry Selection →'}
             </button>
           </div>
         </div>
@@ -447,11 +510,13 @@ const NewSearchPage: React.FC = () => {
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-600">Step 2 of 3</span>
+              <span className="text-sm font-medium text-blue-600">
+                {passengers.length > 0 ? 'Step 2 of 3' : 'Step 1 of 3'}
+              </span>
               <span className="text-sm font-medium text-gray-600">Select Ferry</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full" style={{ width: '66%' }}></div>
+              <div className="bg-blue-600 h-2 rounded-full" style={{ width: passengers.length > 0 ? '66%' : '33%' }}></div>
             </div>
           </div>
 
@@ -623,7 +688,17 @@ const NewSearchPage: React.FC = () => {
               ← Back
             </button>
             <button
-              onClick={() => navigate('/booking')}
+              onClick={() => {
+                if (!selectedFerry) {
+                  alert('Error: No ferry selected. Please select a ferry first.');
+                  return;
+                }
+                if (passengers.length === 0) {
+                  alert('Error: No passengers added. Please add passenger details first.');
+                  return;
+                }
+                navigate('/booking');
+              }}
               className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
             >
               Proceed to Payment →

@@ -20,6 +20,7 @@ except ImportError:
 
 from enum import Enum
 from .ferry import PassengerInfo, VehicleInfo
+from .meal import BookingMealResponse
 
 
 class BookingStatus(str, Enum):
@@ -51,22 +52,50 @@ class ContactInfo(BaseModel):
     country: Optional[str] = None
 
 
+class JourneyType(str, Enum):
+    """Journey type enumeration for round trips."""
+    OUTBOUND = "outbound"  # Aller
+    RETURN = "return"  # Retour
+
+
+class MealSelection(BaseModel):
+    """Meal selection schema for booking creation."""
+    meal_id: int
+    quantity: int = 1
+    passenger_id: Optional[int] = None
+    dietary_type: Optional[str] = None
+    special_requests: Optional[str] = None
+    journey_type: Optional[str] = "outbound"  # Default to outbound - use string instead of enum for flexibility
+
+
 class BookingCreate(BaseModel):
     """Booking creation schema."""
     sailing_id: str
     operator: str
     passengers: List[PassengerInfo]
     vehicles: Optional[List[VehicleInfo]] = None
-    cabin_selection: Optional[CabinSelection] = None
+    cabin_id: Optional[int] = None  # Outbound cabin
+    meals: Optional[List[MealSelection]] = None
     contact_info: ContactInfo
     special_requests: Optional[str] = None
 
-    # Ferry schedule details
+    # Ferry schedule details (outbound)
     departure_port: Optional[str] = None
     arrival_port: Optional[str] = None
     departure_time: Optional[datetime] = None
     arrival_time: Optional[datetime] = None
     vessel_name: Optional[str] = None
+
+    # Pricing from selected ferry (to avoid hardcoded prices)
+    ferry_prices: Optional[Dict[str, float]] = None
+
+    # Round trip support (all optional)
+    is_round_trip: Optional[bool] = False
+    return_sailing_id: Optional[str] = None
+    return_cabin_id: Optional[int] = None  # Return cabin
+    return_departure_time: Optional[datetime] = None
+    return_arrival_time: Optional[datetime] = None
+    return_vessel_name: Optional[str] = None
     
     @field_validator('passengers')
     @classmethod
@@ -123,8 +152,8 @@ class BookingResponse(BaseModel):
     booking_reference: str
     operator_booking_reference: Optional[str] = None
     status: str
-    
-    # Ferry details
+
+    # Ferry details (outbound)
     sailing_id: str
     operator: str
     departure_port: Optional[str] = None
@@ -132,38 +161,51 @@ class BookingResponse(BaseModel):
     departure_time: Optional[datetime] = None
     arrival_time: Optional[datetime] = None
     vessel_name: Optional[str] = None
-    
+
+    # Round trip information
+    is_round_trip: bool = False
+    return_sailing_id: Optional[str] = None
+    return_departure_time: Optional[datetime] = None
+    return_arrival_time: Optional[datetime] = None
+    return_vessel_name: Optional[str] = None
+
     # Contact information
     contact_email: str
     contact_phone: Optional[str] = None
     contact_first_name: str
     contact_last_name: str
-    
+
     # Booking details
     total_passengers: int
     total_vehicles: int
-    
+
     # Pricing
     subtotal: float
     tax_amount: float
     total_amount: float
     currency: str
-    
+
     # Cabin information
-    cabin_type: Optional[str] = None
+    cabin_id: Optional[int] = None
     cabin_supplement: float
-    
+    return_cabin_id: Optional[int] = None
+    return_cabin_supplement: float = 0.00
+
     # Special requirements
     special_requests: Optional[str] = None
-    
+
     # Timestamps
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+    cancelled_at: Optional[datetime] = None
+    cancellation_reason: Optional[str] = None
+    expires_at: Optional[datetime] = None  # When pending booking expires
+
     # Related data
     passengers: List[BookingPassengerResponse]
     vehicles: List[BookingVehicleResponse]
-    
+    meals: Optional[List[BookingMealResponse]] = []
+
     model_config = ConfigDict(from_attributes=True)
 
 

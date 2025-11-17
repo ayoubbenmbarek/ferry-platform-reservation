@@ -1,22 +1,36 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { resetBooking } from '../store/slices/ferrySlice';
+import CreateAccountModal from '../components/CreateAccountModal';
+import { setUser } from '../store/slices/authSlice';
 
 const BookingConfirmationPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const currentBooking = useSelector((state: RootState) => state.ferry.currentBooking);
+  const { user } = useSelector((state: RootState) => state.auth);
   const booking = location.state?.booking || currentBooking;
+
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
 
   useEffect(() => {
     // If no booking data, redirect to home
     if (!booking) {
       navigate('/');
     }
-  }, [booking, navigate]);
+
+    // Show create account modal for guest bookings (non-logged-in users)
+    if (booking && !user) {
+      // Show modal after a short delay for better UX
+      const timer = setTimeout(() => {
+        setShowCreateAccountModal(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [booking, user, navigate]);
 
   if (!booking) {
     return null;
@@ -29,6 +43,13 @@ const BookingConfirmationPage: React.FC = () => {
 
   const handleViewBookings = () => {
     navigate('/my-bookings');
+  };
+
+  const handleAccountCreated = (token: string, userData: any) => {
+    // Update auth state with new user
+    dispatch(setUser(userData));
+    // Show success message
+    console.log('Account created and logged in successfully');
   };
 
   return (
@@ -123,6 +144,36 @@ const BookingConfirmationPage: React.FC = () => {
               </div>
             )}
 
+            {/* Cabin */}
+            {(booking.cabinSupplement || booking.cabin_supplement) > 0 && (
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-2">Cabin</p>
+                <div className="text-sm text-gray-600">
+                  Cabin Upgrade - €{(booking.cabinSupplement || booking.cabin_supplement)?.toFixed(2)}
+                </div>
+              </div>
+            )}
+
+            {/* Meals */}
+            {booking.meals && booking.meals.length > 0 && (
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Meals ({booking.meals.length})
+                </p>
+                <div className="space-y-1">
+                  {booking.meals.map((meal: any, i: number) => (
+                    <div key={i} className="flex justify-between text-sm text-gray-600">
+                      <span>
+                        {meal.quantity}x Meal
+                        {meal.dietaryType && ` (${meal.dietaryType})`}
+                      </span>
+                      <span>€{(meal.totalPrice || meal.total_price)?.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Price Summary */}
             <div className="mb-4">
               <div className="space-y-2">
@@ -130,8 +181,20 @@ const BookingConfirmationPage: React.FC = () => {
                   <span className="text-gray-600">Subtotal</span>
                   <span>€{booking.subtotal?.toFixed(2)}</span>
                 </div>
+                {(booking.cabinSupplement || booking.cabin_supplement) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Cabin Supplement</span>
+                    <span>€{(booking.cabinSupplement || booking.cabin_supplement)?.toFixed(2)}</span>
+                  </div>
+                )}
+                {booking.meals && booking.meals.length > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Meals Total</span>
+                    <span>€{booking.meals.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Tax</span>
+                  <span className="text-gray-600">Tax (10%)</span>
                   <span>€{booking.taxAmount?.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
@@ -162,6 +225,26 @@ const BookingConfirmationPage: React.FC = () => {
             </ul>
           </div>
 
+          {/* Create Account CTA for Guest Users */}
+          {!user && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 mb-1">Want to manage your booking easily?</h3>
+                  <p className="text-sm text-gray-600">
+                    Create an account to track your booking, view history, and get exclusive benefits!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateAccountModal(true)}
+                  className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 whitespace-nowrap"
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 mt-6">
             <button
@@ -178,6 +261,17 @@ const BookingConfirmationPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Create Account Modal for Guest Bookings */}
+        {!user && booking.bookingReference && booking.contactEmail && (
+          <CreateAccountModal
+            isOpen={showCreateAccountModal}
+            onClose={() => setShowCreateAccountModal(false)}
+            bookingReference={booking.bookingReference}
+            bookingEmail={booking.contactEmail}
+            onSuccess={handleAccountCreated}
+          />
+        )}
       </div>
     </div>
   );

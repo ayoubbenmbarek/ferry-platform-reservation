@@ -318,17 +318,35 @@ const BookingDetailsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Cancel Booking Button */}
-          {canCancelBooking() && (
-            <div className="mt-6 border-t border-gray-200 pt-6">
+          {/* Action Buttons */}
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            {/* Pay Now Button for Pending Bookings */}
+            {booking.status?.toLowerCase() === 'pending' && (
+              <div className="mb-4">
+                <button
+                  onClick={() => navigate(`/payment/${booking.id}`)}
+                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors mb-2"
+                >
+                  Pay Now - €{(booking.totalAmount || 0).toFixed(2)}
+                </button>
+                {booking.expiresAt && (
+                  <p className="text-sm text-orange-600 text-center">
+                    ⏰ Payment due by {new Date(booking.expiresAt).toLocaleDateString()} at {new Date(booking.expiresAt).toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Cancel Booking Button */}
+            {canCancelBooking() && (
               <button
                 onClick={() => setShowCancelModal(true)}
                 className="w-full bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
               >
                 Cancel Booking
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

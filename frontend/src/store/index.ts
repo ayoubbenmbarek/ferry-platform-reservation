@@ -13,7 +13,7 @@ import ferrySlice from './slices/ferrySlice';
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['ferry', 'auth'], // Only persist ferry and auth state
+  whitelist: ['auth'], // Only persist auth state - ferry state is transient and should not persist
 };
 
 // Combine reducers

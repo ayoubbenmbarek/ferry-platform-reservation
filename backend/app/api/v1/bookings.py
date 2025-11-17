@@ -191,7 +191,36 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
                 "final_price": v.final_price
             }
             for v in db_booking.vehicles
-        ]
+        ],
+        meals=[
+            {
+                "id": m.id,
+                "booking_id": m.booking_id,
+                "meal_id": m.meal_id,
+                "meal": {
+                    "id": m.meal.id,
+                    "name": m.meal.name,
+                    "description": m.meal.description,
+                    "meal_type": m.meal.meal_type.value if hasattr(m.meal.meal_type, 'value') else str(m.meal.meal_type),
+                    "price": float(m.meal.price),
+                    "currency": m.meal.currency,
+                    "is_available": m.meal.is_available,
+                    "dietary_types": m.meal.dietary_types,
+                    "operator": m.meal.operator,
+                    "created_at": m.meal.created_at
+                } if m.meal else None,
+                "quantity": m.quantity,
+                "unit_price": float(m.unit_price),
+                "total_price": float(m.total_price),
+                "passenger_id": m.passenger_id,
+                "meal_date": m.meal_date if hasattr(m, 'meal_date') else None,
+                "dietary_type": m.dietary_type.value if m.dietary_type and hasattr(m.dietary_type, 'value') else (str(m.dietary_type) if m.dietary_type else None),
+                "journey_type": m.journey_type.value if hasattr(m, 'journey_type') and m.journey_type and hasattr(m.journey_type, 'value') else (str(m.journey_type) if hasattr(m, 'journey_type') and m.journey_type else None),
+                "special_requests": m.special_requests,
+                "created_at": m.created_at
+            }
+            for m in db_booking.meals
+        ] if hasattr(db_booking, 'meals') and db_booking.meals else []
     )
 
 
@@ -214,14 +243,22 @@ async def create_booking(
         # Calculate pricing
         total_passengers = len(booking_data.passengers)
         total_vehicles = len(booking_data.vehicles) if booking_data.vehicles else 0
-        
-        # For now, use placeholder pricing - in real implementation,
-        # this would be calculated based on ferry operator rates
-        base_adult_price = 85.0
-        base_child_price = 42.5
-        base_infant_price = 0.0
-        base_vehicle_price = 120.0
-        
+
+        # Get prices from booking request or use defaults
+        # Prices should be provided by frontend from the selected ferry
+        if booking_data.ferry_prices:
+            base_adult_price = booking_data.ferry_prices.get("adult", 85.0)
+            base_child_price = booking_data.ferry_prices.get("child", 42.5)
+            base_infant_price = booking_data.ferry_prices.get("infant", 0.0)
+            base_vehicle_price = booking_data.ferry_prices.get("vehicle", 120.0)
+        else:
+            # Fallback to default prices if not provided
+            logger.warning("Ferry prices not provided in booking request, using defaults")
+            base_adult_price = 85.0
+            base_child_price = 42.5
+            base_infant_price = 0.0
+            base_vehicle_price = 120.0
+
         subtotal = 0.0
         for passenger in booking_data.passengers:
             if passenger.type == "adult":
@@ -229,20 +266,50 @@ async def create_booking(
             elif passenger.type == "child":
                 subtotal += base_child_price
             # infants are free
-        
+
         if booking_data.vehicles:
             subtotal += base_vehicle_price * len(booking_data.vehicles)
         
-        # Add cabin supplement if selected
+        # Add cabin supplement if selected (outbound)
         cabin_supplement = 0.0
-        if booking_data.cabin_selection:
-            cabin_supplement = booking_data.cabin_selection.supplement_price or 0.0
-            subtotal += cabin_supplement
-        
+        selected_cabin_id = None
+        if booking_data.cabin_id:
+            from app.models.ferry import Cabin
+            cabin = db.query(Cabin).filter(Cabin.id == booking_data.cabin_id).first()
+            if cabin:
+                cabin_supplement = float(cabin.base_price)
+                subtotal += cabin_supplement
+                selected_cabin_id = cabin.id
+
+        # Add return cabin supplement if selected
+        return_cabin_supplement = 0.0
+        selected_return_cabin_id = None
+        if hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
+            from app.models.ferry import Cabin
+            return_cabin = db.query(Cabin).filter(Cabin.id == booking_data.return_cabin_id).first()
+            if return_cabin:
+                return_cabin_supplement = float(return_cabin.base_price)
+                subtotal += return_cabin_supplement
+                selected_return_cabin_id = return_cabin.id
+
+        # Add meal costs if selected
+        meals_total = 0.0
+        if booking_data.meals:
+            from app.models.meal import Meal
+            for meal_selection in booking_data.meals:
+                meal = db.query(Meal).filter(Meal.id == meal_selection.meal_id).first()
+                if meal:
+                    meals_total += float(meal.price) * meal_selection.quantity
+            subtotal += meals_total
+
         # Calculate tax (10% for example)
         tax_amount = subtotal * 0.10
         total_amount = subtotal + tax_amount
-        
+
+        # Calculate expiration time (3 days from now for pending bookings)
+        from datetime import datetime, timedelta
+        expires_at = datetime.utcnow() + timedelta(days=3)
+
         # Create booking record
         db_booking = Booking(
             user_id=current_user.id if current_user else None,
@@ -253,21 +320,31 @@ async def create_booking(
             contact_last_name=booking_data.contact_info.last_name,
             sailing_id=booking_data.sailing_id,
             operator=booking_data.operator,
-            # Ferry schedule details
+            # Ferry schedule details (outbound)
             departure_port=booking_data.departure_port,
             arrival_port=booking_data.arrival_port,
             departure_time=booking_data.departure_time,
             arrival_time=booking_data.arrival_time,
             vessel_name=booking_data.vessel_name,
+            # Round trip information
+            is_round_trip=getattr(booking_data, 'is_round_trip', False),
+            return_sailing_id=getattr(booking_data, 'return_sailing_id', None),
+            return_departure_time=getattr(booking_data, 'return_departure_time', None),
+            return_arrival_time=getattr(booking_data, 'return_arrival_time', None),
+            return_vessel_name=getattr(booking_data, 'return_vessel_name', None),
             total_passengers=total_passengers,
             total_vehicles=total_vehicles,
             subtotal=subtotal,
             tax_amount=tax_amount,
             total_amount=total_amount,
             currency="EUR",
+            cabin_id=selected_cabin_id,
             cabin_supplement=cabin_supplement,
+            return_cabin_id=selected_return_cabin_id,
+            return_cabin_supplement=return_cabin_supplement,
             special_requests=booking_data.special_requests,
-            status=BookingStatusEnum.PENDING
+            status=BookingStatusEnum.PENDING,
+            expires_at=expires_at  # Expires 3 days from creation
         )
         
         db.add(db_booking)
@@ -327,30 +404,77 @@ async def create_booking(
                     final_price=base_vehicle_price
                 )
                 db.add(db_vehicle)
-        
+
+        # Add meals if any
+        if booking_data.meals:
+            from app.models.meal import Meal, BookingMeal, DietaryTypeEnum, JourneyTypeEnum
+            for meal_selection in booking_data.meals:
+                meal = db.query(Meal).filter(Meal.id == meal_selection.meal_id).first()
+                if meal:
+                    # Convert dietary type string to enum if provided
+                    dietary_type_enum = None
+                    if meal_selection.dietary_type:
+                        try:
+                            dietary_type_enum = DietaryTypeEnum[meal_selection.dietary_type.upper()]
+                        except KeyError:
+                            pass
+
+                    # Convert journey type string to enum if provided
+                    journey_type_enum = None
+                    if hasattr(meal_selection, 'journey_type') and meal_selection.journey_type:
+                        try:
+                            journey_type_str = meal_selection.journey_type.upper() if isinstance(meal_selection.journey_type, str) else str(meal_selection.journey_type).split('.')[-1].upper()
+                            journey_type_enum = JourneyTypeEnum[journey_type_str]
+                        except (KeyError, AttributeError):
+                            journey_type_enum = JourneyTypeEnum.OUTBOUND  # Default to outbound
+
+                    db_booking_meal = BookingMeal(
+                        booking_id=db_booking.id,
+                        meal_id=meal.id,
+                        passenger_id=meal_selection.passenger_id,
+                        quantity=meal_selection.quantity,
+                        unit_price=float(meal.price),
+                        total_price=float(meal.price) * meal_selection.quantity,
+                        dietary_type=dietary_type_enum,
+                        special_requests=meal_selection.special_requests,
+                        journey_type=journey_type_enum
+                    )
+                    db.add(db_booking_meal)
+
         db.commit()
         db.refresh(db_booking)
 
         # Create booking with ferry operator
         try:
+            # Prepare cabin data for operator if cabin_id is provided
+            cabin_data = None
+            if booking_data.cabin_id:
+                from app.models.ferry import Cabin
+                cabin = db.query(Cabin).filter(Cabin.id == booking_data.cabin_id).first()
+                if cabin:
+                    cabin_data = {
+                        "type": cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type),
+                        "supplement_price": float(cabin.base_price)
+                    }
+
             operator_confirmation = await ferry_service.create_booking(
                 operator=booking_data.operator,
                 sailing_id=booking_data.sailing_id,
                 passengers=[p.dict() for p in booking_data.passengers],
                 vehicles=[v.dict() for v in booking_data.vehicles] if booking_data.vehicles else None,
-                cabin_selection=booking_data.cabin_selection.dict() if booking_data.cabin_selection else None,
+                cabin_selection=cabin_data,
                 contact_info=booking_data.contact_info.dict(),
                 special_requests=booking_data.special_requests
             )
 
             # Update booking with operator reference
             db_booking.operator_booking_reference = operator_confirmation.operator_reference
-            db_booking.status = BookingStatusEnum.CONFIRMED
+            # Note: Status remains PENDING until payment is completed
             db.commit()
 
         except FerryAPIError as e:
-            # If operator booking fails, mark as pending for manual processing
-            db_booking.status = BookingStatusEnum.PENDING
+            # If operator booking fails, keep as pending for manual processing
+            # Status is already PENDING, just commit
             db.commit()
 
         # Convert to response model manually to handle enum conversions
@@ -395,6 +519,10 @@ async def create_booking(
         raise
     except Exception as e:
         db.rollback()
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Booking creation error: {str(e)}")
+        print(f"Traceback:\n{error_traceback}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Booking creation failed: {str(e)}"
@@ -445,7 +573,10 @@ async def list_bookings(
         
         # Get total count
         total_count = query.count()
-        
+
+        # Order by created_at descending (newest first)
+        query = query.order_by(Booking.created_at.desc())
+
         # Apply pagination
         bookings = query.offset(common_params.offset).limit(common_params.page_size).all()
         
@@ -790,3 +921,44 @@ async def get_booking_by_reference(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to get booking: {str(e)}"
         ) 
+
+@router.post("/expire-pending", status_code=200)
+async def expire_pending_bookings(
+    db: Session = Depends(get_db)
+):
+    """
+    Expire pending bookings that have passed their expiration time.
+
+    This endpoint should be called periodically (e.g., via a cron job)
+    to automatically cancel bookings that haven't been paid within 3 days.
+    """
+    try:
+        from datetime import datetime
+
+        # Find all pending bookings that have expired
+        expired_bookings = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.PENDING,
+            Booking.expires_at != None,
+            Booking.expires_at < datetime.utcnow()
+        ).all()
+
+        expired_count = 0
+        for booking in expired_bookings:
+            booking.status = BookingStatusEnum.CANCELLED
+            booking.cancellation_reason = "Booking expired - payment not received within 3 days"
+            booking.cancelled_at = datetime.utcnow()
+            expired_count += 1
+
+        db.commit()
+
+        return {
+            "message": f"Expired {expired_count} pending booking(s)",
+            "expired_count": expired_count
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to expire bookings: {str(e)}"
+        )

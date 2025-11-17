@@ -49,12 +49,19 @@ class Booking(Base):
     sailing_id = Column(String(100), nullable=True)  # Operator's sailing identifier
     operator = Column(String(50), nullable=True)  # Ferry operator name (CTN, GNV, etc.)
 
-    # Ferry schedule details
+    # Ferry schedule details (outbound journey)
     departure_port = Column(String(100), nullable=True)
     arrival_port = Column(String(100), nullable=True)
     departure_time = Column(DateTime(timezone=True), nullable=True)
     arrival_time = Column(DateTime(timezone=True), nullable=True)
     vessel_name = Column(String(100), nullable=True)
+
+    # Return journey details (for round trips)
+    is_round_trip = Column(Boolean, default=False)
+    return_sailing_id = Column(String(100), nullable=True)
+    return_departure_time = Column(DateTime(timezone=True), nullable=True)
+    return_arrival_time = Column(DateTime(timezone=True), nullable=True)
+    return_vessel_name = Column(String(100), nullable=True)
 
     # Booking reference
     booking_reference = Column(String(20), unique=True, nullable=False, index=True)
@@ -83,23 +90,29 @@ class Booking(Base):
     special_requests = Column(Text, nullable=True)
     accessibility_requirements = Column(Text, nullable=True)
     
-    # Cabin selection
+    # Cabin selection (for outbound journey)
     cabin_id = Column(Integer, ForeignKey("cabins.id"), nullable=True)
     cabin_supplement = Column(Numeric(10, 2), default=0.00)
+
+    # Return cabin selection (for return journey in round trips)
+    return_cabin_id = Column(Integer, ForeignKey("cabins.id"), nullable=True)
+    return_cabin_supplement = Column(Numeric(10, 2), default=0.00)
     
     # Cancellation
     cancellation_reason = Column(Text, nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
     refund_amount = Column(Numeric(10, 2), nullable=True)
-    
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # When pending booking expires
+
     # Relationships
     user = relationship("User", back_populates="bookings")
     schedule = relationship("Schedule", back_populates="bookings")
-    cabin = relationship("Cabin")
+    cabin = relationship("Cabin", foreign_keys=[cabin_id])
+    return_cabin = relationship("Cabin", foreign_keys=[return_cabin_id])
     passengers = relationship("BookingPassenger", back_populates="booking", cascade="all, delete-orphan")
     vehicles = relationship("BookingVehicle", back_populates="booking", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="booking")

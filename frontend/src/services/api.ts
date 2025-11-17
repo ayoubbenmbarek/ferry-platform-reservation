@@ -163,6 +163,7 @@ export interface Booking {
   specialRequests?: string;
   createdAt: string;
   updatedAt: string;
+  expiresAt?: string | null;  // When pending booking expires
 }
 
 // Authentication API
@@ -289,15 +290,35 @@ export const bookingAPI = {
   },
 
   getById: async (id: number): Promise<Booking> => {
-    const response: AxiosResponse<Booking> = await api.get(`/bookings/${id}`);
-    return response.data;
+    const response: AxiosResponse<any> = await api.get(`/bookings/${id}`);
+    // Convert snake_case to camelCase for the entire booking object including nested arrays
+    const snakeToCamel = (obj: any): any => {
+      if (obj === null || typeof obj !== 'object') return obj;
+      if (Array.isArray(obj)) return obj.map(snakeToCamel);
+      return Object.keys(obj).reduce((acc: any, key: string) => {
+        const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+        acc[camelKey] = snakeToCamel(obj[key]);
+        return acc;
+      }, {});
+    };
+    return snakeToCamel(response.data);
   },
 
   getByReference: async (reference: string, email: string): Promise<Booking> => {
-    const response: AxiosResponse<Booking> = await api.get(`/bookings/reference/${reference}`, {
+    const response: AxiosResponse<any> = await api.get(`/bookings/reference/${reference}`, {
       params: { email },
     });
-    return response.data;
+    // Convert snake_case to camelCase for the entire booking object including nested arrays
+    const snakeToCamel = (obj: any): any => {
+      if (obj === null || typeof obj !== 'object') return obj;
+      if (Array.isArray(obj)) return obj.map(snakeToCamel);
+      return Object.keys(obj).reduce((acc: any, key: string) => {
+        const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+        acc[camelKey] = snakeToCamel(obj[key]);
+        return acc;
+      }, {});
+    };
+    return snakeToCamel(response.data);
   },
 
   update: async (id: number, updateData: Partial<BookingData>): Promise<Booking> => {

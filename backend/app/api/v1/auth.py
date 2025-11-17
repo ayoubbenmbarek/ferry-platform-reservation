@@ -115,7 +115,108 @@ async def register(
         # TODO: Send verification email
         
         return UserResponse.model_validate(db_user)
-        
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Registration failed: {str(e)}"
+        )
+
+
+@router.post("/register-from-booking", response_model=dict)
+async def register_from_booking(
+    user_data: UserCreate,
+    booking_reference: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Create an account and link existing guest booking(s) to it.
+
+    Allows guests who made bookings to create an account afterwards
+    and have their bookings automatically linked to the new account.
+    """
+    try:
+        from app.models.booking import Booking
+
+        # Check if user already exists
+        existing_user = db.query(User).filter(User.email == user_data.email).first()
+        if existing_user:
+            # Instead of rejecting, we could offer to link the booking if they log in
+            # But for security, we don't want to auto-link without password verification
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This email is already registered. Please log in to link your booking to your account."
+            )
+
+        # Verify booking exists and matches email
+        booking = db.query(Booking).filter(
+            Booking.booking_reference == booking_reference
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        if booking.contact_email.lower() != user_data.email.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email must match the booking email"
+            )
+
+        # Create new user
+        hashed_password = get_password_hash(user_data.password)
+        db_user = User(
+            email=user_data.email,
+            hashed_password=hashed_password,
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
+            phone=user_data.phone,
+            preferred_language=user_data.preferred_language,
+            preferred_currency=user_data.preferred_currency,
+            is_active=True,
+            is_verified=True  # Auto-verify since they have a confirmed booking
+        )
+
+        db.add(db_user)
+        db.flush()  # Get user ID
+
+        # Link all bookings with this email to the new user
+        guest_bookings = db.query(Booking).filter(
+            Booking.contact_email == user_data.email,
+            Booking.user_id == None
+        ).all()
+
+        linked_count = 0
+        for guest_booking in guest_bookings:
+            print(f"Linking booking {guest_booking.booking_reference} to user {db_user.id}")
+            guest_booking.user_id = db_user.id
+            linked_count += 1
+
+        print(f"Total bookings linked: {linked_count}")
+        db.commit()
+        db.refresh(db_user)
+
+        # Create access token for immediate login
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": str(db_user.id)},
+            expires_delta=access_token_expires
+        )
+
+        return {
+            "user": UserResponse.model_validate(db_user).dict(),
+            "token": access_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "bookings_linked": linked_count,
+            "message": f"Account created successfully! {linked_count} booking(s) linked to your account."
+        }
+
     except HTTPException:
         raise
     except Exception as e:
@@ -133,7 +234,7 @@ async def login(
 ):
     """
     User login with email and password.
-    
+
     Returns a JWT access token for authenticated requests.
     """
     try:
@@ -144,24 +245,38 @@ async def login(
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Account is deactivated"
             )
-        
+
         # Update last login
         user.last_login = datetime.utcnow()
+
+        # Auto-link any guest bookings with matching email
+        from app.models.booking import Booking
+        guest_bookings = db.query(Booking).filter(
+            Booking.contact_email == user.email,
+            Booking.user_id == None
+        ).all()
+
+        for booking in guest_bookings:
+            booking.user_id = user.id
+
+        if guest_bookings:
+            print(f"Auto-linked {len(guest_bookings)} guest booking(s) to user {user.id} on login")
+
         db.commit()
-        
+
         # Create access token
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": str(user.id)}, 
+            data={"sub": str(user.id)},
             expires_delta=access_token_expires
         )
-        
+
         return Token(
             access_token=access_token,
             token_type="bearer",
@@ -184,7 +299,7 @@ async def login_with_email(
 ):
     """
     User login with email and password (JSON format).
-    
+
     Alternative login endpoint that accepts JSON data instead of form data.
     """
     try:
@@ -194,24 +309,38 @@ async def login_with_email(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password"
             )
-        
+
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Account is deactivated"
             )
-        
+
         # Update last login
         user.last_login = datetime.utcnow()
+
+        # Auto-link any guest bookings with matching email
+        from app.models.booking import Booking
+        guest_bookings = db.query(Booking).filter(
+            Booking.contact_email == user.email,
+            Booking.user_id == None
+        ).all()
+
+        for booking in guest_bookings:
+            booking.user_id = user.id
+
+        if guest_bookings:
+            print(f"Auto-linked {len(guest_bookings)} guest booking(s) to user {user.id} on login (email)")
+
         db.commit()
-        
+
         # Create access token
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": str(user.id)}, 
+            data={"sub": str(user.id)},
             expires_delta=access_token_expires
         )
-        
+
         return Token(
             access_token=access_token,
             token_type="bearer",
@@ -426,13 +555,91 @@ async def refresh_token(
         )
 
 
+@router.post("/link-booking")
+async def link_booking_to_account(
+    booking_reference: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Link a guest booking to the current user's account.
+
+    Allows logged-in users to claim guest bookings made with their email.
+    """
+    try:
+        from app.models.booking import Booking
+
+        # Find the booking
+        booking = db.query(Booking).filter(
+            Booking.booking_reference == booking_reference
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Verify the booking email matches the user's email
+        if booking.contact_email.lower() != current_user.email.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This booking was made with a different email address"
+            )
+
+        # Check if booking is already linked
+        if booking.user_id is not None:
+            if booking.user_id == current_user.id:
+                return {
+                    "message": "This booking is already linked to your account",
+                    "booking_reference": booking_reference
+                }
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This booking is already linked to another account"
+                )
+
+        # Link the booking to the user
+        booking.user_id = current_user.id
+        db.commit()
+
+        # Also link any other guest bookings with the same email
+        other_bookings = db.query(Booking).filter(
+            Booking.contact_email == current_user.email,
+            Booking.user_id == None
+        ).all()
+
+        linked_count = 1  # Count the main booking
+        for other_booking in other_bookings:
+            other_booking.user_id = current_user.id
+            linked_count += 1
+
+        db.commit()
+
+        return {
+            "message": f"Successfully linked {linked_count} booking(s) to your account",
+            "booking_reference": booking_reference,
+            "total_linked": linked_count
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to link booking: {str(e)}"
+        )
+
+
 @router.post("/logout")
 async def logout(
     current_user: User = Depends(get_current_active_user)
 ):
     """
     User logout.
-    
+
     Logs out the current user (client should discard the token).
     """
     return {"message": "Successfully logged out"} 

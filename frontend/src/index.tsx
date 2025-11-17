@@ -23,6 +23,22 @@ const queryClient = new QueryClient({
   },
 });
 
+// Clean up old persisted ferry state (migration - can be removed after all users have migrated)
+try {
+  const persistedState = localStorage.getItem('persist:root');
+  if (persistedState) {
+    const parsed = JSON.parse(persistedState);
+    if (parsed.ferry) {
+      // Remove ferry state from persisted data
+      delete parsed.ferry;
+      localStorage.setItem('persist:root', JSON.stringify(parsed));
+      console.log('Cleaned up old persisted ferry state');
+    }
+  }
+} catch (error) {
+  console.error('Error cleaning up persisted state:', error);
+}
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

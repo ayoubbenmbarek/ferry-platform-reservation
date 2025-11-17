@@ -34,6 +34,7 @@ class Meal(Base):
     """Meal options available for booking."""
 
     __tablename__ = "meals"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
 
@@ -68,10 +69,17 @@ class Meal(Base):
         return f"<Meal(id={self.id}, name='{self.name}', type='{self.meal_type.value}')>"
 
 
+class JourneyTypeEnum(enum.Enum):
+    """Journey leg type for round trips."""
+    OUTBOUND = "OUTBOUND"  # Aller
+    RETURN = "RETURN"  # Retour
+
+
 class BookingMeal(Base):
     """Meals reserved for a specific booking."""
 
     __tablename__ = "booking_meals"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False)
@@ -81,6 +89,7 @@ class BookingMeal(Base):
     passenger_id = Column(Integer, ForeignKey("booking_passengers.id"), nullable=True)  # Optional: specific passenger
     quantity = Column(Integer, nullable=False, default=1)
     meal_date = Column(DateTime(timezone=True), nullable=True)  # When the meal is scheduled
+    journey_type = Column(Enum(JourneyTypeEnum), nullable=True)  # OUTBOUND or RETURN for round trips
 
     # Dietary requirements
     dietary_type = Column(Enum(DietaryTypeEnum), nullable=True)

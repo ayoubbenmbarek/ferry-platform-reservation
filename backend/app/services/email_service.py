@@ -112,7 +112,7 @@ class EmailService:
             template = self.jinja_env.get_template('booking_confirmation.html')
             html_content = template.render(booking=booking_data)
 
-            subject = f"Booking Confirmation - {booking_data['booking_reference']}"
+            subject = f"Reservation Confirmed - {booking_data['booking_reference']}"
 
             return self.send_email(
                 to_email=to_email,

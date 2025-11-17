@@ -471,5 +471,19 @@ TODO: add button voice and said in tunisian lawej arkhes billet etc etc with met
 TODO: booking could pass twice for the same booking, correct that
 TODO: add paiment by apple pay and cards etc
 TODO:add dishes and add them to invoice,
-TODO:add romm choices, suite, etc single bed etc
+TODO:add room choices, suite, etc single bed etc
+TODO:generate invoice and send it by email
+TODO:confiromation link by email when register
+TODO:show meals for aller and retour if specified: done
+TODO: can't deactivate return if for example i want modify my actual search
+TODO: continue with Dockerfile.cron: done
+TODO:on pending reservations when i click complete paiment, i redirect to booking page with cancel booking button and not other thing to pay
+TODO:i choosed ferry for 100 then i found it with 93.50 in detail, i also start booking with user ayoubenmbarek@gmail.com i received email booking confirmed(to change to reservation confirmed beacuse it is just a reservation for now) with reference(MRB0F66F9D) but later i connect to account and i can't find that reservation pending
+TODO:in complete your ooking page email first name etc are mandatory but when i click continue to paiment it goes and later throm 422 error, it should no pass to next page ig values are empty:done
+
+TODOcontinue on previous task and i want checkbox to clear return date or any
+  easier solution for 1 click
+
+
+monitor cron docker exec maritime-cron-dev tail -f /var/log/cron.log
 **Congratulations! Your booking system is ready for production use!** 🎉

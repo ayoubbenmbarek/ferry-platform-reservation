@@ -23,6 +23,11 @@ const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const FindBookingPage = React.lazy(() => import('./pages/FindBookingPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
+// Admin pages
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
+const AdminUsers = React.lazy(() => import('./pages/AdminUsers'));
+const AdminBookings = React.lazy(() => import('./pages/AdminBookings'));
+
 function App() {
   const { i18n } = useTranslation();
 
@@ -54,6 +59,11 @@ function App() {
               {/* Protected routes */}
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
+
+              {/* Admin routes */}
+              <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+              <Route path="/admin/bookings" element={<ProtectedRoute><AdminBookings /></ProtectedRoute>} />
 
               {/* Booking details - accessible to both authenticated users and guests */}
               <Route path="/booking/:id" element={<BookingDetailsPage />} />

@@ -26,7 +26,7 @@ from app.services.email_service import email_service
 # Load environment variables
 load_dotenv()
 
-router = APIRouter(tags=["payments"])
+router = APIRouter()
 
 # Configure Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -423,6 +423,13 @@ async def stripe_webhook(
             if payment:
                 payment.status = PaymentStatusEnum.REFUNDED
                 payment.refund_amount = refund_amount
+
+                # Update booking refund status
+                booking = db.query(Booking).filter(Booking.id == payment.booking_id).first()
+                if booking:
+                    booking.refund_processed = True
+                    booking.refund_amount = refund_amount
+
                 db.commit()
 
         return {"status": "success"}

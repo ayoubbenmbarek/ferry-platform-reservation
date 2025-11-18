@@ -12,7 +12,7 @@ from app.schemas.meal import MealCreate, MealUpdate, MealResponse
 from app.api.deps import get_admin_user
 from app.models.user import User
 
-router = APIRouter(tags=["meals"])
+router = APIRouter()
 
 
 @router.get("", response_model=List[MealResponse])

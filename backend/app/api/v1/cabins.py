@@ -12,7 +12,7 @@ from app.schemas.cabin import CabinCreate, CabinUpdate, CabinResponse
 from app.api.deps import get_admin_user
 from app.models.user import User
 
-router = APIRouter(tags=["cabins"])
+router = APIRouter()
 
 
 @router.get("", response_model=List[CabinResponse])

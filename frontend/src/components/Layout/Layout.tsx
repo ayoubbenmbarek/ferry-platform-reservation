@@ -47,6 +47,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <>
                   <Link to="/my-bookings" className="text-gray-700 hover:text-blue-600">My Bookings</Link>
 
+                  {/* Admin Dashboard Button */}
+                  {user?.isAdmin && (
+                    <Link
+                      to="/admin"
+                      className="bg-purple-600 text-white px-3 py-1.5 rounded-md hover:bg-purple-700 text-sm font-medium"
+                    >
+                      Admin
+                    </Link>
+                  )}
+
                   {/* User Menu Dropdown */}
                   <div className="relative">
                     <button
@@ -82,6 +92,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         >
                           My Bookings
                         </Link>
+                        {user?.isAdmin && (
+                          <Link
+                            to="/admin"
+                            className="block px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 font-medium"
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            Admin Dashboard
+                          </Link>
+                        )}
                         <button
                           onClick={handleLogout}
                           className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"

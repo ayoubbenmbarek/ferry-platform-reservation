@@ -482,14 +482,49 @@ TODO:on pending reservations when i click complete paiment, i redirect to bookin
 TODO:i choosed ferry for 100 then i found it with 93.50 in detail, i also start booking with user ayoubenmbarek@gmail.com i received email booking confirmed(to change to reservation confirmed beacuse it is just a reservation for now) with reference(MRB0F66F9D) but later i connect to account and i can't find that reservation pending:done
 TODO:in complete your ooking page email first name etc are mandatory but when i click continue to paiment it goes and later throm 422 error, it should no pass to next page ig values are empty:done
 
-TODOcontinue on previous task and i want checkbox to clear return date or any
+TODO:continue on previous task and i want checkbox to clear return date or any
   easier solution for 1 click
   TODO: on pending add expires on in the frontend or somthing like that tell customer
-  in which hour it will be cancelled if he don't pay 
-  TODO:send email before sometimes when booking will be cancelled
+  in which hour it will be cancelled if he don't pay :done
+  TODO:send email before sometimes when booking will be cancelled:done
   TODO: add redis and celery to handle email sending while paiment in progress
-────────────────────────────────────────────────────────
+  TODO:why i see meals and Meals, Cabins and cabins, Payments and payments on the api, it is duplicated? it is the same?
+  TODO:update expires within in email reservtaion confirmed by the real expires at
+  TODO:cron do not run by itself:done
+  TODO:send email when cancel 
+  TODO: add retour different from inbound: high priority
+  TODO:add notification when traversee or place is available in a given date or given company
+  TODO: add Chats et animaux de petite taille et chien on passenger
+  TODO:add assurance reserver tranquille 12euros and DOMMAGES CAUSÉS AUX VÉHICULES
+  TODO:add cannot cancel 7 days before trip
+7,50 € au total
+TODO:addd possibility to add promo code
+TODO: another option of pending:send quote by email
+VOULEZ-VOUS SAUVEGARDER LE DEVIS DE VOTRE VOYAGE ?
+Vous pourrez le reprendre à tout moment or (within 3 days)
+Insérez votre adresse e-mail pour recevoir le devis(avec le trajet et les informations déjà renseigner)
 
+Veuillez noter que les tarifs peuvent varier en fonction des disponibilités
+TODO:ferryhopper integrates MCP:may use it to facilitate search by llm:
+Ferryhopper's Model Context Protocol (MCP)
+The connector for LLMs and AI Agents in Maritime Travel.
+
+Ferryhopper’s API: FerryhAPI
+The Ferryhopper MCP Server exposes ferry routes, schedules, and secure booking options, allowing your AI assistant to discover, plan, and execute ferry connections across the world, with speed and reliability. If you're building AI travel planning solutions, integrate this powerful transport MCP directly into your large language model (LLM) to deliver seamless, actionable ferry travel advice:
+https://partners.ferryhopper.com/mcp
+TODD:maybe follow up email to show inerest for MCP and it's integartion to our platform for use with omniligual meta solution..
+────────────────────────────────────────────────────────
+Contacts:Lyko,ferryhopper by conatct form,
+by email:sune.haggblom@ferrygateway.org, commercial@corsicalinea.com
 
 monitor cron docker exec maritime-cron-dev tail -f /var/log/cron.log
 **Congratulations! Your booking system is ready for production use!** 🎉
+
+Lyko for ctn https://lyko.tech/en/portfolio/ctn-ferries-api/?utm_source=chatgpt.com
+Lyko for corsica: https://lyko.tech/fr/portfolio/api-corsica-linea-2/
+May follow up Lyko to say i tried your documentation link it do not work
+
+make user admin:docker exec maritime-postgres-dev psql -U
+  postgres -d maritime_reservations_dev -c
+  "UPDATE users SET is_admin = true WHERE 
+  email = 'user@example.com';"

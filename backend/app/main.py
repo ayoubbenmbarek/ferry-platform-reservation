@@ -26,7 +26,7 @@ except ImportError:
 
 # Import API routes using importlib to avoid __init__.py conflicts
 import importlib
-auth = users = ferries = bookings = payments = cabins = meals = None
+auth = users = ferries = bookings = payments = cabins = meals = admin = None
 
 try:
     auth = importlib.import_module('app.api.v1.auth')
@@ -59,6 +59,11 @@ try:
     meals = importlib.import_module('app.api.v1.meals')
 except ImportError as e:
     print(f"Failed to import meals module: {e}")
+
+try:
+    admin = importlib.import_module('app.api.v1.admin')
+except ImportError as e:
+    print(f"Failed to import admin module: {e}")
 
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
@@ -232,6 +237,9 @@ if cabins:
 
 if meals:
     app.include_router(meals.router, prefix="/api/v1/meals", tags=["Meals"])
+
+if admin:
+    app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 
 # Startup event

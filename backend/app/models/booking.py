@@ -102,6 +102,7 @@ class Booking(Base):
     cancellation_reason = Column(Text, nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
     refund_amount = Column(Numeric(10, 2), nullable=True)
+    refund_processed = Column(Boolean, default=False)
 
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())

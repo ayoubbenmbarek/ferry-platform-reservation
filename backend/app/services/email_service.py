@@ -6,6 +6,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
+from email.mime.base import MIMEBase
+from email import encoders
 from typing import Dict, Any, Optional, List
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pathlib import Path
@@ -89,9 +91,34 @@ class EmailService:
             return False
 
     def _add_attachment(self, msg: MIMEMultipart, attachment: Dict[str, Any]):
-        """Add an attachment to the email message."""
-        # Implementation for attachments (PDF invoices, QR codes, etc.)
-        pass
+        """
+        Add an attachment to the email message.
+
+        Args:
+            msg: The email message
+            attachment: Dictionary with 'content' (bytes), 'filename', and 'content_type'
+        """
+        try:
+            content = attachment.get('content')
+            filename = attachment.get('filename', 'attachment')
+            content_type = attachment.get('content_type', 'application/octet-stream')
+
+            # Create attachment part
+            main_type, sub_type = content_type.split('/', 1)
+
+            part = MIMEBase(main_type, sub_type)
+            part.set_payload(content)
+            encoders.encode_base64(part)
+
+            part.add_header(
+                'Content-Disposition',
+                f'attachment; filename="{filename}"'
+            )
+
+            msg.attach(part)
+
+        except Exception as e:
+            logger.error(f"Failed to add attachment: {str(e)}")
 
     def send_booking_confirmation(
         self,
@@ -127,7 +154,8 @@ class EmailService:
         self,
         booking_data: Dict[str, Any],
         payment_data: Dict[str, Any],
-        to_email: str
+        to_email: str,
+        attachments: Optional[List[Dict[str, Any]]] = None
     ) -> bool:
         """
         Send payment confirmation email.
@@ -136,6 +164,7 @@ class EmailService:
             booking_data: Dictionary containing booking information
             payment_data: Dictionary containing payment information
             to_email: Recipient email address
+            attachments: Optional list of attachments (e.g., invoice PDF)
 
         Returns:
             bool: True if email sent successfully
@@ -152,7 +181,8 @@ class EmailService:
             return self.send_email(
                 to_email=to_email,
                 subject=subject,
-                html_content=html_content
+                html_content=html_content,
+                attachments=attachments
             )
         except Exception as e:
             logger.error(f"Failed to send payment confirmation: {str(e)}")
@@ -216,6 +246,36 @@ class EmailService:
             )
         except Exception as e:
             logger.error(f"Failed to send departure reminder: {str(e)}")
+            return False
+
+    def send_refund_confirmation(
+        self,
+        booking_data: Dict[str, Any],
+        to_email: str
+    ) -> bool:
+        """
+        Send refund confirmation email.
+
+        Args:
+            booking_data: Dictionary containing booking and refund information
+            to_email: Recipient email address
+
+        Returns:
+            bool: True if email sent successfully
+        """
+        try:
+            template = self.jinja_env.get_template('refund_confirmation.html')
+            html_content = template.render(booking=booking_data)
+
+            subject = f"Refund Processed - {booking_data['booking_reference']}"
+
+            return self.send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content
+            )
+        except Exception as e:
+            logger.error(f"Failed to send refund confirmation: {str(e)}")
             return False
 
 

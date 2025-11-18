@@ -25,6 +25,12 @@ export enum CabinType {
   DECK = 'deck',
 }
 
+export enum PetType {
+  CAT = 'CAT',
+  SMALL_ANIMAL = 'SMALL_ANIMAL',
+  DOG = 'DOG',
+}
+
 export interface VehicleInfo {
   id: string;
   type: VehicleType;
@@ -47,6 +53,12 @@ export interface PassengerInfo {
   passportNumber?: string;
   documentExpiry?: string;
   specialNeeds?: string;
+  // Pet information
+  hasPet?: boolean;
+  petType?: PetType;
+  petName?: string;
+  petWeightKg?: number;
+  petCarrierProvided?: boolean;
 }
 
 export interface CabinInfo {

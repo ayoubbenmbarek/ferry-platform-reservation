@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from fastapi import APIRouter, Depends, HTTPException, status, Query
+    from fastapi.responses import StreamingResponse
     from sqlalchemy.orm import Session
     from sqlalchemy import and_, or_
 except ImportError:
@@ -76,6 +77,9 @@ try:
     from app.services.ferry_service import FerryService
     from app.services.ferry_integrations.base import FerryAPIError
     from app.services.email_service import email_service
+    from app.services.invoice_service import invoice_service
+    from app.models.meal import BookingMeal
+    from app.models.payment import Payment, PaymentStatusEnum
 except ImportError:
     # Fallback for development
     def get_db():
@@ -148,9 +152,12 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
         departure_time=db_booking.departure_time,
         arrival_time=db_booking.arrival_time,
         vessel_name=db_booking.vessel_name,
-        # Round trip information
+        # Round trip information (can be different route/operator)
         is_round_trip=db_booking.is_round_trip or False,
         return_sailing_id=db_booking.return_sailing_id,
+        return_operator=db_booking.return_operator,
+        return_departure_port=db_booking.return_departure_port,
+        return_arrival_port=db_booking.return_arrival_port,
         return_departure_time=db_booking.return_departure_time,
         return_arrival_time=db_booking.return_arrival_time,
         return_vessel_name=db_booking.return_vessel_name,
@@ -189,7 +196,13 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
                 "passport_number": p.passport_number,
                 "base_price": p.base_price,
                 "final_price": p.final_price,
-                "special_needs": p.special_needs
+                "special_needs": p.special_needs,
+                # Pet information
+                "has_pet": p.has_pet or False,
+                "pet_type": p.pet_type.value if hasattr(p.pet_type, 'value') and p.pet_type else None,
+                "pet_name": p.pet_name,
+                "pet_weight_kg": float(p.pet_weight_kg) if p.pet_weight_kg else None,
+                "pet_carrier_provided": p.pet_carrier_provided or False
             }
             for p in db_booking.passengers
         ],
@@ -342,9 +355,12 @@ async def create_booking(
             departure_time=booking_data.departure_time,
             arrival_time=booking_data.arrival_time,
             vessel_name=booking_data.vessel_name,
-            # Round trip information
+            # Round trip information (can be different route/operator)
             is_round_trip=getattr(booking_data, 'is_round_trip', False),
             return_sailing_id=getattr(booking_data, 'return_sailing_id', None),
+            return_operator=getattr(booking_data, 'return_operator', None),
+            return_departure_port=getattr(booking_data, 'return_departure_port', None),
+            return_arrival_port=getattr(booking_data, 'return_arrival_port', None),
             return_departure_time=getattr(booking_data, 'return_departure_time', None),
             return_arrival_time=getattr(booking_data, 'return_arrival_time', None),
             return_vessel_name=getattr(booking_data, 'return_vessel_name', None),
@@ -376,6 +392,19 @@ async def create_booking(
             }
             db_passenger_type = passenger_type_map.get(passenger_data.type, PassengerTypeEnum.ADULT)
 
+            # Import PetTypeEnum for pet type conversion
+            from app.models.booking import PetTypeEnum
+
+            # Convert pet type if provided
+            pet_type_db = None
+            if hasattr(passenger_data, 'pet_type') and passenger_data.pet_type:
+                pet_type_map = {
+                    "CAT": PetTypeEnum.CAT,
+                    "SMALL_ANIMAL": PetTypeEnum.SMALL_ANIMAL,
+                    "DOG": PetTypeEnum.DOG
+                }
+                pet_type_db = pet_type_map.get(passenger_data.pet_type, None)
+
             db_passenger = BookingPassenger(
                 booking_id=db_booking.id,
                 passenger_type=db_passenger_type,
@@ -388,7 +417,13 @@ async def create_booking(
                           (base_child_price if passenger_data.type == "child" else 0.0),
                 final_price=base_adult_price if passenger_data.type == "adult" else
                            (base_child_price if passenger_data.type == "child" else 0.0),
-                special_needs=passenger_data.special_needs
+                special_needs=passenger_data.special_needs,
+                # Pet information
+                has_pet=getattr(passenger_data, 'has_pet', False) or False,
+                pet_type=pet_type_db,
+                pet_name=getattr(passenger_data, 'pet_name', None),
+                pet_weight_kg=getattr(passenger_data, 'pet_weight_kg', None),
+                pet_carrier_provided=getattr(passenger_data, 'pet_carrier_provided', False) or False
             )
             db.add(db_passenger)
         
@@ -817,11 +852,18 @@ async def cancel_booking(
                 "departure_port": booking.departure_port,
                 "arrival_port": booking.arrival_port,
                 "departure_time": booking.departure_time,
+                "arrival_time": booking.arrival_time,
+                "vessel_name": booking.vessel_name,
                 "contact_email": booking.contact_email,
+                "contact_first_name": booking.contact_first_name,
+                "contact_last_name": booking.contact_last_name,
+                "total_passengers": booking.total_passengers,
+                "total_vehicles": booking.total_vehicles,
                 "cancellation_reason": cancellation_data.reason,
+                "cancelled_at": booking.cancelled_at,
                 "refund_amount": payment.refund_amount if payment else None,
+                "base_url": os.getenv("BASE_URL", "http://localhost:3001")
             }
-            booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
 
             email_service.send_cancellation_confirmation(
                 booking_data=booking_dict,
@@ -977,4 +1019,145 @@ async def expire_pending_bookings(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to expire bookings: {str(e)}"
+        )
+
+
+@router.get("/{booking_id}/invoice")
+async def get_booking_invoice(
+    booking_id: int,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download PDF invoice for a booking.
+
+    Only available for paid bookings. User must own the booking or be admin.
+    """
+    try:
+        import io
+
+        # Get booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check user permission
+        if current_user:
+            if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this booking"
+                )
+        elif booking.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authentication required"
+            )
+
+        # Get payment - must be completed to generate invoice
+        payment = db.query(Payment).filter(
+            Payment.booking_id == booking_id,
+            Payment.status == PaymentStatusEnum.COMPLETED
+        ).first()
+
+        if not payment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invoice only available for paid bookings"
+            )
+
+        # Get passengers
+        passengers = []
+        for p in booking.passengers:
+            passengers.append({
+                'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                'first_name': p.first_name,
+                'last_name': p.last_name,
+                'final_price': float(p.final_price)
+            })
+
+        # Get vehicles
+        vehicles = []
+        for v in booking.vehicles:
+            vehicles.append({
+                'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                'license_plate': v.license_plate,
+                'final_price': float(v.final_price)
+            })
+
+        # Get meals
+        meals = []
+        for m in booking.meals:
+            meals.append({
+                'meal_name': m.meal.name if m.meal else 'Meal',
+                'quantity': m.quantity,
+                'unit_price': float(m.unit_price),
+                'total_price': float(m.total_price)
+            })
+
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'booking_reference': booking.booking_reference,
+            'operator': booking.operator,
+            'departure_port': booking.departure_port,
+            'arrival_port': booking.arrival_port,
+            'departure_time': booking.departure_time,
+            'arrival_time': booking.arrival_time,
+            'vessel_name': booking.vessel_name,
+            'is_round_trip': booking.is_round_trip,
+            'return_departure_time': booking.return_departure_time,
+            'contact_email': booking.contact_email,
+            'contact_phone': booking.contact_phone,
+            'contact_first_name': booking.contact_first_name,
+            'contact_last_name': booking.contact_last_name,
+            'total_passengers': booking.total_passengers,
+            'total_vehicles': booking.total_vehicles,
+            'subtotal': float(booking.subtotal),
+            'tax_amount': float(booking.tax_amount) if booking.tax_amount else 0,
+            'total_amount': float(booking.total_amount),
+            'currency': booking.currency,
+            'cabin_supplement': float(booking.cabin_supplement) if booking.cabin_supplement else 0,
+            'return_cabin_supplement': float(booking.return_cabin_supplement) if booking.return_cabin_supplement else 0,
+        }
+
+        # Prepare payment data
+        payment_data = {
+            'payment_method': payment.payment_method.value if hasattr(payment.payment_method, 'value') else str(payment.payment_method),
+            'stripe_payment_intent_id': payment.stripe_payment_intent_id,
+            'stripe_charge_id': payment.stripe_charge_id,
+            'card_brand': payment.card_brand,
+            'card_last_four': payment.card_last_four,
+        }
+
+        # Generate PDF
+        pdf_content = invoice_service.generate_invoice(
+            booking=booking_data,
+            payment=payment_data,
+            passengers=passengers,
+            vehicles=vehicles,
+            meals=meals
+        )
+
+        # Return as downloadable file
+        filename = f"invoice_{booking.booking_reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate invoice: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate invoice: {str(e)}"
         )

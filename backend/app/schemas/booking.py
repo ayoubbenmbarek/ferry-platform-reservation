@@ -89,9 +89,12 @@ class BookingCreate(BaseModel):
     # Pricing from selected ferry (to avoid hardcoded prices)
     ferry_prices: Optional[Dict[str, float]] = None
 
-    # Round trip support (all optional)
+    # Round trip support (all optional - can be different from outbound)
     is_round_trip: Optional[bool] = False
     return_sailing_id: Optional[str] = None
+    return_operator: Optional[str] = None  # Can be different operator
+    return_departure_port: Optional[str] = None  # Can be different route
+    return_arrival_port: Optional[str] = None
     return_cabin_id: Optional[int] = None  # Return cabin
     return_departure_time: Optional[datetime] = None
     return_arrival_time: Optional[datetime] = None
@@ -126,6 +129,13 @@ class BookingPassengerResponse(BaseModel):
     base_price: float
     final_price: float
     special_needs: Optional[str] = None
+
+    # Pet information
+    has_pet: bool = False
+    pet_type: Optional[str] = None
+    pet_name: Optional[str] = None
+    pet_weight_kg: Optional[float] = None
+    pet_carrier_provided: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -162,9 +172,12 @@ class BookingResponse(BaseModel):
     arrival_time: Optional[datetime] = None
     vessel_name: Optional[str] = None
 
-    # Round trip information
+    # Round trip information (can be different route/operator)
     is_round_trip: bool = False
     return_sailing_id: Optional[str] = None
+    return_operator: Optional[str] = None
+    return_departure_port: Optional[str] = None
+    return_arrival_port: Optional[str] = None
     return_departure_time: Optional[datetime] = None
     return_arrival_time: Optional[datetime] = None
     return_vessel_name: Optional[str] = None

@@ -159,9 +159,12 @@ export const createBooking = createAsyncThunk(
         vesselName: selectedFerry.vesselName,
         // Ferry prices from selected ferry (important for accurate pricing!)
         ferryPrices: selectedFerry.prices,
-        // Round trip information
+        // Round trip information (can be different route/operator)
         isRoundTrip: isRoundTrip,
         returnSailingId: selectedReturnFerry?.sailingId,
+        returnOperator: selectedReturnFerry?.operator,
+        returnDeparturePort: selectedReturnFerry?.departurePort,
+        returnArrivalPort: selectedReturnFerry?.arrivalPort,
         returnDepartureTime: selectedReturnFerry?.departureTime,
         returnArrivalTime: selectedReturnFerry?.arrivalTime,
         returnVesselName: selectedReturnFerry?.vesselName,
@@ -179,6 +182,12 @@ export const createBooking = createAsyncThunk(
           nationality: p.nationality || null,
           passportNumber: p.passportNumber || null,
           specialNeeds: p.specialNeeds || null,
+          // Pet information
+          hasPet: p.hasPet || false,
+          petType: p.petType || null,
+          petName: p.petName || null,
+          petWeightKg: p.petWeightKg || null,
+          petCarrierProvided: p.petCarrierProvided || false,
         })),
         vehicles: vehicles.length > 0 ? vehicles.map((v: VehicleInfo) => ({
           type: v.type,

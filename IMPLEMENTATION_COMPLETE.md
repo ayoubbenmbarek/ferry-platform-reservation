@@ -471,7 +471,7 @@ TODO: add button voice and said in tunisian lawej arkhes billet etc etc with met
 TODO: booking could pass twice for the same booking, correct that:done
 TODO: add paiment by apple pay and cards etc
 TODO:add dishes and add them to invoice:done
-TODO:generate invoices
+TODO:generate invoices:done
 TODO:add room choices, suite, etc single bed etc:done
 TODO:generate invoice and send it by email
 TODO:confiromation link by email when register
@@ -488,10 +488,10 @@ TODO:continue on previous task and i want checkbox to clear return date or any
   in which hour it will be cancelled if he don't pay :done
   TODO:send email before sometimes when booking will be cancelled:done
   TODO: add redis and celery to handle email sending while paiment in progress
-  TODO:why i see meals and Meals, Cabins and cabins, Payments and payments on the api, it is duplicated? it is the same?
+  TODO:why i see meals and Meals, Cabins and cabins, Payments and payments on the api, it is duplicated? it is the same?:done
   TODO:update expires within in email reservtaion confirmed by the real expires at
   TODO:cron do not run by itself:done
-  TODO:send email when cancel 
+  TODO:send email when cancel manually
   TODO: add retour different from inbound: high priority
   TODO:add notification when traversee or place is available in a given date or given company
   TODO: add Chats et animaux de petite taille et chien on passenger

@@ -39,6 +39,13 @@ class PassengerType(str, Enum):
     INFANT = "infant"
 
 
+class PetType(str, Enum):
+    """Pet type enumeration."""
+    CAT = "CAT"
+    SMALL_ANIMAL = "SMALL_ANIMAL"
+    DOG = "DOG"
+
+
 class CabinType(str, Enum):
     """Cabin type enumeration."""
     INTERIOR = "interior"
@@ -69,6 +76,13 @@ class PassengerInfo(BaseModel):
     passport_number: Optional[str] = None
     document_expiry: Optional[date] = None
     special_needs: Optional[str] = None
+
+    # Pet information
+    has_pet: Optional[bool] = False
+    pet_type: Optional[PetType] = None
+    pet_name: Optional[str] = None
+    pet_weight_kg: Optional[float] = None
+    pet_carrier_provided: Optional[bool] = False
 
 
 class CabinInfo(BaseModel):

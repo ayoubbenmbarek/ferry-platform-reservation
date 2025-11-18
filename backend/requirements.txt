@@ -39,6 +39,9 @@ stripe==13.2.0
 jinja2==3.1.2
 aiosmtplib==3.0.1
 
+# PDF generation
+reportlab==4.0.8
+
 # Logging
 structlog==23.2.0
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PassengerInfo, PassengerType, PASSENGER_AGE_LIMITS } from '../types/ferry';
+import { PassengerInfo, PassengerType, PetType, PASSENGER_AGE_LIMITS } from '../types/ferry';
 
 interface PassengerFormProps {
   passenger?: PassengerInfo;
@@ -260,6 +260,118 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
           rows={2}
           placeholder="Wheelchair access, dietary requirements, etc."
         />
+      </div>
+
+      {/* Pet Information */}
+      <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="flex items-center mb-3">
+          <input
+            type="checkbox"
+            id={`pet-toggle-${passengerNumber}`}
+            checked={formData.hasPet || false}
+            onChange={(e) => setFormData({
+              ...formData,
+              hasPet: e.target.checked,
+              // Reset pet fields if unchecked
+              ...(e.target.checked ? {} : { petType: undefined, petName: '', petWeightKg: undefined, petCarrierProvided: false })
+            })}
+            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+          />
+          <label htmlFor={`pet-toggle-${passengerNumber}`} className="ml-2 text-sm font-medium text-gray-700">
+            Traveling with a pet
+          </label>
+        </div>
+
+        {formData.hasPet && (
+          <div className="space-y-4 mt-3 pt-3 border-t border-blue-200">
+            {/* Pet Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Pet Type <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, petType: PetType.CAT })}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    formData.petType === PetType.CAT
+                      ? 'border-primary-500 bg-primary-50 shadow-md'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">🐱</div>
+                  <div className="text-xs font-medium text-gray-700">Cat</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, petType: PetType.SMALL_ANIMAL })}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    formData.petType === PetType.SMALL_ANIMAL
+                      ? 'border-primary-500 bg-primary-50 shadow-md'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">🐹</div>
+                  <div className="text-xs font-medium text-gray-700">Small Animal</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, petType: PetType.DOG })}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    formData.petType === PetType.DOG
+                      ? 'border-primary-500 bg-primary-50 shadow-md'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">🐕</div>
+                  <div className="text-xs font-medium text-gray-700">Dog</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Pet Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Pet Name</label>
+                <input
+                  type="text"
+                  value={formData.petName || ''}
+                  onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Fluffy"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Pet Weight (kg)</label>
+                <input
+                  type="number"
+                  value={formData.petWeightKg || ''}
+                  onChange={(e) => setFormData({ ...formData, petWeightKg: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="5"
+                  min="0"
+                  step="0.1"
+                />
+              </div>
+            </div>
+
+            {/* Pet Carrier */}
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id={`pet-carrier-${passengerNumber}`}
+                checked={formData.petCarrierProvided || false}
+                onChange={(e) => setFormData({ ...formData, petCarrierProvided: e.target.checked })}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label htmlFor={`pet-carrier-${passengerNumber}`} className="ml-2 text-sm text-gray-700">
+                I will provide a pet carrier/crate
+              </label>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-2">
+              Note: Pets must remain in their carrier during the journey. Additional fees may apply.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}

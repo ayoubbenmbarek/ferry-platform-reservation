@@ -16,6 +16,7 @@ from app.api.deps import get_db, get_admin_user
 from app.models.user import User
 from app.models.booking import Booking, BookingStatusEnum
 from app.models.payment import Payment, PaymentStatusEnum
+from app.services.email_service import email_service
 
 from app.schemas.admin import (
     DashboardStats, DashboardStatsToday, DashboardStatsTotal, DashboardStatsPending,
@@ -368,7 +369,36 @@ async def cancel_booking_admin(
     db.commit()
     db.refresh(booking)
 
-    # TODO: Send cancellation email
+    # Send cancellation email
+    try:
+        booking_dict = {
+            "id": booking.id,
+            "booking_reference": booking.booking_reference,
+            "operator": booking.operator,
+            "departure_port": booking.departure_port,
+            "arrival_port": booking.arrival_port,
+            "departure_time": booking.departure_time,
+            "arrival_time": booking.arrival_time,
+            "vessel_name": booking.vessel_name,
+            "contact_email": booking.contact_email,
+            "contact_first_name": booking.contact_first_name,
+            "contact_last_name": booking.contact_last_name,
+            "total_passengers": booking.total_passengers,
+            "total_vehicles": booking.total_vehicles,
+            "cancellation_reason": cancel_request.reason,
+            "cancelled_at": booking.cancelled_at,
+            "refund_amount": booking.refund_amount if booking.refund_amount else None,
+            "base_url": os.getenv("BASE_URL", "http://localhost:3001")
+        }
+
+        email_service.send_cancellation_confirmation(
+            booking_data=booking_dict,
+            to_email=booking.contact_email
+        )
+    except Exception as e:
+        # Log error but don't fail the cancellation
+        import logging
+        logging.error(f"Failed to send cancellation email for booking {booking_id}: {str(e)}")
 
     if payment and payment.amount:
         message = f"Booking cancelled. Refund of €{booking.refund_amount:.2f} pending admin approval."
@@ -435,6 +465,34 @@ async def process_refund(
         payment.refund_amount = refund_request.amount
 
         db.commit()
+        db.refresh(booking)
+
+        # Send refund confirmation email
+        try:
+            booking_dict = {
+                "id": booking.id,
+                "booking_reference": booking.booking_reference,
+                "operator": booking.operator,
+                "departure_port": booking.departure_port,
+                "arrival_port": booking.arrival_port,
+                "departure_time": booking.departure_time,
+                "contact_email": booking.contact_email,
+                "total_amount": float(booking.total_amount) if booking.total_amount else 0,
+                "refund_amount": refund_request.amount,
+                "currency": booking.currency or "EUR",
+                "stripe_refund_id": refund.id,
+                "refunded_at": datetime.utcnow(),
+                "base_url": os.getenv("BASE_URL", "http://localhost:3001")
+            }
+
+            email_service.send_refund_confirmation(
+                booking_data=booking_dict,
+                to_email=booking.contact_email
+            )
+        except Exception as email_error:
+            # Log error but don't fail the refund
+            import logging
+            logging.error(f"Failed to send refund confirmation email for booking {booking_id}: {str(email_error)}")
 
         return RefundResponse(
             message=f"Refund processed successfully (Stripe ID: {refund.id})",

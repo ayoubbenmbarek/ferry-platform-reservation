@@ -22,6 +22,8 @@ from app.schemas.payment import (
 from app.api.v1.auth import get_current_active_user
 from app.api.deps import get_optional_current_user
 from app.services.email_service import email_service
+from app.services.invoice_service import invoice_service
+from app.models.meal import BookingMeal
 
 # Load environment variables
 load_dotenv()
@@ -228,9 +230,10 @@ async def confirm_payment(
                 charge = latest_charge
             receipt_url = getattr(charge, 'receipt_url', None)
 
-        # Send payment confirmation email if payment succeeded
+        # Send payment confirmation email with invoice if payment succeeded
         if intent.status == "succeeded" and booking:
             try:
+                # Prepare booking data for email
                 booking_dict = {
                     "id": booking.id,
                     "booking_reference": booking.booking_reference,
@@ -238,7 +241,22 @@ async def confirm_payment(
                     "departure_port": booking.departure_port,
                     "arrival_port": booking.arrival_port,
                     "departure_time": booking.departure_time,
+                    "arrival_time": booking.arrival_time,
+                    "vessel_name": booking.vessel_name,
+                    "is_round_trip": booking.is_round_trip,
+                    "return_departure_time": booking.return_departure_time,
                     "contact_email": booking.contact_email,
+                    "contact_phone": booking.contact_phone,
+                    "contact_first_name": booking.contact_first_name,
+                    "contact_last_name": booking.contact_last_name,
+                    "total_passengers": booking.total_passengers,
+                    "total_vehicles": booking.total_vehicles,
+                    "subtotal": float(booking.subtotal),
+                    "tax_amount": float(booking.tax_amount) if booking.tax_amount else 0,
+                    "total_amount": float(booking.total_amount),
+                    "currency": booking.currency,
+                    "cabin_supplement": float(booking.cabin_supplement) if booking.cabin_supplement else 0,
+                    "return_cabin_supplement": float(booking.return_cabin_supplement) if booking.return_cabin_supplement else 0,
                 }
                 booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
 
@@ -247,13 +265,76 @@ async def confirm_payment(
                     "payment_method": payment.payment_method.value if payment.payment_method else "Credit Card",
                     "transaction_id": payment.stripe_charge_id or payment_intent_id,
                     "created_at": payment.created_at,
+                    "stripe_payment_intent_id": payment.stripe_payment_intent_id,
+                    "stripe_charge_id": payment.stripe_charge_id,
+                    "card_brand": payment.card_brand,
+                    "card_last_four": payment.card_last_four,
                 }
 
-                email_service.send_payment_confirmation(
-                    booking_data=booking_dict,
-                    payment_data=payment_dict,
-                    to_email=booking.contact_email
-                )
+                # Generate invoice PDF
+                try:
+                    # Get passengers
+                    passengers = []
+                    for p in booking.passengers:
+                        passengers.append({
+                            'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                            'first_name': p.first_name,
+                            'last_name': p.last_name,
+                            'final_price': float(p.final_price)
+                        })
+
+                    # Get vehicles
+                    vehicles = []
+                    for v in booking.vehicles:
+                        vehicles.append({
+                            'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                            'license_plate': v.license_plate,
+                            'final_price': float(v.final_price)
+                        })
+
+                    # Get meals
+                    meals = []
+                    for m in booking.meals:
+                        meals.append({
+                            'meal_name': m.meal_name,
+                            'quantity': m.quantity,
+                            'unit_price': float(m.unit_price),
+                            'total_price': float(m.total_price)
+                        })
+
+                    # Generate PDF
+                    pdf_content = invoice_service.generate_invoice(
+                        booking=booking_dict,
+                        payment=payment_dict,
+                        passengers=passengers,
+                        vehicles=vehicles,
+                        meals=meals
+                    )
+
+                    # Create attachment
+                    invoice_attachment = {
+                        'content': pdf_content,
+                        'filename': f"invoice_{booking.booking_reference}.pdf",
+                        'content_type': 'application/pdf'
+                    }
+
+                    # Send email with invoice attachment
+                    email_service.send_payment_confirmation(
+                        booking_data=booking_dict,
+                        payment_data=payment_dict,
+                        to_email=booking.contact_email,
+                        attachments=[invoice_attachment]
+                    )
+
+                except Exception as invoice_error:
+                    print(f"Failed to generate invoice: {str(invoice_error)}")
+                    # Still send email without invoice
+                    email_service.send_payment_confirmation(
+                        booking_data=booking_dict,
+                        payment_data=payment_dict,
+                        to_email=booking.contact_email
+                    )
+
             except Exception as e:
                 # Log email error but don't fail the payment confirmation
                 print(f"Failed to send payment confirmation email: {str(e)}")

@@ -25,6 +25,13 @@ class PassengerTypeEnum(enum.Enum):
     INFANT = "INFANT"
 
 
+class PetTypeEnum(enum.Enum):
+    """Pet type enum."""
+    CAT = "CAT"
+    SMALL_ANIMAL = "SMALL_ANIMAL"
+    DOG = "DOG"
+
+
 class VehicleTypeEnum(enum.Enum):
     """Vehicle type enum."""
     CAR = "CAR"
@@ -56,9 +63,12 @@ class Booking(Base):
     arrival_time = Column(DateTime(timezone=True), nullable=True)
     vessel_name = Column(String(100), nullable=True)
 
-    # Return journey details (for round trips)
+    # Return journey details (for round trips - can be different from outbound)
     is_round_trip = Column(Boolean, default=False)
     return_sailing_id = Column(String(100), nullable=True)
+    return_operator = Column(String(50), nullable=True)  # Can be different operator for return
+    return_departure_port = Column(String(100), nullable=True)  # Can be different route
+    return_arrival_port = Column(String(100), nullable=True)
     return_departure_time = Column(DateTime(timezone=True), nullable=True)
     return_arrival_time = Column(DateTime(timezone=True), nullable=True)
     return_vessel_name = Column(String(100), nullable=True)
@@ -155,14 +165,21 @@ class BookingPassenger(Base):
     dietary_requirements = Column(Text, nullable=True)
     mobility_assistance = Column(Boolean, default=False)
     special_needs = Column(Text, nullable=True)  # General special needs/requirements
-    
+
+    # Pet information (cats, small animals, dogs)
+    has_pet = Column(Boolean, default=False)
+    pet_type = Column(Enum(PetTypeEnum), nullable=True)
+    pet_name = Column(String(100), nullable=True)
+    pet_weight_kg = Column(Numeric(5, 2), nullable=True)  # For pricing/regulations
+    pet_carrier_provided = Column(Boolean, default=False)  # Does passenger have own carrier
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     booking = relationship("Booking", back_populates="passengers")
-    
+
     def __repr__(self):
         return f"<BookingPassenger(id={self.id}, name='{self.first_name} {self.last_name}')>"
 

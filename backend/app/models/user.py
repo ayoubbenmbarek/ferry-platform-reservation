@@ -27,6 +27,14 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
+
+    # Password reset
+    password_reset_token = Column(String(100), nullable=True)
+    password_reset_expires = Column(DateTime(timezone=True), nullable=True)
+
+    # Email verification
+    email_verification_token = Column(String(100), nullable=True)
+    email_verification_sent_at = Column(DateTime(timezone=True), nullable=True)
     
     # Preferences
     preferred_language = Column(String(5), default="en")  # ISO language code

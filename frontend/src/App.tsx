@@ -17,6 +17,9 @@ const MyBookingsPage = React.lazy(() => import('./pages/MyBookingsPage'));
 const BookingDetailsPage = React.lazy(() => import('./pages/BookingDetailsPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
+const VerifyEmailPage = React.lazy(() => import('./pages/VerifyEmailPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const AboutPage = React.lazy(() => import('./pages/AboutPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
@@ -52,6 +55,9 @@ function App() {
               <Route path="/booking/confirmation" element={<BookingConfirmationPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/find-booking" element={<FindBookingPage />} />

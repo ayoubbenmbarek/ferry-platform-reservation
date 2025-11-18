@@ -60,7 +60,11 @@ export const loginUser = createAsyncThunk(
         return response;
       }
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.detail || 'Login failed');
+      return rejectWithValue(
+        error.response?.data?.message ||
+        error.response?.data?.detail ||
+        'Login failed'
+      );
     }
   }
 );
@@ -80,7 +84,11 @@ export const registerUser = createAsyncThunk(
       const response = await authAPI.register(userData);
       return snakeToCamel(response);
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.detail || 'Registration failed');
+      return rejectWithValue(
+        error.response?.data?.message ||
+        error.response?.data?.detail ||
+        'Registration failed'
+      );
     }
   }
 );

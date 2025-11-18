@@ -25,18 +25,21 @@ import { PassengerInfo, PassengerType, VehicleInfo, FerryResult, SearchParams, P
 // Search Form Component
 interface SearchFormProps {
   onSearch: (params: SearchParams) => void;
+  isEditMode?: boolean;
 }
 
-const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch }) => {
+const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode = false }) => {
   const dispatch = useDispatch<AppDispatch>();
+  const existingParams = useSelector((state: RootState) => state.ferry.searchParams);
+
   const [form, setForm] = useState({
-    departurePort: '',
-    arrivalPort: '',
-    departureDate: '',
-    returnDate: '',
-    adults: 1,
-    children: 0,
-    infants: 0,
+    departurePort: existingParams.departurePort || '',
+    arrivalPort: existingParams.arrivalPort || '',
+    departureDate: existingParams.departureDate || '',
+    returnDate: existingParams.returnDate || '',
+    adults: existingParams.passengers?.adults || 1,
+    children: existingParams.passengers?.children || 0,
+    infants: existingParams.passengers?.infants || 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -83,10 +86,12 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch }) => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32">
           <div className="text-center mb-12">
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-              ⚓ Ferry to Tunisia
+              {isEditMode ? '✏️ Edit Your Search' : '⚓ Ferry to Tunisia'}
             </h1>
             <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto">
-              Book your Mediterranean crossing from Italy & France to Tunisia
+              {isEditMode
+                ? 'Update your route and dates. Your passenger and vehicle details will be preserved.'
+                : 'Book your Mediterranean crossing from Italy & France to Tunisia'}
             </p>
           </div>
 
@@ -199,7 +204,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch }) => {
                 </div>
 
                 <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all">
-                  🔍 Search Ferries
+                  {isEditMode ? '🔄 Update Search' : '🔍 Search Ferries'}
                 </button>
               </form>
             </div>
@@ -228,6 +233,7 @@ const NewSearchPage: React.FC = () => {
   const [showAddPassenger, setShowAddPassenger] = useState(false);
 
   const [hasSearchParams, setHasSearchParams] = useState(true);
+  const [isEditingRoute, setIsEditingRoute] = useState(false);
 
   useEffect(() => {
     // Check if we have search params
@@ -242,7 +248,7 @@ const NewSearchPage: React.FC = () => {
     if (searchResults.length === 0 && !isSearching) {
       dispatch(searchFerries(searchParams as any));
     }
-  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, searchResults.length, isSearching, dispatch]);
+  }, [searchParams, searchResults.length, isSearching, dispatch]);
 
   // Warn user before leaving if they have an active booking in progress
   useEffect(() => {
@@ -332,11 +338,26 @@ const NewSearchPage: React.FC = () => {
   // Show message if no search params
   // Show search form if no search params
   if (!hasSearchParams) {
-    return <SearchFormComponent onSearch={(params) => {
-      dispatch(startNewSearch()); // Reset state and set to step 2
-      dispatch(searchFerries(params as any));
-      setHasSearchParams(true);
-    }} />;
+    return <SearchFormComponent
+      isEditMode={isEditingRoute}
+      onSearch={(params) => {
+        if (isEditingRoute) {
+          // When editing route, just update search params and search
+          // Don't clear passengers/vehicles
+          dispatch(setSearchParams(params));
+          dispatch(setIsRoundTrip(!!params.returnDate));
+          dispatch(searchFerries(params as any));
+          setIsEditingRoute(false);
+          // Go to ferry selection step
+          dispatch(setCurrentStep(2));
+        } else {
+          // New search - reset everything
+          dispatch(startNewSearch());
+          dispatch(searchFerries(params as any));
+        }
+        setHasSearchParams(true);
+      }}
+    />;
   }
 
   // Step 1: Enter passenger details
@@ -372,9 +393,12 @@ const NewSearchPage: React.FC = () => {
                       {formatDate(selectedFerry.departureTime)} at {formatTime(selectedFerry.departureTime)}
                     </p>
                   </div>
-                  <p className="text-xl font-bold text-blue-600">
-                    €{Object.values(selectedFerry.prices)[0]?.toFixed(2)}
-                  </p>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">from</p>
+                    <p className="text-xl font-bold text-blue-600">
+                      €{(selectedFerry.prices?.adult || Object.values(selectedFerry.prices)[0] || 0).toFixed(2)}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -388,6 +412,12 @@ const NewSearchPage: React.FC = () => {
                 <p className="text-gray-600">Departure</p>
                 <p className="font-semibold">{searchParams.departureDate && formatDate(searchParams.departureDate)}</p>
               </div>
+              {searchParams.returnDate && (
+                <div>
+                  <p className="text-gray-600">Return</p>
+                  <p className="font-semibold">{formatDate(searchParams.returnDate)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-gray-600">Passengers</p>
                 <p className="font-semibold">{totalPassengers} passenger{totalPassengers !== 1 ? 's' : ''}</p>
@@ -396,6 +426,23 @@ const NewSearchPage: React.FC = () => {
                 <p className="text-gray-600">Vehicles</p>
                 <p className="font-semibold">{vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''}</p>
               </div>
+            </div>
+
+            {/* Edit Route Button */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  // Clear selected ferry since route will change
+                  dispatch(selectFerry(null as any));
+                  // Set edit mode (to preserve passengers/vehicles)
+                  setIsEditingRoute(true);
+                  // Show search form
+                  setHasSearchParams(false);
+                }}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
+              >
+                <span className="mr-1">✏️</span> Edit Route & Dates
+              </button>
             </div>
           </div>
 
@@ -590,10 +637,11 @@ const NewSearchPage: React.FC = () => {
                     </div>
 
                     <div className="mt-4 md:mt-0 md:ml-6 md:text-right">
-                      <p className="text-gray-600 text-sm mb-1">Total price</p>
+                      <p className="text-gray-600 text-sm mb-1">From</p>
                       <p className="text-3xl font-bold text-blue-600 mb-2">
-                        €{Object.values(ferry.prices)[0]?.toFixed(2) || 'N/A'}
+                        €{(ferry.prices?.adult || Object.values(ferry.prices)[0] || 0).toFixed(2)}
                       </p>
+                      <p className="text-xs text-gray-500 mb-2">per adult</p>
                       <button
                         onClick={() => handleSelectFerry(ferry)}
                         className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
@@ -657,10 +705,8 @@ const NewSearchPage: React.FC = () => {
                 <p className="text-sm text-gray-600 mt-2">
                   {formatDate(selectedFerry.departureTime)} at {formatTime(selectedFerry.departureTime)}
                 </p>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-blue-600">
-                  €{Object.values(selectedFerry.prices)[0]?.toFixed(2)}
+                <p className="text-sm text-gray-600">
+                  {searchParams.departurePort} → {searchParams.arrivalPort}
                 </p>
               </div>
             </div>
@@ -670,12 +716,30 @@ const NewSearchPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Passengers ({passengers.length})</h2>
             <div className="space-y-2">
-              {passengers.map((p, i) => (
-                <div key={p.id} className="flex justify-between py-2 border-b border-gray-200">
-                  <span>{i + 1}. {p.firstName} {p.lastName}</span>
-                  <span className="text-gray-600 text-sm">{p.type}</span>
-                </div>
-              ))}
+              {passengers.map((p, i) => {
+                const price = p.type === 'adult'
+                  ? (selectedFerry.prices?.adult || 0)
+                  : p.type === 'child'
+                  ? (selectedFerry.prices?.child || 0)
+                  : 0;
+                return (
+                  <div key={p.id} className="flex justify-between py-2 border-b border-gray-200">
+                    <div>
+                      <span>{i + 1}. {p.firstName} {p.lastName}</span>
+                      <span className="text-gray-500 text-sm ml-2">({p.type})</span>
+                      {p.hasPet && (
+                        <span className="ml-2 text-blue-600 text-sm">
+                          + {p.petType === 'DOG' ? '🐕' : p.petType === 'CAT' ? '🐱' : '🐹'} {p.petName || 'Pet'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="font-medium">€{price.toFixed(2)}</span>
+                      {p.hasPet && <span className="text-blue-600 text-sm ml-1">+€15.00</span>}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -684,15 +748,99 @@ const NewSearchPage: React.FC = () => {
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4">Vehicles ({vehicles.length})</h2>
               <div className="space-y-2">
-                {vehicles.map((v, i) => (
-                  <div key={v.id} className="flex justify-between py-2 border-b border-gray-200">
-                    <span>{i + 1}. {v.type}</span>
-                    <span className="text-gray-600 text-sm">{v.length}m × {v.width}m × {v.height}m</span>
-                  </div>
-                ))}
+                {vehicles.map((v, i) => {
+                  const vehiclePrice = selectedFerry.prices?.vehicle || 50;
+                  return (
+                    <div key={v.id} className="flex justify-between py-2 border-b border-gray-200">
+                      <div>
+                        <span>{i + 1}. {v.type}</span>
+                        <span className="text-gray-500 text-sm ml-2">({v.length}m × {v.width}m × {v.height}m)</span>
+                      </div>
+                      <span className="font-medium">€{vehiclePrice.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
+
+          {/* Price Summary */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Price Summary</h2>
+            <div className="space-y-3">
+              {/* Passengers breakdown */}
+              {(() => {
+                const adultCount = passengers.filter(p => p.type === 'adult').length;
+                const childCount = passengers.filter(p => p.type === 'child').length;
+                const infantCount = passengers.filter(p => p.type === 'infant').length;
+                const petCount = passengers.filter(p => p.hasPet).length;
+
+                const adultPrice = selectedFerry.prices?.adult || 0;
+                const childPrice = selectedFerry.prices?.child || 0;
+                const vehiclePrice = selectedFerry.prices?.vehicle || 50;
+                const petPrice = 15;
+
+                const adultTotal = adultCount * adultPrice;
+                const childTotal = childCount * childPrice;
+                const vehicleTotal = vehicles.length * vehiclePrice;
+                const petTotal = petCount * petPrice;
+                const subtotal = adultTotal + childTotal + vehicleTotal + petTotal;
+                const tax = subtotal * 0.1;
+                const total = subtotal + tax;
+
+                return (
+                  <>
+                    {adultCount > 0 && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>{adultCount} Adult{adultCount > 1 ? 's' : ''} × €{adultPrice.toFixed(2)}</span>
+                        <span>€{adultTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childCount > 0 && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>{childCount} Child{childCount > 1 ? 'ren' : ''} × €{childPrice.toFixed(2)}</span>
+                        <span>€{childTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantCount > 0 && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>{infantCount} Infant{infantCount > 1 ? 's' : ''}</span>
+                        <span>Free</span>
+                      </div>
+                    )}
+                    {vehicles.length > 0 && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>{vehicles.length} Vehicle{vehicles.length > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}</span>
+                        <span>€{vehicleTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {petCount > 0 && (
+                      <div className="flex justify-between text-blue-600">
+                        <span>{petCount} Pet{petCount > 1 ? 's' : ''} × €{petPrice.toFixed(2)}</span>
+                        <span>€{petTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-gray-200 pt-3 mt-3">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Subtotal</span>
+                        <span>€{subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Tax (10%)</span>
+                        <span>€{tax.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="border-t border-gray-200 pt-3 mt-3">
+                      <div className="flex justify-between text-xl font-bold">
+                        <span>Total</span>
+                        <span className="text-blue-600">€{total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
 
           {/* Navigation */}
           <div className="flex justify-between items-center bg-white rounded-lg shadow-md p-6">

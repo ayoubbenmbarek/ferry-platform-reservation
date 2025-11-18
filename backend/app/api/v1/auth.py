@@ -2,6 +2,8 @@
 Authentication API endpoints for user registration, login, and token management.
 """
 
+import os
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -108,12 +110,35 @@ async def register(
             is_verified=False  # Require email verification
         )
         
+        # Generate verification token
+        verification_token = secrets.token_urlsafe(32)
+        db_user.email_verification_token = verification_token
+        db_user.email_verification_sent_at = datetime.utcnow()
+
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        
-        # TODO: Send verification email
-        
+
+        # Send verification email
+        try:
+            from app.services.email_service import email_service
+            base_url = os.getenv("BASE_URL", "http://localhost:3001")
+            verification_link = f"{base_url}/verify-email?token={verification_token}"
+
+            email_data = {
+                "first_name": db_user.first_name,
+                "verification_link": verification_link,
+                "base_url": base_url
+            }
+
+            email_service.send_email_verification(
+                email_data=email_data,
+                to_email=db_user.email
+            )
+        except Exception as e:
+            # Log but don't fail registration if email fails
+            print(f"Failed to send verification email: {str(e)}")
+
         return UserResponse.model_validate(db_user)
 
     except HTTPException:
@@ -252,6 +277,12 @@ async def login(
                 detail="Account is deactivated"
             )
 
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please verify your email before logging in. Check your inbox for the verification link."
+            )
+
         # Update last login
         user.last_login = datetime.utcnow()
 
@@ -282,7 +313,7 @@ async def login(
             token_type="bearer",
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -316,6 +347,12 @@ async def login_with_email(
                 detail="Account is deactivated"
             )
 
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please verify your email before logging in. Check your inbox for the verification link."
+            )
+
         # Update last login
         user.last_login = datetime.utcnow()
 
@@ -346,7 +383,7 @@ async def login_with_email(
             token_type="bearer",
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -449,20 +486,43 @@ async def forgot_password(
 ):
     """
     Request password reset.
-    
+
     Sends a password reset email to the user if the email exists.
     """
+    import secrets
+    from datetime import datetime, timedelta
+    from app.services.email_service import email_service
+
     try:
         user = db.query(User).filter(User.email == reset_data.email).first()
         if not user:
             # Don't reveal if email exists or not
             return {"message": "If the email exists, a reset link has been sent"}
-        
-        # TODO: Generate reset token and send email
-        # For now, just return success message
-        
+
+        # Generate reset token
+        reset_token = secrets.token_urlsafe(32)
+        user.password_reset_token = reset_token
+        user.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
+        db.commit()
+
+        # Send reset email
+        base_url = os.getenv("BASE_URL", "http://localhost:3001")
+        reset_link = f"{base_url}/reset-password?token={reset_token}"
+
+        email_data = {
+            "first_name": user.first_name,
+            "reset_link": reset_link,
+            "expires_in": "1 hour",
+            "base_url": base_url
+        }
+
+        email_service.send_password_reset(
+            email_data=email_data,
+            to_email=user.email
+        )
+
         return {"message": "If the email exists, a reset link has been sent"}
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -477,17 +537,37 @@ async def reset_password(
 ):
     """
     Reset password with token.
-    
+
     Resets the user's password using a valid reset token.
     """
     try:
-        # TODO: Validate reset token and get user
-        # For now, just return error
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password reset not implemented yet"
-        )
-        
+        # Find user with this reset token
+        user = db.query(User).filter(
+            User.password_reset_token == reset_data.token
+        ).first()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+
+        # Check if token has expired
+        from datetime import timezone
+        if user.password_reset_expires and user.password_reset_expires < datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has expired. Please request a new one."
+            )
+
+        # Update password
+        user.hashed_password = get_password_hash(reset_data.new_password)
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        db.commit()
+
+        return {"message": "Password has been reset successfully. You can now login with your new password."}
+
     except HTTPException:
         raise
     except Exception as e:
@@ -497,30 +577,91 @@ async def reset_password(
         )
 
 
-@router.post("/verify-email")
+@router.get("/verify-email")
 async def verify_email(
     token: str,
     db: Session = Depends(get_db)
 ):
     """
     Verify email address.
-    
+
     Verifies a user's email address using a verification token.
     """
     try:
-        # TODO: Validate verification token and update user
-        # For now, just return error
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email verification not implemented yet"
-        )
-        
+        # Find user with this verification token
+        user = db.query(User).filter(
+            User.email_verification_token == token
+        ).first()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token"
+            )
+
+        # Mark email as verified
+        user.is_verified = True
+        user.email_verification_token = None
+        user.email_verification_sent_at = None
+        db.commit()
+
+        return {"message": "Email verified successfully! You can now use all features of your account."}
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Email verification failed: {str(e)}"
+        )
+
+
+@router.post("/resend-verification")
+async def resend_verification_email(
+    email: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Resend email verification link.
+    """
+    from app.services.email_service import email_service
+
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            # Don't reveal if email exists
+            return {"message": "If the email exists, a verification link has been sent"}
+
+        if user.is_verified:
+            return {"message": "Email is already verified"}
+
+        # Generate new verification token
+        verification_token = secrets.token_urlsafe(32)
+        user.email_verification_token = verification_token
+        user.email_verification_sent_at = datetime.utcnow()
+        db.commit()
+
+        # Send verification email
+        base_url = os.getenv("BASE_URL", "http://localhost:3001")
+        verification_link = f"{base_url}/verify-email?token={verification_token}"
+
+        email_data = {
+            "first_name": user.first_name,
+            "verification_link": verification_link,
+            "base_url": base_url
+        }
+
+        email_service.send_email_verification(
+            email_data=email_data,
+            to_email=user.email
+        )
+
+        return {"message": "If the email exists, a verification link has been sent"}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to send verification email: {str(e)}"
         )
 
 

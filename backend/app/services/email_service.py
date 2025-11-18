@@ -278,6 +278,66 @@ class EmailService:
             logger.error(f"Failed to send refund confirmation: {str(e)}")
             return False
 
+    def send_password_reset(
+        self,
+        email_data: Dict[str, Any],
+        to_email: str
+    ) -> bool:
+        """
+        Send password reset email.
+
+        Args:
+            email_data: Dictionary containing reset link and user info
+            to_email: Recipient email address
+
+        Returns:
+            bool: True if email sent successfully
+        """
+        try:
+            template = self.jinja_env.get_template('password_reset.html')
+            html_content = template.render(data=email_data)
+
+            subject = "Reset Your Password - Maritime Booking"
+
+            return self.send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content
+            )
+        except Exception as e:
+            logger.error(f"Failed to send password reset email: {str(e)}")
+            return False
+
+    def send_email_verification(
+        self,
+        email_data: Dict[str, Any],
+        to_email: str
+    ) -> bool:
+        """
+        Send email verification link.
+
+        Args:
+            email_data: Dictionary containing verification link and user info
+            to_email: Recipient email address
+
+        Returns:
+            bool: True if email sent successfully
+        """
+        try:
+            template = self.jinja_env.get_template('email_verification.html')
+            html_content = template.render(data=email_data)
+
+            subject = "Verify Your Email - Maritime Booking"
+
+            return self.send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content
+            )
+        except Exception as e:
+            logger.error(f"Failed to send email verification: {str(e)}")
+            return False
+
 
 # Singleton instance
 email_service = EmailService()

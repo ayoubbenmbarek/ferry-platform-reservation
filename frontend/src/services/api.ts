@@ -375,4 +375,32 @@ export const paymentAPI = {
   },
 };
 
+// Promo Code API
+export const promoCodeAPI = {
+  validate: async (params: {
+    code: string;
+    booking_amount: number;
+    email: string;
+    operator?: string;
+  }): Promise<{
+    is_valid: boolean;
+    code: string;
+    message: string;
+    discount_type?: string;
+    discount_value?: number;
+    discount_amount?: number;
+    final_amount?: number;
+  }> => {
+    const response = await api.post('/promo-codes/validate', null, {
+      params: {
+        code: params.code,
+        booking_amount: params.booking_amount,
+        email: params.email,
+        operator: params.operator,
+      },
+    });
+    return response.data;
+  },
+};
+
 export default api; 

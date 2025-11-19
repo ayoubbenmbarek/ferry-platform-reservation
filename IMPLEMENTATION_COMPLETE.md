@@ -470,7 +470,8 @@ The frontend integration is 90% complete - just add the UI components using the 
 TODO: add button voice and said in tunisian (search for routes from two when example) etc etc with meta osmmultilingue and it will do search by itself
 TODO:forget password 404 not found
 TODO: booking could pass twice for the same booking, correct that:done
-TODO: add paiment by apple pay and cards etc
+TODO: add paiment by apple pay
+
 TODO:add dishes and add them to invoice:done
 TODO:generate invoices:done
 TODO:add room choices, suite, etc single bed etc:done
@@ -499,8 +500,10 @@ TODO:in complete your ooking page email first name etc are mandatory but when i 
   TODO:Add multilanguage support
   TODO: i should get customer information(aller-retour-date-passgaer-etc and check all available ferries to give him comparaison and best proposition)
   TODO:add pay in 3 times
+  TODO:sign up with google
+  TODO:add glisser un jour vers avant ou après et voir les prix et les dispo de traversé (passenger, vehicule, cabin..)
 7,50 € au total
-TODO:addd possibility to add promo code
+TODO:addd possibility to add promo code:done
 TODO: another option of pending:send quote by email
 VOULEZ-VOUS SAUVEGARDER LE DEVIS DE VOTRE VOYAGE ?
 Vous pourrez le reprendre à tout moment or (within 3 days)

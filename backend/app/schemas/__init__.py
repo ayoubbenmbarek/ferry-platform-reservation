@@ -6,10 +6,15 @@ from .user import UserCreate, UserUpdate, UserResponse, UserLogin
 from .ferry import FerrySearch, FerryResult, RouteResponse, ScheduleResponse
 from .booking import BookingCreate, BookingResponse, BookingUpdate
 from .payment import PaymentCreate, PaymentResponse, PaymentMethodCreate
+from .promo_code import (
+    PromoCodeCreate, PromoCodeUpdate, PromoCodeResponse,
+    PromoCodeValidateRequest, PromoCodeValidateResponse,
+    PromoCodeApplyRequest, PromoCodeUsageResponse
+)
 
 __all__ = [
     "UserCreate",
-    "UserUpdate", 
+    "UserUpdate",
     "UserResponse",
     "UserLogin",
     "FerrySearch",
@@ -22,4 +27,11 @@ __all__ = [
     "PaymentCreate",
     "PaymentResponse",
     "PaymentMethodCreate",
+    "PromoCodeCreate",
+    "PromoCodeUpdate",
+    "PromoCodeResponse",
+    "PromoCodeValidateRequest",
+    "PromoCodeValidateResponse",
+    "PromoCodeApplyRequest",
+    "PromoCodeUsageResponse",
 ] 

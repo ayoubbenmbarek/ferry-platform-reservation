@@ -123,6 +123,12 @@ const AdminDashboard: React.FC = () => {
               Bookings
             </button>
             <button
+              onClick={() => navigate('/admin/promo-codes')}
+              className="py-4 px-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+            >
+              Promo Codes
+            </button>
+            <button
               onClick={() => navigate('/admin/analytics')}
               className="py-4 px-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
             >

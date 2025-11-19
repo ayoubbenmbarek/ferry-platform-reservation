@@ -99,7 +99,10 @@ class BookingCreate(BaseModel):
     return_departure_time: Optional[datetime] = None
     return_arrival_time: Optional[datetime] = None
     return_vessel_name: Optional[str] = None
-    
+
+    # Promo code
+    promo_code: Optional[str] = None
+
     @field_validator('passengers')
     @classmethod
     def validate_passengers(cls, v):
@@ -195,9 +198,13 @@ class BookingResponse(BaseModel):
 
     # Pricing
     subtotal: float
+    discount_amount: float = 0.00
     tax_amount: float
     total_amount: float
     currency: str
+
+    # Promo code
+    promo_code: Optional[str] = None
 
     # Cabin information
     cabin_id: Optional[int] = None

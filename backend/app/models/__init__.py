@@ -7,6 +7,7 @@ from .booking import Booking, BookingPassenger, BookingVehicle
 from .ferry import Ferry, Route, Schedule, Cabin, CabinTypeEnum, BedTypeEnum
 from .payment import Payment, PaymentMethod
 from .meal import Meal, BookingMeal, MealTypeEnum, DietaryTypeEnum, JourneyTypeEnum
+from .promo_code import PromoCode, PromoCodeUsage, PromoCodeTypeEnum
 
 __all__ = [
     "User",
@@ -26,4 +27,7 @@ __all__ = [
     "MealTypeEnum",
     "DietaryTypeEnum",
     "JourneyTypeEnum",
+    "PromoCode",
+    "PromoCodeUsage",
+    "PromoCodeTypeEnum",
 ] 

@@ -170,9 +170,11 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
         total_passengers=db_booking.total_passengers,
         total_vehicles=db_booking.total_vehicles,
         subtotal=db_booking.subtotal,
+        discount_amount=db_booking.discount_amount or 0.0,
         tax_amount=db_booking.tax_amount,
         total_amount=db_booking.total_amount,
         currency=db_booking.currency,
+        promo_code=db_booking.promo_code,
         # Cabin information
         cabin_id=db_booking.cabin_id,
         cabin_supplement=db_booking.cabin_supplement or 0.0,
@@ -332,9 +334,36 @@ async def create_booking(
                     meals_total += float(meal.price) * meal_selection.quantity
             subtotal += meals_total
 
-        # Calculate tax (10% for example)
-        tax_amount = subtotal * 0.10
-        total_amount = subtotal + tax_amount
+        # Apply promo code if provided
+        discount_amount = 0.0
+        promo_code_str = None
+        if hasattr(booking_data, 'promo_code') and booking_data.promo_code:
+            from app.services.promo_code_service import PromoCodeService, PromoCodeError
+            from app.schemas.promo_code import PromoCodeValidateRequest
+
+            promo_service = PromoCodeService(db)
+            validate_request = PromoCodeValidateRequest(
+                code=booking_data.promo_code.strip().upper(),
+                booking_amount=subtotal,
+                operator=booking_data.operator,
+                email=booking_data.contact_info.email.lower(),
+                user_id=current_user.id if current_user else None
+            )
+
+            validation = promo_service.validate_promo_code(validate_request)
+            if validation.is_valid:
+                discount_amount = validation.discount_amount
+                promo_code_str = booking_data.promo_code.strip().upper()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Promo code error: {validation.message}"
+                )
+
+        # Calculate tax on discounted subtotal (10% for example)
+        discounted_subtotal = subtotal - discount_amount
+        tax_amount = discounted_subtotal * 0.10
+        total_amount = discounted_subtotal + tax_amount
 
         # Calculate expiration time (30 minutes from now for pending bookings)
         from datetime import datetime, timedelta
@@ -368,9 +397,11 @@ async def create_booking(
             total_passengers=total_passengers,
             total_vehicles=total_vehicles,
             subtotal=subtotal,
+            discount_amount=discount_amount,
             tax_amount=tax_amount,
             total_amount=total_amount,
             currency="EUR",
+            promo_code=promo_code_str,
             cabin_id=selected_cabin_id,
             cabin_supplement=cabin_supplement,
             return_cabin_id=selected_return_cabin_id,
@@ -495,6 +526,11 @@ async def create_booking(
 
         db.commit()
         db.refresh(db_booking)
+
+        # Note: Promo code usage is recorded after payment confirmation, not here
+        # This prevents usage count from being consumed for unpaid bookings
+        if promo_code_str:
+            logger.info(f"Promo code {promo_code_str} applied to booking {db_booking.id} - usage will be recorded after payment")
 
         # Create booking with ferry operator
         try:

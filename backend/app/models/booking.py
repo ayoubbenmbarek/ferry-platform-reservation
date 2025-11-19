@@ -90,9 +90,13 @@ class Booking(Base):
     
     # Pricing
     subtotal = Column(Numeric(10, 2), nullable=False)
+    discount_amount = Column(Numeric(10, 2), default=0.00)  # Promo code discount
     tax_amount = Column(Numeric(10, 2), default=0.00)
     total_amount = Column(Numeric(10, 2), nullable=False)
     currency = Column(String(3), default="EUR")
+
+    # Promo code
+    promo_code = Column(String(50), nullable=True)  # Applied promo code
     
     # Status
     status = Column(Enum(BookingStatusEnum), default=BookingStatusEnum.PENDING)

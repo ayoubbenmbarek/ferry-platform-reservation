@@ -26,7 +26,7 @@ except ImportError:
 
 # Import API routes using importlib to avoid __init__.py conflicts
 import importlib
-auth = users = ferries = bookings = payments = cabins = meals = admin = None
+auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = None
 
 try:
     auth = importlib.import_module('app.api.v1.auth')
@@ -64,6 +64,11 @@ try:
     admin = importlib.import_module('app.api.v1.admin')
 except ImportError as e:
     print(f"Failed to import admin module: {e}")
+
+try:
+    promo_codes = importlib.import_module('app.api.v1.promo_codes')
+except ImportError as e:
+    print(f"Failed to import promo_codes module: {e}")
 
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
@@ -127,12 +132,31 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle validation errors."""
+    # Convert errors to JSON-serializable format
+    import json
+    errors = []
+    for error in exc.errors():
+        # Make a copy and convert any non-serializable values to strings
+        error_dict = {}
+        for key, value in error.items():
+            if key == 'ctx' and isinstance(value, dict):
+                # Convert context values to strings
+                error_dict[key] = {k: str(v) for k, v in value.items()}
+            else:
+                try:
+                    # Try to serialize, if it fails convert to string
+                    json.dumps(value)
+                    error_dict[key] = value
+                except (TypeError, ValueError):
+                    error_dict[key] = str(value)
+        errors.append(error_dict)
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": True,
             "message": "Validation error",
-            "details": exc.errors()
+            "details": errors
         }
     )
 
@@ -240,6 +264,9 @@ if meals:
 
 if admin:
     app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+
+if promo_codes:
+    app.include_router(promo_codes.router, prefix="/api/v1", tags=["Promo Codes"])
 
 
 # Startup event

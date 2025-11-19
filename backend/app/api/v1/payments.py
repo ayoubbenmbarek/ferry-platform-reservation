@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User
-from app.models.booking import Booking
+from app.models.booking import Booking, BookingStatusEnum
 from app.models.payment import Payment, PaymentStatusEnum, PaymentMethodEnum
 from app.schemas.payment import (
     PaymentCreate,
@@ -82,6 +82,34 @@ async def create_payment_intent(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Booking is already paid",
+            )
+
+        # Handle zero amount (100% discount)
+        if payment_data.amount <= 0:
+            # Create a free payment record
+            payment_method_enum = PaymentMethodEnum[payment_data.payment_method.name]
+            payment = Payment(
+                booking_id=payment_data.booking_id,
+                user_id=current_user.id if current_user else None,
+                amount=0,
+                currency=payment_data.currency.value,
+                status=PaymentStatusEnum.COMPLETED,
+                payment_method=payment_method_enum,
+                stripe_payment_intent_id=f"free_{booking.booking_reference}",
+                net_amount=0,
+            )
+            db.add(payment)
+
+            # Update booking status to confirmed
+            booking.status = BookingStatusEnum.CONFIRMED
+            db.commit()
+
+            return PaymentIntent(
+                client_secret="free_booking",
+                payment_intent_id=f"free_{booking.booking_reference}",
+                amount=0,
+                currency=payment_data.currency.value,
+                status="succeeded",
             )
 
         # Convert amount to cents for Stripe
@@ -210,6 +238,25 @@ async def confirm_payment(
             if booking:
                 booking.status = "CONFIRMED"
                 booking.payment_status = "PAID"
+
+                # Record promo code usage now that payment is confirmed
+                if booking.promo_code:
+                    from app.services.promo_code_service import PromoCodeService
+                    from app.schemas.promo_code import PromoCodeApplyRequest
+
+                    promo_service = PromoCodeService(db)
+                    try:
+                        apply_request = PromoCodeApplyRequest(
+                            code=booking.promo_code,
+                            booking_id=booking.id,
+                            original_amount=float(booking.subtotal),
+                            email=booking.contact_email.lower(),
+                            user_id=booking.user_id
+                        )
+                        promo_service.apply_promo_code(apply_request)
+                        logger.info(f"Promo code {booking.promo_code} usage recorded for paid booking {booking.id}")
+                    except Exception as promo_error:
+                        logger.error(f"Failed to record promo code usage: {str(promo_error)}")
 
         elif intent.status == "processing":
             payment.status = PaymentStatusEnum.PROCESSING

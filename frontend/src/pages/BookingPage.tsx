@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setMeals } from '../store/slices/ferrySlice';
+import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode } from '../store/slices/ferrySlice';
 import CabinSelector from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
+import { promoCodeAPI } from '../services/api';
 
 const BookingPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams } = useSelector(
+  const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams, promoCode, promoDiscount, promoValidationMessage } = useSelector(
     (state: RootState) => state.ferry
   );
   const { user } = useSelector((state: RootState) => state.auth);
@@ -30,6 +31,11 @@ const BookingPage: React.FC = () => {
 
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Promo code state
+  const [promoCodeInput, setPromoCodeInput] = useState(promoCode || '');
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   useEffect(() => {
     // Redirect if no ferry selected
@@ -77,6 +83,53 @@ const BookingPage: React.FC = () => {
     setMealsPrice(totalPrice);
     // Dispatch to Redux store
     dispatch(setMeals(meals));
+  };
+
+  const handleApplyPromoCode = async () => {
+    if (!promoCodeInput.trim()) {
+      setPromoError('Please enter a promo code');
+      return;
+    }
+
+    if (!localContactInfo.email) {
+      setPromoError('Please enter your email first');
+      return;
+    }
+
+    setIsValidatingPromo(true);
+    setPromoError(null);
+
+    try {
+      const result = await promoCodeAPI.validate({
+        code: promoCodeInput.trim(),
+        booking_amount: subtotal,
+        email: localContactInfo.email,
+        operator: selectedFerry?.operator,
+      });
+
+      if (result.is_valid) {
+        dispatch(setPromoCode(result.code));
+        dispatch(setPromoDiscount({
+          discount: result.discount_amount || 0,
+          message: result.message,
+        }));
+        setPromoError(null);
+      } else {
+        setPromoError(result.message);
+        dispatch(clearPromoCode());
+      }
+    } catch (err: any) {
+      setPromoError(err.response?.data?.detail || 'Failed to validate promo code');
+      dispatch(clearPromoCode());
+    } finally {
+      setIsValidatingPromo(false);
+    }
+  };
+
+  const handleRemovePromoCode = () => {
+    setPromoCodeInput('');
+    setPromoError(null);
+    dispatch(clearPromoCode());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,8 +202,10 @@ const BookingPage: React.FC = () => {
   const vehiclesTotal = vehicles.length * vehiclePrice;
   const totalCabinPrice = cabinPrice + (isRoundTrip && selectedReturnFerry ? returnCabinPrice : 0);
   const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice;
-  const tax = subtotal * 0.1; // 10% tax
-  const total = subtotal + tax;
+  const discount = promoDiscount || 0;
+  const discountedSubtotal = subtotal - discount;
+  const tax = discountedSubtotal * 0.1; // 10% tax
+  const total = discountedSubtotal + tax;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -288,6 +343,57 @@ const BookingPage: React.FC = () => {
                 passengerCount={totalPassengers}
                 isRoundTrip={isRoundTrip && !!selectedReturnFerry}
               />
+            </div>
+
+            {/* Promo Code */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4">Promo Code</h2>
+              {promoCode ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="font-semibold text-green-800">{promoCode}</p>
+                      <p className="text-sm text-green-700">
+                        {promoValidationMessage || `You save €${discount.toFixed(2)}!`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRemovePromoCode}
+                    className="text-gray-500 hover:text-red-600"
+                    title="Remove promo code"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoCodeInput}
+                      onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                      placeholder="Enter promo code"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 uppercase"
+                    />
+                    <button
+                      onClick={handleApplyPromoCode}
+                      disabled={isValidatingPromo || !promoCodeInput.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                    >
+                      {isValidatingPromo ? 'Checking...' : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && (
+                    <p className="mt-2 text-sm text-red-600">{promoError}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Terms and Conditions */}
@@ -433,6 +539,16 @@ const BookingPage: React.FC = () => {
                       )}
                     </span>
                     <span>€{mealsPrice.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm font-medium pt-2 border-t border-gray-100">
+                  <span className="text-gray-700">Subtotal</span>
+                  <span>€{subtotal.toFixed(2)}</span>
+                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Promo Discount</span>
+                    <span>-€{discount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">

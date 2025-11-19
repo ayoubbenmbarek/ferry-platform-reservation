@@ -160,7 +160,7 @@ const BookingConfirmationPage: React.FC = () => {
                 {booking.contactFirstName} {booking.contactLastName}
               </p>
               <p className="text-sm text-gray-600">{booking.contactEmail}</p>
-              {booking.contactPhone && (
+              {booking.contactPhone && !booking.contactPhone.includes('@') && (
                 <p className="text-sm text-gray-600">{booking.contactPhone}</p>
               )}
             </div>
@@ -242,6 +242,12 @@ const BookingConfirmationPage: React.FC = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Meals Total</span>
                     <span>€{booking.meals.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0).toFixed(2)}</span>
+                  </div>
+                )}
+                {(booking.discountAmount || booking.discount_amount) > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Promo Discount {booking.promoCode || booking.promo_code ? `(${booking.promoCode || booking.promo_code})` : ''}</span>
+                    <span>-€{(booking.discountAmount || booking.discount_amount)?.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">

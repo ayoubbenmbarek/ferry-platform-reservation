@@ -63,6 +63,11 @@ interface FerryState {
   // Round trip state
   isRoundTrip: boolean;
 
+  // Promo code state
+  promoCode: string | null;
+  promoDiscount: number | null;
+  promoValidationMessage: string | null;
+
   // UI state
   isLoading: boolean;
   error: string | null;
@@ -94,6 +99,9 @@ const initialState: FerryState = {
   isCreatingBooking: false,
   bookingError: null,
   isRoundTrip: false,
+  promoCode: null,
+  promoDiscount: null,
+  promoValidationMessage: null,
   isLoading: false,
   error: null,
 };
@@ -140,7 +148,8 @@ export const createBooking = createAsyncThunk(
         selectedMeals,
         contactInfo,
         isRoundTrip,
-        searchParams
+        searchParams,
+        promoCode
       } = state.ferry;
 
       if (!selectedFerry) {
@@ -207,6 +216,7 @@ export const createBooking = createAsyncThunk(
         cabinId: selectedCabinId,
         returnCabinId: selectedReturnCabinId,
         meals: selectedMeals && selectedMeals.length > 0 ? selectedMeals : undefined,
+        promoCode: promoCode || undefined,
       });
 
       // Use axios directly to send snake_case data
@@ -276,6 +286,21 @@ const ferrySlice = createSlice({
       state.selectedMeals = action.payload;
     },
 
+    setPromoCode: (state, action: PayloadAction<string | null>) => {
+      state.promoCode = action.payload;
+    },
+
+    setPromoDiscount: (state, action: PayloadAction<{ discount: number | null; message: string | null }>) => {
+      state.promoDiscount = action.payload.discount;
+      state.promoValidationMessage = action.payload.message;
+    },
+
+    clearPromoCode: (state) => {
+      state.promoCode = null;
+      state.promoDiscount = null;
+      state.promoValidationMessage = null;
+    },
+
     setContactInfo: (state, action: PayloadAction<ContactInfo>) => {
       state.contactInfo = action.payload;
     },
@@ -343,6 +368,9 @@ const ferrySlice = createSlice({
       state.vehicles = [];
       state.searchResults = [];
       state.searchError = null;
+      state.promoCode = null;
+      state.promoDiscount = null;
+      state.promoValidationMessage = null;
     },
 
     clearError: (state) => {
@@ -427,6 +455,9 @@ export const {
   setReturnFerry,
   setIsRoundTrip,
   setMeals,
+  setPromoCode,
+  setPromoDiscount,
+  clearPromoCode,
   setContactInfo,
   addPassenger,
   updatePassenger,

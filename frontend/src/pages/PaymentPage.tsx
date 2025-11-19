@@ -70,7 +70,12 @@ const PaymentPage: React.FC = () => {
       }
 
       // Use the actual total from the booking (includes cabin, meals, tax, etc.)
-      const totalAmount = booking.totalAmount || booking.total_amount || calculateTotal();
+      // Use explicit check for undefined/null to allow 0 as a valid value
+      const totalAmount = booking.totalAmount !== undefined && booking.totalAmount !== null
+        ? booking.totalAmount
+        : (booking.total_amount !== undefined && booking.total_amount !== null
+            ? booking.total_amount
+            : calculateTotal());
       setBookingTotal(totalAmount);
 
       // Create payment intent
@@ -80,6 +85,15 @@ const PaymentPage: React.FC = () => {
         currency: 'EUR',
         payment_method: 'credit_card',
       });
+
+      // Handle free booking (100% discount)
+      if (paymentIntent.client_secret === 'free_booking') {
+        // Booking is already confirmed, redirect to confirmation
+        navigate('/booking/confirmation', {
+          state: { booking: bookingDetails || booking }
+        });
+        return;
+      }
 
       setClientSecret(paymentIntent.client_secret);
 
@@ -298,6 +312,13 @@ const PaymentPage: React.FC = () => {
                       <div className="flex justify-between text-sm text-gray-500 pl-4">
                         <span>• Meals ({bookingDetails.meals.length})</span>
                         <span>€{bookingDetails.meals.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0).toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {(bookingDetails.discountAmount || bookingDetails.discount_amount) > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Promo Discount {bookingDetails.promoCode || bookingDetails.promo_code ? `(${bookingDetails.promoCode || bookingDetails.promo_code})` : ''}</span>
+                        <span>-€{(bookingDetails.discountAmount || bookingDetails.discount_amount).toFixed(2)}</span>
                       </div>
                     )}
 

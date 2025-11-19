@@ -101,6 +101,9 @@ class FerrySearch(BaseModel):
     arrival_port: str
     departure_date: date
     return_date: Optional[date] = None
+    # Different return route support (can return from different port)
+    return_departure_port: Optional[str] = None
+    return_arrival_port: Optional[str] = None
     adults: int = 1
     children: int = 0
     infants: int = 0

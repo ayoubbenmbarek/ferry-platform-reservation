@@ -115,6 +115,8 @@ class FerryService:
         arrival_port: str,
         departure_date: date,
         return_date: Optional[date] = None,
+        return_departure_port: Optional[str] = None,
+        return_arrival_port: Optional[str] = None,
         adults: int = 1,
         children: int = 0,
         infants: int = 0,
@@ -129,6 +131,8 @@ class FerryService:
             arrival_port: Arrival port code (e.g., "GENOA")
             departure_date: Departure date
             return_date: Optional return date for round trip
+            return_departure_port: Optional different departure port for return trip
+            return_arrival_port: Optional different arrival port for return trip
             adults: Number of adult passengers
             children: Number of child passengers (2-11 years)
             infants: Number of infant passengers (0-2 years)
@@ -143,6 +147,8 @@ class FerryService:
             arrival_port=arrival_port,
             departure_date=departure_date,
             return_date=return_date,
+            return_departure_port=return_departure_port,
+            return_arrival_port=return_arrival_port,
             adults=adults,
             children=children,
             infants=infants,

@@ -7,7 +7,10 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import stripe
 import os
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User
@@ -244,7 +247,14 @@ async def confirm_payment(
                     "arrival_time": booking.arrival_time,
                     "vessel_name": booking.vessel_name,
                     "is_round_trip": booking.is_round_trip,
+                    # Return journey details
+                    "return_sailing_id": booking.return_sailing_id,
+                    "return_operator": booking.return_operator,
+                    "return_departure_port": booking.return_departure_port,
+                    "return_arrival_port": booking.return_arrival_port,
                     "return_departure_time": booking.return_departure_time,
+                    "return_arrival_time": booking.return_arrival_time,
+                    "return_vessel_name": booking.return_vessel_name,
                     "contact_email": booking.contact_email,
                     "contact_phone": booking.contact_phone,
                     "contact_first_name": booking.contact_first_name,
@@ -296,7 +306,7 @@ async def confirm_payment(
                     meals = []
                     for m in booking.meals:
                         meals.append({
-                            'meal_name': m.meal_name,
+                            'meal_name': m.meal.name if m.meal else 'Meal',
                             'quantity': m.quantity,
                             'unit_price': float(m.unit_price),
                             'total_price': float(m.total_price)
@@ -327,7 +337,7 @@ async def confirm_payment(
                     )
 
                 except Exception as invoice_error:
-                    print(f"Failed to generate invoice: {str(invoice_error)}")
+                    logger.error(f"Failed to generate invoice for booking {booking.booking_reference}: {str(invoice_error)}", exc_info=True)
                     # Still send email without invoice
                     email_service.send_payment_confirmation(
                         booking_data=booking_dict,
@@ -337,7 +347,7 @@ async def confirm_payment(
 
             except Exception as e:
                 # Log email error but don't fail the payment confirmation
-                print(f"Failed to send payment confirmation email: {str(e)}")
+                logger.error(f"Failed to send payment confirmation email for booking {booking.booking_reference if booking else 'unknown'}: {str(e)}", exc_info=True)
 
         return PaymentConfirmation(
             payment_id=payment.id,

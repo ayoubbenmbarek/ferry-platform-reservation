@@ -109,6 +109,9 @@ export const searchFerries = createAsyncThunk(
         arrivalPort: searchParams.arrivalPort,
         departureDate: searchParams.departureDate,
         returnDate: searchParams.returnDate,
+        // Different return route support
+        returnDeparturePort: searchParams.returnDeparturePort,
+        returnArrivalPort: searchParams.returnArrivalPort,
         passengers: searchParams.passengers.adults + searchParams.passengers.children + searchParams.passengers.infants,
         vehicles: searchParams.vehicles?.length || 0,
         operator: searchParams.operators?.[0],
@@ -136,7 +139,8 @@ export const createBooking = createAsyncThunk(
         selectedReturnCabinId,
         selectedMeals,
         contactInfo,
-        isRoundTrip
+        isRoundTrip,
+        searchParams
       } = state.ferry;
 
       if (!selectedFerry) {
@@ -163,8 +167,9 @@ export const createBooking = createAsyncThunk(
         isRoundTrip: isRoundTrip,
         returnSailingId: selectedReturnFerry?.sailingId,
         returnOperator: selectedReturnFerry?.operator,
-        returnDeparturePort: selectedReturnFerry?.departurePort,
-        returnArrivalPort: selectedReturnFerry?.arrivalPort,
+        // Use selectedReturnFerry route if available, otherwise use searchParams (for different return route)
+        returnDeparturePort: selectedReturnFerry?.departurePort || searchParams?.returnDeparturePort,
+        returnArrivalPort: selectedReturnFerry?.arrivalPort || searchParams?.returnArrivalPort,
         returnDepartureTime: selectedReturnFerry?.departureTime,
         returnArrivalTime: selectedReturnFerry?.arrivalTime,
         returnVesselName: selectedReturnFerry?.vesselName,

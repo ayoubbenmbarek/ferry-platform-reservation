@@ -164,14 +164,18 @@
                 <strong>{{ booking.booking_reference }}</strong>
             </div>
 
+            <!-- Outbound Journey -->
             <div class="route">
+                {% if booking.is_round_trip %}
+                <div style="color: #3b82f6; font-weight: 600; margin-bottom: 10px; font-size: 14px;">Outbound Journey</div>
+                {% endif %}
                 <div class="route-port">{{ booking.departure_port }}</div>
                 <span class="route-arrow">→</span>
                 <div class="route-port">{{ booking.arrival_port }}</div>
             </div>
 
             <div class="info-section">
-                <h2>Ferry Details</h2>
+                <h2>{% if booking.is_round_trip %}Outbound {% endif %}Ferry Details</h2>
                 <div class="detail-row">
                     <span class="detail-label">Operator</span>
                     <span class="detail-value">{{ booking.operator }}</span>
@@ -191,6 +195,55 @@
                     <span class="detail-value">{{ booking.arrival_time.strftime('%B %d, %Y at %H:%M') }}</span>
                 </div>
             </div>
+
+            <!-- Return Journey -->
+            {% if booking.is_round_trip %}
+            <div class="route">
+                <div style="color: #3b82f6; font-weight: 600; margin-bottom: 10px; font-size: 14px;">Return Journey</div>
+                {% if booking.return_departure_port %}
+                <div class="route-port">{{ booking.return_departure_port }}</div>
+                <span class="route-arrow">→</span>
+                <div class="route-port">{{ booking.return_arrival_port or booking.departure_port }}</div>
+                {% else %}
+                <div class="route-port">{{ booking.arrival_port }}</div>
+                <span class="route-arrow">→</span>
+                <div class="route-port">{{ booking.departure_port }}</div>
+                {% endif %}
+            </div>
+
+            <div class="info-section">
+                <h2>Return Ferry Details</h2>
+                {% if booking.return_sailing_id %}
+                <div class="detail-row">
+                    <span class="detail-label">Operator</span>
+                    <span class="detail-value">{{ booking.return_operator or booking.operator }}</span>
+                </div>
+                {% if booking.return_vessel_name %}
+                <div class="detail-row">
+                    <span class="detail-label">Vessel</span>
+                    <span class="detail-value">{{ booking.return_vessel_name }}</span>
+                </div>
+                {% endif %}
+                {% if booking.return_departure_time %}
+                <div class="detail-row">
+                    <span class="detail-label">Departure</span>
+                    <span class="detail-value">{{ booking.return_departure_time.strftime('%B %d, %Y at %H:%M') }}</span>
+                </div>
+                {% endif %}
+                {% if booking.return_arrival_time %}
+                <div class="detail-row">
+                    <span class="detail-label">Arrival</span>
+                    <span class="detail-value">{{ booking.return_arrival_time.strftime('%B %d, %Y at %H:%M') }}</span>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="detail-row">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value" style="color: #d97706;">Return ferry not yet selected</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
 
             <div class="info-section">
                 <h2>Passenger Information</h2>

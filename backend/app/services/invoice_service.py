@@ -149,7 +149,11 @@ class InvoiceService:
         else:
             departure_str = str(departure_time) if departure_time else "N/A"
 
+        # Check if it's a round trip for labeling
+        is_round_trip = booking.get('is_round_trip', False)
+
         journey_data = [
+            ['OUTBOUND JOURNEY' if is_round_trip else 'JOURNEY DETAILS', ''],
             ['Operator', booking.get('operator', 'N/A')],
             ['Route', f"{booking.get('departure_port', 'N/A')} → {booking.get('arrival_port', 'N/A')}"],
             ['Departure', departure_str],
@@ -157,23 +161,42 @@ class InvoiceService:
         ]
 
         # Add return journey if round trip
-        if booking.get('is_round_trip'):
-            return_time = booking.get('return_departure_time')
-            if isinstance(return_time, str):
-                try:
-                    return_time = datetime.fromisoformat(return_time.replace('Z', '+00:00'))
-                    return_str = return_time.strftime("%d/%m/%Y at %H:%M")
-                except:
-                    return_str = return_time
-            elif hasattr(return_time, 'strftime'):
-                return_str = return_time.strftime("%d/%m/%Y at %H:%M")
-            else:
-                return_str = str(return_time) if return_time else "N/A"
+        if is_round_trip:
+            # Determine return route (use return ports if set, otherwise reverse outbound)
+            return_dep_port = booking.get('return_departure_port') or booking.get('arrival_port', 'N/A')
+            return_arr_port = booking.get('return_arrival_port') or booking.get('departure_port', 'N/A')
 
-            journey_data.append(['Return', return_str])
+            # Add return journey section
+            journey_data.append(['', ''])  # Empty row separator
+            journey_data.append(['RETURN JOURNEY', ''])
+            journey_data.append(['Route', f"{return_dep_port} → {return_arr_port}"])
+
+            # Only show operator/vessel/time if return ferry was actually selected
+            if booking.get('return_sailing_id'):
+                journey_data.append(['Operator', booking.get('return_operator') or booking.get('operator', 'N/A')])
+
+                return_time = booking.get('return_departure_time')
+                if isinstance(return_time, str):
+                    try:
+                        return_time = datetime.fromisoformat(return_time.replace('Z', '+00:00'))
+                        return_str = return_time.strftime("%d/%m/%Y at %H:%M")
+                    except:
+                        return_str = return_time
+                elif hasattr(return_time, 'strftime'):
+                    return_str = return_time.strftime("%d/%m/%Y at %H:%M")
+                else:
+                    return_str = str(return_time) if return_time else "N/A"
+
+                journey_data.append(['Departure', return_str])
+                if booking.get('return_vessel_name'):
+                    journey_data.append(['Vessel', booking.get('return_vessel_name', 'N/A')])
+            else:
+                journey_data.append(['Status', 'Return ferry not yet selected'])
 
         journey_table = Table(journey_data, colWidths=[5*cm, 12*cm])
-        journey_table.setStyle(TableStyle([
+
+        # Build table style
+        table_style = [
             ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f3f4f6')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
@@ -181,8 +204,24 @@ class InvoiceService:
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb'))
-        ]))
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            # Style for section headers (OUTBOUND/RETURN JOURNEY)
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('SPAN', (0, 0), (-1, 0)),
+        ]
+
+        # Style return journey header if present
+        if is_round_trip:
+            # Find the RETURN JOURNEY row (it's after outbound (5 rows) + empty separator)
+            return_header_idx = 6
+            table_style.extend([
+                ('BACKGROUND', (0, return_header_idx), (-1, return_header_idx), colors.HexColor('#1e40af')),
+                ('TEXTCOLOR', (0, return_header_idx), (-1, return_header_idx), colors.white),
+                ('SPAN', (0, return_header_idx), (-1, return_header_idx)),
+            ])
+
+        journey_table.setStyle(TableStyle(table_style))
         elements.append(journey_table)
         elements.append(Spacer(1, 10))
 

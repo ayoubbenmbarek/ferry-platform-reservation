@@ -77,6 +77,9 @@ export interface SearchParams {
   arrivalPort: string;
   departureDate: string;
   returnDate?: string;
+  // Different return route support
+  returnDeparturePort?: string;
+  returnArrivalPort?: string;
   passengers: number;
   vehicles?: number;
   operator?: string;
@@ -242,6 +245,9 @@ export const ferryAPI = {
       arrival_port: params.arrivalPort,
       departure_date: params.departureDate,
       return_date: params.returnDate,
+      // Different return route support
+      return_departure_port: params.returnDeparturePort,
+      return_arrival_port: params.returnArrivalPort,
       adults: params.passengers || 1,
       children: 0,
       infants: 0,

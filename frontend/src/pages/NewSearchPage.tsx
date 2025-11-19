@@ -11,6 +11,7 @@ import {
   updateVehicle,
   removeVehicle,
   selectFerry,
+  setReturnFerry,
   nextStep,
   previousStep,
   setSearchParams,
@@ -18,6 +19,7 @@ import {
   startNewSearch,
   setCurrentStep,
 } from '../store/slices/ferrySlice';
+import { ferryAPI } from '../services/api';
 import { PassengerForm } from '../components/PassengerForm';
 import { VehicleCard } from '../components/VehicleCard';
 import { PassengerInfo, PassengerType, VehicleInfo, FerryResult, SearchParams, PORTS } from '../types/ferry';
@@ -37,6 +39,10 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
     arrivalPort: existingParams.arrivalPort || '',
     departureDate: existingParams.departureDate || '',
     returnDate: existingParams.returnDate || '',
+    // Different return route is enabled if returnDeparturePort was explicitly set
+    differentReturnRoute: !!existingParams.returnDeparturePort,
+    returnDeparturePort: existingParams.returnDeparturePort || '',
+    returnArrivalPort: existingParams.returnArrivalPort || '',
     adults: existingParams.passengers?.adults || 1,
     children: existingParams.passengers?.children || 0,
     infants: existingParams.passengers?.infants || 0,
@@ -51,6 +57,14 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
     if (!form.departureDate) newErrors.departureDate = 'Please select departure date';
     if (form.departurePort === form.arrivalPort) {
       newErrors.arrivalPort = 'Arrival port must be different';
+    }
+    // Validate different return route if enabled
+    if (form.returnDate && form.differentReturnRoute) {
+      if (!form.returnDeparturePort) newErrors.returnDeparturePort = 'Please select return departure port';
+      if (!form.returnArrivalPort) newErrors.returnArrivalPort = 'Please select return arrival port';
+      if (form.returnDeparturePort === form.returnArrivalPort) {
+        newErrors.returnArrivalPort = 'Return arrival port must be different';
+      }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -67,6 +81,9 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
       arrivalPort: form.arrivalPort,
       departureDate: form.departureDate,
       returnDate: form.returnDate || undefined,
+      // Include different return route if enabled
+      returnDeparturePort: form.differentReturnRoute ? form.returnDeparturePort : undefined,
+      returnArrivalPort: form.differentReturnRoute ? form.returnArrivalPort : undefined,
       passengers: {
         adults: form.adults,
         children: form.children,
@@ -173,6 +190,66 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                   </div>
                 </div>
 
+                {/* Different return route option */}
+                {form.returnDate && (
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.differentReturnRoute}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setForm({
+                            ...form,
+                            differentReturnRoute: checked,
+                            // Default to reversed route if not enabled
+                            returnDeparturePort: checked ? form.returnDeparturePort || form.arrivalPort : '',
+                            returnArrivalPort: checked ? form.returnArrivalPort || form.departurePort : '',
+                          });
+                        }}
+                        className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Different return route (e.g., return from a different port)
+                      </span>
+                    </label>
+
+                    {form.differentReturnRoute && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">🔄 Return From</label>
+                          <select
+                            value={form.returnDeparturePort}
+                            onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
+                            className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
+                          >
+                            <option value="">Select return departure port</option>
+                            {PORTS.map(port => (
+                              <option key={port.code} value={port.code}>{port.name}</option>
+                            ))}
+                          </select>
+                          {errors.returnDeparturePort && <p className="text-red-500 text-sm mt-1">{errors.returnDeparturePort}</p>}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">🏁 Return To</label>
+                          <select
+                            value={form.returnArrivalPort}
+                            onChange={(e) => setForm({ ...form, returnArrivalPort: e.target.value })}
+                            className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
+                          >
+                            <option value="">Select return arrival port</option>
+                            {PORTS.map(port => (
+                              <option key={port.code} value={port.code}>{port.name}</option>
+                            ))}
+                          </select>
+                          {errors.returnArrivalPort && <p className="text-red-500 text-sm mt-1">{errors.returnArrivalPort}</p>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">👥 Passengers</label>
                   <div className="grid grid-cols-3 gap-4">
@@ -227,6 +304,8 @@ const NewSearchPage: React.FC = () => {
     passengers,
     vehicles,
     selectedFerry,
+    selectedReturnFerry,
+    isRoundTrip,
   } = useSelector((state: RootState) => state.ferry);
 
   const [showAddVehicle, setShowAddVehicle] = useState(false);
@@ -234,6 +313,11 @@ const NewSearchPage: React.FC = () => {
 
   const [hasSearchParams, setHasSearchParams] = useState(true);
   const [isEditingRoute, setIsEditingRoute] = useState(false);
+
+  // Return ferry selection state
+  const [isSelectingReturn, setIsSelectingReturn] = useState(false);
+  const [returnFerryResults, setReturnFerryResults] = useState<FerryResult[]>([]);
+  const [isSearchingReturn, setIsSearchingReturn] = useState(false);
 
   useEffect(() => {
     // Check if we have search params
@@ -285,10 +369,61 @@ const NewSearchPage: React.FC = () => {
     setShowAddVehicle(false);
   };
 
-  const handleSelectFerry = (ferry: FerryResult) => {
-    dispatch(selectFerry(ferry));
-    // Move to step 1 (passenger details) after selecting ferry
-    dispatch(setCurrentStep(1));
+  const handleSelectFerry = async (ferry: FerryResult) => {
+    if (isSelectingReturn) {
+      // Selecting return ferry
+      dispatch(setReturnFerry(ferry));
+      setIsSelectingReturn(false);
+      // Move to step 1 (passenger details)
+      dispatch(setCurrentStep(1));
+    } else {
+      // Selecting outbound ferry
+      dispatch(selectFerry(ferry));
+
+      if (isRoundTrip && searchParams.returnDate) {
+        // Search for return ferries
+        setIsSearchingReturn(true);
+        setIsSelectingReturn(true);
+
+        try {
+          // Determine return route (can be different from outbound)
+          const returnDeparture = searchParams.returnDeparturePort || searchParams.arrivalPort;
+          const returnArrival = searchParams.returnArrivalPort || searchParams.departurePort;
+
+          const response = await ferryAPI.search({
+            departurePort: returnDeparture || '',
+            arrivalPort: returnArrival || '',
+            departureDate: searchParams.returnDate,
+            passengers: (searchParams.passengers?.adults || 1) +
+                       (searchParams.passengers?.children || 0) +
+                       (searchParams.passengers?.infants || 0),
+          });
+
+          // Convert snake_case to camelCase
+          const results = response.results?.map((r: any) => ({
+            sailingId: r.sailing_id,
+            operator: r.operator,
+            departurePort: r.departure_port,
+            arrivalPort: r.arrival_port,
+            departureTime: r.departure_time,
+            arrivalTime: r.arrival_time,
+            vesselName: r.vessel_name,
+            duration: r.duration,
+            prices: r.prices,
+          })) || [];
+
+          setReturnFerryResults(results);
+        } catch (error) {
+          console.error('Failed to search return ferries:', error);
+          setReturnFerryResults([]);
+        } finally {
+          setIsSearchingReturn(false);
+        }
+      } else {
+        // Not a round trip, move to passenger details
+        dispatch(setCurrentStep(1));
+      }
+    }
   };
 
   const totalPassengers = (searchParams.passengers?.adults || 0) +
@@ -405,7 +540,7 @@ const NewSearchPage: React.FC = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <p className="text-gray-600">Route</p>
+                <p className="text-gray-600">Outbound Route</p>
                 <p className="font-semibold">{searchParams.departurePort} → {searchParams.arrivalPort}</p>
               </div>
               <div>
@@ -413,10 +548,18 @@ const NewSearchPage: React.FC = () => {
                 <p className="font-semibold">{searchParams.departureDate && formatDate(searchParams.departureDate)}</p>
               </div>
               {searchParams.returnDate && (
-                <div>
-                  <p className="text-gray-600">Return</p>
-                  <p className="font-semibold">{formatDate(searchParams.returnDate)}</p>
-                </div>
+                <>
+                  <div>
+                    <p className="text-gray-600">Return Route</p>
+                    <p className="font-semibold">
+                      {searchParams.returnDeparturePort || searchParams.arrivalPort} → {searchParams.returnArrivalPort || searchParams.departurePort}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Return Date</p>
+                    <p className="font-semibold">{formatDate(searchParams.returnDate)}</p>
+                  </div>
+                </>
               )}
               <div>
                 <p className="text-gray-600">Passengers</p>
@@ -582,27 +725,49 @@ const NewSearchPage: React.FC = () => {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Available Ferries</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+            {isSelectingReturn ? 'Select Return Ferry' : 'Select Outbound Ferry'}
+          </h1>
+
+          {/* Show selected outbound ferry when selecting return */}
+          {isSelectingReturn && selectedFerry && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <p className="text-sm font-medium text-green-800 mb-2">✓ Outbound Ferry Selected</p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{selectedFerry.operator} - {selectedFerry.vesselName}</p>
+                  <p className="text-sm text-gray-600">
+                    {formatDate(selectedFerry.departureTime)} at {formatTime(selectedFerry.departureTime)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {selectedFerry.departurePort} → {selectedFerry.arrivalPort}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Loading State */}
-          {isSearching && (
+          {(isSearching || isSearchingReturn) && (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">Searching all ferry operators...</p>
+              <p className="text-gray-600">
+                {isSelectingReturn ? 'Searching return ferries...' : 'Searching all ferry operators...'}
+              </p>
             </div>
           )}
 
           {/* Error State */}
-          {searchError && (
+          {searchError && !isSelectingReturn && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
               <p className="text-red-800 font-medium">Error: {searchError}</p>
             </div>
           )}
 
-          {/* Results */}
-          {!isSearching && searchResults.length > 0 && (
+          {/* Results - show return results or outbound results */}
+          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length > 0 && (
             <div className="space-y-4 mb-6">
-              {searchResults.map((ferry) => (
+              {(isSelectingReturn ? returnFerryResults : searchResults).map((ferry) => (
                 <div key={ferry.sailingId} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                   <div className="flex flex-col md:flex-row md:items-center justify-between">
                     <div className="flex-1">
@@ -656,9 +821,11 @@ const NewSearchPage: React.FC = () => {
           )}
 
           {/* No Results */}
-          {!isSearching && searchResults.length === 0 && !searchError && (
+          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length === 0 && !searchError && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-              <p className="text-yellow-800 font-medium mb-2">No ferries found for your search</p>
+              <p className="text-yellow-800 font-medium mb-2">
+                No {isSelectingReturn ? 'return ' : ''}ferries found for your search
+              </p>
               <p className="text-yellow-700 text-sm">Try adjusting your dates or route</p>
             </div>
           )}
@@ -666,11 +833,34 @@ const NewSearchPage: React.FC = () => {
           {/* Navigation */}
           <div className="flex justify-between items-center bg-white rounded-lg shadow-md p-6">
             <button
-              onClick={() => dispatch(previousStep())}
+              onClick={() => {
+                if (isSelectingReturn) {
+                  // Go back to outbound selection
+                  setIsSelectingReturn(false);
+                  setReturnFerryResults([]);
+                  dispatch(selectFerry(null as any));
+                } else {
+                  dispatch(previousStep());
+                }
+              }}
               className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium"
             >
-              ← Back
+              ← {isSelectingReturn ? 'Change Outbound' : 'Back'}
             </button>
+
+            {/* Skip return selection button */}
+            {isSelectingReturn && (
+              <button
+                onClick={() => {
+                  // Skip return ferry selection and proceed
+                  setIsSelectingReturn(false);
+                  dispatch(setCurrentStep(1));
+                }}
+                className="px-6 py-2 text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Skip for now →
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -698,18 +888,55 @@ const NewSearchPage: React.FC = () => {
           {/* Selected Ferry */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Selected Ferry</h2>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-semibold text-lg">{selectedFerry.operator}</p>
-                <p className="text-gray-600">{selectedFerry.vesselName}</p>
-                <p className="text-sm text-gray-600 mt-2">
-                  {formatDate(selectedFerry.departureTime)} at {formatTime(selectedFerry.departureTime)}
-                </p>
-                <p className="text-sm text-gray-600">
-                  {searchParams.departurePort} → {searchParams.arrivalPort}
-                </p>
+
+            {/* Outbound Journey */}
+            <div className="mb-4">
+              <p className="text-sm font-medium text-blue-600 mb-2">Outbound Journey</p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold text-lg">{selectedFerry.operator}</p>
+                  <p className="text-gray-600">{selectedFerry.vesselName}</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {formatDate(selectedFerry.departureTime)} at {formatTime(selectedFerry.departureTime)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {searchParams.departurePort} → {searchParams.arrivalPort}
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* Return Journey */}
+            {searchParams.returnDate && (
+              <div className="pt-4 border-t border-gray-200">
+                <p className="text-sm font-medium text-blue-600 mb-2">Return Journey</p>
+                <div className="flex justify-between items-center">
+                  <div>
+                    {selectedReturnFerry ? (
+                      <>
+                        <p className="font-semibold text-lg">{selectedReturnFerry.operator}</p>
+                        <p className="text-gray-600">{selectedReturnFerry.vesselName}</p>
+                        <p className="text-sm text-gray-600 mt-2">
+                          {formatDate(selectedReturnFerry.departureTime)} at {formatTime(selectedReturnFerry.departureTime)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {selectedReturnFerry.departurePort} → {selectedReturnFerry.arrivalPort}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-600">
+                          {searchParams.returnDeparturePort || searchParams.arrivalPort} → {searchParams.returnArrivalPort || searchParams.departurePort}
+                        </p>
+                        <p className="text-sm text-yellow-600 font-medium mt-1">
+                          Return ferry not yet selected
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Passengers Summary */}

@@ -143,6 +143,7 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
         id=db_booking.id,
         booking_reference=db_booking.booking_reference,
         operator_booking_reference=db_booking.operator_booking_reference,
+        return_operator_booking_reference=db_booking.return_operator_booking_reference,
         status=db_booking.status.value if hasattr(db_booking.status, 'value') else db_booking.status,
         sailing_id=db_booking.sailing_id,
         operator=db_booking.operator,
@@ -520,6 +521,35 @@ async def create_booking(
 
             # Update booking with operator reference
             db_booking.operator_booking_reference = operator_confirmation.operator_reference
+
+            # Create booking with return operator if different return ferry selected
+            if db_booking.return_sailing_id and db_booking.return_operator:
+                try:
+                    # Prepare return cabin data
+                    return_cabin_data = None
+                    if booking_data.return_cabin_id:
+                        from app.models.ferry import Cabin
+                        return_cabin = db.query(Cabin).filter(Cabin.id == booking_data.return_cabin_id).first()
+                        if return_cabin:
+                            return_cabin_data = {
+                                "type": return_cabin.cabin_type.value if hasattr(return_cabin.cabin_type, 'value') else str(return_cabin.cabin_type),
+                                "supplement_price": float(return_cabin.base_price)
+                            }
+
+                    return_confirmation = await ferry_service.create_booking(
+                        operator=db_booking.return_operator,
+                        sailing_id=db_booking.return_sailing_id,
+                        passengers=[p.dict() for p in booking_data.passengers],
+                        vehicles=[v.dict() for v in booking_data.vehicles] if booking_data.vehicles else None,
+                        cabin_selection=return_cabin_data,
+                        contact_info=booking_data.contact_info.dict(),
+                        special_requests=booking_data.special_requests
+                    )
+                    db_booking.return_operator_booking_reference = return_confirmation.operator_reference
+                except FerryAPIError as return_error:
+                    # If return operator booking fails, log but continue
+                    print(f"Failed to create return operator booking: {str(return_error)}")
+
             # Note: Status remains PENDING until payment is completed
             db.commit()
 
@@ -542,6 +572,16 @@ async def create_booking(
                 "arrival_port": db_booking.arrival_port,
                 "departure_time": db_booking.departure_time,
                 "arrival_time": db_booking.arrival_time,
+                # Return journey details
+                "is_round_trip": db_booking.is_round_trip,
+                "return_sailing_id": db_booking.return_sailing_id,
+                "return_operator": db_booking.return_operator,
+                "return_departure_port": db_booking.return_departure_port,
+                "return_arrival_port": db_booking.return_arrival_port,
+                "return_departure_time": db_booking.return_departure_time,
+                "return_arrival_time": db_booking.return_arrival_time,
+                "return_vessel_name": db_booking.return_vessel_name,
+                # Contact and totals
                 "contact_first_name": db_booking.contact_first_name,
                 "contact_last_name": db_booking.contact_last_name,
                 "contact_email": db_booking.contact_email,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSearchParams, searchFerries, resetSearchState, clearVehicles } from '../store/slices/ferrySlice';
+import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip } from '../store/slices/ferrySlice';
 import { RootState, AppDispatch } from '../store';
 import { PORTS } from '../types/ferry';
 
@@ -21,6 +21,10 @@ const NewHomePage: React.FC = () => {
     arrivalPort: searchParams.arrivalPort || '',
     departureDate: searchParams.departureDate || '',
     returnDate: searchParams.returnDate || '',
+    // Different return route support
+    differentReturnRoute: !!searchParams.returnDeparturePort,
+    returnDeparturePort: searchParams.returnDeparturePort || '',
+    returnArrivalPort: searchParams.returnArrivalPort || '',
     adults: searchParams.passengers?.adults || 1,
     children: searchParams.passengers?.children || 0,
     infants: searchParams.passengers?.infants || 0,
@@ -35,6 +39,9 @@ const NewHomePage: React.FC = () => {
         arrivalPort: searchParams.arrivalPort || '',
         departureDate: searchParams.departureDate || '',
         returnDate: searchParams.returnDate || '',
+        differentReturnRoute: !!searchParams.returnDeparturePort,
+        returnDeparturePort: searchParams.returnDeparturePort || '',
+        returnArrivalPort: searchParams.returnArrivalPort || '',
         adults: searchParams.passengers?.adults || 1,
         children: searchParams.passengers?.children || 0,
         infants: searchParams.passengers?.infants || 0,
@@ -58,6 +65,15 @@ const NewHomePage: React.FC = () => {
 
     if (form.returnDate && form.returnDate <= form.departureDate) {
       newErrors.returnDate = 'Return date must be after departure date';
+    }
+
+    // Validate different return route if enabled
+    if (form.returnDate && form.differentReturnRoute) {
+      if (!form.returnDeparturePort) newErrors.returnDeparturePort = 'Please select return departure port';
+      if (!form.returnArrivalPort) newErrors.returnArrivalPort = 'Please select return arrival port';
+      if (form.returnDeparturePort === form.returnArrivalPort) {
+        newErrors.returnArrivalPort = 'Return arrival port must be different';
+      }
     }
 
     if (form.adults < 1) {
@@ -86,6 +102,9 @@ const NewHomePage: React.FC = () => {
       arrivalPort: form.arrivalPort,
       departureDate: form.departureDate,
       returnDate: form.returnDate || undefined,
+      // Include different return route if enabled
+      returnDeparturePort: form.differentReturnRoute ? form.returnDeparturePort : undefined,
+      returnArrivalPort: form.differentReturnRoute ? form.returnArrivalPort : undefined,
       passengers: {
         adults: form.adults,
         children: form.children,
@@ -93,6 +112,9 @@ const NewHomePage: React.FC = () => {
       },
       vehicles: [],
     }));
+
+    // Set round trip flag
+    dispatch(setIsRoundTrip(!!form.returnDate));
 
     // Navigate to search page
     navigate('/search');
@@ -235,6 +257,65 @@ const NewHomePage: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Different return route option */}
+                {form.returnDate && (
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.differentReturnRoute}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setForm({
+                            ...form,
+                            differentReturnRoute: checked,
+                            returnDeparturePort: checked ? form.returnDeparturePort || form.arrivalPort : '',
+                            returnArrivalPort: checked ? form.returnArrivalPort || form.departurePort : '',
+                          });
+                        }}
+                        className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Different return route (e.g., return from a different port)
+                      </span>
+                    </label>
+
+                    {form.differentReturnRoute && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">🔄 Return From</label>
+                          <select
+                            value={form.returnDeparturePort}
+                            onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
+                            className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
+                          >
+                            <option value="">Select return departure port</option>
+                            {PORTS.map(port => (
+                              <option key={port.code} value={port.code}>{port.name}</option>
+                            ))}
+                          </select>
+                          {errors.returnDeparturePort && <p className="text-red-500 text-xs mt-1">{errors.returnDeparturePort}</p>}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">🏁 Return To</label>
+                          <select
+                            value={form.returnArrivalPort}
+                            onChange={(e) => setForm({ ...form, returnArrivalPort: e.target.value })}
+                            className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
+                          >
+                            <option value="">Select return arrival port</option>
+                            {PORTS.map(port => (
+                              <option key={port.code} value={port.code}>{port.name}</option>
+                            ))}
+                          </select>
+                          {errors.returnArrivalPort && <p className="text-red-500 text-xs mt-1">{errors.returnArrivalPort}</p>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Passengers */}
                 <div>

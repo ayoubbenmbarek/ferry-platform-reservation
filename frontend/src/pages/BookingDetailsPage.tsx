@@ -217,20 +217,84 @@ const BookingDetailsPage: React.FC = () => {
           {/* Ferry Information */}
           <div className="mb-6 pb-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold mb-3">Ferry Information</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Operator</p>
-                <p className="font-semibold">{booking.operator}</p>
+
+            {/* Outbound Journey */}
+            <div className="mb-4">
+              {booking.isRoundTrip && (
+                <p className="text-sm font-medium text-blue-600 mb-2">Outbound Journey</p>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Operator</p>
+                  <p className="font-semibold">{booking.operator}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Sailing ID</p>
+                  <p className="font-semibold">{booking.sailingId}</p>
+                </div>
+                {booking.departurePort && (
+                  <div>
+                    <p className="text-sm text-gray-600">Route</p>
+                    <p className="font-semibold">{booking.departurePort} → {booking.arrivalPort}</p>
+                  </div>
+                )}
+                {booking.departureTime && (
+                  <div>
+                    <p className="text-sm text-gray-600">Departure</p>
+                    <p className="font-semibold">{new Date(booking.departureTime).toLocaleString()}</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Sailing ID</p>
-                <p className="font-semibold">{booking.sailingId}</p>
-              </div>
+              {booking.operatorBookingReference && (
+                <div className="mt-3">
+                  <p className="text-sm text-gray-600">{booking.isRoundTrip && booking.returnOperatorBookingReference ? 'Outbound Operator Reference' : 'Operator Reference'}</p>
+                  <p className="font-semibold">{booking.operatorBookingReference}</p>
+                </div>
+              )}
             </div>
-            {booking.operatorBookingReference && (
-              <div className="mt-3">
-                <p className="text-sm text-gray-600">Operator Reference</p>
-                <p className="font-semibold">{booking.operatorBookingReference}</p>
+
+            {/* Return Journey */}
+            {booking.isRoundTrip && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-sm font-medium text-blue-600 mb-2">Return Journey</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Only show operator/vessel if a return ferry was actually selected */}
+                  {booking.returnSailingId && booking.returnOperator && (
+                    <div>
+                      <p className="text-sm text-gray-600">Operator</p>
+                      <p className="font-semibold">{booking.returnOperator}</p>
+                    </div>
+                  )}
+                  {booking.returnSailingId && (
+                    <div>
+                      <p className="text-sm text-gray-600">Sailing ID</p>
+                      <p className="font-semibold">{booking.returnSailingId}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm text-gray-600">Route</p>
+                    <p className="font-semibold">
+                      {booking.returnDeparturePort || booking.arrivalPort} → {booking.returnArrivalPort || booking.departurePort}
+                    </p>
+                  </div>
+                  {booking.returnSailingId && booking.returnDepartureTime ? (
+                    <div>
+                      <p className="text-sm text-gray-600">Departure</p>
+                      <p className="font-semibold">{new Date(booking.returnDepartureTime).toLocaleString()}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-gray-600">Status</p>
+                      <p className="font-semibold text-yellow-600">Return ferry not yet selected</p>
+                    </div>
+                  )}
+                </div>
+                {booking.returnOperatorBookingReference && (
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600">Return Operator Reference</p>
+                    <p className="font-semibold">{booking.returnOperatorBookingReference}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

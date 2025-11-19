@@ -106,6 +106,9 @@ async def search_ferries(
             arrival_port=search_params.arrival_port,
             departure_date=search_params.departure_date,
             return_date=search_params.return_date,
+            # Different return route support
+            return_departure_port=search_params.return_departure_port,
+            return_arrival_port=search_params.return_arrival_port,
             adults=search_params.adults,
             children=search_params.children,
             infants=search_params.infants,

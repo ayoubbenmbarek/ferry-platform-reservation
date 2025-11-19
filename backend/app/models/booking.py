@@ -76,6 +76,7 @@ class Booking(Base):
     # Booking reference
     booking_reference = Column(String(20), unique=True, nullable=False, index=True)
     operator_booking_reference = Column(String(100), nullable=True)  # Operator's booking ref
+    return_operator_booking_reference = Column(String(100), nullable=True)  # Return operator's booking ref
     
     # Contact information (for guest bookings)
     contact_email = Column(String(255), nullable=False)

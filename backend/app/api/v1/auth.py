@@ -599,6 +599,15 @@ async def verify_email(
                 detail="Invalid verification token"
             )
 
+        # Check if token has expired (24 hours)
+        if user.email_verification_sent_at:
+            token_age = datetime.now(timezone.utc) - user.email_verification_sent_at.replace(tzinfo=timezone.utc)
+            if token_age.total_seconds() > 24 * 60 * 60:  # 24 hours
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Verification link has expired. Please request a new verification email."
+                )
+
         # Mark email as verified
         user.is_verified = True
         user.email_verification_token = None

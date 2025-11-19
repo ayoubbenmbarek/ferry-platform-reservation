@@ -351,7 +351,10 @@ const PaymentPage: React.FC = () => {
 
               {(selectedFerry || bookingDetails) && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h3 className="font-medium text-gray-900 mb-2">Route</h3>
+                  {/* Outbound Journey */}
+                  <h3 className="font-medium text-gray-900 mb-2">
+                    {(bookingDetails?.isRoundTrip || bookingDetails?.is_round_trip) ? 'Outbound Journey' : 'Route'}
+                  </h3>
                   <p className="text-sm text-gray-600">
                     {bookingDetails?.departurePort || bookingDetails?.departure_port || selectedFerry?.departurePort} → {bookingDetails?.arrivalPort || bookingDetails?.arrival_port || selectedFerry?.arrivalPort}
                   </p>
@@ -362,6 +365,26 @@ const PaymentPage: React.FC = () => {
                     <p className="text-xs text-gray-500 mt-1">
                       Departure: {new Date(bookingDetails.departureTime || bookingDetails.departure_time).toLocaleString()}
                     </p>
+                  )}
+
+                  {/* Return Journey */}
+                  {(bookingDetails?.isRoundTrip || bookingDetails?.is_round_trip) && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <h3 className="font-medium text-gray-900 mb-2">Return Journey</h3>
+                      <p className="text-sm text-gray-600">
+                        {bookingDetails?.returnDeparturePort || bookingDetails?.return_departure_port || bookingDetails?.arrivalPort || bookingDetails?.arrival_port} → {bookingDetails?.returnArrivalPort || bookingDetails?.return_arrival_port || bookingDetails?.departurePort || bookingDetails?.departure_port}
+                      </p>
+                      {(bookingDetails?.returnOperator || bookingDetails?.return_operator) && (
+                        <p className="text-sm text-gray-600 mt-1">
+                          {bookingDetails?.returnOperator || bookingDetails?.return_operator}
+                        </p>
+                      )}
+                      {(bookingDetails?.returnDepartureTime || bookingDetails?.return_departure_time) && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Departure: {new Date(bookingDetails.returnDepartureTime || bookingDetails.return_departure_time).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

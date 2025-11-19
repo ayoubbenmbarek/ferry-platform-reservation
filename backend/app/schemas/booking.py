@@ -161,6 +161,7 @@ class BookingResponse(BaseModel):
     id: int
     booking_reference: str
     operator_booking_reference: Optional[str] = None
+    return_operator_booking_reference: Optional[str] = None
     status: str
 
     # Ferry details (outbound)

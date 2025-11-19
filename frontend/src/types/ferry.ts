@@ -75,6 +75,9 @@ export interface SearchParams {
   arrivalPort: string;
   departureDate: string;
   returnDate?: string;
+  // Return route can be different from outbound (reversed by default)
+  returnDeparturePort?: string;
+  returnArrivalPort?: string;
   passengers: {
     adults: number;
     children: number;

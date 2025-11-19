@@ -24,13 +24,16 @@ class FerryAPIError(Exception):
 
 class SearchRequest:
     """Ferry search request model."""
-    
+
     def __init__(
         self,
         departure_port: str,
         arrival_port: str,
         departure_date: date,
         return_date: Optional[date] = None,
+        # Different return route support
+        return_departure_port: Optional[str] = None,
+        return_arrival_port: Optional[str] = None,
         adults: int = 1,
         children: int = 0,
         infants: int = 0,
@@ -40,6 +43,9 @@ class SearchRequest:
         self.arrival_port = arrival_port
         self.departure_date = departure_date
         self.return_date = return_date
+        # If no return route specified, use reversed outbound route
+        self.return_departure_port = return_departure_port or arrival_port
+        self.return_arrival_port = return_arrival_port or departure_port
         self.adults = adults
         self.children = children
         self.infants = infants

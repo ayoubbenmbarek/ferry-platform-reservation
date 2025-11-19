@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { createBooking, setContactInfo, setCabinId, setReturnCabinId, setMeals } from '../store/slices/ferrySlice';
+import { setContactInfo, setCabinId, setReturnCabinId, setMeals } from '../store/slices/ferrySlice';
 import CabinSelector from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 
 const BookingPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip } = useSelector(
+  const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams } = useSelector(
     (state: RootState) => state.ferry
   );
   const { user } = useSelector((state: RootState) => state.auth);
@@ -147,7 +147,7 @@ const BookingPage: React.FC = () => {
   }, 0);
 
   const vehiclesTotal = vehicles.length * vehiclePrice;
-  const totalCabinPrice = cabinPrice + (isRoundTrip ? returnCabinPrice : 0);
+  const totalCabinPrice = cabinPrice + (isRoundTrip && selectedReturnFerry ? returnCabinPrice : 0);
   const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice;
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + tax;
@@ -171,7 +171,7 @@ const BookingPage: React.FC = () => {
                   <p className="mt-1 text-sm text-blue-700">
                     {selectedReturnFerry
                       ? `You can select different cabins and meals for your outbound and return journeys using the tabs below.`
-                      : `Note: Return ferry will be automatically selected with the same options as your outbound journey. Select cabins and meals for both journeys using the tabs below.`
+                      : `Note: Return ferry was not selected. Cabin and meal selection will only apply to your outbound journey.`
                     }
                   </p>
                 </div>
@@ -276,7 +276,7 @@ const BookingPage: React.FC = () => {
                 selectedReturnCabinId={selectedReturnCabinId}
                 onCabinSelect={handleCabinSelect}
                 passengerCount={totalPassengers}
-                isRoundTrip={isRoundTrip}
+                isRoundTrip={isRoundTrip && !!selectedReturnFerry}
               />
             </div>
 
@@ -286,7 +286,7 @@ const BookingPage: React.FC = () => {
                 selectedMeals={selectedMeals}
                 onMealSelect={handleMealSelect}
                 passengerCount={totalPassengers}
-                isRoundTrip={isRoundTrip}
+                isRoundTrip={isRoundTrip && !!selectedReturnFerry}
               />
             </div>
 
@@ -339,17 +339,30 @@ const BookingPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Return Ferry Details */}
-              {isRoundTrip && selectedReturnFerry && (
+              {/* Return Journey Details */}
+              {isRoundTrip && (
                 <div className="mb-4 pb-4 border-b border-gray-200">
                   <p className="text-sm text-gray-600 mb-1">🔙 Return Journey</p>
-                  <p className="font-semibold">{selectedReturnFerry.operator}</p>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {selectedReturnFerry.departurePort} → {selectedReturnFerry.arrivalPort}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {new Date(selectedReturnFerry.departureTime).toLocaleDateString()}
-                  </p>
+                  {selectedReturnFerry ? (
+                    <>
+                      <p className="font-semibold">{selectedReturnFerry.operator}</p>
+                      <p className="text-sm text-gray-600 mt-2">
+                        {selectedReturnFerry.departurePort} → {selectedReturnFerry.arrivalPort}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {new Date(selectedReturnFerry.departureTime).toLocaleDateString()}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-600 mt-2">
+                        {searchParams.returnDeparturePort || searchParams.arrivalPort} → {searchParams.returnArrivalPort || searchParams.departurePort}
+                      </p>
+                      <p className="text-sm text-yellow-600 font-medium mt-1">
+                        Return ferry not yet selected
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -397,11 +410,11 @@ const BookingPage: React.FC = () => {
                 )}
                 {cabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{isRoundTrip ? 'Cabin (Outbound)' : 'Cabin'}</span>
+                    <span className="text-gray-600">{isRoundTrip && selectedReturnFerry ? 'Cabin (Outbound)' : 'Cabin'}</span>
                     <span>€{cabinPrice.toFixed(2)}</span>
                   </div>
                 )}
-                {isRoundTrip && returnCabinPrice > 0 && (
+                {isRoundTrip && selectedReturnFerry && returnCabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Cabin (Return)</span>
                     <span>€{returnCabinPrice.toFixed(2)}</span>

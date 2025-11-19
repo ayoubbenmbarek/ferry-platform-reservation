@@ -496,6 +496,9 @@ TODO:in complete your ooking page email first name etc are mandatory but when i 
   TODO: add Chats et animaux de petite taille et chien on passenger:done
   TODO:add assurance reserver tranquille 12euros and DOMMAGES CAUSÉS AUX VÉHICULES
   TODO:add cannot cancel 7 days before trip
+  TODO:Add multilanguage support
+  TODO: i should get customer information(aller-retour-date-passgaer-etc and check all available ferries to give him comparaison and best proposition)
+  TODO:add pay in 3 times
 7,50 € au total
 TODO:addd possibility to add promo code
 TODO: another option of pending:send quote by email

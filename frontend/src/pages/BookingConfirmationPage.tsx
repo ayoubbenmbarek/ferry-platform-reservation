@@ -83,23 +83,74 @@ const BookingConfirmationPage: React.FC = () => {
             <h2 className="text-xl font-semibold mb-4">Booking Details</h2>
 
             {/* Ferry Information */}
-            <div className="mb-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Operator</p>
-                  <p className="font-semibold">{booking.operator}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                    booking.status === 'CONFIRMED' || booking.status === 'confirmed'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {booking.status}
-                  </span>
+            <div className="mb-4 pb-4 border-b border-gray-200">
+              {/* Outbound Journey */}
+              <div className="mb-4">
+                {booking.isRoundTrip && (
+                  <p className="text-sm font-medium text-blue-600 mb-2">Outbound Journey</p>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Operator</p>
+                    <p className="font-semibold">{booking.operator}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Status</p>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                      booking.status === 'CONFIRMED' || booking.status === 'confirmed'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {booking.status}
+                    </span>
+                  </div>
+                  {booking.departurePort && (
+                    <div>
+                      <p className="text-sm text-gray-600">Route</p>
+                      <p className="font-semibold">{booking.departurePort} → {booking.arrivalPort}</p>
+                    </div>
+                  )}
+                  {booking.departureTime && (
+                    <div>
+                      <p className="text-sm text-gray-600">Departure</p>
+                      <p className="font-semibold">{new Date(booking.departureTime).toLocaleString()}</p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Return Journey */}
+              {booking.isRoundTrip && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-sm font-medium text-blue-600 mb-2">Return Journey</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Only show operator if return ferry was selected */}
+                    {booking.returnSailingId && booking.returnOperator && (
+                      <div>
+                        <p className="text-sm text-gray-600">Operator</p>
+                        <p className="font-semibold">{booking.returnOperator}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm text-gray-600">Route</p>
+                      <p className="font-semibold">
+                        {booking.returnDeparturePort || booking.arrivalPort} → {booking.returnArrivalPort || booking.departurePort}
+                      </p>
+                    </div>
+                    {booking.returnSailingId && booking.returnDepartureTime ? (
+                      <div>
+                        <p className="text-sm text-gray-600">Departure</p>
+                        <p className="font-semibold">{new Date(booking.returnDepartureTime).toLocaleString()}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-gray-600">Status</p>
+                        <p className="font-semibold text-yellow-600">Return ferry not yet selected</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Contact Information */}
@@ -204,12 +255,19 @@ const BookingConfirmationPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Operator Reference */}
-            {booking.operatorBookingReference && (
-              <div className="bg-gray-50 rounded-lg p-3 text-sm">
-                <p className="text-gray-600">
-                  Operator Reference: <span className="font-semibold">{booking.operatorBookingReference}</span>
-                </p>
+            {/* Operator References */}
+            {(booking.operatorBookingReference || booking.returnOperatorBookingReference) && (
+              <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                {booking.operatorBookingReference && (
+                  <p className="text-gray-600">
+                    {booking.isRoundTrip && booking.returnOperatorBookingReference ? 'Outbound ' : ''}Operator Reference: <span className="font-semibold">{booking.operatorBookingReference}</span>
+                  </p>
+                )}
+                {booking.returnOperatorBookingReference && (
+                  <p className="text-gray-600">
+                    Return Operator Reference: <span className="font-semibold">{booking.returnOperatorBookingReference}</span>
+                  </p>
+                )}
               </div>
             )}
           </div>

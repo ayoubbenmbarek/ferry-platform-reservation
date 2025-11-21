@@ -45,28 +45,28 @@ services:
       dockerfile: Dockerfile.dev
     container_name: maritime-backend-dev
     restart: unless-stopped
+    env_file:
+      - .env.development
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/maritime_reservations_dev
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-      DEBUG: "True"
-      ENVIRONMENT: development
-      SECRET_KEY: dev-secret-key-not-for-production
-      ALLOWED_ORIGINS: http://localhost:3010,http://127.0.0.1:3010
-      # Stripe Test Keys - from .env.development
-      STRIPE_SECRET_KEY: sk_test_51Q19DVL40zLTUQ47PR5btWyg3UgtrzcVKwtprQ3z3L6esVurfqY3uUnzSVU7sCafg5HCUa3tABY8Kkdi8RbbicgP00gADM5Xa2
-      STRIPE_PUBLISHABLE_KEY: pk_test_51Q19DVL40zLTUQ47tUXkuAGMIAmolt6Me8ofAZjxC7yJm7TcPhJllSerGGjsZWYx16UzrR1Kb2ASIKmYn8LDhTy900OM8gz2fF
-      STRIPE_WEBHOOK_SECRET: whsec_da5a8e4aab85b88a18513757500c75245fb403e3319232602d0ae5e92d2160fd
-      # Email Configuration (Gmail SMTP)
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
-      SMTP_USERNAME: ayoubenmbarek@gmail.com
-      SMTP_PASSWORD: "uojt dktu yfrw vrdn"
-      FROM_EMAIL: ayoubenmbarek@gmail.com
-      FROM_NAME: "Maritime Ferry Booking"
-      BASE_URL: http://localhost:3001
-      LOG_LEVEL: DEBUG
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      DEBUG: ${DEBUG}
+      ENVIRONMENT: ${ENVIRONMENT}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME}
+      BASE_URL: ${BASE_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - ./backend:/app
@@ -91,13 +91,15 @@ services:
     container_name: maritime-celery-dev
     restart: unless-stopped
     command: celery -A app.celery_app worker --loglevel=debug
+    env_file:
+      - .env.development
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/maritime_reservations_dev
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-      DEBUG: "True"
-      ENVIRONMENT: development
-      SECRET_KEY: dev-secret-key-not-for-production
+      DATABASE_URL: ${DATABASE_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      DEBUG: ${DEBUG}
+      ENVIRONMENT: ${ENVIRONMENT}
+      SECRET_KEY: ${SECRET_KEY}
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
@@ -116,18 +118,20 @@ services:
       dockerfile: Dockerfile.cron
     container_name: maritime-cron-dev
     restart: unless-stopped
+    env_file:
+      - .env.development
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/maritime_reservations_dev
-      DEBUG: "True"
-      ENVIRONMENT: development
-      # Email Configuration (Gmail SMTP)
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
-      SMTP_USERNAME: ayoubenmbarek@gmail.com
-      SMTP_PASSWORD: "uojt dktu yfrw vrdn"
-      FROM_EMAIL: ayoubenmbarek@gmail.com
-      FROM_NAME: "Maritime Ferry Booking"
-      BASE_URL: http://localhost:3001
+      DATABASE_URL: ${DATABASE_URL}
+      DEBUG: ${DEBUG}
+      ENVIRONMENT: ${ENVIRONMENT}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME}
+      BASE_URL: ${BASE_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
     volumes:
       - ./backend/logs:/app/logs
     depends_on:
@@ -143,11 +147,13 @@ services:
     image: dpage/pgadmin4:latest
     container_name: maritime-pgadmin-dev
     restart: unless-stopped
+    env_file:
+      - .env.development
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@maritime.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: ${PGADMIN_CONFIG_SERVER_MODE}
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: ${PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED}
     volumes:
       - pgadmin_dev_data:/var/lib/pgadmin
     ports:

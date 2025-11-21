@@ -525,6 +525,8 @@ TODO: add tests for celery and unit tests and all functions to be executed in pi
 TODO:dynamic homepage with pub etc:
 TODO:Ask Tomas if they allow payment in 3 or 4 times?
 TODO:Use Stripe Payment Intents + Your Own Installment Logic
+todo:if user wanna change booking after first one confirmed, fees will be applied or pay difference of price??
+
 
 (You charge the customer’s card automatically 3 times)
 

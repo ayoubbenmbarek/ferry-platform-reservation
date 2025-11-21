@@ -4,6 +4,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip } from '../store/slices/ferrySlice';
 import { RootState, AppDispatch } from '../store';
 import { PORTS } from '../types/ferry';
+import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
+import { ParsedSearchQuery } from '../utils/voiceSearchParser';
 
 const NewHomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +53,61 @@ const NewHomePage: React.FC = () => {
   }, [searchParams, vehicles]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  // Handle voice search results
+  const handleVoiceSearchResult = (result: ParsedSearchQuery) => {
+    setVoiceError(null);
+
+    // Map parsed port names to port codes
+    const findPortCode = (portName: string | null): string => {
+      if (!portName) return '';
+      const normalizedName = portName.toLowerCase();
+      const port = PORTS.find(p =>
+        p.code.toLowerCase() === normalizedName ||
+        p.name.toLowerCase().includes(normalizedName) ||
+        p.city.toLowerCase().includes(normalizedName)
+      );
+
+      if (!port) {
+        console.warn(`Voice search: Could not find port for "${portName}"`);
+      } else {
+        console.log(`Voice search: Mapped "${portName}" to ${port.code} (${port.name})`);
+      }
+
+      return port?.code || '';
+    };
+
+    const newForm = {
+      ...form,
+      departurePort: findPortCode(result.departurePort) || form.departurePort,
+      arrivalPort: findPortCode(result.arrivalPort) || form.arrivalPort,
+      departureDate: result.departureDate || form.departureDate,
+      returnDate: result.returnDate || form.returnDate,
+      adults: result.adults || form.adults,
+      children: result.children || form.children,
+      infants: result.infants || form.infants,
+      hasVehicle: result.hasVehicle || form.hasVehicle,
+    };
+
+    setForm(newForm);
+
+    // If round trip detected, set the return route
+    if (result.isRoundTrip && !newForm.returnDate) {
+      // Set a default return date (7 days after departure) if not specified
+      if (newForm.departureDate) {
+        const depDate = new Date(newForm.departureDate);
+        depDate.setDate(depDate.getDate() + 7);
+        newForm.returnDate = depDate.toISOString().split('T')[0];
+        setForm(newForm);
+      }
+    }
+  };
+
+  const handleVoiceSearchError = (error: string) => {
+    setVoiceError(error);
+    setTimeout(() => setVoiceError(null), 5000);
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -158,6 +215,25 @@ const NewHomePage: React.FC = () => {
           {/* Modern Search Card */}
           <div className="max-w-5xl mx-auto">
             <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8">
+              {/* Voice Search Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">Find Your Ferry</h2>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500 hidden sm:inline">Search by voice</span>
+                  <VoiceSearchButton
+                    onResult={handleVoiceSearchResult}
+                    onError={handleVoiceSearchError}
+                  />
+                </div>
+              </div>
+
+              {/* Voice Error Message */}
+              {voiceError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">{voiceError}</p>
+                </div>
+              )}
+
               <form onSubmit={handleSearch} className="space-y-6">
                 {/* Route Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -508,7 +508,7 @@ TODO: another option of pending:send quote by email
 VOULEZ-VOUS SAUVEGARDER LE DEVIS DE VOTRE VOYAGE ?
 Vous pourrez le reprendre à tout moment or (within 3 days)
 Insérez votre adresse e-mail pour recevoir le devis(avec le trajet et les informations déjà renseigner)
-
+TODO:continue with whisper api search
 Veuillez noter que les tarifs peuvent varier en fonction des disponibilités
 TODO:ferryhopper integrates MCP:may use it to facilitate search by llm:
 Ferryhopper's Model Context Protocol (MCP)

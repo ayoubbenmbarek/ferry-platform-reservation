@@ -35,6 +35,9 @@ redis==5.0.1
 # Payment processing
 stripe==13.2.0
 
+# AI services
+openai==1.54.0
+
 # Email and templating
 jinja2==3.1.2
 aiosmtplib==3.0.1

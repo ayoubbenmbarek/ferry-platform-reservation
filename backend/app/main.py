@@ -26,7 +26,7 @@ except ImportError:
 
 # Import API routes using importlib to avoid __init__.py conflicts
 import importlib
-auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = None
+auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = None
 
 try:
     auth = importlib.import_module('app.api.v1.auth')
@@ -69,6 +69,11 @@ try:
     promo_codes = importlib.import_module('app.api.v1.promo_codes')
 except ImportError as e:
     print(f"Failed to import promo_codes module: {e}")
+
+try:
+    voice_search = importlib.import_module('app.api.v1.voice_search')
+except ImportError as e:
+    print(f"Failed to import voice_search module: {e}")
 
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
@@ -267,6 +272,9 @@ if admin:
 
 if promo_codes:
     app.include_router(promo_codes.router, prefix="/api/v1", tags=["Promo Codes"])
+
+if voice_search:
+    app.include_router(voice_search.router, prefix="/api/v1/voice", tags=["Voice Search"])
 
 
 # Startup event

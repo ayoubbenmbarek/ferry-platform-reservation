@@ -4,7 +4,7 @@ Authentication API endpoints for user registration, login, and token management.
 
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -553,7 +553,6 @@ async def reset_password(
             )
 
         # Check if token has expired
-        from datetime import timezone
         if user.password_reset_expires and user.password_reset_expires < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

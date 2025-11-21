@@ -524,7 +524,7 @@ TODO: another option of pending:send quote by email
 TODO: add tests for celery and unit tests and all functions to be executed in pipline.
 TODO:dynamic homepage with pub etc:
 TODO:Ask Tomas if they allow payment in 3 or 4 times?
-TODO:Use Stripe Payment Intents + Your Own Installment Logic
+TODO:Use Stripe Payment Intents + Your Own Installment Logic(to pay in 3 times)
 todo:if user wanna change booking after first one confirmed, fees will be applied or pay difference of price??
 
 

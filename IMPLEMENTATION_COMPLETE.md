@@ -505,13 +505,38 @@ TODO:in complete your ooking page email first name etc are mandatory but when i 
   TODO:send email the day of the trip
   TODO:Send email if come information changed about the route,
   TODO:check with erry hopper if i should listen to a specific endpoint to have updates about routes and trip
+  todo: now i want to have redis cache when i
+ list ferries it will take them from 
+cache and when i click on paiment here 
+it will search in the api to 
+confirm(for now we dont integrate api 
+yet we will use our mock data), and i 
+want 2 worker to listen for paiment if 
+suuceeded or not and send email if 
+succeed same for refund, i want them 
+asynchronly and decoupled the payment 
+and sending email 
+
+ASK when email confirmation will be sent and when we will update cache and did cancellation email works with listener asyncrosly?
 7,50 € au total
 TODO:addd possibility to add promo code:done
 TODO: another option of pending:send quote by email
+TODO: add tests for celery and unit tests and all functions to be executed in pipline.
+TODO:dynamic homepage with pub etc:
+TODO:Ask Tomas if they allow payment in 3 or 4 times?
+TODO:Use Stripe Payment Intents + Your Own Installment Logic
+
+(You charge the customer’s card automatically 3 times)
+
 VOULEZ-VOUS SAUVEGARDER LE DEVIS DE VOTRE VOYAGE ?
+TODO:did you did this too?  Next steps:
+   1. Integrate caching into ferry search endpoint
+   2. Replace direct email calls with async tasks
+   3. Add Stripe webhook endpoint and contine
 Vous pourrez le reprendre à tout moment or (within 3 days)
 Insérez votre adresse e-mail pour recevoir le devis(avec le trajet et les informations déjà renseigner)
 TODO:continue with whisper api search
+TODO:sign in with google
 Veuillez noter que les tarifs peuvent varier en fonction des disponibilités
 TODO:ferryhopper integrates MCP:may use it to facilitate search by llm:
 Ferryhopper's Model Context Protocol (MCP)

@@ -31,6 +31,7 @@ python-dateutil==2.8.2
 # Background tasks and caching
 celery==5.3.4
 redis==5.0.1
+kombu==5.3.4
 
 # Payment processing
 stripe==13.2.0

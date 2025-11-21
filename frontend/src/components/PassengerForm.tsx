@@ -30,6 +30,11 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Sync internal expanded state with parent's isExpanded prop
+  React.useEffect(() => {
+    setExpanded(isExpanded);
+  }, [isExpanded]);
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 

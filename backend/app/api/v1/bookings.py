@@ -916,6 +916,9 @@ async def cancel_booking(
         booking.updated_at = datetime.utcnow()
         if payment:
             booking.refund_amount = payment.refund_amount
+            # Mark refund as processed since we successfully created it in Stripe
+            if payment.stripe_refund_id:
+                booking.refund_processed = True
 
         db.commit()
 

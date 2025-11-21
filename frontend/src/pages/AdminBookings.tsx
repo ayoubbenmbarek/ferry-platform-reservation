@@ -303,13 +303,21 @@ const AdminBookings: React.FC = () => {
                             Cancel
                           </button>
                         )}
-                        {booking.refund_amount && booking.refund_amount > 0 && !booking.refund_processed && (
-                          <button
-                            onClick={() => processRefund(booking.id, booking.refund_amount!)}
-                            className="text-green-600 hover:text-green-900 ml-2"
-                          >
-                            Refund €{booking.refund_amount.toFixed(2)}
-                          </button>
+                        {booking.refund_amount && booking.refund_amount > 0 && (
+                          <>
+                            {!booking.refund_processed ? (
+                              <button
+                                onClick={() => processRefund(booking.id, booking.refund_amount!)}
+                                className="text-green-600 hover:text-green-900 ml-2"
+                              >
+                                Refund €{booking.refund_amount.toFixed(2)}
+                              </button>
+                            ) : (
+                              <span className="text-green-700 font-medium ml-2" title="Refund has been processed">
+                                ✓ Refunded €{booking.refund_amount.toFixed(2)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </td>
                     </tr>

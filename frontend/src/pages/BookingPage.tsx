@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode } from '../store/slices/ferrySlice';
+import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger } from '../store/slices/ferrySlice';
 import CabinSelector from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
+import PassengerForm from '../components/PassengerForm';
+import { PassengerInfo, PassengerType } from '../types/ferry';
 import { promoCodeAPI } from '../services/api';
 
 const BookingPage: React.FC = () => {
@@ -37,6 +39,9 @@ const BookingPage: React.FC = () => {
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
 
+  // Ref to prevent duplicate passenger initialization
+  const passengersInitializedRef = React.useRef(false);
+
   useEffect(() => {
     // Redirect if no ferry selected
     if (!selectedFerry) {
@@ -44,12 +49,50 @@ const BookingPage: React.FC = () => {
       return;
     }
 
-    // Redirect if no passengers
-    if (passengers.length === 0) {
-      navigate('/search');
-      return;
+    // Initialize passenger placeholders based on searchParams if passengers array is empty
+    // Use ref to prevent duplicate initialization during rapid re-renders
+    if (passengers.length === 0 && searchParams.passengers && !passengersInitializedRef.current) {
+      passengersInitializedRef.current = true;
+
+      const { adults = 1, children = 0, infants = 0 } = searchParams.passengers;
+
+      // Create placeholder passengers
+      const placeholders: PassengerInfo[] = [];
+
+      // Add adults
+      for (let i = 0; i < adults; i++) {
+        placeholders.push({
+          id: `adult-${Date.now()}-${i}`,
+          type: PassengerType.ADULT,
+          firstName: '',
+          lastName: '',
+        });
+      }
+
+      // Add children
+      for (let i = 0; i < children; i++) {
+        placeholders.push({
+          id: `child-${Date.now()}-${i}`,
+          type: PassengerType.CHILD,
+          firstName: '',
+          lastName: '',
+        });
+      }
+
+      // Add infants
+      for (let i = 0; i < infants; i++) {
+        placeholders.push({
+          id: `infant-${Date.now()}-${i}`,
+          type: PassengerType.INFANT,
+          firstName: '',
+          lastName: '',
+        });
+      }
+
+      // Dispatch all passengers
+      placeholders.forEach((p) => dispatch(addPassenger(p)));
     }
-  }, [selectedFerry, passengers, navigate]);
+  }, [selectedFerry, navigate, passengers.length, searchParams.passengers, dispatch]);
 
   // Warn user before leaving page during booking
   useEffect(() => {
@@ -132,9 +175,40 @@ const BookingPage: React.FC = () => {
     dispatch(clearPromoCode());
   };
 
+  const handleSavePassenger = (passenger: PassengerInfo) => {
+    // Check if updating existing passenger or adding new
+    const existingIndex = passengers.findIndex(p => p.id === passenger.id);
+    if (existingIndex >= 0) {
+      // Update existing passenger
+      dispatch(updatePassenger({
+        id: passenger.id,
+        data: passenger
+      }));
+    } else {
+      // Add new passenger
+      dispatch(addPassenger(passenger));
+    }
+  };
+
+  const handleRemovePassenger = (passengerId: string) => {
+    dispatch(removePassenger(passengerId));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Validate passenger details are all filled
+    const incompletePassengers = passengers.filter(p => !p.firstName?.trim() || !p.lastName?.trim());
+    if (incompletePassengers.length > 0) {
+      setError('Please complete all passenger details (first name and last name are required)');
+      // Scroll to passenger details section
+      const passengerSection = document.getElementById('passenger-details-section');
+      if (passengerSection) {
+        passengerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
 
     // Validate required contact information fields
     if (!localContactInfo.firstName || !localContactInfo.firstName.trim()) {
@@ -259,6 +333,69 @@ const BookingPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Contact Information */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Passenger Details */}
+            <div id="passenger-details-section" className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold mb-4">Passenger Details</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide details for all passengers. First name and last name are required.
+              </p>
+
+              {/* Progress indicator */}
+              {passengers.length > 1 && (
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-blue-900 font-medium">
+                      {passengers.filter(p => p.firstName && p.lastName).length} of {passengers.length} passengers completed
+                    </span>
+                    <div className="flex gap-1">
+                      {passengers.map((p, idx) => (
+                        <div
+                          key={p.id}
+                          className={`w-2 h-2 rounded-full ${
+                            p.firstName && p.lastName ? 'bg-green-500' : 'bg-gray-300'
+                          }`}
+                          title={`Passenger ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {passengers.map((passenger, index) => {
+                  // Only expand the first incomplete passenger (progressive disclosure)
+                  const firstIncompleteIndex = passengers.findIndex(p => !p.firstName || !p.lastName);
+                  const shouldExpand = index === firstIncompleteIndex;
+
+                  return (
+                    <div key={passenger.id}>
+                      <PassengerForm
+                        passenger={passenger}
+                        passengerNumber={index + 1}
+                        onSave={handleSavePassenger}
+                        onRemove={passengers.length > 1 ? handleRemovePassenger : undefined}
+                        isExpanded={shouldExpand}
+                        defaultType={passenger.type}
+                      />
+                      {/* Helper text for current passenger */}
+                      {shouldExpand && (
+                        <div className="mt-2 mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-sm text-yellow-800">
+                          <p className="font-medium">💡 Tip: Fill all fields you want before clicking "Save Passenger"</p>
+                          <p className="text-yellow-700 mt-1">
+                            Required: First name & Last name • Optional: Date of birth, Nationality, Passport, Pet info, etc.
+                          </p>
+                          <p className="text-yellow-700 mt-1">
+                            You can always click "Edit" later to add more details.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Contact Information */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Contact Information</h2>

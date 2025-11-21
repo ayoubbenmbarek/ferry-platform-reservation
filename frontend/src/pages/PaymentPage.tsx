@@ -120,8 +120,10 @@ const PaymentPage: React.FC = () => {
     }
 
     // Redirect if no booking in progress (for new bookings)
-    if (!selectedFerry || passengers.length === 0) {
-      navigate('/');
+    // Note: We only check for selectedFerry, not passengers, because passengers
+    // are validated on the BookingPage before navigation to PaymentPage
+    if (!selectedFerry) {
+      navigate('/booking');
       return;
     }
 
@@ -131,7 +133,7 @@ const PaymentPage: React.FC = () => {
     }
 
     initializePayment();
-  }, [selectedFerry, passengers, navigate, existingBookingId, initializePayment]);
+  }, [selectedFerry, navigate, existingBookingId, initializePayment]);
 
   const handlePaymentSuccess = async (paymentIntentId: string) => {
     setIsConfirming(true);

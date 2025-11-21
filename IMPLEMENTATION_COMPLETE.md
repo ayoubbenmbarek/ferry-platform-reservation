@@ -502,6 +502,9 @@ TODO:in complete your ooking page email first name etc are mandatory but when i 
   TODO:add pay in 3 times
   TODO:sign up with google
   TODO:add glisser un jour vers avant ou après et voir les prix et les dispo de traversé (passenger, vehicule, cabin..)
+  TODO:send email the day of the trip
+  TODO:Send email if come information changed about the route,
+  TODO:check with erry hopper if i should listen to a specific endpoint to have updates about routes and trip
 7,50 € au total
 TODO:addd possibility to add promo code:done
 TODO: another option of pending:send quote by email
@@ -513,6 +516,7 @@ Veuillez noter que les tarifs peuvent varier en fonction des disponibilités
 TODO:ferryhopper integrates MCP:may use it to facilitate search by llm:
 Ferryhopper's Model Context Protocol (MCP)
 The connector for LLMs and AI Agents in Maritime Travel.
+
 
 Ferryhopper’s API: FerryhAPI
 The Ferryhopper MCP Server exposes ferry routes, schedules, and secure booking options, allowing your AI assistant to discover, plan, and execute ferry connections across the world, with speed and reliability. If you're building AI travel planning solutions, integrate this powerful transport MCP directly into your large language model (LLM) to deliver seamless, actionable ferry travel advice:

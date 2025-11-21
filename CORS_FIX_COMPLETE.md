@@ -43,8 +43,8 @@ Now:
 
 **Updated Stripe configuration in `backend/.env.development`:**
 ```env
-STRIPE_SECRET_KEY=sk_test_51Q19DVL40zLTUQ47PR5btWyg3UgtrzcVKwtprQ3z3L6esVurfqY3uUnzSVU7sCafg5HCUa3tABY8Kkdi8RbbicgP00gADM5Xa2
-STRIPE_PUBLISHABLE_KEY=pk_test_51Q19DVL40zLTUQ47tUXkuAGMIAmolt6Me8ofAZjxC7yJm7TcPhJllSerGGjsZWYx16UzrR1Kb2ASIKmYn8LDhTy900OM8gz2fF
+STRIPE_SECRET_KEY=sk_test****
+STRIPE_PUBLISHABLE_KEY=pk_test***
 ```
 
 ## Testing Results

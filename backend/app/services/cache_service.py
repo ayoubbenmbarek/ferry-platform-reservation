@@ -247,6 +247,20 @@ class CacheService:
             logger.error(f"Error invalidating availability cache: {str(e)}")
             return False
 
+    # Aliases for better API consistency
+    def get_sailing_availability(self, sailing_id: str) -> Optional[Dict[str, Any]]:
+        """Alias for get_availability()."""
+        return self.get_availability(sailing_id)
+
+    def set_sailing_availability(
+        self,
+        sailing_id: str,
+        availability_data: Dict[str, Any],
+        ttl: int = 60
+    ) -> bool:
+        """Alias for set_availability()."""
+        return self.set_availability(sailing_id, availability_data, ttl)
+
     def invalidate_route_searches(self, departure_port: str, arrival_port: str) -> int:
         """
         Invalidate all cached searches for a specific route.

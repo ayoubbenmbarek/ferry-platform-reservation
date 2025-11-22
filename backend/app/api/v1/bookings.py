@@ -921,17 +921,29 @@ async def cancel_booking(
                 booking.refund_processed = True
 
         db.commit()
+        db.refresh(booking)
 
-        # Send cancellation confirmation email
+        # Invalidate cache for this sailing (ferry now has more capacity)
         try:
+            from app.services.cache_service import cache_service
+            if booking.sailing_id:
+                cache_service.invalidate_sailing_availability(booking.sailing_id)
+                logger.info(f"Invalidated availability cache for sailing {booking.sailing_id}")
+        except Exception as e:
+            logger.warning(f"Failed to invalidate cache: {str(e)}")
+
+        # Queue cancellation email asynchronously (non-blocking)
+        try:
+            from app.tasks.email_tasks import send_cancellation_email_task
+
             booking_dict = {
                 "id": booking.id,
                 "booking_reference": booking.booking_reference,
                 "operator": booking.operator,
                 "departure_port": booking.departure_port,
                 "arrival_port": booking.arrival_port,
-                "departure_time": booking.departure_time,
-                "arrival_time": booking.arrival_time,
+                "departure_time": booking.departure_time.isoformat() if booking.departure_time else None,
+                "arrival_time": booking.arrival_time.isoformat() if booking.arrival_time else None,
                 "vessel_name": booking.vessel_name,
                 "contact_email": booking.contact_email,
                 "contact_first_name": booking.contact_first_name,
@@ -939,17 +951,21 @@ async def cancel_booking(
                 "total_passengers": booking.total_passengers,
                 "total_vehicles": booking.total_vehicles,
                 "cancellation_reason": cancellation_data.reason,
-                "cancelled_at": booking.cancelled_at,
-                "refund_amount": payment.refund_amount if payment else None,
+                "cancelled_at": booking.cancelled_at.isoformat() if booking.cancelled_at else None,
+                "refund_amount": float(payment.refund_amount) if payment and payment.refund_amount else None,
                 "base_url": os.getenv("BASE_URL", "http://localhost:3001")
             }
 
-            email_service.send_cancellation_confirmation(
+            # Queue email task (returns immediately, email sent by worker)
+            task = send_cancellation_email_task.delay(
                 booking_data=booking_dict,
                 to_email=booking.contact_email
             )
+            logger.info(f"Cancellation email queued: task_id={task.id}")
+
         except Exception as e:
-            logger.error(f"Failed to send cancellation email: {str(e)}")
+            # Log error but don't fail the cancellation
+            logger.error(f"Failed to queue cancellation email: {str(e)}")
 
         return {
             "message": "Booking cancelled successfully",

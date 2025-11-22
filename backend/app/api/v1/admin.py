@@ -369,16 +369,18 @@ async def cancel_booking_admin(
     db.commit()
     db.refresh(booking)
 
-    # Send cancellation email
+    # Queue cancellation email asynchronously (non-blocking)
     try:
+        from app.tasks.email_tasks import send_cancellation_email_task
+
         booking_dict = {
             "id": booking.id,
             "booking_reference": booking.booking_reference,
             "operator": booking.operator,
             "departure_port": booking.departure_port,
             "arrival_port": booking.arrival_port,
-            "departure_time": booking.departure_time,
-            "arrival_time": booking.arrival_time,
+            "departure_time": booking.departure_time.isoformat() if booking.departure_time else None,
+            "arrival_time": booking.arrival_time.isoformat() if booking.arrival_time else None,
             "vessel_name": booking.vessel_name,
             "contact_email": booking.contact_email,
             "contact_first_name": booking.contact_first_name,
@@ -386,19 +388,21 @@ async def cancel_booking_admin(
             "total_passengers": booking.total_passengers,
             "total_vehicles": booking.total_vehicles,
             "cancellation_reason": cancel_request.reason,
-            "cancelled_at": booking.cancelled_at,
-            "refund_amount": booking.refund_amount if booking.refund_amount else None,
+            "cancelled_at": booking.cancelled_at.isoformat() if booking.cancelled_at else None,
+            "refund_amount": float(booking.refund_amount) if booking.refund_amount else None,
             "base_url": os.getenv("BASE_URL", "http://localhost:3001")
         }
 
-        email_service.send_cancellation_confirmation(
+        # Queue email task (returns immediately)
+        task = send_cancellation_email_task.delay(
             booking_data=booking_dict,
             to_email=booking.contact_email
         )
+        logger.info(f"Cancellation email queued: task_id={task.id}")
+
     except Exception as e:
         # Log error but don't fail the cancellation
-        import logging
-        logging.error(f"Failed to send cancellation email for booking {booking_id}: {str(e)}")
+        logger.error(f"Failed to queue cancellation email for booking {booking_id}: {str(e)}")
 
     if payment and payment.amount:
         message = f"Booking cancelled. Refund of €{booking.refund_amount:.2f} pending admin approval."
@@ -467,32 +471,36 @@ async def process_refund(
         db.commit()
         db.refresh(booking)
 
-        # Send refund confirmation email
+        # Queue refund confirmation email asynchronously (non-blocking)
         try:
+            from app.tasks.email_tasks import send_refund_confirmation_email_task
+
             booking_dict = {
                 "id": booking.id,
                 "booking_reference": booking.booking_reference,
                 "operator": booking.operator,
                 "departure_port": booking.departure_port,
                 "arrival_port": booking.arrival_port,
-                "departure_time": booking.departure_time,
+                "departure_time": booking.departure_time.isoformat() if booking.departure_time else None,
                 "contact_email": booking.contact_email,
                 "total_amount": float(booking.total_amount) if booking.total_amount else 0,
                 "refund_amount": refund_request.amount,
                 "currency": booking.currency or "EUR",
                 "stripe_refund_id": refund.id,
-                "refunded_at": datetime.utcnow(),
+                "refunded_at": datetime.utcnow().isoformat(),
                 "base_url": os.getenv("BASE_URL", "http://localhost:3001")
             }
 
-            email_service.send_refund_confirmation(
+            # Queue email task (returns immediately)
+            task = send_refund_confirmation_email_task.delay(
                 booking_data=booking_dict,
                 to_email=booking.contact_email
             )
+            logger.info(f"Refund confirmation email queued: task_id={task.id}")
+
         except Exception as email_error:
             # Log error but don't fail the refund
-            import logging
-            logging.error(f"Failed to send refund confirmation email for booking {booking_id}: {str(email_error)}")
+            logger.error(f"Failed to queue refund confirmation email for booking {booking_id}: {str(email_error)}")
 
         return RefundResponse(
             message=f"Refund processed successfully (Stripe ID: {refund.id})",

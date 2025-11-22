@@ -3,8 +3,11 @@ Ferry API endpoints for searching ferries, routes, and schedules.
 """
 
 import time
+import logging
 from typing import List, Optional
 from datetime import datetime, date
+
+logger = logging.getLogger(__name__)
 
 try:
     from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -93,14 +96,43 @@ async def search_ferries(
 ):
     """
     Search for available ferries across all operators.
-    
+
     This endpoint searches all configured ferry operators for available
     sailings based on the provided search criteria.
+
+    Results are cached for 5 minutes to improve performance.
     """
     try:
         start_time = time.time()
 
-        # Convert Pydantic model to service parameters
+        # Try to get from cache first
+        from app.services.cache_service import cache_service
+
+        cache_params = {
+            "departure_port": search_params.departure_port,
+            "arrival_port": search_params.arrival_port,
+            "departure_date": search_params.departure_date,
+            "return_date": search_params.return_date,
+            "return_departure_port": search_params.return_departure_port,
+            "return_arrival_port": search_params.return_arrival_port,
+            "adults": search_params.adults,
+            "children": search_params.children,
+            "infants": search_params.infants,
+            "vehicles": len(search_params.vehicles) if search_params.vehicles else 0,
+            "operators": sorted(search_params.operators) if search_params.operators else None
+        }
+
+        cached_response = cache_service.get_ferry_search(cache_params)
+        if cached_response:
+            # Add cache hit indicator
+            cached_response["cached"] = True
+            cached_response["cache_age_ms"] = (time.time() - start_time) * 1000
+            logger.info(f"✅ Cache HIT for ferry search ({(time.time() - start_time)*1000:.0f}ms)")
+            return FerrySearchResponse(**cached_response)
+
+        logger.info(f"❌ Cache MISS for ferry search - fetching from operators")
+
+        # Cache miss - fetch from ferry operators
         results = await ferry_service.search_ferries(
             departure_port=search_params.departure_port,
             arrival_port=search_params.arrival_port,
@@ -124,13 +156,21 @@ async def search_ferries(
         # Convert FerryResult objects to dictionaries for Pydantic validation
         results_dict = [result.to_dict() for result in results]
 
-        return FerrySearchResponse(
-            results=results_dict,
-            total_results=len(results),
-            search_params=search_params,
-            operators_searched=operators_searched,
-            search_time_ms=search_time
-        )
+        # Build response
+        response_dict = {
+            "results": results_dict,
+            "total_results": len(results),
+            "search_params": search_params.dict(),
+            "operators_searched": operators_searched,
+            "search_time_ms": search_time,
+            "cached": False
+        }
+
+        # Cache the results for 5 minutes (300 seconds)
+        cache_service.set_ferry_search(cache_params, response_dict, ttl=300)
+        logger.info(f"💾 Cached ferry search results ({search_time:.0f}ms)")
+
+        return FerrySearchResponse(**response_dict)
         
     except FerryAPIError as e:
         raise HTTPException(

@@ -21,7 +21,12 @@
     "vehicleLength": "Longueur du Véhicule",
     "selectPort": "Sélectionner un port",
     "selectDate": "Sélectionner une date",
-    "differentReturnRoute": "Itinéraire de retour différent"
+    "differentReturnRoute": "Itinéraire de retour différent",
+    "updateSearch": "Mettre à Jour la Recherche",
+    "selectDeparturePort": "Sélectionner le port de départ",
+    "selectArrivalPort": "Sélectionner le port d'arrivée",
+    "from": "De",
+    "to": "À"
   },
   "passengers": {
     "adults": "Adultes",
@@ -92,5 +97,12 @@
     "selectReturnDeparturePort": "Veuillez sélectionner le port de départ du retour",
     "selectReturnArrivalPort": "Veuillez sélectionner le port d'arrivée du retour",
     "returnPortsMustDiffer": "Le port d'arrivée du retour doit être différent"
-  }
+  },
+  "selectFerry": "Sélectionner un Ferry",
+  "selectOutboundFerry": "Sélectionner Ferry Aller",
+  "selectReturnFerry": "Sélectionner Ferry Retour",
+  "outboundFerrySelected": "Ferry Aller Sélectionné",
+  "duration": "Durée",
+  "changeOutbound": "Changer l'Aller",
+  "backToSearch": "Retour à la Recherche"
 }

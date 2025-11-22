@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { AppDispatch, RootState } from '../store';
@@ -6,6 +7,7 @@ import { updateUser } from '../store/slices/authSlice';
 import { authAPI } from '../services/api';
 
 const ProfilePage: React.FC = () => {
+  const { t } = useTranslation(['profile', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -77,13 +79,13 @@ const ProfilePage: React.FC = () => {
     setMessage(null);
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' });
+      setMessage({ type: 'error', text: t('profile:messages.passwordMismatch') });
       setIsSaving(false);
       return;
     }
 
     if (passwordData.newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Password must be at least 8 characters long' });
+      setMessage({ type: 'error', text: t('profile:security.passwordRequirements') });
       setIsSaving(false);
       return;
     }
@@ -93,7 +95,7 @@ const ProfilePage: React.FC = () => {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
-      setMessage({ type: 'success', text: 'Password changed successfully!' });
+      setMessage({ type: 'success', text: t('profile:messages.passwordChanged') });
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to change password' });
@@ -193,7 +195,7 @@ const ProfilePage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile:personalInfo.email')}</label>
                   <input
                     type="email"
                     value={profileData.email}
@@ -228,7 +230,7 @@ const ProfilePage: React.FC = () => {
             {activeTab === 'password' && (
               <form onSubmit={handlePasswordSubmit} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile:security.currentPassword')}</label>
                   <input
                     type="password"
                     value={passwordData.currentPassword}
@@ -239,7 +241,7 @@ const ProfilePage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">New Password</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile:security.newPassword')}</label>
                   <input
                     type="password"
                     value={passwordData.newPassword}
@@ -251,7 +253,7 @@ const ProfilePage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile:security.confirmPassword')}</label>
                   <input
                     type="password"
                     value={passwordData.confirmPassword}
@@ -267,7 +269,7 @@ const ProfilePage: React.FC = () => {
                     disabled={isSaving}
                     className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300"
                   >
-                    {isSaving ? 'Changing...' : 'Change Password'}
+                    {isSaving ? 'Changing...' : t('profile:security.changePassword')}
                   </button>
                 </div>
               </form>

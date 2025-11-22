@@ -57,5 +57,29 @@
     "today": "Oggi",
     "tomorrow": "Domani",
     "yesterday": "Ieri"
+  },
+  "features": {
+    "compareOperators": "Confronta prezzi • Più operatori • Prenotazione facile",
+    "whyBookTitle": "Perché Prenotare Con Noi?",
+    "whyBookSubtitle": "Il modo più semplice per prenotare traghetti verso la Tunisia",
+    "bestPricesTitle": "Prezzi Migliori",
+    "bestPricesDesc": "Confronta i prezzi di CTN, GNV, Corsica Lines e Danel Casanova in un'unica ricerca",
+    "instantConfirmationTitle": "Conferma Istantanea",
+    "instantConfirmationDesc": "Ricevi la conferma della prenotazione immediatamente con e-ticket inviati alla tua email",
+    "securePaymentTitle": "Pagamento Sicuro",
+    "securePaymentDesc": "Le tue informazioni di pagamento sono criptate e sicure con Stripe",
+    "popularRoutesTitle": "Rotte Popolari",
+    "popularRoutesSubtitle": "Rotte di traghetto più cercate verso la Tunisia",
+    "viewSchedules": "Visualizza Orari",
+    "from": "da"
+  },
+  "bookingStatus": {
+    "all": "Tutti",
+    "pending": "In sospeso",
+    "confirmed": "Confermato",
+    "completed": "Completato",
+    "cancelled": "Cancellato",
+    "paid": "Pagato",
+    "filterByStatus": "Filtra per stato"
   }
 }

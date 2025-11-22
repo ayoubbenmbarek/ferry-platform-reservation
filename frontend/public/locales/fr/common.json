@@ -57,5 +57,29 @@
     "today": "Aujourd'hui",
     "tomorrow": "Demain",
     "yesterday": "Hier"
+  },
+  "features": {
+    "compareOperators": "Comparer les prix • Plusieurs opérateurs • Réservation facile",
+    "whyBookTitle": "Pourquoi Réserver Avec Nous ?",
+    "whyBookSubtitle": "Le moyen le plus simple de réserver des traversées en ferry vers la Tunisie",
+    "bestPricesTitle": "Meilleurs Prix",
+    "bestPricesDesc": "Comparez les prix de CTN, GNV, Corsica Lines et Danel Casanova en une seule recherche",
+    "instantConfirmationTitle": "Confirmation Instantanée",
+    "instantConfirmationDesc": "Obtenez votre réservation confirmée immédiatement avec des e-billets envoyés à votre email",
+    "securePaymentTitle": "Paiement Sécurisé",
+    "securePaymentDesc": "Vos informations de paiement sont cryptées et sécurisées avec Stripe",
+    "popularRoutesTitle": "Routes Populaires",
+    "popularRoutesSubtitle": "Routes de ferry les plus recherchées vers la Tunisie",
+    "viewSchedules": "Voir les Horaires",
+    "from": "à partir de"
+  },
+  "bookingStatus": {
+    "all": "Tous",
+    "pending": "En attente",
+    "confirmed": "Confirmé",
+    "completed": "Terminé",
+    "cancelled": "Annulé",
+    "paid": "Payé",
+    "filterByStatus": "Filtrer par statut"
   }
 }

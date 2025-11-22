@@ -386,6 +386,13 @@ const ferrySlice = createSlice({
       state.searchError = null;
     },
 
+    // Clear current booking (used when editing search to prevent reusing old booking)
+    clearCurrentBooking: (state) => {
+      state.currentBooking = null;
+      state.isCreatingBooking = false;
+      state.bookingError = null;
+    },
+
     // Start a new search - resets booking state but keeps step at 2 for search results
     startNewSearch: (state) => {
       state.currentStep = 2;  // Set to ferry selection step
@@ -472,6 +479,7 @@ export const {
   clearVehicles,
   resetBooking,
   startNewSearch,
+  clearCurrentBooking,
   clearError,
   resetSearchState,
   resetAllState,

@@ -57,5 +57,29 @@
     "today": "Heute",
     "tomorrow": "Morgen",
     "yesterday": "Gestern"
+  },
+  "features": {
+    "compareOperators": "Preise vergleichen • Mehrere Betreiber • Einfache Buchung",
+    "whyBookTitle": "Warum Bei Uns Buchen?",
+    "whyBookSubtitle": "Der einfachste Weg, Fährüberfahrten nach Tunesien zu buchen",
+    "bestPricesTitle": "Beste Preise",
+    "bestPricesDesc": "Vergleichen Sie Preise von CTN, GNV, Corsica Lines und Danel Casanova in einer Suche",
+    "instantConfirmationTitle": "Sofortige Bestätigung",
+    "instantConfirmationDesc": "Erhalten Sie Ihre Buchungsbestätigung sofort mit E-Tickets per E-Mail",
+    "securePaymentTitle": "Sichere Zahlung",
+    "securePaymentDesc": "Ihre Zahlungsinformationen sind mit Stripe verschlüsselt und sicher",
+    "popularRoutesTitle": "Beliebte Routen",
+    "popularRoutesSubtitle": "Meistgesuchte Fährrouten nach Tunesien",
+    "viewSchedules": "Fahrpläne Ansehen",
+    "from": "ab"
+  },
+  "bookingStatus": {
+    "all": "Alle",
+    "pending": "Ausstehend",
+    "confirmed": "Bestätigt",
+    "completed": "Abgeschlossen",
+    "cancelled": "Storniert",
+    "paid": "Bezahlt",
+    "filterByStatus": "Nach Status filtern"
   }
 }

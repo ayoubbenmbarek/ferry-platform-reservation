@@ -1,1 +1,113 @@
-{}
+{
+  "title": "Completa la Tua Prenotazione",
+  "progress": {
+    "step1": "Seleziona Traghetto",
+    "step2": "Dettagli Passeggeri",
+    "step3": "Pagamento"
+  },
+  "passengerDetails": {
+    "title": "Dettagli Passeggeri",
+    "subtitle": "Fornisci i dettagli per tutti i passeggeri",
+    "contactPerson": "Persona di Contatto",
+    "contactPersonDesc": "Contatto principale per questa prenotazione",
+    "passenger": "Passeggero {{number}}",
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "dateOfBirth": "Data di Nascita",
+    "nationality": "Nazionalità",
+    "passportNumber": "Numero di Passaporto",
+    "email": "Indirizzo Email",
+    "phone": "Numero di Telefono",
+    "sameAsContact": "Uguale alla persona di contatto",
+    "addPassenger": "Aggiungi Passeggero",
+    "removePassenger": "Rimuovi Passeggero",
+    "requiredFields": "Obbligatorio: Nome & Cognome • Opzionale: Data di nascita, Nazionalità, Passaporto, Info animale, ecc."
+  },
+  "vehicleDetails": {
+    "title": "Informazioni Veicolo",
+    "vehicle": "Veicolo {{number}}",
+    "type": "Tipo di Veicolo",
+    "licensePlate": "Targa",
+    "length": "Lunghezza (metri)",
+    "height": "Altezza (metri)",
+    "addVehicle": "Aggiungi Altro Veicolo",
+    "removeVehicle": "Rimuovi Veicolo"
+  },
+  "summary": {
+    "title": "Riepilogo Prenotazione",
+    "outboundFerry": "Traghetto Andata",
+    "returnFerry": "Traghetto Ritorno",
+    "route": "Rotta",
+    "departure": "Partenza",
+    "arrival": "Arrivo",
+    "duration": "Durata",
+    "passengers": "Passeggeri",
+    "vehicles": "Veicoli",
+    "adults": "{{count}} Adulto",
+    "adults_plural": "{{count}} Adulti",
+    "children": "{{count}} Bambino",
+    "children_plural": "{{count}} Bambini",
+    "infants": "{{count}} Neonato",
+    "infants_plural": "{{count}} Neonati"
+  },
+  "pricing": {
+    "title": "Dettaglio Prezzi",
+    "outboundFare": "Tariffa Andata",
+    "returnFare": "Tariffa Ritorno",
+    "passengerFares": "Tariffe Passeggeri",
+    "vehicleFares": "Tariffe Veicoli",
+    "subtotal": "Subtotale",
+    "taxes": "Tasse e Commissioni",
+    "total": "Totale",
+    "promoCode": "Codice Promozionale",
+    "applyPromo": "Applica",
+    "discount": "Sconto"
+  },
+  "actions": {
+    "continueToPayment": "Continua al Pagamento",
+    "back": "Indietro",
+    "addPassenger": "Aggiungi Passeggero",
+    "removePassenger": "Rimuovi Passeggero"
+  },
+  "validation": {
+    "requiredField": "Questo campo è obbligatorio",
+    "invalidEmail": "Indirizzo email non valido",
+    "invalidPhone": "Numero di telefono non valido",
+    "invalidPassport": "Numero di passaporto non valido",
+    "minAge": "Il passeggero deve avere almeno {{age}} anni",
+    "futureDate": "La data non può essere nel futuro"
+  },
+  "errors": {
+    "loadingFailed": "Impossibile caricare i dettagli della prenotazione",
+    "savingFailed": "Impossibile salvare la prenotazione",
+    "tryAgain": "Riprova"
+  },
+  "confirmation": {
+    "title": "Prenotazione Confermata!",
+    "message": "La tua prenotazione del traghetto è stata confermata con successo.",
+    "emailSent": "Un'email di conferma è stata inviata a {{email}}",
+    "bookingReference": "Riferimento Prenotazione: {{reference}}",
+    "downloadTicket": "Scarica Biglietto",
+    "viewBooking": "Visualizza Dettagli Prenotazione",
+    "backToHome": "Torna alla Home"
+  },
+  "cancellation": {
+    "title": "Annulla Prenotazione",
+    "confirmMessage": "Sei sicuro di voler annullare questa prenotazione?",
+    "reason": "Motivo della Cancellazione",
+    "cancelled": "Prenotazione Annullata",
+    "cancelledMessage": "La tua prenotazione è stata annullata con successo.",
+    "refundIssued": "Rimborso di {{amount}} è stato emesso",
+    "emailSent": "Conferma di cancellazione inviata a {{email}}"
+  },
+  "details": {
+    "title": "Dettagli Prenotazione",
+    "downloadInvoice": "Scarica Fattura",
+    "downloadingInvoice": "Download in corso...",
+    "passengers": "Passeggeri",
+    "vehicles": "Veicoli",
+    "route": "Percorso",
+    "departureTime": "Orario di Partenza",
+    "arrivalTime": "Orario di Arrivo"
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { loadStripe } from '@stripe/stripe-js';
@@ -13,6 +14,7 @@ import BookingExpirationTimer from '../components/BookingExpirationTimer';
 let stripePromise: Promise<any> | null = null;
 
 const PaymentPage: React.FC = () => {
+  const { t } = useTranslation(['payment', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { bookingId: existingBookingId } = useParams<{ bookingId: string }>();
@@ -62,8 +64,22 @@ const PaymentPage: React.FC = () => {
         booking = await bookingAPI.getById(parseInt(existingBookingId));
         setBookingId(booking.id);
         setBookingDetails(booking);
+      } else if (currentBooking && currentBooking.id && currentBooking.status === 'PENDING') {
+        // Only reuse booking if:
+        // 1. It exists in Redux
+        // 2. It has an ID
+        // 3. It's still PENDING (not completed/cancelled)
+        // This prevents creating duplicates when navigating back/forward within same booking flow
+        console.log('Reusing existing PENDING booking from Redux:', currentBooking.id);
+        booking = currentBooking;
+        setBookingId(currentBooking.id);
+        setBookingDetails(currentBooking);
       } else {
-        // Create new booking
+        // Create new booking if:
+        // 1. No existing booking ID provided
+        // 2. No current booking in Redux, OR
+        // 3. Current booking is not PENDING (completed/cancelled)
+        console.log('Creating new booking...');
         booking = await dispatch(createBooking()).unwrap();
         setBookingId(booking.id);
         setBookingDetails(booking);
@@ -107,7 +123,7 @@ const PaymentPage: React.FC = () => {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingBookingId, dispatch]);
+  }, [existingBookingId, currentBooking, dispatch]);
 
   useEffect(() => {
     // If paying for existing booking, skip ferry/passenger checks
@@ -214,8 +230,8 @@ const PaymentPage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Payment</h1>
-          <p className="mt-2 text-gray-600">Complete your payment to confirm your booking</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('payment:title')}</h1>
+          <p className="mt-2 text-gray-600">{t('payment:subtitle')}</p>
         </div>
 
         {/* Expiration Timer */}
@@ -234,7 +250,7 @@ const PaymentPage: React.FC = () => {
             <div className="bg-white rounded-lg shadow-md p-6">
               {/* Payment Method Selection */}
               <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('payment:paymentMethod.title')}</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => setPaymentMethod('card')}
@@ -293,7 +309,7 @@ const PaymentPage: React.FC = () => {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('payment:orderSummary.title')}</h2>
 
               <div className="space-y-3 mb-4">
                 {bookingDetails ? (
@@ -331,7 +347,7 @@ const PaymentPage: React.FC = () => {
 
                     <div className="border-t border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between">
-                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-lg font-bold">{t('payment:orderSummary.total')}</span>
                         <span className="text-lg font-bold text-blue-600">€{bookingTotal.toFixed(2)}</span>
                       </div>
                     </div>
@@ -364,7 +380,7 @@ const PaymentPage: React.FC = () => {
 
                     <div className="border-t border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between">
-                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-lg font-bold">{t('payment:orderSummary.total')}</span>
                         <span className="text-lg font-bold text-blue-600">€{calculateTotal().toFixed(2)}</span>
                       </div>
                     </div>

@@ -6,7 +6,7 @@
     "step3": "Payment"
   },
   "passengerDetails": {
-    "title": "Passenger Information",
+    "title": "Passenger Details",
     "subtitle": "Please provide details for all passengers",
     "contactPerson": "Contact Person",
     "contactPersonDesc": "Primary contact for this booking",
@@ -20,7 +20,8 @@
     "phone": "Phone Number",
     "sameAsContact": "Same as contact person",
     "addPassenger": "Add Passenger",
-    "removePassenger": "Remove Passenger"
+    "removePassenger": "Remove Passenger",
+    "requiredFields": "Required: First name & Last name • Optional: Date of birth, Nationality, Passport, Pet info, etc."
   },
   "vehicleDetails": {
     "title": "Vehicle Information",
@@ -63,12 +64,10 @@
     "discount": "Discount"
   },
   "actions": {
-    "continue": "Continue to Payment",
+    "continueToPayment": "Continue to Payment",
     "back": "Back",
-    "cancel": "Cancel Booking",
-    "confirmCancel": "Are you sure you want to cancel this booking?",
-    "yes": "Yes, Cancel",
-    "no": "No, Keep Booking"
+    "addPassenger": "Add Passenger",
+    "removePassenger": "Remove Passenger"
   },
   "validation": {
     "requiredField": "This field is required",
@@ -82,5 +81,33 @@
     "loadingFailed": "Failed to load booking details",
     "savingFailed": "Failed to save booking",
     "tryAgain": "Please try again"
+  },
+  "confirmation": {
+    "title": "Booking Confirmed!",
+    "message": "Your ferry reservation has been successfully confirmed.",
+    "emailSent": "A confirmation email has been sent to {{email}}",
+    "bookingReference": "Booking Reference: {{reference}}",
+    "downloadTicket": "Download Ticket",
+    "viewBooking": "View Booking Details",
+    "backToHome": "Back to Home"
+  },
+  "cancellation": {
+    "title": "Cancel Booking",
+    "confirmMessage": "Are you sure you want to cancel this booking?",
+    "reason": "Cancellation Reason",
+    "cancelled": "Booking Cancelled",
+    "cancelledMessage": "Your booking has been cancelled successfully.",
+    "refundIssued": "Refund of {{amount}} has been issued",
+    "emailSent": "Cancellation confirmation sent to {{email}}"
+  },
+  "details": {
+    "title": "Booking Details",
+    "downloadInvoice": "Download Invoice",
+    "downloadingInvoice": "Downloading...",
+    "passengers": "Passengers",
+    "vehicles": "Vehicles",
+    "route": "Route",
+    "departureTime": "Departure Time",
+    "arrivalTime": "Arrival Time"
   }
 }

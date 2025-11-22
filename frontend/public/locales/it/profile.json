@@ -1,1 +1,87 @@
-{}
+{
+  "title": "Il Mio Profilo",
+  "subtitle": "Gestisci le impostazioni e le preferenze del tuo account",
+  "tabs": {
+    "personalInfo": "Informazioni Personali",
+    "preferences": "Preferenze",
+    "security": "Sicurezza",
+    "bookings": "Le Mie Prenotazioni"
+  },
+  "personalInfo": {
+    "title": "Informazioni Personali",
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "email": "Indirizzo Email",
+    "phone": "Numero di Telefono",
+    "dateOfBirth": "Data di Nascita",
+    "nationality": "Nazionalità",
+    "passportNumber": "Numero di Passaporto",
+    "address": "Indirizzo",
+    "addressLine1": "Indirizzo Riga 1",
+    "addressLine2": "Indirizzo Riga 2",
+    "city": "Città",
+    "state": "Stato/Provincia",
+    "postalCode": "Codice Postale",
+    "country": "Paese",
+    "saveChanges": "Salva Modifiche",
+    "cancel": "Annulla"
+  },
+  "preferences": {
+    "title": "Preferenze",
+    "language": "Lingua Preferita",
+    "currency": "Valuta Preferita",
+    "notifications": "Notifiche",
+    "emailNotifications": "Notifiche Email",
+    "smsNotifications": "Notifiche SMS",
+    "marketingEmails": "Email di Marketing",
+    "bookingUpdates": "Aggiornamenti Prenotazioni",
+    "specialOffers": "Offerte Speciali",
+    "newsletter": "Newsletter"
+  },
+  "security": {
+    "title": "Impostazioni di Sicurezza",
+    "changePassword": "Cambia Password",
+    "currentPassword": "Password Attuale",
+    "newPassword": "Nuova Password",
+    "confirmPassword": "Conferma Nuova Password",
+    "passwordRequirements": "La password deve contenere almeno 8 caratteri",
+    "twoFactor": "Autenticazione a Due Fattori",
+    "enable2FA": "Abilita 2FA",
+    "disable2FA": "Disabilita 2FA",
+    "2FAEnabled": "Autenticazione a due fattori è abilitata",
+    "2FADisabled": "Autenticazione a due fattori è disabilitata",
+    "deleteAccount": "Elimina Account",
+    "deleteWarning": "Questa azione non può essere annullata"
+  },
+  "bookings": {
+    "title": "Le Mie Prenotazioni",
+    "upcoming": "Prossime",
+    "past": "Passate",
+    "cancelled": "Cancellate",
+    "noBookings": "Nessuna prenotazione trovata",
+    "viewDetails": "Visualizza Dettagli",
+    "cancel": "Annulla Prenotazione",
+    "downloadTicket": "Scarica Biglietto"
+  },
+  "actions": {
+    "save": "Salva Modifiche",
+    "cancel": "Annulla",
+    "update": "Aggiorna",
+    "delete": "Elimina",
+    "confirm": "Conferma"
+  },
+  "messages": {
+    "updateSuccess": "Profilo aggiornato con successo",
+    "updateFailed": "Impossibile aggiornare il profilo",
+    "passwordChanged": "Password cambiata con successo",
+    "passwordChangeFailed": "Impossibile cambiare la password",
+    "invalidCurrentPassword": "La password attuale non è corretta",
+    "passwordMismatch": "Le password non corrispondono"
+  },
+  "validation": {
+    "requiredField": "Questo campo è obbligatorio",
+    "invalidEmail": "Indirizzo email non valido",
+    "invalidPhone": "Numero di telefono non valido",
+    "weakPassword": "La password è troppo debole"
+  }
+}

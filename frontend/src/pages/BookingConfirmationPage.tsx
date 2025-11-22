@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
@@ -7,6 +8,7 @@ import CreateAccountModal from '../components/CreateAccountModal';
 import { setUser } from '../store/slices/authSlice';
 
 const BookingConfirmationPage: React.FC = () => {
+  const { t } = useTranslation(['booking', 'common']);
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -63,8 +65,8 @@ const BookingConfirmationPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Booking Confirmed!</h1>
-            <p className="text-gray-600">Your ferry reservation has been successfully confirmed.</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('booking:confirmation.title')}</h1>
+            <p className="text-gray-600">{t('booking:confirmation.message')}</p>
           </div>
 
           {/* Booking Reference */}

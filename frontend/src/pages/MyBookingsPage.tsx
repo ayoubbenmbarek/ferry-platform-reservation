@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { bookingAPI, Booking } from '../services/api';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
@@ -15,6 +16,7 @@ const snakeToCamel = (obj: any): any => {
 };
 
 const MyBookingsPage: React.FC = () => {
+  const { t } = useTranslation(['common', 'booking']);
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +108,7 @@ const MyBookingsPage: React.FC = () => {
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="flex items-center space-x-4">
-            <span className="text-sm font-medium text-gray-700">Filter by status:</span>
+            <span className="text-sm font-medium text-gray-700">{t('common:bookingStatus.filterByStatus')}:</span>
             <div className="flex space-x-2">
               {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map((status) => (
                 <button
@@ -118,7 +120,7 @@ const MyBookingsPage: React.FC = () => {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {t(`common:bookingStatus.${status}`)}
                 </button>
               ))}
             </div>
@@ -189,7 +191,7 @@ const MyBookingsPage: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-3">
                           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(booking.status)}`}>
-                            {booking.status}
+                            {t(`common:bookingStatus.${booking.status.toLowerCase()}`, booking.status)}
                           </span>
                           <span className="text-sm text-gray-500">
                             Ref: {booking.bookingReference}

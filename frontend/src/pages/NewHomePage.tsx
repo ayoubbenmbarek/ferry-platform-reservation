@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip } from '../store/slices/ferrySlice';
+import { useTranslation } from 'react-i18next';
+import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip, startNewSearch } from '../store/slices/ferrySlice';
 import { RootState, AppDispatch } from '../store';
 import { PORTS } from '../types/ferry';
 import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
 
 const NewHomePage: React.FC = () => {
+  const { t } = useTranslation(['search', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { searchParams, isSearching, vehicles } = useSelector((state: RootState) => state.ferry);
@@ -112,12 +114,12 @@ const NewHomePage: React.FC = () => {
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!form.departurePort) newErrors.departurePort = 'Please select departure port';
-    if (!form.arrivalPort) newErrors.arrivalPort = 'Please select arrival port';
-    if (!form.departureDate) newErrors.departureDate = 'Please select departure date';
+    if (!form.departurePort) newErrors.departurePort = t('search:validation.selectDeparturePort');
+    if (!form.arrivalPort) newErrors.arrivalPort = t('search:validation.selectArrivalPort');
+    if (!form.departureDate) newErrors.departureDate = t('search:validation.selectDepartureDate');
 
     if (form.departurePort && form.arrivalPort && form.departurePort === form.arrivalPort) {
-      newErrors.arrivalPort = 'Arrival port must be different from departure port';
+      newErrors.arrivalPort = t('search:validation.portsMustDiffer');
     }
 
     if (form.returnDate && form.returnDate <= form.departureDate) {
@@ -126,10 +128,10 @@ const NewHomePage: React.FC = () => {
 
     // Validate different return route if enabled
     if (form.returnDate && form.differentReturnRoute) {
-      if (!form.returnDeparturePort) newErrors.returnDeparturePort = 'Please select return departure port';
-      if (!form.returnArrivalPort) newErrors.returnArrivalPort = 'Please select return arrival port';
+      if (!form.returnDeparturePort) newErrors.returnDeparturePort = t('search:validation.selectReturnDeparturePort');
+      if (!form.returnArrivalPort) newErrors.returnArrivalPort = t('search:validation.selectReturnArrivalPort');
       if (form.returnDeparturePort === form.returnArrivalPort) {
-        newErrors.returnArrivalPort = 'Return arrival port must be different';
+        newErrors.returnArrivalPort = t('search:validation.returnPortsMustDiffer');
       }
     }
 
@@ -152,6 +154,9 @@ const NewHomePage: React.FC = () => {
     if (!validate()) {
       return;
     }
+
+    // Clear any previous booking when starting a new search
+    dispatch(startNewSearch());
 
     // Dispatch search params to Redux
     dispatch(setSearchParams({
@@ -202,13 +207,13 @@ const NewHomePage: React.FC = () => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32">
           <div className="text-center mb-12">
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-              ⚓ Ferry to Tunisia
+              ⚓ {t('search:title')}
             </h1>
             <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto">
-              Book your Mediterranean crossing from Italy & France to Tunisia
+              {t('search:subtitle')}
             </p>
             <p className="text-lg text-blue-200 mt-3">
-              Compare prices • Multiple operators • Easy booking
+              {t('common:features.compareOperators')}
             </p>
           </div>
 
@@ -217,9 +222,9 @@ const NewHomePage: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8">
               {/* Voice Search Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Find Your Ferry</h2>
+                <h2 className="text-xl font-semibold text-gray-800">{t('search:title')}</h2>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500 hidden sm:inline">Search by voice</span>
+                  <span className="text-sm text-gray-500 hidden sm:inline">{t('search:form.searchByVoice', 'Search by voice')}</span>
                   <VoiceSearchButton
                     onResult={handleVoiceSearchResult}
                     onError={handleVoiceSearchError}
@@ -239,7 +244,7 @@ const NewHomePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🛳️ From
+                      🛳️ {t('search:form.from')}
                     </label>
                     <select
                       value={form.departurePort}
@@ -248,7 +253,7 @@ const NewHomePage: React.FC = () => {
                         errors.departurePort ? 'border-red-500' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">Select departure port</option>
+                      <option value="">{t('search:form.selectDeparturePort')}</option>
                       <optgroup label="🇮🇹 Italy">
                         {PORTS.filter(p => p.countryCode === 'IT').map(port => (
                           <option key={port.code} value={port.code}>
@@ -271,7 +276,7 @@ const NewHomePage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🏝️ To
+                      🏝️ {t('search:form.to')}
                     </label>
                     <select
                       value={form.arrivalPort}
@@ -280,7 +285,7 @@ const NewHomePage: React.FC = () => {
                         errors.arrivalPort ? 'border-red-500' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">Select arrival port</option>
+                      <option value="">{t('search:form.selectArrivalPort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
                         {PORTS.filter(p => p.countryCode === 'TN').map(port => (
                           <option key={port.code} value={port.code}>
@@ -299,7 +304,7 @@ const NewHomePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      📅 Departure Date
+                      📅 {t('search:form.departureDate')}
                     </label>
                     <input
                       type="date"
@@ -317,7 +322,7 @@ const NewHomePage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🔄 Return Date (optional)
+                      🔄 {t('search:form.returnDate')}
                     </label>
                     <input
                       type="date"
@@ -396,15 +401,15 @@ const NewHomePage: React.FC = () => {
                 {/* Passengers */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    👥 Passengers
+                    👥 {t('search:form.passengers')}
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Adults */}
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">Adults</p>
-                          <p className="text-xs text-gray-600">13+ years</p>
+                          <p className="font-medium text-gray-900">{t('search:passengers.adults')}</p>
+                          <p className="text-xs text-gray-600">{t('search:passengers.adultsDesc')}</p>
                         </div>
                         <div className="flex items-center space-x-3">
                           <button
@@ -431,8 +436,8 @@ const NewHomePage: React.FC = () => {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">Children</p>
-                          <p className="text-xs text-gray-600">3-12 years</p>
+                          <p className="font-medium text-gray-900">{t('search:passengers.children')}</p>
+                          <p className="text-xs text-gray-600">{t('search:passengers.childrenDesc')}</p>
                         </div>
                         <div className="flex items-center space-x-3">
                           <button
@@ -459,8 +464,8 @@ const NewHomePage: React.FC = () => {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">Infants</p>
-                          <p className="text-xs text-gray-600">0-2 years</p>
+                          <p className="font-medium text-gray-900">{t('search:passengers.infants')}</p>
+                          <p className="text-xs text-gray-600">{t('search:passengers.infantsDesc')}</p>
                         </div>
                         <div className="flex items-center space-x-3">
                           <button
@@ -505,9 +510,9 @@ const NewHomePage: React.FC = () => {
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <span className="ml-3 text-sm font-medium text-gray-900">
-                      🚗 I'm traveling with a vehicle
+                      🚗 {t('search:form.travelingWithVehicle')}
                       <span className="block text-xs text-gray-600 mt-1">
-                        You'll be able to add vehicle details in the next step
+                        {t('search:form.vehicleDetailsLater', "You'll be able to add vehicle details in the next step")}
                       </span>
                     </span>
                   </label>
@@ -525,10 +530,10 @@ const NewHomePage: React.FC = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Searching...
+                      {t('common:common.loading')}
                     </span>
                   ) : (
-                    '🔍 Search Ferries'
+                    `🔍 ${t('search:searchButton')}`
                   )}
                 </button>
               </form>
@@ -542,10 +547,10 @@ const NewHomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Why Book With Us?
+              {t('common:features.whyBookTitle')}
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              The easiest way to book ferry crossings to Tunisia
+              {t('common:features.whyBookSubtitle')}
             </p>
           </div>
 
@@ -554,9 +559,9 @@ const NewHomePage: React.FC = () => {
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">💰</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Best Prices</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{t('common:features.bestPricesTitle')}</h3>
               <p className="text-gray-600">
-                Compare prices from CTN, GNV, Corsica Lines, and Danel Casanova in one search
+                {t('common:features.bestPricesDesc')}
               </p>
             </div>
 
@@ -564,9 +569,9 @@ const NewHomePage: React.FC = () => {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">✅</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Instant Confirmation</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{t('common:features.instantConfirmationTitle')}</h3>
               <p className="text-gray-600">
-                Get your booking confirmed immediately with e-tickets sent to your email
+                {t('common:features.instantConfirmationDesc')}
               </p>
             </div>
 
@@ -574,24 +579,24 @@ const NewHomePage: React.FC = () => {
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">🛡️</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Secure Payment</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{t('common:features.securePaymentTitle')}</h3>
               <p className="text-gray-600">
-                Your payment information is encrypted and secure with Stripe
+                {t('common:features.securePaymentDesc')}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Popular Routes */}
+      {/* {t('common:features.popularRoutesTitle')} */}
       <div className="py-20 px-4 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Popular Routes
+              {t('common:features.popularRoutesTitle')}
             </h2>
             <p className="text-lg text-gray-600">
-              Most searched ferry routes to Tunisia
+              {t('common:features.popularRoutesSubtitle')}
             </p>
           </div>
 
@@ -618,7 +623,7 @@ const NewHomePage: React.FC = () => {
                   </div>
                 </div>
                 <button className="w-full py-2 px-4 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors">
-                  View Schedules
+                  {t('common:features.viewSchedules')}
                 </button>
               </div>
             ))}

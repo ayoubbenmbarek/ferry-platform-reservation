@@ -541,8 +541,18 @@ TODO:- Complete translations for
   from backend on login
   - Add currency/date formatting
   per locale
-  TODO:translate dearture port, infant child etc, find your ferry searcxh ferrries, m traveling with a vehicle and all content
+  TODO:Add PaymentPage translations -
+   Update the payment page
+  component
+  3. Add ProfilePage translations -
+   Update the profile page
+  component
+  TODO:translate dearture port, infant child etc, find your ferry searcxh ferrries, m traveling with a vehicle and all content, to it all just for frensh now adding to the eixisting english
+TODO:if connect from france choose france, if ittlain chosoe italian but by default france if not
+TODO: when i  lick continue to paiment i receive confirmation email and reservation is pending, then when we go back to with browser arrow and click again continue to paiment i receive another email for reservaton and then both of them are pending in my bookings, is tha noemal behaviour for he same reservation?
+TODO:booking page not trnaslated like Please provide details for all passengers. First name and last name are required.
 
+, summary, child etc
 
 (You charge the customer’s card automatically 3 times)
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
@@ -10,6 +11,7 @@ import { PassengerInfo, PassengerType } from '../types/ferry';
 import { promoCodeAPI } from '../services/api';
 
 const BookingPage: React.FC = () => {
+  const { t } = useTranslation(['booking', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams, promoCode, promoDiscount, promoValidationMessage } = useSelector(
@@ -335,7 +337,7 @@ const BookingPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Passenger Details */}
             <div id="passenger-details-section" className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">Passenger Details</h2>
+              <h2 className="text-xl font-semibold mb-4">{t('booking:passengerDetails.title')}</h2>
               <p className="text-sm text-gray-600 mb-4">
                 Please provide details for all passengers. First name and last name are required.
               </p>
@@ -383,7 +385,7 @@ const BookingPage: React.FC = () => {
                         <div className="mt-2 mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-sm text-yellow-800">
                           <p className="font-medium">💡 Tip: Fill all fields you want before clicking "Save Passenger"</p>
                           <p className="text-yellow-700 mt-1">
-                            Required: First name & Last name • Optional: Date of birth, Nationality, Passport, Pet info, etc.
+                            {t('booking:passengerDetails.requiredFields')}
                           </p>
                           <p className="text-yellow-700 mt-1">
                             You can always click "Edit" later to add more details.
@@ -403,7 +405,7 @@ const BookingPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name *
+                      {t('booking:passengerDetails.firstName')} *
                     </label>
                     <input
                       type="text"
@@ -417,7 +419,7 @@ const BookingPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name *
+                      {t('booking:passengerDetails.lastName')} *
                     </label>
                     <input
                       type="text"
@@ -432,7 +434,7 @@ const BookingPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('booking:passengerDetails.email')} *</label>
                   <input
                     type="email"
                     value={localContactInfo.email}
@@ -446,7 +448,7 @@ const BookingPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number *
+                    {t('booking:passengerDetails.phone')} *
                   </label>
                   <input
                     type="tel"

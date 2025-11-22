@@ -21,7 +21,12 @@
     "vehicleLength": "Vehicle Length",
     "selectPort": "Select a port",
     "selectDate": "Select date",
-    "differentReturnRoute": "Different return route"
+    "differentReturnRoute": "Different return route",
+    "updateSearch": "Update Search",
+    "selectDeparturePort": "Select departure port",
+    "selectArrivalPort": "Select arrival port",
+    "from": "From",
+    "to": "To"
   },
   "passengers": {
     "adults": "Adults",
@@ -92,5 +97,12 @@
     "selectReturnDeparturePort": "Please select return departure port",
     "selectReturnArrivalPort": "Please select return arrival port",
     "returnPortsMustDiffer": "Return arrival port must be different"
-  }
+  },
+  "selectFerry": "Select Ferry",
+  "selectOutboundFerry": "Select Outbound Ferry",
+  "selectReturnFerry": "Select Return Ferry",
+  "outboundFerrySelected": "Outbound Ferry Selected",
+  "duration": "Duration",
+  "changeOutbound": "Change Outbound",
+  "backToSearch": "Back to Search"
 }

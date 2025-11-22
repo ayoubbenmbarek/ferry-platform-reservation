@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser, clearError } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
 
 const RegisterPage: React.FC = () => {
+  const { t } = useTranslation(['auth', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading, error } = useSelector((state: RootState) => state.auth);
@@ -50,12 +52,12 @@ const RegisterPage: React.FC = () => {
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      setFormError('Passwords do not match');
+      setFormError(t('auth:register.passwordsMismatch'));
       return;
     }
 
     if (formData.password.length < 8) {
-      setFormError('Password must be at least 8 characters long');
+      setFormError(t('profile:security.passwordRequirements'));
       return;
     }
 
@@ -238,7 +240,7 @@ const RegisterPage: React.FC = () => {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
             >
-              {isLoading ? 'Creating account...' : 'Create account'}
+              {isLoading ? t('auth:register.signingUp') : 'Create account'}
             </button>
           </div>
         </form>

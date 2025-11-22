@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { loginUser, clearError } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
 
 const LoginPage: React.FC = () => {
+  const { t } = useTranslation(['auth', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,7 +28,7 @@ const LoginPage: React.FC = () => {
     return () => {
       dispatch(clearError());
     };
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -80,7 +82,7 @@ const LoginPage: React.FC = () => {
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="email" className="sr-only">
-                Email address
+                {t('auth:login.email')}
               </label>
               <input
                 id="email"
@@ -89,14 +91,14 @@ const LoginPage: React.FC = () => {
                 autoComplete="email"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                placeholder="{t('auth:login.email')}"
                 value={formData.email}
                 onChange={handleChange}
               />
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
-                Password
+                {t('auth:login.password')}
               </label>
               <input
                 id="password"
@@ -105,7 +107,7 @@ const LoginPage: React.FC = () => {
                 autoComplete="current-password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                placeholder="{t('auth:login.password')}"
                 value={formData.password}
                 onChange={handleChange}
               />
@@ -138,7 +140,7 @@ const LoginPage: React.FC = () => {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? t('auth:login.signingIn') : t('auth:login.signIn')}
             </button>
           </div>
         </form>
@@ -147,7 +149,7 @@ const LoginPage: React.FC = () => {
         <div className="mt-4 p-4 bg-blue-50 rounded-md">
           <p className="text-xs text-blue-800 font-semibold mb-2">Test Credentials:</p>
           <p className="text-xs text-blue-700">Email: demo@maritime.com</p>
-          <p className="text-xs text-blue-700">Password: Demo1234</p>
+          <p className="text-xs text-blue-700">{t('auth:login.password')}: Demo1234</p>
         </div>
       </div>
     </div>

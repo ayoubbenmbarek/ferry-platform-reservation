@@ -1,1 +1,113 @@
-{}
+{
+  "title": "Vervollständigen Sie Ihre Buchung",
+  "progress": {
+    "step1": "Fähre Auswählen",
+    "step2": "Passagierdetails",
+    "step3": "Zahlung"
+  },
+  "passengerDetails": {
+    "title": "Passagierdetails",
+    "subtitle": "Bitte geben Sie Details für alle Passagiere an",
+    "contactPerson": "Kontaktperson",
+    "contactPersonDesc": "Hauptkontakt für diese Buchung",
+    "passenger": "Passagier {{number}}",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "dateOfBirth": "Geburtsdatum",
+    "nationality": "Nationalität",
+    "passportNumber": "Reisepassnummer",
+    "email": "E-Mail-Adresse",
+    "phone": "Telefonnummer",
+    "sameAsContact": "Gleich wie Kontaktperson",
+    "addPassenger": "Passagier Hinzufügen",
+    "removePassenger": "Passagier Entfernen",
+    "requiredFields": "Erforderlich: Vorname & Nachname • Optional: Geburtsdatum, Nationalität, Reisepass, Haustierinfos, etc."
+  },
+  "vehicleDetails": {
+    "title": "Fahrzeuginformationen",
+    "vehicle": "Fahrzeug {{number}}",
+    "type": "Fahrzeugtyp",
+    "licensePlate": "Kennzeichen",
+    "length": "Länge (Meter)",
+    "height": "Höhe (Meter)",
+    "addVehicle": "Weiteres Fahrzeug Hinzufügen",
+    "removeVehicle": "Fahrzeug Entfernen"
+  },
+  "summary": {
+    "title": "Buchungsübersicht",
+    "outboundFerry": "Hinfahrt",
+    "returnFerry": "Rückfahrt",
+    "route": "Route",
+    "departure": "Abfahrt",
+    "arrival": "Ankunft",
+    "duration": "Dauer",
+    "passengers": "Passagiere",
+    "vehicles": "Fahrzeuge",
+    "adults": "{{count}} Erwachsener",
+    "adults_plural": "{{count}} Erwachsene",
+    "children": "{{count}} Kind",
+    "children_plural": "{{count}} Kinder",
+    "infants": "{{count}} Kleinkind",
+    "infants_plural": "{{count}} Kleinkinder"
+  },
+  "pricing": {
+    "title": "Preisaufschlüsselung",
+    "outboundFare": "Hinfahrt-Tarif",
+    "returnFare": "Rückfahrt-Tarif",
+    "passengerFares": "Passagiertarife",
+    "vehicleFares": "Fahrzeugtarife",
+    "subtotal": "Zwischensumme",
+    "taxes": "Steuern & Gebühren",
+    "total": "Gesamt",
+    "promoCode": "Aktionscode",
+    "applyPromo": "Anwenden",
+    "discount": "Rabatt"
+  },
+  "actions": {
+    "continueToPayment": "Weiter zur Zahlung",
+    "back": "Zurück",
+    "addPassenger": "Passagier Hinzufügen",
+    "removePassenger": "Passagier Entfernen"
+  },
+  "validation": {
+    "requiredField": "Dieses Feld ist erforderlich",
+    "invalidEmail": "Ungültige E-Mail-Adresse",
+    "invalidPhone": "Ungültige Telefonnummer",
+    "invalidPassport": "Ungültige Reisepassnummer",
+    "minAge": "Passagier muss mindestens {{age}} Jahre alt sein",
+    "futureDate": "Datum kann nicht in der Zukunft liegen"
+  },
+  "errors": {
+    "loadingFailed": "Fehler beim Laden der Buchungsdetails",
+    "savingFailed": "Fehler beim Speichern der Buchung",
+    "tryAgain": "Bitte versuchen Sie es erneut"
+  },
+  "confirmation": {
+    "title": "Buchung Bestätigt!",
+    "message": "Ihre Fährreservierung wurde erfolgreich bestätigt.",
+    "emailSent": "Eine Bestätigungs-E-Mail wurde an {{email}} gesendet",
+    "bookingReference": "Buchungsreferenz: {{reference}}",
+    "downloadTicket": "Ticket Herunterladen",
+    "viewBooking": "Buchungsdetails Ansehen",
+    "backToHome": "Zurück zur Startseite"
+  },
+  "cancellation": {
+    "title": "Buchung Stornieren",
+    "confirmMessage": "Sind Sie sicher, dass Sie diese Buchung stornieren möchten?",
+    "reason": "Stornierungsgrund",
+    "cancelled": "Buchung Storniert",
+    "cancelledMessage": "Ihre Buchung wurde erfolgreich storniert.",
+    "refundIssued": "Rückerstattung von {{amount}} wurde ausgegeben",
+    "emailSent": "Stornierungsbestätigung gesendet an {{email}}"
+  },
+  "details": {
+    "title": "Buchungsdetails",
+    "downloadInvoice": "Rechnung Herunterladen",
+    "downloadingInvoice": "Wird heruntergeladen...",
+    "passengers": "Passagiere",
+    "vehicles": "Fahrzeuge",
+    "route": "Route",
+    "departureTime": "Abfahrtszeit",
+    "arrivalTime": "Ankunftszeit"
+  }
+}

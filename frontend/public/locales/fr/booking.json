@@ -6,7 +6,7 @@
     "step3": "Paiement"
   },
   "passengerDetails": {
-    "title": "Informations Passagers",
+    "title": "Détails des Passagers",
     "subtitle": "Veuillez fournir les détails de tous les passagers",
     "contactPerson": "Personne de Contact",
     "contactPersonDesc": "Contact principal pour cette réservation",
@@ -20,7 +20,8 @@
     "phone": "Numéro de Téléphone",
     "sameAsContact": "Identique à la personne de contact",
     "addPassenger": "Ajouter un Passager",
-    "removePassenger": "Retirer le Passager"
+    "removePassenger": "Retirer le Passager",
+    "requiredFields": "Requis : Prénom & Nom • Optionnel : Date de naissance, Nationalité, Passeport, Infos animal, etc."
   },
   "vehicleDetails": {
     "title": "Informations Véhicule",
@@ -63,12 +64,10 @@
     "discount": "Réduction"
   },
   "actions": {
-    "continue": "Continuer vers le Paiement",
+    "continueToPayment": "Continuer vers le Paiement",
     "back": "Retour",
-    "cancel": "Annuler la Réservation",
-    "confirmCancel": "Êtes-vous sûr de vouloir annuler cette réservation ?",
-    "yes": "Oui, Annuler",
-    "no": "Non, Conserver"
+    "addPassenger": "Ajouter un Passager",
+    "removePassenger": "Supprimer le Passager"
   },
   "validation": {
     "requiredField": "Ce champ est obligatoire",
@@ -82,5 +81,33 @@
     "loadingFailed": "Échec du chargement des détails de réservation",
     "savingFailed": "Échec de l'enregistrement de la réservation",
     "tryAgain": "Veuillez réessayer"
+  },
+  "confirmation": {
+    "title": "Réservation Confirmée !",
+    "message": "Votre réservation de ferry a été confirmée avec succès.",
+    "emailSent": "Un email de confirmation a été envoyé à {{email}}",
+    "bookingReference": "Référence de réservation : {{reference}}",
+    "downloadTicket": "Télécharger le Billet",
+    "viewBooking": "Voir les Détails de la Réservation",
+    "backToHome": "Retour à l'Accueil"
+  },
+  "cancellation": {
+    "title": "Annuler la Réservation",
+    "confirmMessage": "Êtes-vous sûr de vouloir annuler cette réservation ?",
+    "reason": "Raison de l'Annulation",
+    "cancelled": "Réservation Annulée",
+    "cancelledMessage": "Votre réservation a été annulée avec succès.",
+    "refundIssued": "Remboursement de {{amount}} a été émis",
+    "emailSent": "Confirmation d'annulation envoyée à {{email}}"
+  },
+  "details": {
+    "title": "Détails de la Réservation",
+    "downloadInvoice": "Télécharger la Facture",
+    "downloadingInvoice": "Téléchargement...",
+    "passengers": "Passagers",
+    "vehicles": "Véhicules",
+    "route": "Itinéraire",
+    "departureTime": "Heure de Départ",
+    "arrivalTime": "Heure d'Arrivée"
   }
 }

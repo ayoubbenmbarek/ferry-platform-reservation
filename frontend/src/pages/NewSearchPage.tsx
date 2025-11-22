@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
@@ -21,6 +22,7 @@ interface SearchFormProps {
 }
 
 const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode = false }) => {
+  const { t } = useTranslation(['search', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const existingParams = useSelector((state: RootState) => state.ferry.searchParams);
 
@@ -244,7 +246,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                   <label className="block text-sm font-semibold text-gray-700 mb-3">👥 Passengers</label>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <label className="text-sm text-gray-600 mb-2 block">Adults (12+)</label>
+                      <label className="text-sm text-gray-600 mb-2 block">{t('search:passengers.adults')} ({t('search:passengers.adultsDesc')})</label>
                       <div className="flex items-center justify-between">
                         <button type="button" onClick={() => form.adults > 1 && setForm({ ...form, adults: form.adults - 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">-</button>
                         <span className="font-semibold">{form.adults}</span>
@@ -252,7 +254,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       </div>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <label className="text-sm text-gray-600 mb-2 block">Children (4-11)</label>
+                      <label className="text-sm text-gray-600 mb-2 block">{t('search:passengers.children')} ({t('search:passengers.childrenDesc')})</label>
                       <div className="flex items-center justify-between">
                         <button type="button" onClick={() => form.children > 0 && setForm({ ...form, children: form.children - 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">-</button>
                         <span className="font-semibold">{form.children}</span>
@@ -260,7 +262,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       </div>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <label className="text-sm text-gray-600 mb-2 block">Infants (0-3)</label>
+                      <label className="text-sm text-gray-600 mb-2 block">{t('search:passengers.infants')} ({t('search:passengers.infantsDesc')})</label>
                       <div className="flex items-center justify-between">
                         <button type="button" onClick={() => form.infants > 0 && setForm({ ...form, infants: form.infants - 1 })} className="w-8 h-8 rounded-full bg-blue-600 text-white">-</button>
                         <span className="font-semibold">{form.infants}</span>
@@ -271,7 +273,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                 </div>
 
                 <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all">
-                  {isEditMode ? '🔄 Update Search' : '🔍 Search Ferries'}
+                  {isEditMode ? `🔄 ${t('search:form.updateSearch')}` : `🔍 ${t('search:searchButton')}`}
                 </button>
               </form>
             </div>
@@ -283,6 +285,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
 };
 
 const NewSearchPage: React.FC = () => {
+  const { t } = useTranslation(['search', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const {
@@ -463,7 +466,7 @@ const NewSearchPage: React.FC = () => {
               <span className="text-sm font-medium text-blue-600">
                 {passengers.length > 0 ? 'Step 2 of 3' : 'Step 1 of 3'}
               </span>
-              <span className="text-sm font-medium text-gray-600">Select Ferry</span>
+              <span className="text-sm font-medium text-gray-600">{t('search:selectFerry')}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div className="bg-blue-600 h-2 rounded-full" style={{ width: passengers.length > 0 ? '66%' : '33%' }}></div>
@@ -471,7 +474,7 @@ const NewSearchPage: React.FC = () => {
           </div>
 
           <h1 className="text-3xl font-bold text-gray-900 mb-6">
-            {isSelectingReturn ? 'Select Return Ferry' : 'Select Outbound Ferry'}
+            {isSelectingReturn ? t('search:selectReturnFerry') : t('search:selectOutboundFerry')}
           </h1>
 
           {/* Show selected outbound ferry when selecting return */}

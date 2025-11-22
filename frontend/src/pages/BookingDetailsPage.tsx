@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
@@ -17,6 +18,7 @@ const snakeToCamel = (obj: any): any => {
 };
 
 const BookingDetailsPage: React.FC = () => {
+  const { t } = useTranslation(['booking', 'common']);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -188,7 +190,7 @@ const BookingDetailsPage: React.FC = () => {
           {/* Booking Reference */}
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Booking Details</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('booking:details.title')}</h1>
               <p className="text-sm text-gray-600">
                 Reference: <span className="font-semibold text-blue-600">{booking.bookingReference}</span>
               </p>
@@ -411,7 +413,7 @@ const BookingDetailsPage: React.FC = () => {
           {booking.status?.toLowerCase() === 'cancelled' && (
             <div className="mb-6 pb-6 border-b border-gray-200">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h2 className="text-lg font-semibold text-red-900 mb-2">Booking Cancelled</h2>
+                <h2 className="text-lg font-semibold text-red-900 mb-2">{t('booking:cancellation.cancelled')}</h2>
                 {booking.cancelledAt && (
                   <p className="text-sm text-red-800 mb-2">
                     Cancelled on {new Date(booking.cancelledAt).toLocaleDateString()} at {new Date(booking.cancelledAt).toLocaleTimeString()}
@@ -484,7 +486,7 @@ const BookingDetailsPage: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Downloading...
+                    {t('common:common.loading')}
                   </>
                 ) : (
                   <>
@@ -514,7 +516,7 @@ const BookingDetailsPage: React.FC = () => {
       {showCancelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Cancel Booking</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">{t('booking:cancellation.title')}</h2>
             <p className="text-gray-600 mb-4">
               Are you sure you want to cancel this booking? This action cannot be undone.
             </p>

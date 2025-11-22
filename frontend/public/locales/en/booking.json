@@ -1,0 +1,86 @@
+{
+  "title": "Complete Your Booking",
+  "progress": {
+    "step1": "Select Ferry",
+    "step2": "Passenger Details",
+    "step3": "Payment"
+  },
+  "passengerDetails": {
+    "title": "Passenger Information",
+    "subtitle": "Please provide details for all passengers",
+    "contactPerson": "Contact Person",
+    "contactPersonDesc": "Primary contact for this booking",
+    "passenger": "Passenger {{number}}",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "dateOfBirth": "Date of Birth",
+    "nationality": "Nationality",
+    "passportNumber": "Passport Number",
+    "email": "Email Address",
+    "phone": "Phone Number",
+    "sameAsContact": "Same as contact person",
+    "addPassenger": "Add Passenger",
+    "removePassenger": "Remove Passenger"
+  },
+  "vehicleDetails": {
+    "title": "Vehicle Information",
+    "vehicle": "Vehicle {{number}}",
+    "type": "Vehicle Type",
+    "licensePlate": "License Plate",
+    "length": "Length (meters)",
+    "height": "Height (meters)",
+    "addVehicle": "Add Another Vehicle",
+    "removeVehicle": "Remove Vehicle"
+  },
+  "summary": {
+    "title": "Booking Summary",
+    "outboundFerry": "Outbound Ferry",
+    "returnFerry": "Return Ferry",
+    "route": "Route",
+    "departure": "Departure",
+    "arrival": "Arrival",
+    "duration": "Duration",
+    "passengers": "Passengers",
+    "vehicles": "Vehicles",
+    "adults": "{{count}} Adult",
+    "adults_plural": "{{count}} Adults",
+    "children": "{{count}} Child",
+    "children_plural": "{{count}} Children",
+    "infants": "{{count}} Infant",
+    "infants_plural": "{{count}} Infants"
+  },
+  "pricing": {
+    "title": "Price Breakdown",
+    "outboundFare": "Outbound Fare",
+    "returnFare": "Return Fare",
+    "passengerFares": "Passenger Fares",
+    "vehicleFares": "Vehicle Fares",
+    "subtotal": "Subtotal",
+    "taxes": "Taxes & Fees",
+    "total": "Total",
+    "promoCode": "Promo Code",
+    "applyPromo": "Apply",
+    "discount": "Discount"
+  },
+  "actions": {
+    "continue": "Continue to Payment",
+    "back": "Back",
+    "cancel": "Cancel Booking",
+    "confirmCancel": "Are you sure you want to cancel this booking?",
+    "yes": "Yes, Cancel",
+    "no": "No, Keep Booking"
+  },
+  "validation": {
+    "requiredField": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "invalidPhone": "Invalid phone number",
+    "invalidPassport": "Invalid passport number",
+    "minAge": "Passenger must be at least {{age}} years old",
+    "futureDate": "Date cannot be in the future"
+  },
+  "errors": {
+    "loadingFailed": "Failed to load booking details",
+    "savingFailed": "Failed to save booking",
+    "tryAgain": "Please try again"
+  }
+}

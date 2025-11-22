@@ -1,0 +1,49 @@
+{
+  "title": "Find Your Ferry",
+  "subtitle": "Search ferries across the Mediterranean",
+  "form": {
+    "departurePort": "Departure Port",
+    "arrivalPort": "Arrival Port",
+    "departureDate": "Departure Date",
+    "returnDate": "Return Date (Optional)",
+    "passengers": "Passengers",
+    "vehicles": "Vehicles",
+    "searchButton": "Search Ferries",
+    "oneWay": "One Way",
+    "roundTrip": "Round Trip"
+  },
+  "results": {
+    "title": "Available Ferries",
+    "noResults": "No ferries found for your search criteria",
+    "loading": "Searching for ferries...",
+    "operator": "Operator",
+    "departure": "Departure",
+    "arrival": "Arrival",
+    "duration": "Duration",
+    "price": "Price",
+    "from": "from",
+    "selectButton": "Select",
+    "seatsAvailable": "{{count}} seats available",
+    "soldOut": "Sold Out"
+  },
+  "filters": {
+    "title": "Filters",
+    "priceRange": "Price Range",
+    "operators": "Operators",
+    "departureTime": "Departure Time",
+    "morning": "Morning (6AM - 12PM)",
+    "afternoon": "Afternoon (12PM - 6PM)",
+    "evening": "Evening (6PM - 12AM)",
+    "night": "Night (12AM - 6AM)",
+    "clearFilters": "Clear All Filters"
+  },
+  "ports": {
+    "barcelona": "Barcelona",
+    "marseille": "Marseille",
+    "genoa": "Genoa",
+    "civitavecchia": "Civitavecchia",
+    "palermo": "Palermo",
+    "tunis": "Tunis",
+    "algiers": "Algiers"
+  }
+}

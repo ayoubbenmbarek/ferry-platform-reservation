@@ -307,6 +307,17 @@ const NewSearchPage: React.FC = () => {
   // Track if we've already searched for these params to prevent duplicates
   const searchedParamsRef = React.useRef<string>('');
 
+  // Reset to ferry selection step when mounting the page
+  useEffect(() => {
+    // If we have search params and results, show ferry selection (step 2)
+    if (searchParams.departurePort && searchParams.arrivalPort && searchParams.departureDate) {
+      if (currentStep !== 1 && currentStep !== 2) {
+        dispatch(setCurrentStep(2));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
   useEffect(() => {
     // Check if we have search params
     if (!searchParams.departurePort || !searchParams.arrivalPort || !searchParams.departureDate) {
@@ -602,7 +613,16 @@ const NewSearchPage: React.FC = () => {
     );
   }
 
-  return null;
+  // Fallback: Show search form if somehow we reach here
+  // This prevents blank pages in edge cases
+  return <SearchFormComponent
+    isEditMode={false}
+    onSearch={(params) => {
+      dispatch(startNewSearch());
+      dispatch(searchFerries(params as any));
+      setHasSearchParams(true);
+    }}
+  />;
 };
 
 export default NewSearchPage;

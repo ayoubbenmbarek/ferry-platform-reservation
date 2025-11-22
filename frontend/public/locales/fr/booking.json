@@ -1,0 +1,86 @@
+{
+  "title": "Finalisez Votre Réservation",
+  "progress": {
+    "step1": "Sélection Ferry",
+    "step2": "Détails Passagers",
+    "step3": "Paiement"
+  },
+  "passengerDetails": {
+    "title": "Informations Passagers",
+    "subtitle": "Veuillez fournir les détails de tous les passagers",
+    "contactPerson": "Personne de Contact",
+    "contactPersonDesc": "Contact principal pour cette réservation",
+    "passenger": "Passager {{number}}",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "dateOfBirth": "Date de Naissance",
+    "nationality": "Nationalité",
+    "passportNumber": "Numéro de Passeport",
+    "email": "Adresse E-mail",
+    "phone": "Numéro de Téléphone",
+    "sameAsContact": "Identique à la personne de contact",
+    "addPassenger": "Ajouter un Passager",
+    "removePassenger": "Retirer le Passager"
+  },
+  "vehicleDetails": {
+    "title": "Informations Véhicule",
+    "vehicle": "Véhicule {{number}}",
+    "type": "Type de Véhicule",
+    "licensePlate": "Plaque d'Immatriculation",
+    "length": "Longueur (mètres)",
+    "height": "Hauteur (mètres)",
+    "addVehicle": "Ajouter un Autre Véhicule",
+    "removeVehicle": "Retirer le Véhicule"
+  },
+  "summary": {
+    "title": "Récapitulatif de Réservation",
+    "outboundFerry": "Ferry Aller",
+    "returnFerry": "Ferry Retour",
+    "route": "Itinéraire",
+    "departure": "Départ",
+    "arrival": "Arrivée",
+    "duration": "Durée",
+    "passengers": "Passagers",
+    "vehicles": "Véhicules",
+    "adults": "{{count}} Adulte",
+    "adults_plural": "{{count}} Adultes",
+    "children": "{{count}} Enfant",
+    "children_plural": "{{count}} Enfants",
+    "infants": "{{count}} Bébé",
+    "infants_plural": "{{count}} Bébés"
+  },
+  "pricing": {
+    "title": "Détail des Prix",
+    "outboundFare": "Tarif Aller",
+    "returnFare": "Tarif Retour",
+    "passengerFares": "Tarifs Passagers",
+    "vehicleFares": "Tarifs Véhicules",
+    "subtotal": "Sous-total",
+    "taxes": "Taxes et Frais",
+    "total": "Total",
+    "promoCode": "Code Promo",
+    "applyPromo": "Appliquer",
+    "discount": "Réduction"
+  },
+  "actions": {
+    "continue": "Continuer vers le Paiement",
+    "back": "Retour",
+    "cancel": "Annuler la Réservation",
+    "confirmCancel": "Êtes-vous sûr de vouloir annuler cette réservation ?",
+    "yes": "Oui, Annuler",
+    "no": "Non, Conserver"
+  },
+  "validation": {
+    "requiredField": "Ce champ est obligatoire",
+    "invalidEmail": "Adresse e-mail invalide",
+    "invalidPhone": "Numéro de téléphone invalide",
+    "invalidPassport": "Numéro de passeport invalide",
+    "minAge": "Le passager doit avoir au moins {{age}} ans",
+    "futureDate": "La date ne peut pas être dans le futur"
+  },
+  "errors": {
+    "loadingFailed": "Échec du chargement des détails de réservation",
+    "savingFailed": "Échec de l'enregistrement de la réservation",
+    "tryAgain": "Veuillez réessayer"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "title": "Payment",
+  "subtitle": "Secure payment for your ferry booking",
+  "bookingReference": "Booking Reference",
+  "paymentMethod": {
+    "title": "Payment Method",
+    "selectMethod": "Select payment method",
+    "creditCard": "Credit/Debit Card",
+    "paypal": "PayPal",
+    "bankTransfer": "Bank Transfer"
+  },
+  "cardDetails": {
+    "title": "Card Details",
+    "cardNumber": "Card Number",
+    "cardHolder": "Cardholder Name",
+    "expiryDate": "Expiry Date",
+    "cvv": "CVV",
+    "saveCard": "Save card for future bookings"
+  },
+  "billingAddress": {
+    "title": "Billing Address",
+    "addressLine1": "Address Line 1",
+    "addressLine2": "Address Line 2 (Optional)",
+    "city": "City",
+    "state": "State/Province",
+    "postalCode": "Postal Code",
+    "country": "Country"
+  },
+  "orderSummary": {
+    "title": "Order Summary",
+    "bookingDetails": "Booking Details",
+    "route": "Route",
+    "departure": "Departure",
+    "return": "Return",
+    "passengers": "Passengers",
+    "vehicles": "Vehicles",
+    "subtotal": "Subtotal",
+    "taxes": "Taxes & Fees",
+    "discount": "Discount",
+    "total": "Total Amount",
+    "currency": "EUR"
+  },
+  "termsAndConditions": {
+    "title": "Terms & Conditions",
+    "agree": "I agree to the",
+    "terms": "Terms and Conditions",
+    "and": "and",
+    "privacy": "Privacy Policy",
+    "cancellation": "Cancellation Policy",
+    "refund": "Refund Policy"
+  },
+  "actions": {
+    "pay": "Pay Now",
+    "paying": "Processing Payment...",
+    "back": "Back to Booking",
+    "cancel": "Cancel"
+  },
+  "security": {
+    "title": "Secure Payment",
+    "description": "Your payment information is encrypted and secure",
+    "ssl": "256-bit SSL Encryption",
+    "pci": "PCI DSS Compliant"
+  },
+  "success": {
+    "title": "Payment Successful!",
+    "message": "Your booking has been confirmed",
+    "bookingRef": "Booking Reference: {{reference}}",
+    "emailSent": "Confirmation email sent to {{email}}",
+    "viewBooking": "View Booking",
+    "downloadTicket": "Download Ticket",
+    "backToHome": "Back to Home"
+  },
+  "errors": {
+    "paymentFailed": "Payment Failed",
+    "tryAgain": "Please try again or use a different payment method",
+    "invalidCard": "Invalid card details",
+    "insufficientFunds": "Insufficient funds",
+    "expired": "Card expired",
+    "declined": "Payment declined",
+    "generic": "An error occurred during payment"
+  },
+  "validation": {
+    "cardNumber": "Please enter a valid card number",
+    "cardHolder": "Please enter cardholder name",
+    "expiryDate": "Please enter expiry date (MM/YY)",
+    "cvv": "Please enter CVV (3-4 digits)",
+    "termsRequired": "You must agree to terms and conditions"
+  }
+}

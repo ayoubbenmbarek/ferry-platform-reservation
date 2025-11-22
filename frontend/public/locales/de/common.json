@@ -1,0 +1,61 @@
+{
+  "appName": "Maritime Reservierungen",
+  "nav": {
+    "home": "Startseite",
+    "search": "Suchen",
+    "myBookings": "Meine Buchungen",
+    "findBooking": "Meine Buchung Finden",
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "logout": "Abmelden",
+    "profile": "Profil & Einstellungen",
+    "admin": "Administration",
+    "about": "Über Uns",
+    "contact": "Kontakt"
+  },
+  "footer": {
+    "copyright": "© 2024 Maritime Reservierungen. Alle Rechte vorbehalten.",
+    "terms": "Nutzungsbedingungen",
+    "privacy": "Datenschutzrichtlinie",
+    "help": "Hilfecenter"
+  },
+  "language": {
+    "select": "Sprache Auswählen",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "EUR",
+    "usd": "USD",
+    "gbp": "GBP"
+  },
+  "common": {
+    "loading": "Wird geladen...",
+    "error": "Ein Fehler ist aufgetreten",
+    "success": "Erfolg",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "confirm": "Bestätigen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "submit": "Absenden",
+    "close": "Schließen",
+    "yes": "Ja",
+    "no": "Nein",
+    "selectDate": "Datum Auswählen",
+    "selectTime": "Zeit Auswählen",
+    "required": "Dieses Feld ist erforderlich",
+    "invalidEmail": "Ungültige E-Mail-Adresse",
+    "invalidPhone": "Ungültige Telefonnummer"
+  },
+  "date": {
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "yesterday": "Gestern"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "appName": "Prenotazioni Marittime",
+  "nav": {
+    "home": "Home",
+    "search": "Cerca",
+    "myBookings": "Le Mie Prenotazioni",
+    "findBooking": "Trova la Mia Prenotazione",
+    "login": "Accedi",
+    "register": "Registrati",
+    "logout": "Esci",
+    "profile": "Profilo e Impostazioni",
+    "admin": "Amministrazione",
+    "about": "Chi Siamo",
+    "contact": "Contatti"
+  },
+  "footer": {
+    "copyright": "© 2024 Prenotazioni Marittime. Tutti i diritti riservati.",
+    "terms": "Termini di Servizio",
+    "privacy": "Informativa sulla Privacy",
+    "help": "Centro Assistenza"
+  },
+  "language": {
+    "select": "Seleziona Lingua",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "EUR",
+    "usd": "USD",
+    "gbp": "GBP"
+  },
+  "common": {
+    "loading": "Caricamento...",
+    "error": "Si è verificato un errore",
+    "success": "Successo",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "confirm": "Conferma",
+    "back": "Indietro",
+    "next": "Avanti",
+    "submit": "Invia",
+    "close": "Chiudi",
+    "yes": "Sì",
+    "no": "No",
+    "selectDate": "Seleziona Data",
+    "selectTime": "Seleziona Ora",
+    "required": "Questo campo è obbligatorio",
+    "invalidEmail": "Indirizzo email non valido",
+    "invalidPhone": "Numero di telefono non valido"
+  },
+  "date": {
+    "today": "Oggi",
+    "tomorrow": "Domani",
+    "yesterday": "Ieri"
+  }
+}

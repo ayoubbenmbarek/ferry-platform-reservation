@@ -1,0 +1,61 @@
+{
+  "appName": "Réservations Maritimes",
+  "nav": {
+    "home": "Accueil",
+    "search": "Rechercher",
+    "myBookings": "Mes Réservations",
+    "findBooking": "Trouver Ma Réservation",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "logout": "Déconnexion",
+    "profile": "Profil & Paramètres",
+    "admin": "Administration",
+    "about": "À Propos",
+    "contact": "Contact"
+  },
+  "footer": {
+    "copyright": "© 2024 Réservations Maritimes. Tous droits réservés.",
+    "terms": "Conditions d'Utilisation",
+    "privacy": "Politique de Confidentialité",
+    "help": "Centre d'Aide"
+  },
+  "language": {
+    "select": "Sélectionner la Langue",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "EUR",
+    "usd": "USD",
+    "gbp": "GBP"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "success": "Succès",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "submit": "Soumettre",
+    "close": "Fermer",
+    "yes": "Oui",
+    "no": "Non",
+    "selectDate": "Sélectionner la Date",
+    "selectTime": "Sélectionner l'Heure",
+    "required": "Ce champ est obligatoire",
+    "invalidEmail": "Adresse e-mail invalide",
+    "invalidPhone": "Numéro de téléphone invalide"
+  },
+  "date": {
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "yesterday": "Hier"
+  }
+}

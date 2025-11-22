@@ -1,27 +1,47 @@
-// i18n configuration for internationalization
-const i18n = {
-  init: () => {
-    // Initialize i18n
-    console.log('i18n initialized');
-  },
-  language: 'en',
-  changeLanguage: (lang: string) => {
-    console.log('Language changed to:', lang);
-  },
-  t: (key: string) => {
-    // Simple translation function
-    const translations: { [key: string]: string } = {
-      'welcome': 'Welcome',
-      'search': 'Search',
-      'book': 'Book',
-      'login': 'Login',
-      'register': 'Register',
-    };
-    return translations[key] || key;
-  }
-};
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+import HttpBackend from 'i18next-http-backend';
 
-// Initialize i18n
-i18n.init();
+i18n
+  // Load translations using http (from public/locales folder)
+  .use(HttpBackend)
+  // Detect user language
+  .use(LanguageDetector)
+  // Pass the i18n instance to react-i18next
+  .use(initReactI18next)
+  // Initialize i18next
+  .init({
+    fallbackLng: 'en',
+    debug: process.env.NODE_ENV === 'development',
 
-export default i18n; 
+    // Supported languages
+    supportedLngs: ['en', 'fr', 'ar', 'it', 'de'],
+
+    // Language detection order
+    detection: {
+      order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage', 'cookie'],
+      lookupQuerystring: 'lang',
+      lookupCookie: 'i18next',
+      lookupLocalStorage: 'i18nextLng',
+    },
+
+    // Namespaces for organizing translations
+    ns: ['common', 'search', 'booking', 'payment', 'auth', 'profile', 'admin'],
+    defaultNS: 'common',
+
+    interpolation: {
+      escapeValue: false, // React already escapes values
+    },
+
+    backend: {
+      loadPath: '/locales/{{lng}}/{{ns}}.json',
+    },
+
+    react: {
+      useSuspense: true, // Re-enable suspense for proper translation loading
+    },
+  });
+
+export default i18n;

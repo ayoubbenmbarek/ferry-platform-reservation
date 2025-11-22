@@ -1,6 +1,5 @@
 import React, { Suspense, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 
 import Layout from './components/Layout/Layout';
@@ -35,7 +34,6 @@ const AdminBookings = React.lazy(() => import('./pages/AdminBookings'));
 const AdminPromoCodes = React.lazy(() => import('./pages/AdminPromoCodes'));
 
 function App() {
-  const { i18n } = useTranslation();
   const dispatch = useDispatch();
 
   // Validate stored token on app initialization
@@ -47,18 +45,13 @@ function App() {
     }
   }, [dispatch]); // Only run once on mount
 
-  // Set document direction based on language
-  React.useEffect(() => {
-    document.documentElement.dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = i18n.language;
-  }, [i18n.language]);
-
   return (
     <ErrorBoundary>
       <div className="App min-h-screen bg-gray-50">
-        <Layout>
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Layout>
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/search" element={<SearchPage />} />
@@ -91,8 +84,9 @@ function App() {
               {/* 404 page */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
-          </Suspense>
-        </Layout>
+            </Suspense>
+          </Layout>
+        </Suspense>
       </div>
     </ErrorBoundary>
   );

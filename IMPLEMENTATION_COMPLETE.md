@@ -531,7 +531,17 @@ TODO:Use Stripe Payment Intents + Your Own Installment Logic(to pay in 3 times)
 todo:if user wanna change booking after first one confirmed, fees will be applied or pay difference of price??
 TODO:add cache to bookings etc and any data that we could perform better
 TODO: cancelation don't queued and do not send email: done
-TODO:check if send_payment_success_email_task have it implamented already? for info i use stripe cli for testco
+TODO:check if send_payment_success_email_task have it implamented already? for info i use stripe cli for test:done with stripe webhook(not yet tested before deployment) and also done with local stripe hook
+TODO:update whisper model
+TODO:- Complete translations for
+  booking, payment, profile pages
+  - Add multi-language email
+  templates (backend)
+  - Sync user's preferred_language
+  from backend on login
+  - Add currency/date formatting
+  per locale
+  TODO:translate dearture port, infant child etc, find your ferry searcxh ferrries, m traveling with a vehicle and all content
 
 
 (You charge the customer’s card automatically 3 times)

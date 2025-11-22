@@ -1,0 +1,89 @@
+{
+  "title": "Paiement",
+  "subtitle": "Paiement sécurisé pour votre réservation de ferry",
+  "bookingReference": "Référence de Réservation",
+  "paymentMethod": {
+    "title": "Moyen de Paiement",
+    "selectMethod": "Sélectionner le moyen de paiement",
+    "creditCard": "Carte de Crédit/Débit",
+    "paypal": "PayPal",
+    "bankTransfer": "Virement Bancaire"
+  },
+  "cardDetails": {
+    "title": "Détails de la Carte",
+    "cardNumber": "Numéro de Carte",
+    "cardHolder": "Nom du Titulaire",
+    "expiryDate": "Date d'Expiration",
+    "cvv": "CVV",
+    "saveCard": "Enregistrer la carte pour les futures réservations"
+  },
+  "billingAddress": {
+    "title": "Adresse de Facturation",
+    "addressLine1": "Ligne d'Adresse 1",
+    "addressLine2": "Ligne d'Adresse 2 (Optionnel)",
+    "city": "Ville",
+    "state": "État/Province",
+    "postalCode": "Code Postal",
+    "country": "Pays"
+  },
+  "orderSummary": {
+    "title": "Récapitulatif de Commande",
+    "bookingDetails": "Détails de Réservation",
+    "route": "Itinéraire",
+    "departure": "Départ",
+    "return": "Retour",
+    "passengers": "Passagers",
+    "vehicles": "Véhicules",
+    "subtotal": "Sous-total",
+    "taxes": "Taxes et Frais",
+    "discount": "Réduction",
+    "total": "Montant Total",
+    "currency": "EUR"
+  },
+  "termsAndConditions": {
+    "title": "Conditions Générales",
+    "agree": "J'accepte les",
+    "terms": "Conditions Générales",
+    "and": "et la",
+    "privacy": "Politique de Confidentialité",
+    "cancellation": "Politique d'Annulation",
+    "refund": "Politique de Remboursement"
+  },
+  "actions": {
+    "pay": "Payer Maintenant",
+    "paying": "Traitement du Paiement...",
+    "back": "Retour à la Réservation",
+    "cancel": "Annuler"
+  },
+  "security": {
+    "title": "Paiement Sécurisé",
+    "description": "Vos informations de paiement sont cryptées et sécurisées",
+    "ssl": "Cryptage SSL 256 bits",
+    "pci": "Conforme PCI DSS"
+  },
+  "success": {
+    "title": "Paiement Réussi !",
+    "message": "Votre réservation a été confirmée",
+    "bookingRef": "Référence de Réservation : {{reference}}",
+    "emailSent": "E-mail de confirmation envoyé à {{email}}",
+    "viewBooking": "Voir la Réservation",
+    "downloadTicket": "Télécharger le Billet",
+    "backToHome": "Retour à l'Accueil"
+  },
+  "errors": {
+    "paymentFailed": "Échec du Paiement",
+    "tryAgain": "Veuillez réessayer ou utiliser un autre moyen de paiement",
+    "invalidCard": "Détails de carte invalides",
+    "insufficientFunds": "Fonds insuffisants",
+    "expired": "Carte expirée",
+    "declined": "Paiement refusé",
+    "generic": "Une erreur s'est produite lors du paiement"
+  },
+  "validation": {
+    "cardNumber": "Veuillez entrer un numéro de carte valide",
+    "cardHolder": "Veuillez entrer le nom du titulaire",
+    "expiryDate": "Veuillez entrer la date d'expiration (MM/AA)",
+    "cvv": "Veuillez entrer le CVV (3-4 chiffres)",
+    "termsRequired": "Vous devez accepter les conditions générales"
+  }
+}

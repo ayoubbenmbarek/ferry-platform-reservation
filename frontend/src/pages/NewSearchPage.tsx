@@ -324,6 +324,7 @@ const NewSearchPage: React.FC = () => {
       searchedParamsRef.current = paramsKey;
       dispatch(searchFerries(searchParams as any));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, searchResults.length, isSearching, dispatch]);
 
   // Warn user before leaving if they have an active booking in progress

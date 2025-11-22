@@ -4,7 +4,7 @@ Celery tasks for sending emails asynchronously.
 These tasks are decoupled from payment/booking logic and run in separate workers.
 """
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from celery import Task
 from app.celery_app import celery_app
 from app.services.email_service import email_service
@@ -66,7 +66,8 @@ def send_payment_success_email_task(
     self,
     booking_data: Dict[str, Any],
     payment_data: Dict[str, Any],
-    to_email: str
+    to_email: str,
+    attachments: Optional[list] = None
 ):
     """
     Send payment success email asynchronously.
@@ -75,14 +76,27 @@ def send_payment_success_email_task(
         booking_data: Dict containing booking information
         payment_data: Dict containing payment information
         to_email: Recipient email address
+        attachments: Optional list of attachments (base64 encoded for Celery)
     """
     try:
         logger.info(f"Sending payment success email to {to_email}")
 
+        # Decode base64 attachments if present
+        decoded_attachments = []
+        if attachments:
+            import base64
+            for att in attachments:
+                decoded_attachments.append({
+                    'content': base64.b64decode(att['content']),
+                    'filename': att['filename'],
+                    'content_type': att['content_type']
+                })
+
         email_service.send_payment_confirmation(
             booking_data=booking_data,
             payment_data=payment_data,
-            to_email=to_email
+            to_email=to_email,
+            attachments=decoded_attachments if decoded_attachments else None
         )
 
         logger.info(f"✅ Payment success email sent successfully to {to_email}")

@@ -5,10 +5,19 @@ import json
 import hashlib
 import logging
 from typing import Any, Optional, Dict
+from datetime import datetime, date
 import redis
 import os
 
 logger = logging.getLogger(__name__)
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles datetime objects."""
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return super().default(obj)
 
 
 class CacheService:
@@ -130,7 +139,7 @@ class CacheService:
             self.redis_client.setex(
                 cache_key,
                 ttl,
-                json.dumps(results)
+                json.dumps(results, cls=DateTimeEncoder)
             )
             logger.info(f"✅ Cached ferry search results: {cache_key} (TTL: {ttl}s)")
             return True
@@ -214,7 +223,7 @@ class CacheService:
             self.redis_client.setex(
                 cache_key,
                 ttl,
-                json.dumps(availability_data)
+                json.dumps(availability_data, cls=DateTimeEncoder)
             )
             logger.info(f"✅ Cached availability: {sailing_id} (TTL: {ttl}s)")
             return True

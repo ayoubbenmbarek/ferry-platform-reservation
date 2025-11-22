@@ -185,7 +185,7 @@
                 <div class="cancelled-badge-title">Booking Status</div>
                 <div class="cancelled-badge-status">CANCELLED</div>
                 {% if booking.cancelled_at %}
-                <div class="cancelled-badge-title">Cancelled on {{ booking.cancelled_at.strftime('%B %d, %Y at %H:%M') }}</div>
+                <div class="cancelled-badge-title">Cancelled on {{ booking.cancelled_at if booking.cancelled_at is string else booking.cancelled_at.strftime('%B %d, %Y at %H:%M') }}</div>
                 {% endif %}
             </div>
 
@@ -216,11 +216,11 @@
                 {% endif %}
                 <div class="detail-row">
                     <span class="detail-label">Departure</span>
-                    <span class="detail-value">{{ booking.departure_time.strftime('%B %d, %Y at %H:%M') }}</span>
+                    <span class="detail-value">{{ booking.departure_time if booking.departure_time is string else booking.departure_time.strftime('%B %d, %Y at %H:%M') }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Arrival</span>
-                    <span class="detail-value">{{ booking.arrival_time.strftime('%B %d, %Y at %H:%M') }}</span>
+                    <span class="detail-value">{{ booking.arrival_time if booking.arrival_time is string else booking.arrival_time.strftime('%B %d, %Y at %H:%M') }}</span>
                 </div>
             </div>
 

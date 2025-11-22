@@ -525,13 +525,19 @@ TODO: add tests for celery and unit tests and all functions to be executed in pi
 TODO:dynamic homepage with pub etc:
 TODO:Ask Tomas if they allow payment in 3 or 4 times?
 TODO:Use Stripe Payment Intents + Your Own Installment Logic(to pay in 3 times)
+ TODO:If you want always fresh data while
+  serving cached, you'd need a Celery
+  background task:
 todo:if user wanna change booking after first one confirmed, fees will be applied or pay difference of price??
+TODO:add cache to bookings etc and any data that we could perform better
+TODO: cancelation don't queued and do not send email: done
+TODO:check if send_payment_success_email_task have it implamented already? for info i use stripe cli for testco
 
 
 (You charge the customer’s card automatically 3 times)
 
 VOULEZ-VOUS SAUVEGARDER LE DEVIS DE VOTRE VOYAGE ?
-TODO:did you did this too?  Next steps:
+TODO:did you did this too?  
    1. Integrate caching into ferry search endpoint
    2. Replace direct email calls with async tasks
    3. Add Stripe webhook endpoint and contine

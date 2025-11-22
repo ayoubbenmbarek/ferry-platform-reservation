@@ -659,7 +659,7 @@ async def create_booking(
 @router.get("/", response_model=BookingListResponse)
 async def list_bookings(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     common_params = Depends(get_common_params),
     status_filter: Optional[str] = Query(None, description="Filter by booking status"),
     operator: Optional[str] = Query(None, description="Filter by operator"),
@@ -674,7 +674,17 @@ async def list_bookings(
     """
     try:
         query = db.query(Booking)
-        
+
+        # Guest users (not logged in) get empty list
+        if not current_user:
+            return BookingListResponse(
+                bookings=[],
+                total_count=0,
+                page=1,
+                page_size=common_params.page_size,
+                total_pages=0
+            )
+
         # Non-admin users can only see their own bookings
         if not current_user.is_admin:
             query = query.filter(Booking.user_id == current_user.id)
@@ -725,6 +735,43 @@ async def list_bookings(
         )
 
 
+@router.get("/lookup/{booking_reference}", response_model=BookingResponse)
+async def lookup_booking(
+    booking_reference: str,
+    email: str = Query(..., description="Contact email for verification"),
+    db: Session = Depends(get_db)
+):
+    """
+    Guest booking lookup by booking reference and email.
+
+    Allows guests to retrieve their booking details without authentication.
+    Requires both booking reference and contact email for verification.
+    """
+    try:
+        booking = db.query(Booking).filter(
+            and_(
+                Booking.booking_reference == booking_reference,
+                Booking.contact_email == email.lower()
+            )
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found or email does not match"
+            )
+
+        return booking_to_response(booking)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to lookup booking: {str(e)}"
+        )
+
+
 @router.get("/{booking_id}", response_model=BookingResponse)
 async def get_booking(
     booking_id: int,
@@ -733,7 +780,7 @@ async def get_booking(
 ):
     """
     Get booking details.
-    
+
     Returns detailed information about a specific booking.
     """
     try:

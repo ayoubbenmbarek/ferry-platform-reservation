@@ -368,29 +368,34 @@ async def confirm_payment(
                         meals=meals
                     )
 
-                    # Create attachment
+                    # Create attachment (store PDF as base64 for Celery serialization)
+                    import base64
                     invoice_attachment = {
-                        'content': pdf_content,
+                        'content': base64.b64encode(pdf_content).decode('utf-8'),
                         'filename': f"invoice_{booking.booking_reference}.pdf",
                         'content_type': 'application/pdf'
                     }
 
-                    # Send email with invoice attachment
-                    email_service.send_payment_confirmation(
+                    # Queue async email task with invoice attachment
+                    from app.tasks.email_tasks import send_payment_success_email_task
+                    send_payment_success_email_task.delay(
                         booking_data=booking_dict,
                         payment_data=payment_dict,
                         to_email=booking.contact_email,
                         attachments=[invoice_attachment]
                     )
+                    logger.info(f"✅ Payment success email queued for {booking.contact_email}")
 
                 except Exception as invoice_error:
                     logger.error(f"Failed to generate invoice for booking {booking.booking_reference}: {str(invoice_error)}", exc_info=True)
-                    # Still send email without invoice
-                    email_service.send_payment_confirmation(
+                    # Still queue email without invoice
+                    from app.tasks.email_tasks import send_payment_success_email_task
+                    send_payment_success_email_task.delay(
                         booking_data=booking_dict,
                         payment_data=payment_dict,
                         to_email=booking.contact_email
                     )
+                    logger.info(f"✅ Payment success email queued (without invoice) for {booking.contact_email}")
 
             except Exception as e:
                 # Log email error but don't fail the payment confirmation

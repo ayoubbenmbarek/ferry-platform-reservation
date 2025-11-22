@@ -1,11 +1,13 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useDispatch } from 'react-redux';
 
 import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
+import { getCurrentUser } from './store/slices/authSlice';
 
 // Lazy load pages for better performance
 const HomePage = React.lazy(() => import('./pages/NewHomePage'));
@@ -34,6 +36,16 @@ const AdminPromoCodes = React.lazy(() => import('./pages/AdminPromoCodes'));
 
 function App() {
   const { i18n } = useTranslation();
+  const dispatch = useDispatch();
+
+  // Validate stored token on app initialization
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      // @ts-ignore - dispatch returns a Promise for async thunks
+      dispatch(getCurrentUser());
+    }
+  }, [dispatch]); // Only run once on mount
 
   // Set document direction based on language
   React.useEffect(() => {

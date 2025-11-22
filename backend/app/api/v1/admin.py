@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from dotenv import load_dotenv
+import logging
 
 from app.api.deps import get_db, get_admin_user
 from app.models.user import User
@@ -26,6 +27,8 @@ from app.schemas.admin import (
     RefundRequest, RefundResponse,
     CancelBookingRequest, CancelBookingResponse
 )
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()

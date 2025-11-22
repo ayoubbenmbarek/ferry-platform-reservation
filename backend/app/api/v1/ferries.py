@@ -111,8 +111,8 @@ async def search_ferries(
         cache_params = {
             "departure_port": search_params.departure_port,
             "arrival_port": search_params.arrival_port,
-            "departure_date": search_params.departure_date,
-            "return_date": search_params.return_date,
+            "departure_date": search_params.departure_date.isoformat() if search_params.departure_date else None,
+            "return_date": search_params.return_date.isoformat() if search_params.return_date else None,
             "return_departure_port": search_params.return_departure_port,
             "return_arrival_port": search_params.return_arrival_port,
             "adults": search_params.adults,
@@ -157,10 +157,17 @@ async def search_ferries(
         results_dict = [result.to_dict() for result in results]
 
         # Build response
+        # Serialize search_params dates for caching
+        search_params_dict = search_params.dict()
+        if search_params_dict.get("departure_date"):
+            search_params_dict["departure_date"] = search_params_dict["departure_date"].isoformat()
+        if search_params_dict.get("return_date"):
+            search_params_dict["return_date"] = search_params_dict["return_date"].isoformat()
+
         response_dict = {
             "results": results_dict,
             "total_results": len(results),
-            "search_params": search_params.dict(),
+            "search_params": search_params_dict,
             "operators_searched": operators_searched,
             "search_time_ms": search_time,
             "cached": False

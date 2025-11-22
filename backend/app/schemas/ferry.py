@@ -207,6 +207,8 @@ class FerrySearchResponse(BaseModel):
     search_params: FerrySearch
     operators_searched: List[str]
     search_time_ms: Optional[float] = None
+    cached: Optional[bool] = False
+    cache_age_ms: Optional[float] = None
 
 
 class PriceComparison(BaseModel):

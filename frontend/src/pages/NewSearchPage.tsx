@@ -304,6 +304,9 @@ const NewSearchPage: React.FC = () => {
   const [returnFerryResults, setReturnFerryResults] = useState<FerryResult[]>([]);
   const [isSearchingReturn, setIsSearchingReturn] = useState(false);
 
+  // Track if we've already searched for these params to prevent duplicates
+  const searchedParamsRef = React.useRef<string>('');
+
   useEffect(() => {
     // Check if we have search params
     if (!searchParams.departurePort || !searchParams.arrivalPort || !searchParams.departureDate) {
@@ -313,11 +316,15 @@ const NewSearchPage: React.FC = () => {
 
     setHasSearchParams(true);
 
-    // Perform search if we don't have results
-    if (searchResults.length === 0 && !isSearching) {
+    // Create a unique key for current search params
+    const paramsKey = `${searchParams.departurePort}-${searchParams.arrivalPort}-${searchParams.departureDate}`;
+
+    // Only search if params changed and we don't have results for these params
+    if (searchResults.length === 0 && !isSearching && searchedParamsRef.current !== paramsKey) {
+      searchedParamsRef.current = paramsKey;
       dispatch(searchFerries(searchParams as any));
     }
-  }, [searchParams, searchResults.length, isSearching, dispatch]);
+  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, searchResults.length, isSearching, dispatch]);
 
   // Warn user before leaving if they have an active booking in progress
   useEffect(() => {

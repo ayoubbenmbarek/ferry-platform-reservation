@@ -235,6 +235,9 @@ const ferrySlice = createSlice({
     // Search params actions
     setSearchParams: (state, action: PayloadAction<Partial<SearchParams>>) => {
       state.searchParams = { ...state.searchParams, ...action.payload };
+      // Clear old search results when params change
+      state.searchResults = [];
+      state.searchError = null;
     },
 
     updatePassengerCount: (state, action: PayloadAction<{ type: 'adults' | 'children' | 'infants'; count: number }>) => {

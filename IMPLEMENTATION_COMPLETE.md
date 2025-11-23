@@ -468,15 +468,25 @@ The frontend integration is 90% complete - just add the UI components using the 
 
 ---
 TODO: add button voice and said in tunisian (search for routes from two when example) etc etc with meta osmmultilingue and it will do search by itself
-TODO:forget password 404 not found
+TODO:forget password 404 not found:done
 TODO: booking could pass twice for the same booking, correct that:done
 TODO: add paiment by apple pay
+
+ Testing & DevOps
+
+  13. Unit Tests & CI/CD Pipeline 
+  (line 524)
+
+  - Add tests for Celery tasks
+  - Unit tests for all functions
+  - Set up CI/CD pipeline
+
 
 TODO:add dishes and add them to invoice:done
 TODO:generate invoices:done
 TODO:add room choices, suite, etc single bed etc:done
 TODO:generate invoice and send it by email:done
-TODO:confiromation link by email when register
+TODO:confiromation link by email when register:done
 TODO:show meals for aller and retour if specified: done
 TODO: can't deactivate return if for example i want modify my actual search:done
 TODO: continue with Dockerfile.cron: done
@@ -517,7 +527,7 @@ succeed same for refund, i want them
 asynchronly and decoupled the payment 
 and sending email 
 
-ASK when email confirmation will be sent and when we will update cache and did cancellation email works with listener asyncrosly?
+ASK when email confirmation will be sent and when we will update cache and did cancellation email works with listener asyncrosly?done
 7,50 € au total
 TODO:addd possibility to add promo code:done
 TODO: another option of pending:send quote by email
@@ -549,14 +559,14 @@ TODO:- Complete translations for
   component
   TODO:translate dearture port, infant child etc, find your ferry searcxh ferrries, m traveling with a vehicle and all content, to it all just for frensh now adding to the eixisting english
 TODO:if connect from france choose france, if ittlain chosoe italian but by default france if not
-TODO: when i  lick continue to paiment i receive confirmation email and reservation is pending, then when we go back to with browser arrow and click again continue to paiment i receive another email for reservaton and then both of them are pending in my bookings, is tha noemal behaviour for he same reservation?
+TODO: when i  lick continue to paiment i receive confirmation email and reservation is pending, then when we go back to with browser arrow and click again continue to paiment i receive another email for reservaton and then both of them are pending in my bookings, is tha noemal behaviour for he same reservation?:done corrected, receive only one email for he same reservation:done
 TODO:booking page not trnaslated like Please provide details for all passengers. First name and last name are required.
 
 , summary, child etc, select cabin,meals...
 TODO:add seubscibe for avaialability, routes cabin vehicle..if they already reserved and seek for cabin for example
 TODO:add show prices for same routes a day before or ater with intellignet scroll or click
 TODO continue total correction:done
-TODO:every how much time token auth expired
+TOASK:every how much time token auth expired
 
 (You charge the customer’s card automatically 3 times)
 
@@ -569,10 +579,12 @@ Vous pourrez le reprendre à tout moment or (within 3 days)
 Insérez votre adresse e-mail pour recevoir le devis(avec le trajet et les informations déjà renseigner)
 TODO:continue with whisper api search
 TODO:sign in with google
+TODO:dynamic sign in pages with more infromation and ads
 Veuillez noter que les tarifs peuvent varier en fonction des disponibilités
 TODO:ferryhopper integrates MCP:may use it to facilitate search by llm:
 Ferryhopper's Model Context Protocol (MCP)
 The connector for LLMs and AI Agents in Maritime Travel.
+TODO:update this: 2024 Réservations Maritimes. Tous droits réservés
 
 
 Ferryhopper’s API: FerryhAPI
@@ -583,8 +595,12 @@ TODD:maybe follow up email to show inerest for MCP and it's integartion to our p
 Contacts:Lyko,ferryhopper by conatct form,
 by email:sune.haggblom@ferrygateway.org, commercial@corsicalinea.com
 
+ it is correct that i coould not pay
+  again but we should display new
+  mesage maybe or redrirection@&:done
+
 monitor cron docker exec maritime-cron-dev tail -f /var/log/cron.log
-**Congratulations! Your booking system is ready for production use!** 🎉
+
 
 Lyko for ctn https://lyko.tech/en/portfolio/ctn-ferries-api/?utm_source=chatgpt.com
 Lyko for corsica: https://lyko.tech/fr/portfolio/api-corsica-linea-2/

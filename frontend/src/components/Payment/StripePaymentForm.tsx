@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { useTranslation } from 'react-i18next';
 
 interface StripePaymentFormProps {
   clientSecret: string;
@@ -16,6 +17,7 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   onError,
   isConfirming = false,
 }) => {
+  const { t } = useTranslation(['payment']);
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -120,7 +122,7 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
             />
           </svg>
-          Your payment information is secure and encrypted
+          {t('payment:timer.secureInfo')}
         </div>
       </form>
     </>

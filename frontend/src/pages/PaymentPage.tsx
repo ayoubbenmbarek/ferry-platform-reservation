@@ -89,29 +89,33 @@ const PaymentPage: React.FC = () => {
 
       // Check if paying for existing booking or creating new one
       if (existingBookingId) {
-        // Fetch existing booking
+        // Fetch existing booking from backend to get latest status
+        console.log('Fetching existing booking by ID:', existingBookingId);
         booking = await bookingAPI.getById(parseInt(existingBookingId));
         setBookingId(booking.id);
         setBookingDetails(booking);
-      } else if (currentBooking && currentBooking.id && currentBooking.status === 'PENDING') {
-        // Only reuse booking if:
-        // 1. It exists in Redux
-        // 2. It has an ID
-        // 3. It's still PENDING (not completed/cancelled)
-        // This prevents creating duplicates when navigating back/forward within same booking flow
-        console.log('Reusing existing PENDING booking from Redux:', currentBooking.id);
-        booking = currentBooking;
-        setBookingId(currentBooking.id);
-        setBookingDetails(currentBooking);
+      } else if (currentBooking && currentBooking.id) {
+        // Always fetch from backend to get the latest status
+        // (Redux state might be stale if user navigated back after payment)
+        console.log('Fetching current booking from backend to verify status:', currentBooking.id);
+        booking = await bookingAPI.getById(currentBooking.id);
+        setBookingId(booking.id);
+        setBookingDetails(booking);
       } else {
-        // Create new booking if:
-        // 1. No existing booking ID provided
-        // 2. No current booking in Redux, OR
-        // 3. Current booking is not PENDING (completed/cancelled)
+        // Create new booking if no booking exists
         console.log('Creating new booking...');
         booking = await dispatch(createBooking()).unwrap();
         setBookingId(booking.id);
         setBookingDetails(booking);
+      }
+
+      // Check if booking is already confirmed/completed BEFORE attempting payment
+      if (booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') {
+        console.log('Booking already confirmed/completed, redirecting to confirmation page');
+        navigate('/booking/confirmation', {
+          state: { booking }
+        });
+        return;
       }
 
       // Use the actual total from the booking (includes cabin, meals, tax, etc.)
@@ -145,7 +149,30 @@ const PaymentPage: React.FC = () => {
       // Mark as successfully initialized
       initializedRef.current = true;
     } catch (err: any) {
-      setError(err.message || err || 'Failed to initialize payment');
+      console.log('Payment initialization error:', err);
+
+      // Check if booking is already paid
+      const errorMessage = err.response?.data?.detail || err.message || err || 'Failed to initialize payment';
+
+      // Handle already paid booking (can be 400 or 500 status)
+      if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('already paid')) {
+        console.log('Booking already paid, redirecting to confirmation');
+        navigate('/booking/confirmation', {
+          state: { booking: bookingDetails }
+        });
+        return;
+      }
+
+      // Also check if booking status is already CONFIRMED/COMPLETED
+      if (bookingDetails && (bookingDetails.status === 'CONFIRMED' || bookingDetails.status === 'COMPLETED')) {
+        console.log('Booking already confirmed, redirecting to confirmation');
+        navigate('/booking/confirmation', {
+          state: { booking: bookingDetails }
+        });
+        return;
+      }
+
+      setError(errorMessage);
       // Reset on error so user can retry
       initializingRef.current = false;
     } finally {
@@ -383,7 +410,7 @@ const PaymentPage: React.FC = () => {
 
                     <div className="mt-2 p-3 bg-blue-50 rounded-lg">
                       <div className="text-xs text-blue-800">
-                        <p className="font-medium">Booking Reference:</p>
+                        <p className="font-medium">{t('payment:bookingReference')}:</p>
                         <p className="font-mono">{bookingDetails.bookingReference || bookingDetails.booking_reference}</p>
                       </div>
                     </div>
@@ -421,7 +448,7 @@ const PaymentPage: React.FC = () => {
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   {/* Outbound Journey */}
                   <h3 className="font-medium text-gray-900 mb-2">
-                    {(bookingDetails?.isRoundTrip || bookingDetails?.is_round_trip) ? 'Outbound Journey' : 'Route'}
+                    {(bookingDetails?.isRoundTrip || bookingDetails?.is_round_trip) ? t('payment:orderSummary.outboundJourney') : t('payment:orderSummary.route')}
                   </h3>
                   <p className="text-sm text-gray-600">
                     {bookingDetails?.departurePort || bookingDetails?.departure_port || selectedFerry?.departurePort} → {bookingDetails?.arrivalPort || bookingDetails?.arrival_port || selectedFerry?.arrivalPort}
@@ -431,14 +458,14 @@ const PaymentPage: React.FC = () => {
                   </p>
                   {(bookingDetails?.departureTime || bookingDetails?.departure_time) && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Departure: {new Date(bookingDetails.departureTime || bookingDetails.departure_time).toLocaleString()}
+                      {t('payment:orderSummary.departure')}: {new Date(bookingDetails.departureTime || bookingDetails.departure_time).toLocaleString()}
                     </p>
                   )}
 
                   {/* Return Journey */}
                   {(bookingDetails?.isRoundTrip || bookingDetails?.is_round_trip) && (
                     <div className="mt-3 pt-3 border-t border-gray-100">
-                      <h3 className="font-medium text-gray-900 mb-2">Return Journey</h3>
+                      <h3 className="font-medium text-gray-900 mb-2">{t('payment:orderSummary.returnJourney')}</h3>
                       <p className="text-sm text-gray-600">
                         {bookingDetails?.returnDeparturePort || bookingDetails?.return_departure_port || bookingDetails?.arrivalPort || bookingDetails?.arrival_port} → {bookingDetails?.returnArrivalPort || bookingDetails?.return_arrival_port || bookingDetails?.departurePort || bookingDetails?.departure_port}
                       </p>
@@ -449,7 +476,7 @@ const PaymentPage: React.FC = () => {
                       )}
                       {(bookingDetails?.returnDepartureTime || bookingDetails?.return_departure_time) && (
                         <p className="text-xs text-gray-500 mt-1">
-                          Departure: {new Date(bookingDetails.returnDepartureTime || bookingDetails.return_departure_time).toLocaleString()}
+                          {t('payment:orderSummary.departure')}: {new Date(bookingDetails.returnDepartureTime || bookingDetails.return_departure_time).toLocaleString()}
                         </p>
                       )}
                     </div>

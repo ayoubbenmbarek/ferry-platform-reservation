@@ -305,8 +305,8 @@ const BookingPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Complete Your Booking</h1>
-          <p className="mt-2 text-gray-600">Review your details and confirm your reservation</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('booking:page.title')}</h1>
+          <p className="mt-2 text-gray-600">{t('booking:page.subtitle')}</p>
 
           {/* Round trip notice */}
           {isRoundTrip && (
@@ -316,11 +316,11 @@ const BookingPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <h3 className="text-sm font-medium text-blue-900">Round Trip Booking</h3>
+                  <h3 className="text-sm font-medium text-blue-900">{t('booking:page.roundTripNotice')}</h3>
                   <p className="mt-1 text-sm text-blue-700">
                     {selectedReturnFerry
-                      ? `You can select different cabins and meals for your outbound and return journeys using the tabs below.`
-                      : `Note: Return ferry was not selected. Cabin and meal selection will only apply to your outbound journey.`
+                      ? t('booking:page.roundTripWithReturn')
+                      : t('booking:page.roundTripNoReturn')
                     }
                   </p>
                 </div>
@@ -586,7 +586,7 @@ const BookingPage: React.FC = () => {
           {/* Right Column - Booking Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-6 sticky top-4">
-              <h2 className="text-xl font-semibold mb-4">Booking Summary</h2>
+              <h2 className="text-xl font-semibold mb-4">{t('booking:page.bookingSummary')}</h2>
 
               {/* Ferry Details */}
               <div className="mb-4 pb-4 border-b border-gray-200">

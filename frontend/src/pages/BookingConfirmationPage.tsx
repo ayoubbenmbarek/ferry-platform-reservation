@@ -72,32 +72,32 @@ const BookingConfirmationPage: React.FC = () => {
           {/* Booking Reference */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="text-center">
-              <p className="text-sm text-gray-600 mb-1">Booking Reference</p>
+              <p className="text-sm text-gray-600 mb-1">{t('booking:confirmation.bookingReferenceLabel')}</p>
               <p className="text-2xl font-bold text-blue-600">{booking.bookingReference}</p>
               <p className="text-xs text-gray-500 mt-2">
-                Please save this reference number for your records
+                {t('booking:confirmation.saveReference')}
               </p>
             </div>
           </div>
 
           {/* Booking Details */}
           <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-xl font-semibold mb-4">Booking Details</h2>
+            <h2 className="text-xl font-semibold mb-4">{t('booking:confirmation.bookingDetails')}</h2>
 
             {/* Ferry Information */}
             <div className="mb-4 pb-4 border-b border-gray-200">
               {/* Outbound Journey */}
               <div className="mb-4">
                 {booking.isRoundTrip && (
-                  <p className="text-sm font-medium text-blue-600 mb-2">Outbound Journey</p>
+                  <p className="text-sm font-medium text-blue-600 mb-2">{t('booking:confirmation.outboundJourney')}</p>
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Operator</p>
+                    <p className="text-sm text-gray-600">{t('booking:confirmation.operator')}</p>
                     <p className="font-semibold">{booking.operator}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Status</p>
+                    <p className="text-sm text-gray-600">{t('booking:confirmation.status')}</p>
                     <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
                       booking.status === 'CONFIRMED' || booking.status === 'confirmed'
                         ? 'bg-green-100 text-green-800'
@@ -108,13 +108,13 @@ const BookingConfirmationPage: React.FC = () => {
                   </div>
                   {booking.departurePort && (
                     <div>
-                      <p className="text-sm text-gray-600">Route</p>
+                      <p className="text-sm text-gray-600">{t('booking:confirmation.route')}</p>
                       <p className="font-semibold">{booking.departurePort} → {booking.arrivalPort}</p>
                     </div>
                   )}
                   {booking.departureTime && (
                     <div>
-                      <p className="text-sm text-gray-600">Departure</p>
+                      <p className="text-sm text-gray-600">{t('booking:confirmation.departure')}</p>
                       <p className="font-semibold">{new Date(booking.departureTime).toLocaleString()}</p>
                     </div>
                   )}
@@ -124,30 +124,30 @@ const BookingConfirmationPage: React.FC = () => {
               {/* Return Journey */}
               {booking.isRoundTrip && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-sm font-medium text-blue-600 mb-2">Return Journey</p>
+                  <p className="text-sm font-medium text-blue-600 mb-2">{t('booking:confirmation.returnJourney')}</p>
                   <div className="grid grid-cols-2 gap-4">
                     {/* Only show operator if return ferry was selected */}
                     {booking.returnSailingId && booking.returnOperator && (
                       <div>
-                        <p className="text-sm text-gray-600">Operator</p>
+                        <p className="text-sm text-gray-600">{t('booking:confirmation.operator')}</p>
                         <p className="font-semibold">{booking.returnOperator}</p>
                       </div>
                     )}
                     <div>
-                      <p className="text-sm text-gray-600">Route</p>
+                      <p className="text-sm text-gray-600">{t('booking:confirmation.route')}</p>
                       <p className="font-semibold">
                         {booking.returnDeparturePort || booking.arrivalPort} → {booking.returnArrivalPort || booking.departurePort}
                       </p>
                     </div>
                     {booking.returnSailingId && booking.returnDepartureTime ? (
                       <div>
-                        <p className="text-sm text-gray-600">Departure</p>
+                        <p className="text-sm text-gray-600">{t('booking:confirmation.departure')}</p>
                         <p className="font-semibold">{new Date(booking.returnDepartureTime).toLocaleString()}</p>
                       </div>
                     ) : (
                       <div>
-                        <p className="text-sm text-gray-600">Status</p>
-                        <p className="font-semibold text-yellow-600">Return ferry not yet selected</p>
+                        <p className="text-sm text-gray-600">{t('booking:confirmation.status')}</p>
+                        <p className="font-semibold text-yellow-600">{t('booking:confirmation.returnNotSelected')}</p>
                       </div>
                     )}
                   </div>
@@ -157,7 +157,7 @@ const BookingConfirmationPage: React.FC = () => {
 
             {/* Contact Information */}
             <div className="mb-4 pb-4 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-2">Contact Information</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('booking:confirmation.contactInfo')}</p>
               <p className="text-sm text-gray-600">
                 {booking.contactFirstName} {booking.contactLastName}
               </p>
@@ -170,7 +170,7 @@ const BookingConfirmationPage: React.FC = () => {
             {/* Passengers */}
             <div className="mb-4 pb-4 border-b border-gray-200">
               <p className="text-sm font-medium text-gray-700 mb-2">
-                Passengers ({booking.totalPassengers})
+                {t('booking:confirmation.passengers')} ({booking.totalPassengers})
               </p>
               <div className="space-y-1">
                 {booking.passengers?.map((p: any, i: number) => (
@@ -185,7 +185,7 @@ const BookingConfirmationPage: React.FC = () => {
             {booking.totalVehicles > 0 && (
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <p className="text-sm font-medium text-gray-700 mb-2">
-                  Vehicles ({booking.totalVehicles})
+                  {t('booking:confirmation.vehicles')} ({booking.totalVehicles})
                 </p>
                 <div className="space-y-1">
                   {booking.vehicles?.map((v: any, i: number) => (
@@ -200,9 +200,9 @@ const BookingConfirmationPage: React.FC = () => {
             {/* Cabin */}
             {(booking.cabinSupplement || booking.cabin_supplement) > 0 && (
               <div className="mb-4 pb-4 border-b border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-2">Cabin</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">{t('booking:confirmation.cabin')}</p>
                 <div className="text-sm text-gray-600">
-                  Cabin Upgrade - €{(booking.cabinSupplement || booking.cabin_supplement)?.toFixed(2)}
+                  {t('booking:confirmation.cabinUpgrade')} - €{(booking.cabinSupplement || booking.cabin_supplement)?.toFixed(2)}
                 </div>
               </div>
             )}
@@ -211,13 +211,13 @@ const BookingConfirmationPage: React.FC = () => {
             {booking.meals && booking.meals.length > 0 && (
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <p className="text-sm font-medium text-gray-700 mb-2">
-                  Meals ({booking.meals.length})
+                  {t('booking:confirmation.meals')} ({booking.meals.length})
                 </p>
                 <div className="space-y-1">
                   {booking.meals.map((meal: any, i: number) => (
                     <div key={i} className="flex justify-between text-sm text-gray-600">
                       <span>
-                        {meal.quantity}x Meal
+                        {meal.quantity}x {t('booking:confirmation.meal')}
                         {meal.dietaryType && ` (${meal.dietaryType})`}
                       </span>
                       <span>€{(meal.totalPrice || meal.total_price)?.toFixed(2)}</span>
@@ -231,33 +231,33 @@ const BookingConfirmationPage: React.FC = () => {
             <div className="mb-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-gray-600">{t('booking:confirmation.subtotal')}</span>
                   <span>€{booking.subtotal?.toFixed(2)}</span>
                 </div>
                 {(booking.cabinSupplement || booking.cabin_supplement) > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Cabin Supplement</span>
+                    <span className="text-gray-600">{t('booking:confirmation.cabinSupplement')}</span>
                     <span>€{(booking.cabinSupplement || booking.cabin_supplement)?.toFixed(2)}</span>
                   </div>
                 )}
                 {booking.meals && booking.meals.length > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Meals Total</span>
+                    <span className="text-gray-600">{t('booking:confirmation.mealsTotal')}</span>
                     <span>€{booking.meals.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0).toFixed(2)}</span>
                   </div>
                 )}
                 {(booking.discountAmount || booking.discount_amount) > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
-                    <span>Promo Discount {booking.promoCode || booking.promo_code ? `(${booking.promoCode || booking.promo_code})` : ''}</span>
+                    <span>{t('booking:confirmation.promoDiscount')} {booking.promoCode || booking.promo_code ? `(${booking.promoCode || booking.promo_code})` : ''}</span>
                     <span>-€{(booking.discountAmount || booking.discount_amount)?.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Tax (10%)</span>
+                  <span className="text-gray-600">{t('booking:confirmation.tax')}</span>
                   <span>€{booking.taxAmount?.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
-                  <span>Total</span>
+                  <span>{t('booking:confirmation.total')}</span>
                   <span className="text-green-600">€{booking.totalAmount?.toFixed(2)}</span>
                 </div>
               </div>
@@ -268,12 +268,12 @@ const BookingConfirmationPage: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
                 {booking.operatorBookingReference && (
                   <p className="text-gray-600">
-                    {booking.isRoundTrip && booking.returnOperatorBookingReference ? 'Outbound ' : ''}Operator Reference: <span className="font-semibold">{booking.operatorBookingReference}</span>
+                    {booking.isRoundTrip && booking.returnOperatorBookingReference ? `${t('booking:confirmation.outbound')} ` : ''}{t('booking:confirmation.operatorReference')}: <span className="font-semibold">{booking.operatorBookingReference}</span>
                   </p>
                 )}
                 {booking.returnOperatorBookingReference && (
                   <p className="text-gray-600">
-                    Return Operator Reference: <span className="font-semibold">{booking.returnOperatorBookingReference}</span>
+                    {t('booking:confirmation.returnOperatorReference')}: <span className="font-semibold">{booking.returnOperatorBookingReference}</span>
                   </p>
                 )}
               </div>
@@ -282,12 +282,12 @@ const BookingConfirmationPage: React.FC = () => {
 
           {/* Important Information */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
-            <h3 className="font-semibold text-yellow-900 mb-2">Important Information</h3>
+            <h3 className="font-semibold text-yellow-900 mb-2">{t('booking:confirmation.importantInfo')}</h3>
             <ul className="text-sm text-yellow-800 space-y-1">
-              <li>• A confirmation email has been sent to {booking.contactEmail}</li>
-              <li>• Please arrive at the port at least 30 minutes before departure</li>
-              <li>• Bring a valid ID or passport for all passengers</li>
-              <li>• Vehicle registration documents required if traveling with a vehicle</li>
+              <li>• {t('booking:confirmation.emailConfirmation')} {booking.contactEmail}</li>
+              <li>• {t('booking:confirmation.arriveEarly')}</li>
+              <li>• {t('booking:confirmation.bringId')}</li>
+              <li>• {t('booking:confirmation.vehicleDocs')}</li>
             </ul>
           </div>
 
@@ -296,16 +296,16 @@ const BookingConfirmationPage: React.FC = () => {
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mt-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">Want to manage your booking easily?</h3>
+                  <h3 className="font-semibold text-gray-900 mb-1">{t('booking:confirmation.manageBooking')}</h3>
                   <p className="text-sm text-gray-600">
-                    Create an account to track your booking, view history, and get exclusive benefits!
+                    {t('booking:confirmation.createAccountDesc')}
                   </p>
                 </div>
                 <button
                   onClick={() => setShowCreateAccountModal(true)}
                   className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 whitespace-nowrap"
                 >
-                  Create Account
+                  {t('booking:confirmation.createAccount')}
                 </button>
               </div>
             </div>
@@ -317,13 +317,13 @@ const BookingConfirmationPage: React.FC = () => {
               onClick={handleViewBookings}
               className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700"
             >
-              View My Bookings
+              {t('booking:confirmation.viewMyBookings')}
             </button>
             <button
               onClick={handleNewBooking}
               className="flex-1 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50"
             >
-              Make Another Booking
+              {t('booking:confirmation.makeAnotherBooking')}
             </button>
           </div>
         </div>

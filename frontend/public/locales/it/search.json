@@ -5,7 +5,7 @@
   "form": {
     "departurePort": "Porto di Partenza",
     "arrivalPort": "Porto di Arrivo",
-    "departureDate": "Data di Partenza",
+    "departureDate": "📅 Data di Partenza",
     "returnDate": "Data di Ritorno (Opzionale)",
     "passengers": "Passeggeri",
     "vehicles": "Veicoli",
@@ -21,12 +21,20 @@
     "vehicleLength": "Lunghezza Veicolo",
     "selectPort": "Seleziona un porto",
     "selectDate": "Seleziona data",
-    "differentReturnRoute": "Rotta di ritorno diversa",
+    "differentReturnRoute": "Percorso di ritorno diverso (ad es., ritorno da un porto diverso)",
     "updateSearch": "Aggiorna Ricerca",
     "selectDeparturePort": "Seleziona porto di partenza",
     "selectArrivalPort": "Seleziona porto di arrivo",
-    "from": "Da",
-    "to": "A"
+    "from": "🛳️ Da",
+    "to": "🏁 A",
+    "title": "⚓ Traghetto per la Tunisia",
+    "subtitle": "Prenota la tua traversata mediterranea dall'Italia e dalla Francia alla Tunisia",
+    "editTitle": "✏️ Modifica la Tua Ricerca",
+    "editSubtitle": "Aggiorna il tuo itinerario e le date. I dettagli di passeggeri e veicoli saranno preservati.",
+    "selectReturnDeparturePort": "Seleziona il porto di partenza del ritorno",
+    "selectReturnArrivalPort": "Seleziona il porto di arrivo del ritorno",
+    "returnFrom": "🔄 Ritorno Da",
+    "returnTo": "🏁 Ritorno A"
   },
   "passengers": {
     "adults": "Adulti",

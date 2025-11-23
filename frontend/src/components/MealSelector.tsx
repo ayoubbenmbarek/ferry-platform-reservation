@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 
 interface Meal {
@@ -34,6 +35,7 @@ const MealSelector: React.FC<MealSelectorProps> = ({
   passengerCount,
   isRoundTrip = false,
 }) => {
+  const { t } = useTranslation(['booking', 'common']);
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +181,7 @@ const MealSelector: React.FC<MealSelectorProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Select Meals (Optional)</h3>
+        <h3 className="text-lg font-semibold">{t('booking:meals.title')}</h3>
         {currentJourneyMeals.length > 0 && (
           <button
             onClick={() => {

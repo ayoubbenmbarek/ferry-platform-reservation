@@ -95,12 +95,12 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32">
           <div className="text-center mb-12">
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-              {isEditMode ? '✏️ Edit Your Search' : '⚓ Ferry to Tunisia'}
+              {isEditMode ? t('search:form.editTitle') : t('search:form.title')}
             </h1>
             <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto">
               {isEditMode
-                ? 'Update your route and dates. Your passenger and vehicle details will be preserved.'
-                : 'Book your Mediterranean crossing from Italy & France to Tunisia'}
+                ? t('search:form.editSubtitle')
+                : t('search:form.subtitle')}
             </p>
           </div>
 
@@ -109,13 +109,13 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
               <form onSubmit={handleSearch} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">🛳️ From</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.from')}</label>
                     <select
                       value={form.departurePort}
                       onChange={(e) => setForm({ ...form, departurePort: e.target.value })}
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departurePort ? 'border-red-500' : 'border-gray-300'}`}
                     >
-                      <option value="">Select departure port</option>
+                      <option value="">{t('search:form.selectDeparturePort')}</option>
                       {PORTS.filter(p => p.countryCode !== 'TN').map(port => (
                         <option key={port.code} value={port.code}>{port.name}</option>
                       ))}
@@ -123,13 +123,13 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">🏁 To</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.to')}</label>
                     <select
                       value={form.arrivalPort}
                       onChange={(e) => setForm({ ...form, arrivalPort: e.target.value })}
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.arrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                     >
-                      <option value="">Select arrival port</option>
+                      <option value="">{t('search:form.selectArrivalPort')}</option>
                       {PORTS.filter(p => p.countryCode === 'TN').map(port => (
                         <option key={port.code} value={port.code}>{port.name}</option>
                       ))}
@@ -139,7 +139,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">📅 Departure Date</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.departureDate')}</label>
                     <input
                       type="date"
                       value={form.departureDate}
@@ -150,7 +150,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Return Date (Optional)</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnDate')}</label>
                     <div className="relative">
                       <input
                         type="date"
@@ -202,20 +202,20 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                         className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                       />
                       <span className="text-sm font-medium text-gray-700">
-                        Different return route (e.g., return from a different port)
+                        {t('search:form.differentReturnRoute')}
                       </span>
                     </label>
 
                     {form.differentReturnRoute && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">🔄 Return From</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnFrom')}</label>
                           <select
                             value={form.returnDeparturePort}
                             onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
-                            <option value="">Select return departure port</option>
+                            <option value="">{t('search:form.selectReturnDeparturePort')}</option>
                             {PORTS.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
@@ -224,13 +224,13 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">🏁 Return To</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnTo')}</label>
                           <select
                             value={form.returnArrivalPort}
                             onChange={(e) => setForm({ ...form, returnArrivalPort: e.target.value })}
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
-                            <option value="">Select return arrival port</option>
+                            <option value="">{t('search:form.selectReturnArrivalPort')}</option>
                             {PORTS.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}

@@ -68,6 +68,8 @@ services:
       BASE_URL: ${BASE_URL}
       LOG_LEVEL: ${LOG_LEVEL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads

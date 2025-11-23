@@ -20,6 +20,8 @@ passlib[bcrypt]==1.7.4
 passlib[argon2]==1.7.4
 argon2-cffi==25.1.0
 python-multipart==0.0.6
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
 
 # HTTP clients
 httpx==0.25.2

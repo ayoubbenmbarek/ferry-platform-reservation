@@ -4,6 +4,7 @@ Authentication API endpoints for user registration, login, and token management.
 
 import os
 import secrets
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -20,6 +21,8 @@ from app.schemas.user import (
     UserCreate, UserResponse, UserUpdate, UserLogin, Token,
     PasswordChange, PasswordReset, PasswordResetConfirm
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -779,6 +782,135 @@ async def link_booking_to_account(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to link booking: {str(e)}"
+        )
+
+
+@router.post("/google")
+async def google_login(
+    token_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Authenticate user with Google OAuth token.
+
+    Accepts a Google ID token from the frontend, verifies it,
+    and creates/logs in the user.
+    """
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests
+
+        # Get Google OAuth client ID from environment
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        if not google_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google OAuth is not configured on the server"
+            )
+
+        # Verify the Google token
+        try:
+            id_info = id_token.verify_oauth2_token(
+                token_data.get("credential"),
+                requests.Request(),
+                google_client_id
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid Google token: {str(e)}"
+            )
+
+        # Extract user information from Google
+        google_user_id = id_info.get("sub")
+        email = id_info.get("email")
+        email_verified = id_info.get("email_verified", False)
+        first_name = id_info.get("given_name", "")
+        last_name = id_info.get("family_name", "")
+        picture = id_info.get("picture")
+
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not provided by Google"
+            )
+
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+
+        if user:
+            # User exists - log them in
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is deactivated"
+                )
+
+            # Update last login
+            user.last_login = datetime.utcnow()
+
+            # Update Google user ID if not set
+            if not hasattr(user, 'google_user_id') or not user.google_user_id:
+                user.google_user_id = google_user_id
+
+            # If user wasn't verified, verify them now (Google verified the email)
+            if not user.is_verified and email_verified:
+                user.is_verified = True
+
+        else:
+            # Create new user account
+            user = User(
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                is_active=True,
+                is_verified=email_verified,  # Trust Google's email verification
+                hashed_password=get_password_hash(secrets.token_urlsafe(32)),  # Random password
+                google_user_id=google_user_id
+            )
+            db.add(user)
+            db.flush()  # Get user ID
+
+        # Auto-link any guest bookings with matching email
+        from app.models.booking import Booking
+        guest_bookings = db.query(Booking).filter(
+            Booking.contact_email == user.email,
+            Booking.user_id == None
+        ).all()
+
+        linked_count = 0
+        for booking in guest_bookings:
+            booking.user_id = user.id
+            linked_count += 1
+
+        if linked_count > 0:
+            logger.info(f"Auto-linked {linked_count} guest booking(s) to user {user.id} on Google login")
+
+        db.commit()
+        db.refresh(user)
+
+        # Create access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=access_token_expires
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": UserResponse.model_validate(user).dict(),
+            "is_new_user": linked_count == 0 and not user.last_login
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Google login failed: {str(e)}"
         )
 
 

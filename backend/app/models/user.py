@@ -22,6 +22,9 @@ class User(Base):
     date_of_birth = Column(DateTime, nullable=True)
     nationality = Column(String(3), nullable=True)  # ISO country code
     passport_number = Column(String(50), nullable=True)
+
+    # OAuth fields
+    google_user_id = Column(String(255), nullable=True, unique=True, index=True)
     
     # Account status
     is_active = Column(Boolean, default=True)

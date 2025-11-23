@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import React, { useState, useEffect } from 'react';
+import { CardElement, useStripe, useElements, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
 import { useTranslation } from 'react-i18next';
+import type { PaymentRequest } from '@stripe/stripe-js';
 
 interface StripePaymentFormProps {
   clientSecret: string;
@@ -21,6 +22,68 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
+
+  // Set up Payment Request (Apple Pay, Google Pay, etc.)
+  useEffect(() => {
+    if (!stripe) {
+      return;
+    }
+
+    const pr = stripe.paymentRequest({
+      country: 'FR', // France
+      currency: 'eur',
+      total: {
+        label: 'Ferry Booking',
+        amount: Math.round(amount * 100), // Convert to cents
+      },
+      requestPayerName: true,
+      requestPayerEmail: true,
+    });
+
+    // Check if Payment Request is available (Apple Pay, Google Pay, etc.)
+    pr.canMakePayment().then((result) => {
+      if (result) {
+        setPaymentRequest(pr);
+      }
+    });
+
+    // Handle payment method from Payment Request
+    pr.on('paymentmethod', async (ev) => {
+      setIsProcessing(true);
+      try {
+        // Confirm the payment with the payment method from Apple Pay/Google Pay
+        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+          clientSecret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false }
+        );
+
+        if (confirmError) {
+          ev.complete('fail');
+          onError(confirmError.message || 'Payment failed');
+        } else {
+          ev.complete('success');
+          if (paymentIntent.status === 'requires_action') {
+            // Let Stripe handle any authentication
+            const { error: authError } = await stripe.confirmCardPayment(clientSecret);
+            if (authError) {
+              onError(authError.message || 'Authentication failed');
+            } else {
+              onSuccess(paymentIntent.id);
+            }
+          } else if (paymentIntent.status === 'succeeded') {
+            onSuccess(paymentIntent.id);
+          }
+        }
+      } catch (err: any) {
+        ev.complete('fail');
+        onError(err.message || 'Payment processing failed');
+      } finally {
+        setIsProcessing(false);
+      }
+    });
+  }, [stripe, amount, clientSecret, onSuccess, onError]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -85,6 +148,21 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirming Your Booking</h3>
               <p className="text-gray-600">Please wait while we finalize your reservation...</p>
               <p className="text-sm text-gray-500 mt-4">Do not close this window</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apple Pay / Google Pay Button */}
+      {paymentRequest && (
+        <div className="mb-4">
+          <PaymentRequestButtonElement options={{ paymentRequest }} />
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or pay with card</span>
             </div>
           </div>
         </div>

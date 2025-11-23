@@ -552,7 +552,10 @@ TODO:if connect from france choose france, if ittlain chosoe italian but by defa
 TODO: when i  lick continue to paiment i receive confirmation email and reservation is pending, then when we go back to with browser arrow and click again continue to paiment i receive another email for reservaton and then both of them are pending in my bookings, is tha noemal behaviour for he same reservation?
 TODO:booking page not trnaslated like Please provide details for all passengers. First name and last name are required.
 
-, summary, child etc
+, summary, child etc, select cabin,meals...
+TODO:add seubscibe for avaialability, routes cabin vehicle..if they already reserved and seek for cabin for example
+TODO:add show prices for same routes a day before or ater with intellignet scroll or click
+TODO continue total correction:done
 
 (You charge the customer’s card automatically 3 times)
 

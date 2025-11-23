@@ -18,7 +18,7 @@ const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { bookingId: existingBookingId } = useParams<{ bookingId: string }>();
-  const { selectedFerry, passengers, vehicles, currentBooking } = useSelector((state: RootState) => state.ferry);
+  const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip } = useSelector((state: RootState) => state.ferry);
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
   const [isLoading, setIsLoading] = useState(true);
@@ -35,8 +35,37 @@ const PaymentPage: React.FC = () => {
 
   const calculateTotal = () => {
     // This should match the calculation in BookingPage
-    const basePrice = 85.0; // Base adult price
-    const total = passengers.length * basePrice + vehicles.length * 120.0;
+    // Get prices from selected ferries
+    const adultPrice = selectedFerry?.prices?.adult || 0;
+    const childPrice = selectedFerry?.prices?.child || 0;
+    const vehiclePrice = selectedFerry?.prices?.vehicle || 0;
+
+    // Return ferry prices (if round trip)
+    const returnAdultPrice = selectedReturnFerry?.prices?.adult || 0;
+    const returnChildPrice = selectedReturnFerry?.prices?.child || 0;
+    const returnVehiclePrice = selectedReturnFerry?.prices?.vehicle || 0;
+
+    // Calculate passenger total (including return journey if round trip)
+    const passengersTotal = passengers.reduce((sum, p) => {
+      if (p.type === 'adult') {
+        const outboundPrice = adultPrice;
+        const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnAdultPrice : 0;
+        return sum + outboundPrice + returnPrice;
+      }
+      if (p.type === 'child') {
+        const outboundPrice = childPrice;
+        const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnChildPrice : 0;
+        return sum + outboundPrice + returnPrice;
+      }
+      return sum;
+    }, 0);
+
+    // Calculate vehicle total (including return journey if round trip)
+    const outboundVehiclesTotal = vehicles.length * vehiclePrice;
+    const returnVehiclesTotal = (isRoundTrip && selectedReturnFerry) ? (vehicles.length * returnVehiclePrice) : 0;
+    const vehiclesTotal = outboundVehiclesTotal + returnVehiclesTotal;
+
+    const total = passengersTotal + vehiclesTotal;
     const tax = total * 0.1;
     return total + tax;
   };

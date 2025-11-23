@@ -52,6 +52,8 @@
   },
   "pricing": {
     "title": "Détail des Prix",
+    "outbound": "Aller",
+    "return": "Retour",
     "outboundFare": "Tarif Aller",
     "returnFare": "Tarif Retour",
     "passengerFares": "Tarifs Passagers",

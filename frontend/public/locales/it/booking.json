@@ -52,6 +52,8 @@
   },
   "pricing": {
     "title": "Dettaglio Prezzi",
+    "outbound": "Andata",
+    "return": "Ritorno",
     "outboundFare": "Tariffa Andata",
     "returnFare": "Tariffa Ritorno",
     "passengerFares": "Tariffe Passeggeri",

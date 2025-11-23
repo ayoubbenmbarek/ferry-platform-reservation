@@ -269,13 +269,31 @@ const BookingPage: React.FC = () => {
   const childPrice = selectedFerry.prices?.child || 0;
   const vehiclePrice = selectedFerry.prices?.vehicle || 0;
 
+  // Return ferry prices (if round trip)
+  const returnAdultPrice = selectedReturnFerry?.prices?.adult || 0;
+  const returnChildPrice = selectedReturnFerry?.prices?.child || 0;
+  const returnVehiclePrice = selectedReturnFerry?.prices?.vehicle || 0;
+
+  // Calculate passenger total (including return journey if round trip)
   const passengersTotal = passengers.reduce((sum, p) => {
-    if (p.type === 'adult') return sum + adultPrice;
-    if (p.type === 'child') return sum + childPrice;
+    if (p.type === 'adult') {
+      const outboundPrice = adultPrice;
+      const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnAdultPrice : 0;
+      return sum + outboundPrice + returnPrice;
+    }
+    if (p.type === 'child') {
+      const outboundPrice = childPrice;
+      const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnChildPrice : 0;
+      return sum + outboundPrice + returnPrice;
+    }
     return sum;
   }, 0);
 
-  const vehiclesTotal = vehicles.length * vehiclePrice;
+  // Calculate vehicle total (including return journey if round trip)
+  const outboundVehiclesTotal = vehicles.length * vehiclePrice;
+  const returnVehiclesTotal = (isRoundTrip && selectedReturnFerry) ? (vehicles.length * returnVehiclePrice) : 0;
+  const vehiclesTotal = outboundVehiclesTotal + returnVehiclesTotal;
+
   const totalCabinPrice = cabinPrice + (isRoundTrip && selectedReturnFerry ? returnCabinPrice : 0);
   const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice;
   const discount = promoDiscount || 0;
@@ -643,15 +661,55 @@ const BookingPage: React.FC = () => {
 
               {/* Price Breakdown */}
               <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Passengers</span>
-                  <span>€{passengersTotal.toFixed(2)}</span>
-                </div>
-                {totalVehicles > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Vehicles</span>
-                    <span>€{vehiclesTotal.toFixed(2)}</span>
-                  </div>
+                {isRoundTrip && selectedReturnFerry ? (
+                  <>
+                    {/* Outbound Passengers */}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.outbound', 'Outbound')})</span>
+                      <span>€{passengers.reduce((sum, p) => {
+                        if (p.type === 'adult') return sum + adultPrice;
+                        if (p.type === 'child') return sum + childPrice;
+                        return sum;
+                      }, 0).toFixed(2)}</span>
+                    </div>
+                    {/* Return Passengers */}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.return', 'Return')})</span>
+                      <span>€{passengers.reduce((sum, p) => {
+                        if (p.type === 'adult') return sum + returnAdultPrice;
+                        if (p.type === 'child') return sum + returnChildPrice;
+                        return sum;
+                      }, 0).toFixed(2)}</span>
+                    </div>
+                    {totalVehicles > 0 && (
+                      <>
+                        {/* Outbound Vehicles */}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.outbound', 'Outbound')})</span>
+                          <span>€{outboundVehiclesTotal.toFixed(2)}</span>
+                        </div>
+                        {/* Return Vehicles */}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.return', 'Return')})</span>
+                          <span>€{returnVehiclesTotal.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* One-way trip - combined pricing */}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{t('booking:summary.passengers')}</span>
+                      <span>€{passengersTotal.toFixed(2)}</span>
+                    </div>
+                    {totalVehicles > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">{t('booking:summary.vehicles')}</span>
+                        <span>€{vehiclesTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
                 )}
                 {cabinPrice > 0 && (
                   <div className="flex justify-between text-sm">

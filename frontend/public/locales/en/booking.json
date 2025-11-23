@@ -52,6 +52,8 @@
   },
   "pricing": {
     "title": "Price Breakdown",
+    "outbound": "Outbound",
+    "return": "Return",
     "outboundFare": "Outbound Fare",
     "returnFare": "Return Fare",
     "passengerFares": "Passenger Fares",

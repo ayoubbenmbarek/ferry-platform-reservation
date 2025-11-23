@@ -176,6 +176,8 @@ export const createBooking = createAsyncThunk(
         isRoundTrip: isRoundTrip,
         returnSailingId: selectedReturnFerry?.sailingId,
         returnOperator: selectedReturnFerry?.operator,
+        // Return ferry prices (important for round trip total calculation!)
+        returnFerryPrices: selectedReturnFerry?.prices,
         // Use selectedReturnFerry route if available, otherwise use searchParams (for different return route)
         returnDeparturePort: selectedReturnFerry?.departurePort || searchParams?.returnDeparturePort,
         returnArrivalPort: selectedReturnFerry?.arrivalPort || searchParams?.returnArrivalPort,

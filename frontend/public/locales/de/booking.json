@@ -52,6 +52,8 @@
   },
   "pricing": {
     "title": "Preisaufschlüsselung",
+    "outbound": "Hinfahrt",
+    "return": "Rückfahrt",
     "outboundFare": "Hinfahrt-Tarif",
     "returnFare": "Rückfahrt-Tarif",
     "passengerFares": "Passagiertarife",

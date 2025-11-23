@@ -100,6 +100,9 @@ class BookingCreate(BaseModel):
     return_arrival_time: Optional[datetime] = None
     return_vessel_name: Optional[str] = None
 
+    # Return ferry pricing (for accurate round trip total calculation)
+    return_ferry_prices: Optional[Dict[str, float]] = None
+
     # Promo code
     promo_code: Optional[str] = None
 

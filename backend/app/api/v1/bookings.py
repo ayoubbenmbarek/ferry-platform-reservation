@@ -291,6 +291,7 @@ async def create_booking(
             base_infant_price = 0.0
             base_vehicle_price = 120.0
 
+        # Calculate outbound journey costs
         subtotal = 0.0
         for passenger in booking_data.passengers:
             if passenger.type == "adult":
@@ -301,6 +302,25 @@ async def create_booking(
 
         if booking_data.vehicles:
             subtotal += base_vehicle_price * len(booking_data.vehicles)
+
+        # Add return journey costs if round trip
+        is_round_trip = getattr(booking_data, 'is_round_trip', False)
+        if is_round_trip and hasattr(booking_data, 'return_ferry_prices') and booking_data.return_ferry_prices:
+            return_adult_price = booking_data.return_ferry_prices.get("adult", 0.0)
+            return_child_price = booking_data.return_ferry_prices.get("child", 0.0)
+            return_vehicle_price = booking_data.return_ferry_prices.get("vehicle", 0.0)
+
+            # Add return passenger prices
+            for passenger in booking_data.passengers:
+                if passenger.type == "adult":
+                    subtotal += return_adult_price
+                elif passenger.type == "child":
+                    subtotal += return_child_price
+                # infants are free
+
+            # Add return vehicle prices
+            if booking_data.vehicles:
+                subtotal += return_vehicle_price * len(booking_data.vehicles)
         
         # Add cabin supplement if selected (outbound)
         cabin_supplement = 0.0

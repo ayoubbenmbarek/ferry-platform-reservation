@@ -55,7 +55,7 @@
     "arrival": "Arrivo",
     "duration": "Durata",
     "price": "Prezzo",
-    "from": "da",
+    "from": "Da",
     "perPerson": "a persona",
     "selectButton": "Seleziona",
     "seatsAvailable": "{{count}} posto disponibile",
@@ -66,7 +66,9 @@
     "outboundSelected": "Traghetto Andata Selezionato",
     "changeOutbound": "Cambia Andata",
     "skipReturn": "Salta per Ora",
-    "backToSearch": "Torna alla Ricerca"
+    "backToSearch": "Torna alla Ricerca",
+    "perAdult": "per adulto",
+    "select": "Seleziona"
   },
   "filters": {
     "title": "Filtri",
@@ -104,5 +106,9 @@
   "outboundFerrySelected": "Traghetto Andata Selezionato",
   "duration": "Durata",
   "changeOutbound": "Cambia Andata",
-  "backToSearch": "Torna alla Ricerca"
+  "backToSearch": "Torna alla Ricerca",
+  "searchingFerries": "Ricerca tutti gli operatori di traghetti...",
+  "searchingReturn": "Ricerca traghetti di ritorno...",
+  "noReturnResults": "Nessun traghetto di ritorno trovato per la tua ricerca",
+  "tryAdjusting": "Prova a modificare le date o il percorso"
 }

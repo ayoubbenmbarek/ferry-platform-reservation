@@ -500,7 +500,7 @@ const NewSearchPage: React.FC = () => {
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
               <p className="text-gray-600">
-                {isSelectingReturn ? 'Searching return ferries...' : 'Searching all ferry operators...'}
+                {isSelectingReturn ? t('search:searchingReturn') : t('search:searchingFerries')}
               </p>
             </div>
           )}
@@ -508,7 +508,7 @@ const NewSearchPage: React.FC = () => {
           {/* Error State */}
           {searchError && !isSelectingReturn && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-              <p className="text-red-800 font-medium">Error: {searchError}</p>
+              <p className="text-red-800 font-medium">{t('common:error')}: {searchError}</p>
             </div>
           )}
 
@@ -528,12 +528,12 @@ const NewSearchPage: React.FC = () => {
 
                       <div className="grid grid-cols-3 gap-4">
                         <div>
-                          <p className="text-gray-600 text-sm">Departure</p>
+                          <p className="text-gray-600 text-sm">{t('search:results.departure')}</p>
                           <p className="font-bold text-lg">{formatTime(ferry.departureTime)}</p>
                           <p className="text-gray-600 text-sm">{formatDate(ferry.departureTime)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-gray-600 text-sm">Duration</p>
+                          <p className="text-gray-600 text-sm">{t('search:results.duration')}</p>
                           <p className="font-semibold">{calculateDuration(ferry.departureTime, ferry.arrivalTime)}</p>
                           <div className="flex items-center justify-center mt-1">
                             <div className="h-px bg-gray-300 flex-1"></div>
@@ -542,7 +542,7 @@ const NewSearchPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-gray-600 text-sm">Arrival</p>
+                          <p className="text-gray-600 text-sm">{t('search:results.arrival')}</p>
                           <p className="font-bold text-lg">{formatTime(ferry.arrivalTime)}</p>
                           <p className="text-gray-600 text-sm">{formatDate(ferry.arrivalTime)}</p>
                         </div>
@@ -550,16 +550,16 @@ const NewSearchPage: React.FC = () => {
                     </div>
 
                     <div className="mt-4 md:mt-0 md:ml-6 md:text-right">
-                      <p className="text-gray-600 text-sm mb-1">From</p>
+                      <p className="text-gray-600 text-sm mb-1">{t('search:results.from')}</p>
                       <p className="text-3xl font-bold text-blue-600 mb-2">
                         €{(ferry.prices?.adult || Object.values(ferry.prices)[0] || 0).toFixed(2)}
                       </p>
-                      <p className="text-xs text-gray-500 mb-2">per adult</p>
+                      <p className="text-xs text-gray-500 mb-2">{t('search:results.perAdult')}</p>
                       <button
                         onClick={() => handleSelectFerry(ferry)}
                         className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                       >
-                        Select
+                        {t('search:results.select')}
                       </button>
                     </div>
                   </div>
@@ -572,9 +572,9 @@ const NewSearchPage: React.FC = () => {
           {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length === 0 && !searchError && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
               <p className="text-yellow-800 font-medium mb-2">
-                No {isSelectingReturn ? 'return ' : ''}ferries found for your search
+                {isSelectingReturn ? t('search:noReturnResults') : t('search:noResults')}
               </p>
-              <p className="text-yellow-700 text-sm">Try adjusting your dates or route</p>
+              <p className="text-yellow-700 text-sm">{t('search:tryAdjusting')}</p>
             </div>
           )}
 

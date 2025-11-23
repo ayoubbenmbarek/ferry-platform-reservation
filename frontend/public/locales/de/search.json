@@ -55,7 +55,7 @@
     "arrival": "Ankunft",
     "duration": "Dauer",
     "price": "Preis",
-    "from": "ab",
+    "from": "Ab",
     "perPerson": "pro Person",
     "selectButton": "Auswählen",
     "seatsAvailable": "{{count}} Platz verfügbar",
@@ -66,7 +66,9 @@
     "outboundSelected": "Hinfahrt Ausgewählt",
     "changeOutbound": "Hinfahrt Ändern",
     "skipReturn": "Jetzt Überspringen",
-    "backToSearch": "Zurück zur Suche"
+    "backToSearch": "Zurück zur Suche",
+    "perAdult": "pro Erwachsener",
+    "select": "Auswählen"
   },
   "filters": {
     "title": "Filter",
@@ -104,5 +106,9 @@
   "outboundFerrySelected": "Hinfahrt-Fähre Ausgewählt",
   "duration": "Dauer",
   "changeOutbound": "Hinfahrt Ändern",
-  "backToSearch": "Zurück zur Suche"
+  "backToSearch": "Zurück zur Suche",
+  "searchingFerries": "Suche alle Fährbetreiber...",
+  "searchingReturn": "Suche Rückfahrt-Fähren...",
+  "noReturnResults": "Keine Rückfahrt-Fähren für Ihre Suche gefunden",
+  "tryAdjusting": "Versuchen Sie, Ihre Daten oder Route anzupassen"
 }

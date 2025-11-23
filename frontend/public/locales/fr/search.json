@@ -55,8 +55,10 @@
     "arrival": "Arrivée",
     "duration": "Durée",
     "price": "Prix",
-    "from": "à partir de",
+    "from": "À partir de",
+    "perAdult": "par adulte",
     "perPerson": "par personne",
+    "select": "Sélectionner",
     "selectButton": "Sélectionner",
     "seatsAvailable": "{{count}} place disponible",
     "seatsAvailable_plural": "{{count}} places disponibles",
@@ -104,5 +106,9 @@
   "outboundFerrySelected": "Ferry Aller Sélectionné",
   "duration": "Durée",
   "changeOutbound": "Changer l'Aller",
-  "backToSearch": "Retour à la Recherche"
+  "backToSearch": "Retour à la Recherche",
+  "searchingFerries": "Recherche de tous les opérateurs de ferry...",
+  "searchingReturn": "Recherche des ferries retour...",
+  "noReturnResults": "Aucun ferry retour trouvé pour votre recherche",
+  "tryAdjusting": "Essayez d'ajuster vos dates ou votre itinéraire"
 }

@@ -556,6 +556,7 @@ TODO:booking page not trnaslated like Please provide details for all passengers.
 TODO:add seubscibe for avaialability, routes cabin vehicle..if they already reserved and seek for cabin for example
 TODO:add show prices for same routes a day before or ater with intellignet scroll or click
 TODO continue total correction:done
+TODO:every how much time token auth expired
 
 (You charge the customer’s card automatically 3 times)
 

@@ -26,7 +26,6 @@ from app.schemas.payment import (
 from app.api.v1.auth import get_current_active_user
 from app.api.deps import get_optional_current_user
 from app.services.email_service import email_service
-from app.services.invoice_service import invoice_service
 from app.models.meal import BookingMeal
 
 # Load environment variables
@@ -329,74 +328,48 @@ async def confirm_payment(
                     "card_last_four": payment.card_last_four,
                 }
 
-                # Generate invoice PDF
-                try:
-                    # Get passengers
-                    passengers = []
-                    for p in booking.passengers:
-                        passengers.append({
-                            'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
-                            'first_name': p.first_name,
-                            'last_name': p.last_name,
-                            'final_price': float(p.final_price)
-                        })
+                # Prepare data for async invoice generation in Celery worker
+                # Get passengers
+                passengers = []
+                for p in booking.passengers:
+                    passengers.append({
+                        'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                        'first_name': p.first_name,
+                        'last_name': p.last_name,
+                        'final_price': float(p.final_price)
+                    })
 
-                    # Get vehicles
-                    vehicles = []
-                    for v in booking.vehicles:
-                        vehicles.append({
-                            'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
-                            'license_plate': v.license_plate,
-                            'final_price': float(v.final_price)
-                        })
+                # Get vehicles
+                vehicles = []
+                for v in booking.vehicles:
+                    vehicles.append({
+                        'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                        'license_plate': v.license_plate,
+                        'final_price': float(v.final_price)
+                    })
 
-                    # Get meals
-                    meals = []
-                    for m in booking.meals:
-                        meals.append({
-                            'meal_name': m.meal.name if m.meal else 'Meal',
-                            'quantity': m.quantity,
-                            'unit_price': float(m.unit_price),
-                            'total_price': float(m.total_price)
-                        })
+                # Get meals
+                meals = []
+                for m in booking.meals:
+                    meals.append({
+                        'meal_name': m.meal.name if m.meal else 'Meal',
+                        'quantity': m.quantity,
+                        'unit_price': float(m.unit_price),
+                        'total_price': float(m.total_price)
+                    })
 
-                    # Generate PDF
-                    pdf_content = invoice_service.generate_invoice(
-                        booking=booking_dict,
-                        payment=payment_dict,
-                        passengers=passengers,
-                        vehicles=vehicles,
-                        meals=meals
-                    )
-
-                    # Create attachment (store PDF as base64 for Celery serialization)
-                    import base64
-                    invoice_attachment = {
-                        'content': base64.b64encode(pdf_content).decode('utf-8'),
-                        'filename': f"invoice_{booking.booking_reference}.pdf",
-                        'content_type': 'application/pdf'
-                    }
-
-                    # Queue async email task with invoice attachment
-                    from app.tasks.email_tasks import send_payment_success_email_task
-                    send_payment_success_email_task.delay(
-                        booking_data=booking_dict,
-                        payment_data=payment_dict,
-                        to_email=booking.contact_email,
-                        attachments=[invoice_attachment]
-                    )
-                    logger.info(f"✅ Payment success email queued for {booking.contact_email}")
-
-                except Exception as invoice_error:
-                    logger.error(f"Failed to generate invoice for booking {booking.booking_reference}: {str(invoice_error)}", exc_info=True)
-                    # Still queue email without invoice
-                    from app.tasks.email_tasks import send_payment_success_email_task
-                    send_payment_success_email_task.delay(
-                        booking_data=booking_dict,
-                        payment_data=payment_dict,
-                        to_email=booking.contact_email
-                    )
-                    logger.info(f"✅ Payment success email queued (without invoice) for {booking.contact_email}")
+                # Queue async email task - PDF will be generated in Celery worker
+                from app.tasks.email_tasks import send_payment_success_email_task
+                send_payment_success_email_task.delay(
+                    booking_data=booking_dict,
+                    payment_data=payment_dict,
+                    to_email=booking.contact_email,
+                    passengers=passengers,
+                    vehicles=vehicles,
+                    meals=meals,
+                    generate_invoice=True  # Generate PDF asynchronously in worker
+                )
+                logger.info(f"✅ Payment success email queued for {booking.contact_email} (invoice will be generated asynchronously)")
 
             except Exception as e:
                 # Log email error but don't fail the payment confirmation

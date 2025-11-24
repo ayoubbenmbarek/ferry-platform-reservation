@@ -891,12 +891,13 @@ async def cancel_booking(
     booking_id: int,
     cancellation_data: BookingCancellation,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     """
     Cancel a booking.
 
     Cancels the booking with the ferry operator, refunds the payment via Stripe, and updates the status.
+    Allows both authenticated users and guest users to cancel their bookings.
     """
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
@@ -906,7 +907,7 @@ async def cancel_booking(
                 detail="Booking not found"
             )
 
-        # Check access permissions
+        # Check access permissions (allows guests for bookings without user_id)
         if not validate_booking_access(booking_id, current_user, db):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

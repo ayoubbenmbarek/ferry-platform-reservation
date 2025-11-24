@@ -67,40 +67,68 @@ def send_payment_success_email_task(
     booking_data: Dict[str, Any],
     payment_data: Dict[str, Any],
     to_email: str,
-    attachments: Optional[list] = None
+    passengers: Optional[list] = None,
+    vehicles: Optional[list] = None,
+    meals: Optional[list] = None,
+    generate_invoice: bool = True
 ):
     """
-    Send payment success email asynchronously.
+    Send payment success email asynchronously with optional invoice generation.
 
     Args:
         booking_data: Dict containing booking information
         payment_data: Dict containing payment information
         to_email: Recipient email address
-        attachments: Optional list of attachments (base64 encoded for Celery)
+        passengers: Optional list of passenger dictionaries
+        vehicles: Optional list of vehicle dictionaries
+        meals: Optional list of meal dictionaries
+        generate_invoice: Whether to generate and attach invoice PDF (default: True)
     """
     try:
         logger.info(f"Sending payment success email to {to_email}")
 
-        # Decode base64 attachments if present
-        decoded_attachments = []
-        if attachments:
-            import base64
-            for att in attachments:
-                decoded_attachments.append({
-                    'content': base64.b64decode(att['content']),
-                    'filename': att['filename'],
-                    'content_type': att['content_type']
-                })
+        attachments = None
 
+        # Generate invoice PDF asynchronously in Celery worker
+        if generate_invoice:
+            try:
+                from app.services.invoice_service import invoice_service
+
+                logger.info(f"📄 Generating invoice PDF for booking {booking_data.get('booking_reference')}")
+
+                # Generate PDF in worker process
+                pdf_content = invoice_service.generate_invoice(
+                    booking=booking_data,
+                    payment=payment_data,
+                    passengers=passengers or [],
+                    vehicles=vehicles or [],
+                    meals=meals or []
+                )
+
+                # Create attachment
+                attachments = [{
+                    'content': pdf_content,
+                    'filename': f"invoice_{booking_data.get('booking_reference')}.pdf",
+                    'content_type': 'application/pdf'
+                }]
+
+                logger.info(f"✅ Invoice PDF generated successfully ({len(pdf_content)} bytes)")
+
+            except Exception as invoice_error:
+                logger.error(f"❌ Failed to generate invoice PDF: {str(invoice_error)}", exc_info=True)
+                # Continue sending email without invoice
+                logger.info("Continuing to send email without invoice attachment")
+
+        # Send email with or without invoice
         email_service.send_payment_confirmation(
             booking_data=booking_data,
             payment_data=payment_data,
             to_email=to_email,
-            attachments=decoded_attachments if decoded_attachments else None
+            attachments=attachments
         )
 
         logger.info(f"✅ Payment success email sent successfully to {to_email}")
-        return {"status": "success", "email": to_email}
+        return {"status": "success", "email": to_email, "invoice_attached": bool(attachments)}
 
     except Exception as e:
         logger.error(f"❌ Failed to send payment success email to {to_email}: {str(e)}")

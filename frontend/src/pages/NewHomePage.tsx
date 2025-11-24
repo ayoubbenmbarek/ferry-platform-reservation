@@ -54,17 +54,28 @@ const NewHomePage: React.FC = () => {
     }
   }, [searchParams, vehicles]);
 
+  // Debug: Log when port values change in form state
+  useEffect(() => {
+    console.log('Form state updated - departurePort:', form.departurePort, 'arrivalPort:', form.arrivalPort);
+  }, [form.departurePort, form.arrivalPort]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
   // Handle voice search results
   const handleVoiceSearchResult = (result: ParsedSearchQuery) => {
+    console.log('Voice search result received:', result);
     setVoiceError(null);
 
     // Map parsed port names to port codes
     const findPortCode = (portName: string | null): string => {
-      if (!portName) return '';
+      if (!portName) {
+        console.log('Voice search: No port name provided');
+        return '';
+      }
       const normalizedName = portName.toLowerCase();
+      console.log(`Voice search: Looking for port "${portName}" (normalized: "${normalizedName}")`);
+
       const port = PORTS.find(p =>
         p.code.toLowerCase() === normalizedName ||
         p.name.toLowerCase().includes(normalizedName) ||
@@ -72,7 +83,7 @@ const NewHomePage: React.FC = () => {
       );
 
       if (!port) {
-        console.warn(`Voice search: Could not find port for "${portName}"`);
+        console.warn(`Voice search: Could not find port for "${portName}". Available ports:`, PORTS.map(p => p.code));
       } else {
         console.log(`Voice search: Mapped "${portName}" to ${port.code} (${port.name})`);
       }
@@ -80,10 +91,16 @@ const NewHomePage: React.FC = () => {
       return port?.code || '';
     };
 
+    const departurePortCode = findPortCode(result.departurePort);
+    const arrivalPortCode = findPortCode(result.arrivalPort);
+
+    console.log('Voice search: Mapped departure:', result.departurePort, '->', departurePortCode);
+    console.log('Voice search: Mapped arrival:', result.arrivalPort, '->', arrivalPortCode);
+
     const newForm = {
       ...form,
-      departurePort: findPortCode(result.departurePort) || form.departurePort,
-      arrivalPort: findPortCode(result.arrivalPort) || form.arrivalPort,
+      departurePort: departurePortCode || form.departurePort,
+      arrivalPort: arrivalPortCode || form.arrivalPort,
       departureDate: result.departureDate || form.departureDate,
       returnDate: result.returnDate || form.returnDate,
       adults: result.adults || form.adults,
@@ -92,7 +109,16 @@ const NewHomePage: React.FC = () => {
       hasVehicle: result.hasVehicle || form.hasVehicle,
     };
 
+    console.log('Voice search: Setting form state with new values:', {
+      departurePort: newForm.departurePort,
+      arrivalPort: newForm.arrivalPort,
+      departureDate: newForm.departureDate,
+      returnDate: newForm.returnDate
+    });
+
     setForm(newForm);
+
+    console.log('Voice search: setForm called. Form should now be:', newForm.departurePort, '->', newForm.arrivalPort);
 
     // If round trip detected, set the return route
     if (result.isRoundTrip && !newForm.returnDate) {
@@ -100,8 +126,16 @@ const NewHomePage: React.FC = () => {
       if (newForm.departureDate) {
         const depDate = new Date(newForm.departureDate);
         depDate.setDate(depDate.getDate() + 7);
-        newForm.returnDate = depDate.toISOString().split('T')[0];
-        setForm(newForm);
+        const returnDate = depDate.toISOString().split('T')[0];
+
+        // Create a NEW object instead of mutating newForm to ensure React detects the change
+        const updatedForm = {
+          ...newForm,
+          returnDate: returnDate
+        };
+
+        console.log('Voice search: Adding default return date:', returnDate);
+        setForm(updatedForm);
       }
     }
   };

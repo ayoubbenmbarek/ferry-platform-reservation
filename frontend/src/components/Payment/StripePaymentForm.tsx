@@ -43,9 +43,28 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
 
     // Check if Payment Request is available (Apple Pay, Google Pay, etc.)
     pr.canMakePayment().then((result) => {
+      console.log('🔍 Payment Request canMakePayment result:', result);
+
       if (result) {
+        console.log('✅ Available payment methods:', {
+          applePay: result.applePay,
+          googlePay: result.googlePay,
+          link: result.link,
+        });
+
+        // Log device/browser info
+        console.log('📱 Browser info:', {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          isHttps: window.location.protocol === 'https:',
+        });
+
         setPaymentRequest(pr);
+      } else {
+        console.log('❌ No payment methods available');
       }
+    }).catch((err) => {
+      console.error('❌ Error checking payment methods:', err);
     });
 
     // Handle payment method from Payment Request
@@ -153,10 +172,21 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
         </div>
       )}
 
-      {/* Apple Pay / Google Pay Button */}
+      {/* Apple Pay / Google Pay / Link Button */}
       {paymentRequest && (
         <div className="mb-4">
-          <PaymentRequestButtonElement options={{ paymentRequest }} />
+          <PaymentRequestButtonElement
+            options={{
+              paymentRequest,
+              style: {
+                paymentRequestButton: {
+                  type: 'default', // Can be: 'default', 'buy', 'donate', 'book'
+                  theme: 'dark', // Can be: 'dark', 'light', 'light-outline'
+                  height: '48px',
+                },
+              },
+            }}
+          />
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300"></div>

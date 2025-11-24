@@ -508,6 +508,17 @@ TODO: booking could pass twice for the same booking, correct that:done
 ✅ DONE: add login with google (2024-11-24) - Available on login page
 TODO: i see pay with link not pay with apple pay and i need to signup to link
 TODO:search with voice detect only dated, not  number of passenger nor ports
+todo:Me:
+	Todo generate invoice asynnch maybe ?
+
+Ayoub Ben M’barek:
+	Todo add invoice generated saving to storage (S3, local, etc.)
+
+Me:
+	Todo add invoice generated saving to storage (S3, local, etc.) check gpt for architecture
+TODO:when i login with gmail it do not detect that the user is admin (ayoubenmbarek@gmail.com)
+TODO:confirming your booking took a lot of time, first time especially
+TODO:After we receive a cancellation request may after refund confirmation we send the refund email with invoice status cancelled?
 TODO:after connecting with google, redirect after one second to home page but dont show logout and name that i connected with but i see those information beacause i tried to connected with already existing user:
 {
     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZXhwIjoxNzYzOTQxNzM3fQ.wLHUAQGwPpV0dgOIqLiGJ47_dTVxirYb-mpv8DtqmDI",

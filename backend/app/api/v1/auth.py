@@ -7,6 +7,7 @@ import secrets
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from dotenv import load_dotenv
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -23,6 +24,11 @@ from app.schemas.user import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Load environment variables (override=True to override empty docker-compose env vars)
+# In development, prefer .env.development if it exists
+env_file = '.env.development' if os.path.exists('.env.development') else '.env'
+load_dotenv(dotenv_path=env_file, override=True)
 
 router = APIRouter()
 
@@ -802,6 +808,7 @@ async def google_login(
 
         # Get Google OAuth client ID from environment
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        logger.info(f"Google OAuth client ID: {google_client_id}")
         if not google_client_id:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

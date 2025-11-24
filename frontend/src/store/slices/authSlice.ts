@@ -155,12 +155,16 @@ const authSlice = createSlice({
     },
     setToken: (state, action: PayloadAction<string>) => {
       state.token = action.payload;
+      state.isAuthenticated = true;
       localStorage.setItem('token', action.payload);
     },
     setUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
         state.user = { ...state.user, ...action.payload };
+      } else {
+        state.user = action.payload as User;
       }
+      state.isAuthenticated = true;
     },
   },
   extraReducers: (builder) => {

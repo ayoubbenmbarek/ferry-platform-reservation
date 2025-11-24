@@ -34,6 +34,9 @@ Response: { "access_token", "user", "is_new_user" }
 **Files Modified:**
 - `frontend/public/index.html` - Added Google Sign-In script
 - `frontend/src/pages/LoginPage.tsx` - Added Google Sign-In button
+- `frontend/src/pages/RegisterPage.tsx` - Added Google Sign-In button
+- `frontend/src/components/CreateAccountModal.tsx` - Added Google Sign-In button
+- `frontend/src/store/slices/authSlice.ts` - Fixed setToken and setUser to update isAuthenticated
 - `frontend/.env` - Added `REACT_APP_GOOGLE_CLIENT_ID`
 - `frontend/.env.example` - Documentation
 
@@ -43,6 +46,10 @@ Response: { "access_token", "user", "is_new_user" }
 - ✅ Automatic token verification
 - ✅ Seamless redirect after login
 - ✅ Maintains booking context
+- ✅ Available on Login page
+- ✅ Available on Register page
+- ✅ Available in Create Account modal after payment (for guest bookings)
+- ✅ Immediate UI update after Google login (no page reload needed)
 
 ---
 
@@ -85,21 +92,20 @@ stripe.PaymentIntent.create(
 
 ## 🔧 Setup Instructions
 
-### 1. Google OAuth Setup
+### ✅ Configuration Already Complete!
 
-1. **Create Google OAuth Credentials:**
-   - Go to https://console.cloud.google.com/
-   - Create a new project (or select existing)
-   - Enable "Google+ API"
-   - Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
-   - Application type: "Web application"
-   - Authorized JavaScript origins: `http://localhost:3001`
-   - Authorized redirect URIs: `http://localhost:3001`
-   - Copy the Client ID
+The Google OAuth and Apple Pay features are **fully configured and ready to use**. All environment variables are set and the system is operational.
 
-2. **Update Environment Variables:**
+### 1. Google OAuth Setup (Already Done ✅)
 
-Backend (`backend/.env.development`):
+1. **Google OAuth Credentials:** ✅ Configured
+   - Client ID: `9551469476-cqajqt5r2211pi89enn4qpvaifd1v6ss.apps.googleusercontent.com`
+   - Authorized origins: `http://localhost:3001`
+   - Backend and frontend configured
+
+2. **Environment Variables:** ✅ Configured
+
+Backend (`backend/.env`):
 ```bash
 GOOGLE_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
 ```
@@ -109,17 +115,32 @@ Frontend (`frontend/.env`):
 REACT_APP_GOOGLE_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
 ```
 
-3. **Run Database Migration:**
+3. **Database Migration:** ✅ Completed
 ```bash
-cd backend
+# Already executed - google_user_id column added to users table
 docker exec maritime-backend-dev python -m alembic upgrade head
 ```
 
-4. **Install Dependencies:**
+4. **Dependencies:** ✅ Installed
 ```bash
-cd backend
-docker exec maritime-backend-dev pip install -r requirements.txt
+# google-auth==2.25.2 and google-auth-oauthlib==1.2.0 already installed
 ```
+
+### 🔧 Technical Fixes Applied
+
+**Environment Variable Loading Fix:**
+- Added `from dotenv import load_dotenv` and `load_dotenv(override=True)` to `backend/app/config.py`
+- Added `from dotenv import load_dotenv` and `load_dotenv(override=True)` to `backend/app/api/v1/auth.py`
+- This ensures `.env` file values override empty docker-compose environment variables
+
+**Pydantic Settings Configuration:**
+- Added Google OAuth fields to `backend/app/config.py`:
+  ```python
+  GOOGLE_CLIENT_ID: Optional[str] = None
+  GOOGLE_CLIENT_SECRET: Optional[str] = None
+  GOOGLE_REDIRECT_URI: Optional[str] = None
+  ```
+- Fixed validation errors by loading .env with override before Settings initialization
 
 ### 2. Apple Pay Setup
 
@@ -301,6 +322,8 @@ CREATE INDEX ix_users_google_user_id ON users(google_user_id);
 
 ## ✨ Summary
 
+**Implementation Status: ✅ COMPLETE AND OPERATIONAL**
+
 **What Users Can Now Do:**
 1. ✅ Sign in with Google (one click, no password)
 2. ✅ Pay with Apple Pay (Touch ID/Face ID)
@@ -314,4 +337,13 @@ CREATE INDEX ix_users_google_user_id ON users(google_user_id);
 - More secure payments
 - Reduced friction
 
-**Build Status:** ✅ Compiled successfully (118.25 kB)
+**System Status:**
+- ✅ Backend running on http://localhost:8010
+- ✅ Frontend running on http://localhost:3001
+- ✅ Database migration completed
+- ✅ Google OAuth fully configured
+- ✅ Apple Pay ready (works through Stripe)
+- ✅ All environment variables loaded correctly
+- ✅ No validation errors
+
+**Ready to Test:** Navigate to http://localhost:3001/login to see the "Sign in with Google" button!

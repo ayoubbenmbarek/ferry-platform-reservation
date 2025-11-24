@@ -5,6 +5,7 @@ Payment API endpoints for handling Stripe payments.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime
 import stripe
 import os
 import logging
@@ -574,6 +575,42 @@ async def stripe_webhook(
                     booking.refund_amount = refund_amount
 
                 db.commit()
+
+                # Send refund confirmation email
+                if booking:
+                    try:
+                        from app.tasks.email_tasks import send_refund_confirmation_email_task
+
+                        # Prepare booking data for email (include refund info)
+                        # Note: Pass datetime objects for template .strftime() calls
+                        booking_dict = {
+                            'id': booking.id,
+                            'booking_reference': booking.booking_reference,
+                            'operator': booking.operator or 'Ferry Operator',
+                            'departure_port': booking.departure_port,
+                            'arrival_port': booking.arrival_port,
+                            'departure_time': booking.departure_time,  # Keep as datetime object
+                            'arrival_time': booking.arrival_time,  # Keep as datetime object
+                            'contact_email': booking.contact_email,
+                            'contact_first_name': booking.contact_first_name or '',
+                            'contact_last_name': booking.contact_last_name or '',
+                            'total_amount': float(booking.total_amount),
+                            'currency': booking.currency,
+                            # Refund information
+                            'refund_amount': float(refund_amount),
+                            'stripe_refund_id': charge_id,
+                            'refunded_at': datetime.utcnow(),  # Keep as datetime object
+                            'base_url': 'http://localhost:3001',
+                        }
+
+                        # Queue async email task
+                        send_refund_confirmation_email_task.delay(
+                            booking_data=booking_dict,
+                            to_email=booking.contact_email
+                        )
+                        logger.info(f"✅ Refund confirmation email queued for {booking.contact_email}")
+                    except Exception as email_error:
+                        logger.error(f"Failed to send refund confirmation email: {str(email_error)}", exc_info=True)
 
         return {"status": "success"}
 

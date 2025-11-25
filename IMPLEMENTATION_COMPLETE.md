@@ -551,7 +551,7 @@ The booking system is **fully functional** at the API level. You can now:
 4. Check booking status
 
 The frontend integration is 90% complete - just add the UI components using the examples provided above!
-TODO:when i cancel booking it loading and redirect to login page and get maritime-backend-dev  | INFO:     192.168.65.1:57894 - "POST /api/v1/bookings/257/cancel HTTP/1.1" 401 Unauthorized error 401
+TODO:when i cancel booking it loading and redirect to login page and get maritime-backend-dev  | INFO:     192.168.65.1:57894 - "POST /api/v1/bookings/257/cancel HTTP/1.1" 401 Unauthorized error 401:done
 ---
 TODO: add button voice and said in tunisian (search for routes from two when example) etc etc with meta osmmultilingue and it will do search by itself
 TODO:forget password 404 not found:done
@@ -571,27 +571,7 @@ Me:
 TODO:when i login with gmail it do not detect that the user is admin (ayoubenmbarek@gmail.com)
 TODO:confirming your booking took a lot of time, first time especially
 TODO:After we receive a cancellation request may after refund confirmation we send the refund email with invoice status cancelled?
-TODO:after connecting with google, redirect after one second to home page but dont show logout and name that i connected with but i see those information beacause i tried to connected with already existing user:
-{
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZXhwIjoxNzYzOTQxNzM3fQ.wLHUAQGwPpV0dgOIqLiGJ47_dTVxirYb-mpv8DtqmDI",
-    "token_type": "bearer",
-    "expires_in": 1800,
-    "user": {
-        "email": "ayoubenmbarek@gmail.com",
-        "first_name": "Ayoub",
-        "last_name": "Ben",
-        "phone": "0603727388",
-        "preferred_language": "en",
-        "preferred_currency": "EUR",
-        "id": 2,
-        "is_active": true,
-        "is_verified": true,
-        "is_admin": true,
-        "created_at": "2025-11-14T15:22:46.466150+00:00",
-        "last_login": "2025-11-23T23:18:57.904222+00:00"
-    },
-    "is_new_user": false
-} after i reload page i see my name and logout
+TODO:after connecting with google, redirect after one second to home page but dont show logout and name 
 ✅ DONE: add signup with google (2024-11-24) - Auto-creates account if email doesn't exist
 ✅ DONE: Login or signup and then continue with google (2024-11-24) - Available on login page
 

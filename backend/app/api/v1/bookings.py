@@ -668,11 +668,32 @@ async def create_booking(
         db.rollback()
         import traceback
         error_traceback = traceback.format_exc()
-        print(f"Booking creation error: {str(e)}")
-        print(f"Traceback:\n{error_traceback}")
+        error_message = str(e)
+
+        logger.error(f"Booking creation error: {error_message}")
+        logger.error(f"Traceback:\n{error_traceback}")
+
+        # Provide user-friendly error messages based on error type
+        user_friendly_message = "Unable to create booking. Please try again."
+
+        # Check for common error patterns and provide helpful messages
+        if "foreign key constraint" in error_message.lower():
+            user_friendly_message = "Invalid sailing or cabin selection. Please go back and select a different option."
+        elif "not null constraint" in error_message.lower() or "missing" in error_message.lower():
+            user_friendly_message = "Missing required information. Please ensure all required fields are filled."
+        elif "duplicate" in error_message.lower():
+            user_friendly_message = "This booking already exists. Please check your bookings."
+        elif "connection" in error_message.lower() or "timeout" in error_message.lower():
+            user_friendly_message = "Connection error. Please check your internet connection and try again."
+        elif "invalid" in error_message.lower():
+            user_friendly_message = f"Invalid data provided. {error_message}"
+        else:
+            # Log the full error for debugging but show generic message to user
+            user_friendly_message = f"Unable to create booking. {error_message if len(error_message) < 100 else 'Please try again or contact support.'}"
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Booking creation failed: {str(e)}"
+            detail=user_friendly_message
         )
 
 

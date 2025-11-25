@@ -45,6 +45,29 @@ function App() {
     }
   }, [dispatch]); // Only run once on mount
 
+  // Handle chunk loading errors (outdated cache on mobile)
+  useEffect(() => {
+    const handleChunkError = (event: any) => {
+      const isChunkError = event.message?.includes('Loading chunk') ||
+                          event.message?.includes('ChunkLoadError') ||
+                          event.reason?.name === 'ChunkLoadError';
+
+      if (isChunkError) {
+        console.warn('Chunk loading failed - likely outdated cache. Reloading page...');
+        // Reload the page to get fresh chunks
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('error', handleChunkError);
+    window.addEventListener('unhandledrejection', handleChunkError);
+
+    return () => {
+      window.removeEventListener('error', handleChunkError);
+      window.removeEventListener('unhandledrejection', handleChunkError);
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <div className="App min-h-screen bg-gray-50">

@@ -14,6 +14,7 @@ import {
 } from '../store/slices/ferrySlice';
 import { ferryAPI } from '../services/api';
 import { FerryResult, SearchParams, PORTS } from '../types/ferry';
+import DatePriceSelector from '../components/DatePriceSelector';
 
 // Search Form Component
 interface SearchFormProps {
@@ -413,6 +414,18 @@ const NewSearchPage: React.FC = () => {
     }
   };
 
+  const handleDateSelect = (newDate: string) => {
+    // Update search params with new date
+    const updatedParams = {
+      ...searchParams,
+      departureDate: newDate,
+    };
+
+    dispatch(setSearchParams(updatedParams));
+    // Trigger new search
+    dispatch(searchFerries(updatedParams as any));
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
@@ -492,6 +505,21 @@ const NewSearchPage: React.FC = () => {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Date Price Selector - Show after search is performed, only for outbound selection */}
+          {!isSelectingReturn && searchParams.departurePort && searchParams.arrivalPort && searchParams.departureDate && !isSearching && (
+            <div className="mb-6 bg-white rounded-lg shadow-md p-6">
+              <DatePriceSelector
+                departurePort={searchParams.departurePort}
+                arrivalPort={searchParams.arrivalPort}
+                selectedDate={searchParams.departureDate}
+                adults={searchParams.passengers?.adults || 1}
+                children={searchParams.passengers?.children || 0}
+                infants={searchParams.passengers?.infants || 0}
+                onDateSelect={handleDateSelect}
+              />
             </div>
           )}
 

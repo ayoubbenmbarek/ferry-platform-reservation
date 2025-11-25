@@ -45,5 +45,12 @@
     "palermo": "Palermo",
     "tunis": "Tunis",
     "algiers": "Algiers"
+  },
+  "datePriceSelector": {
+    "title": "اختر تاريخاً مختلفاً",
+    "subtitle": "قارن الأسعار للتواريخ القريبة",
+    "unavailable": "غير متاح",
+    "selected": "محدد",
+    "scrollHint": "اسحب لرؤية المزيد من التواريخ"
   }
 }

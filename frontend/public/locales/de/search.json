@@ -118,5 +118,12 @@
   "searchingFerries": "Suche alle Fährbetreiber...",
   "searchingReturn": "Suche Rückfahrt-Fähren...",
   "noReturnResults": "Keine Rückfahrt-Fähren für Ihre Suche gefunden",
-  "tryAdjusting": "Versuchen Sie, Ihre Daten oder Route anzupassen"
+  "tryAdjusting": "Versuchen Sie, Ihre Daten oder Route anzupassen",
+  "datePriceSelector": {
+    "title": "Wählen Sie ein anderes Datum",
+    "subtitle": "Vergleichen Sie Preise für nahe gelegene Termine",
+    "unavailable": "N/V",
+    "selected": "Ausgewählt",
+    "scrollHint": "Wischen Sie, um weitere Daten anzuzeigen"
+  }
 }

@@ -558,10 +558,10 @@ TODO:forget password 404 not found:done
 TODO: booking could pass twice for the same booking, correct that:done
 ✅ DONE: add paiment by apple pay (2024-11-24)
 ✅ DONE: add login with google (2024-11-24) - Available on login page
-TODO: i see pay with link not pay with apple pay and i need to signup to link
+TODO: i see pay with link not pay with apple pay and i need to signup to link:done apple pay will be shown in production
 TODO:search with voice detect only dated, not  number of passenger nor ports
 todo:Me:
-	Todo generate invoice asynnch maybe ?
+	Todo generate invoice asynnch maybe ?:done
 
 Ayoub Ben M’barek:
 	Todo add invoice generated saving to storage (S3, local, etc.)
@@ -620,18 +620,9 @@ TODO:in complete your ooking page email first name etc are mandatory but when i 
   TODO:add glisser un jour vers avant ou après et voir les prix et les dispo de traversé (passenger, vehicule, cabin..)
   TODO:send email the day of the trip
   TODO:Send email if some information changed about the route,
-  TODO:check with erry hopper if i should listen to a specific endpoint to have updates about routes and trip
-  todo: now i want to have redis cache when i
- list ferries it will take them from 
-cache and when i click on paiment here 
-it will search in the api to 
-confirm(for now we dont integrate api 
-yet we will use our mock data), and i 
-want 2 worker to listen for paiment if 
-suuceeded or not and send email if 
-succeed same for refund, i want them 
-asynchronly and decoupled the payment 
-and sending email:done
+  TODO:check with ferry hopper if i should listen to a specific endpoint to have updates about routes and trip
+  todo: now i want to have redis cache when i list ferries it will take them from  cache and when i click on paiment here it will search in the api to confirm(for now we dont integrate api yet we will use our mock data)
+TODO:want 2 worker to listen for paiment if suuceeded or not and send email if succeed same for refund, i want them asynchronly and decoupled the payment and sending email:done
 
 ASK when email confirmation will be sent and when we will update cache and did cancellation email works with listener asyncrosly?done
 7,50 € au total
@@ -649,48 +640,39 @@ TODO:add cache to bookings etc and any data that we could perform better
 TODO: cancelation don't queued and do not send email: done
 TODO:check if send_payment_success_email_task have it implamented already? for info i use stripe cli for test:done with stripe webhook(not yet tested before deployment) and also done with local stripe hook
 TODO:update whisper model
-TODO:- Complete translations for
-  booking, payment, profile pages
-  - Add multi-language email
-  templates (backend)
-  - Sync user's preferred_language
-  from backend on login
-  - Add currency/date formatting
-  per locale
-  TODO:Add PaymentPage translations -
-   Update the payment page
-  component
-  3. Add ProfilePage translations -
-   Update the profile page
-  component
-  TODO:translate dearture port, infant child etc, find your ferry searcxh ferrries, m traveling with a vehicle and all content, to it all just for frensh now adding to the eixisting english
+
+
 TODO:if connect from france choose france, if ittlain chosoe italian but by default france if not
 TODO: when i  lick continue to paiment i receive confirmation email and reservation is pending, then when we go back to with browser arrow and click again continue to paiment i receive another email for reservaton and then both of them are pending in my bookings, is tha noemal behaviour for he same reservation?:done corrected, receive only one email for he same reservation:done
-TODO:booking page not trnaslated like Please provide details for all passengers. First name and last name are required.
-
-, summary, child etc, select cabin,meals...
-TODO:add seubscibe for avaialability, routes cabin vehicle..if they already reserved and seek for cabin for example
+TODO:booking page not trnaslated like Please provide details for all passengers. First name and last name are required, summary, child etc, select cabin,meals...
+TODO:add subscribe for avaialability, routes cabin vehicle..if they already reserved and seek for cabin for example
 TODO:add show prices for same routes a day before or ater with intellignet scroll or click
-TODO continue total correction:done
+TODO:continue with new calendar prices correction,(arrow dont work), selected but can't go ahead witha that selected, and that selected do not exists in list of results, duplicate calendar logo in  homepage also de et à and prix selectionné not exists in list of prices, and return do not have date selections.
 TOASK:every how much time token auth expired
+TODO:agent pour surveiller l'infra et l'application et a accès aux logs et il reagit et corrige et redeploie end dev et notifie
 
-(You charge the customer’s card automatically 3 times)
+TODO:pay in 3 times, You charge the customer’s card automatically 3 times
 
 VOULEZ-VOUS SAUVEGARDER LE DEVIS DE VOTRE VOYAGE ?
-TODO:did you did this too?  
-   1. Integrate caching into ferry search endpoint
-   2. Replace direct email calls with async tasks
-   3. Add Stripe webhook endpoint and contine
-Vous pourrez le reprendre à tout moment or (within 3 days)
+
 Insérez votre adresse e-mail pour recevoir le devis(avec le trajet et les informations déjà renseigner)
-TODO:continue with whisper api search
-TODO:sign in with google
+TODO:continue with whisper api search:done
+TODO:sign in with google:done
 TODO:dynamic sign in pages with more infromation and ads
 Veuillez noter que les tarifs peuvent varier en fonction des disponibilités
 TODO:ferryhopper integrates MCP:may use it to facilitate search by llm:
 Ferryhopper's Model Context Protocol (MCP)
 The connector for LLMs and AI Agents in Maritime Travel.
 TODO:update this: 2024 Réservations Maritimes. Tous droits réservés
+TODO: add search vehicule by immatricule ou marque
+TODO:add remorque ou caravan et roof box
+TODO:in search page result add filter by price, company,date et heurs..
+TODO:add bar that specify we are in which steps, (search , info routes, info passenger,paiment etc and good click any step and return to it, in order to could maybe change, details, like number passnenger or chosen routes etc..ask me question if not clear)
+TODO:cabin and meals make it more smaller,
+TODO:add choose 1,2or 3 cabins,
+TODO:we should show total juste after search, because we know how many passengers and their ages, later we will add cabins and vehicule prices(tomake possibilities to enregister devis in second step by sending email if uuser wants that)
+TODO:added fields required:all,passeport,lieu de naissance,telephone(for adults), title Mrs or miss
+TODO:modifier ma réservation, check this aferry example publication for that
 TODO:Account created and logged in successfully! when popup appeared, but i try with google and i already have account, so message mabe should be logged in sucees, if not registred and we try with google now it shows created sucess and maybe verify email to confirm
 
 

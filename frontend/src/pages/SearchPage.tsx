@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store';
 import { searchFerries, selectFerry } from '../store/slices/ferrySlice';
+import DatePriceSelector from '../components/DatePriceSelector';
 
 interface SearchForm {
   departurePort: string;
@@ -84,6 +85,14 @@ const SearchPage: React.FC = () => {
   const handleSelectFerry = (ferry: any) => {
     dispatch(selectFerry(ferry));
     navigate('/passengers');
+  };
+
+  const handleDateSelect = (newDate: string) => {
+    // Update the form with the new date
+    const updatedForm = { ...searchForm, departureDate: newDate };
+    setSearchForm(updatedForm);
+    // Trigger a new search with the updated date
+    handleSearch(null, updatedForm);
   };
 
   const formatDate = (dateString: string) => {
@@ -225,6 +234,19 @@ const SearchPage: React.FC = () => {
 
       {/* Search Results Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Date Price Selector - Show after search is performed */}
+        {searchForm.departurePort && searchForm.arrivalPort && searchForm.departureDate && !isSearching && (
+          <div className="mb-8 bg-white rounded-lg shadow-md p-6">
+            <DatePriceSelector
+              departurePort={searchForm.departurePort}
+              arrivalPort={searchForm.arrivalPort}
+              selectedDate={searchForm.departureDate}
+              adults={searchForm.passengers}
+              onDateSelect={handleDateSelect}
+            />
+          </div>
+        )}
+
         {/* Loading State */}
         {isSearching && (
           <div className="text-center py-12">

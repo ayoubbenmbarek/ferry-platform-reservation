@@ -118,5 +118,12 @@
   "searchingFerries": "Ricerca tutti gli operatori di traghetti...",
   "searchingReturn": "Ricerca traghetti di ritorno...",
   "noReturnResults": "Nessun traghetto di ritorno trovato per la tua ricerca",
-  "tryAdjusting": "Prova a modificare le date o il percorso"
+  "tryAdjusting": "Prova a modificare le date o il percorso",
+  "datePriceSelector": {
+    "title": "Seleziona una data diversa",
+    "subtitle": "Confronta i prezzi per date vicine",
+    "unavailable": "N/D",
+    "selected": "Selezionato",
+    "scrollHint": "Scorri per vedere altre date"
+  }
 }

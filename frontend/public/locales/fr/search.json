@@ -118,5 +118,12 @@
   "searchingFerries": "Recherche de tous les opérateurs de ferry...",
   "searchingReturn": "Recherche des ferries retour...",
   "noReturnResults": "Aucun ferry retour trouvé pour votre recherche",
-  "tryAdjusting": "Essayez d'ajuster vos dates ou votre itinéraire"
+  "tryAdjusting": "Essayez d'ajuster vos dates ou votre itinéraire",
+  "datePriceSelector": {
+    "title": "Sélectionnez une date différente",
+    "subtitle": "Comparez les prix pour les dates proches",
+    "unavailable": "N/D",
+    "selected": "Sélectionné",
+    "scrollHint": "Balayez pour voir plus de dates"
+  }
 }

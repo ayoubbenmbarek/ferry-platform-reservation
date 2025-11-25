@@ -383,6 +383,140 @@ async def compare_prices(
         )
 
 
+@router.get("/date-prices")
+async def get_date_prices(
+    departure_port: str = Query(..., description="Departure port code"),
+    arrival_port: str = Query(..., description="Arrival port code"),
+    center_date: date = Query(..., description="Center date to search around"),
+    days_before: int = Query(3, ge=0, le=7, description="Days before center date"),
+    days_after: int = Query(3, ge=0, le=7, description="Days after center date"),
+    adults: int = Query(1, description="Number of adults"),
+    children: int = Query(0, description="Number of children"),
+    infants: int = Query(0, description="Number of infants"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get lowest prices for dates around a center date.
+
+    This endpoint returns the lowest available price for each date
+    in a range around the specified center date. Perfect for displaying
+    a price calendar or date selector.
+
+    Returns price information for each date including:
+    - Date
+    - Lowest price available
+    - Number of ferry options
+    - Availability status
+    """
+    try:
+        from datetime import timedelta
+        from app.services.cache_service import cache_service
+
+        # Check cache first
+        cache_key = f"date_prices:{departure_port}:{arrival_port}:{center_date}:{days_before}:{days_after}:{adults}:{children}:{infants}"
+        cached_result = cache_service.get_ferry_search({
+            "departure_port": departure_port,
+            "arrival_port": arrival_port,
+            "center_date": center_date,
+            "days_before": days_before,
+            "days_after": days_after,
+            "adults": adults,
+            "children": children,
+            "infants": infants
+        })
+        if cached_result:
+            return cached_result
+
+        date_prices = []
+        start_date = center_date - timedelta(days=days_before)
+        end_date = center_date + timedelta(days=days_after)
+
+        current_date = start_date
+        while current_date <= end_date:
+            try:
+                # Search for ferries on this date
+                results = await ferry_service.search_ferries(
+                    departure_port=departure_port,
+                    arrival_port=arrival_port,
+                    departure_date=current_date,
+                    adults=adults,
+                    children=children,
+                    infants=infants
+                )
+
+                if results:
+                    # Calculate lowest total price
+                    lowest_price = None
+                    for result in results:
+                        total_price = (
+                            result.prices.get("adult", 0) * adults +
+                            result.prices.get("child", 0) * children +
+                            result.prices.get("infant", 0) * infants
+                        )
+                        if lowest_price is None or total_price < lowest_price:
+                            lowest_price = total_price
+
+                    date_prices.append({
+                        "date": current_date.isoformat(),
+                        "day_of_week": current_date.strftime("%a"),
+                        "day_of_month": current_date.day,
+                        "month": current_date.strftime("%b"),
+                        "lowest_price": round(lowest_price, 2) if lowest_price else None,
+                        "available": True,
+                        "num_ferries": len(results),
+                        "is_center_date": current_date == center_date
+                    })
+                else:
+                    # No ferries available
+                    date_prices.append({
+                        "date": current_date.isoformat(),
+                        "day_of_week": current_date.strftime("%a"),
+                        "day_of_month": current_date.day,
+                        "month": current_date.strftime("%b"),
+                        "lowest_price": None,
+                        "available": False,
+                        "num_ferries": 0,
+                        "is_center_date": current_date == center_date
+                    })
+            except Exception as e:
+                logger.warning(f"Error searching date {current_date}: {e}")
+                # Add as unavailable
+                date_prices.append({
+                    "date": current_date.isoformat(),
+                    "day_of_week": current_date.strftime("%a"),
+                    "day_of_month": current_date.day,
+                    "month": current_date.strftime("%b"),
+                    "lowest_price": None,
+                    "available": False,
+                    "num_ferries": 0,
+                    "is_center_date": current_date == center_date
+                })
+
+            current_date += timedelta(days=1)
+
+        response = {
+            "route": {
+                "departure_port": departure_port,
+                "arrival_port": arrival_port
+            },
+            "center_date": center_date.isoformat(),
+            "date_prices": date_prices,
+            "total_dates": len(date_prices)
+        }
+
+        # Cache for 15 minutes (price calendars change less frequently)
+        cache_service.set_ferry_search(cache_key, response, ttl=900)
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Date prices endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get date prices: {str(e)}"
+        )
+
+
 @router.get("/schedules")
 async def get_schedules(
     departure_port: str = Query(..., description="Departure port code"),

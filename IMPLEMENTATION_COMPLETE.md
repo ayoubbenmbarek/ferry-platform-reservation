@@ -567,13 +567,15 @@ Ayoub Ben M’barek:
 	Todo add invoice generated saving to storage (S3, local, etc.)
 
 Me:
-	Todo add invoice generated saving to storage (S3, local, etc.) check gpt for architecture
+Todo add invoice generated saving to storage (S3, local, etc.) check gpt for architecture
 TODO:when i login with gmail it do not detect that the user is admin (ayoubenmbarek@gmail.com)
 TODO:confirming your booking took a lot of time, first time especially
 TODO:After we receive a cancellation request may after refund confirmation we send the refund email with invoice status cancelled?
-TODO:after connecting with google, redirect after one second to home page but dont show logout and name 
+TODO:after connecting with google, redirect after one second to home page but dont show logout and name:done
 ✅ DONE: add signup with google (2024-11-24) - Auto-creates account if email doesn't exist
 ✅ DONE: Login or signup and then continue with google (2024-11-24) - Available on login page
+TODO:What other connection methos to include?
+TODO:Add mcp for postgres
 
  Testing & DevOps
 
@@ -601,22 +603,23 @@ TODO:in complete your ooking page email first name etc are mandatory but when i 
   TODO: on pending add expires on in the frontend or somthing like that tell customer
   in which hour it will be cancelled if he don't pay :done
   TODO:send email before sometimes when booking will be cancelled:done
-  TODO: add redis and celery to handle email sending while paiment in progress
+  TODO: add redis and celery to handle email sending while paiment in progress:done
   TODO:update expires within in email reservtaion confirmed by the real expires at
   TODO:cron do not run by itself:done
   TODO:send email when cancel manually:done
-  TODO: add retour different from inbound: high priority
+  TODO: add retour different from inbound: high priority:done
   TODO:add notification when traversee or place is available in a given date or given company
   TODO: add Chats et animaux de petite taille et chien on passenger:done
   TODO:add assurance reserver tranquille 12euros and DOMMAGES CAUSÉS AUX VÉHICULES
   TODO:add cannot cancel 7 days before trip
-  TODO:Add multilanguage support
+  TODO:Add multilanguage support:done
   TODO: i should get customer information(aller-retour-date-passgaer-etc and check all available ferries to give him comparaison and best proposition)
   TODO:add pay in 3 times
+  TODO:test cached true when same search from different devices:done works
   ✅ DONE: sign up with google (2024-11-24) - Auto-creates account on Google login
   TODO:add glisser un jour vers avant ou après et voir les prix et les dispo de traversé (passenger, vehicule, cabin..)
   TODO:send email the day of the trip
-  TODO:Send email if come information changed about the route,
+  TODO:Send email if some information changed about the route,
   TODO:check with erry hopper if i should listen to a specific endpoint to have updates about routes and trip
   todo: now i want to have redis cache when i
  list ferries it will take them from 
@@ -628,7 +631,7 @@ want 2 worker to listen for paiment if
 suuceeded or not and send email if 
 succeed same for refund, i want them 
 asynchronly and decoupled the payment 
-and sending email 
+and sending email:done
 
 ASK when email confirmation will be sent and when we will update cache and did cancellation email works with listener asyncrosly?done
 7,50 € au total
@@ -688,6 +691,7 @@ TODO:ferryhopper integrates MCP:may use it to facilitate search by llm:
 Ferryhopper's Model Context Protocol (MCP)
 The connector for LLMs and AI Agents in Maritime Travel.
 TODO:update this: 2024 Réservations Maritimes. Tous droits réservés
+TODO:Account created and logged in successfully! when popup appeared, but i try with google and i already have account, so message mabe should be logged in sucees, if not registred and we try with google now it shows created sucess and maybe verify email to confirm
 
 
 Ferryhopper’s API: FerryhAPI

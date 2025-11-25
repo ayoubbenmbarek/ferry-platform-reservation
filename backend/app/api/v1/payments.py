@@ -55,7 +55,7 @@ async def create_payment_intent(
             )
 
         # Check if user has permission to pay for this booking
-        # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin
+        # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin, 4) Booking is pending (allows sharing payment links)
         if current_user:
             if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
                 raise HTTPException(
@@ -64,10 +64,12 @@ async def create_payment_intent(
                 )
         elif booking.user_id:
             # Guest trying to pay for a registered user's booking
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This booking requires authentication",
-            )
+            # Allow if booking is still pending (enables sharing payment links)
+            if booking.status != BookingStatusEnum.PENDING:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This booking requires authentication",
+                )
 
         # Check if booking is already paid
         existing_payment = (

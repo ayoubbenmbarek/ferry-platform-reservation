@@ -124,6 +124,7 @@ class PromoCodeResponse(BaseModel):
 
     # Status
     is_active: bool
+    effective_status: str  # Computed status: 'active', 'expired', 'used_up', 'not_started', 'inactive'
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -10,6 +10,18 @@ declare global {
   }
 }
 
+// Helper function to convert snake_case to camelCase
+const snakeToCamel = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+
+  return Object.keys(obj).reduce((acc: any, key: string) => {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    acc[camelKey] = snakeToCamel(obj[key]);
+    return acc;
+  }, {});
+};
+
 interface CreateAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -51,14 +63,15 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         credential: response.credential
       });
 
-      // Store token and user data
+      // Store token and user data (convert snake_case to camelCase)
       const { access_token, user } = result.data;
+      const camelUser = snakeToCamel(user);
       dispatch(setToken(access_token));
-      dispatch(setUser(user));
+      dispatch(setUser(camelUser));
 
       // Call success callback
       if (onSuccess) {
-        onSuccess(access_token, user);
+        onSuccess(access_token, camelUser);
       }
 
       // Close modal

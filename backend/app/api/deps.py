@@ -222,30 +222,50 @@ def validate_booking_access(
 ) -> bool:
     """
     Validate if the current user has access to a specific booking.
-    
+
     Returns True if:
     - User is an admin
     - User owns the booking
     - Booking is accessed with valid guest credentials
+    - Booking is pending payment (allows sharing payment link)
+    - Booking was paid by a guest (allows viewing confirmation)
     """
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
         if not booking:
             return False
-        
+
         # Admin users can access all bookings
         if current_user and current_user.is_admin:
             return True
-        
+
         # Users can access their own bookings
         if current_user and booking.user_id == current_user.id:
             return True
-        
+
         # Guest bookings can be accessed without authentication
         # (additional validation like email verification should be done in the endpoint)
         if not booking.user_id:
             return True
-        
+
+        # Allow access to pending bookings (awaiting payment) regardless of auth
+        # This allows payment links to be shared/tested in different browsers
+        from app.models.booking import BookingStatusEnum
+        if booking.status == BookingStatusEnum.PENDING:
+            return True
+
+        # Allow access to confirmed bookings that were paid by a guest
+        # Check if the payment was made by a guest (user_id is None)
+        from app.models.payment import Payment, PaymentStatusEnum
+        guest_payment = db.query(Payment).filter(
+            Payment.booking_id == booking_id,
+            Payment.user_id.is_(None),
+            Payment.status == PaymentStatusEnum.COMPLETED
+        ).first()
+
+        if guest_payment:
+            return True
+
         return False
     except:
         return False

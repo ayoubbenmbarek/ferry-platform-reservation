@@ -13,6 +13,18 @@ declare global {
   }
 }
 
+// Helper function to convert snake_case to camelCase
+const snakeToCamel = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+
+  return Object.keys(obj).reduce((acc: any, key: string) => {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    acc[camelKey] = snakeToCamel(obj[key]);
+    return acc;
+  }, {});
+};
+
 const RegisterPage: React.FC = () => {
   const { t } = useTranslation(['auth', 'common']);
   const dispatch = useDispatch<AppDispatch>();
@@ -52,10 +64,10 @@ const RegisterPage: React.FC = () => {
         credential: response.credential
       });
 
-      // Store token and user data
+      // Store token and user data (convert snake_case to camelCase)
       const { access_token, user } = result.data;
       dispatch(setToken(access_token));
-      dispatch(setUser(user));
+      dispatch(setUser(snakeToCamel(user)));
 
       // Navigate to home
       navigate('/', { replace: true });

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { CardElement, useStripe, useElements, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
+import React, { useState } from 'react';
+import { CardElement, useStripe, useElements, ExpressCheckoutElement } from '@stripe/react-stripe-js';
 import { useTranslation } from 'react-i18next';
-import type { PaymentRequest } from '@stripe/stripe-js';
 
 interface StripePaymentFormProps {
   clientSecret: string;
@@ -22,88 +21,37 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
 
-  // Set up Payment Request (Apple Pay, Google Pay, etc.)
-  useEffect(() => {
-    if (!stripe) {
-      return;
-    }
+  // Handle Express Checkout (Apple Pay, Google Pay, Link) confirmation
+  const handleExpressCheckoutConfirm = async (event: any) => {
+    setIsProcessing(true);
+    try {
+      const { error: confirmError } = await stripe!.confirmPayment({
+        elements: elements!,
+        clientSecret,
+        confirmParams: {
+          return_url: window.location.href, // Fallback, shouldn't be needed
+        },
+        redirect: 'if_required',
+      });
 
-    const pr = stripe.paymentRequest({
-      country: 'FR', // France
-      currency: 'eur',
-      total: {
-        label: 'Ferry Booking',
-        amount: Math.round(amount * 100), // Convert to cents
-      },
-      requestPayerName: true,
-      requestPayerEmail: true,
-    });
-
-    // Check if Payment Request is available (Apple Pay, Google Pay, etc.)
-    pr.canMakePayment().then((result) => {
-      console.log('🔍 Payment Request canMakePayment result:', result);
-
-      if (result) {
-        console.log('✅ Available payment methods:', {
-          applePay: result.applePay,
-          googlePay: result.googlePay,
-          link: result.link,
-        });
-
-        // Log device/browser info
-        console.log('📱 Browser info:', {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          isHttps: window.location.protocol === 'https:',
-        });
-
-        setPaymentRequest(pr);
+      if (confirmError) {
+        onError(confirmError.message || 'Payment failed');
       } else {
-        console.log('❌ No payment methods available');
-      }
-    }).catch((err) => {
-      console.error('❌ Error checking payment methods:', err);
-    });
-
-    // Handle payment method from Payment Request
-    pr.on('paymentmethod', async (ev) => {
-      setIsProcessing(true);
-      try {
-        // Confirm the payment with the payment method from Apple Pay/Google Pay
-        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
-          clientSecret,
-          { payment_method: ev.paymentMethod.id },
-          { handleActions: false }
-        );
-
-        if (confirmError) {
-          ev.complete('fail');
-          onError(confirmError.message || 'Payment failed');
-        } else {
-          ev.complete('success');
-          if (paymentIntent.status === 'requires_action') {
-            // Let Stripe handle any authentication
-            const { error: authError } = await stripe.confirmCardPayment(clientSecret);
-            if (authError) {
-              onError(authError.message || 'Authentication failed');
-            } else {
-              onSuccess(paymentIntent.id);
-            }
-          } else if (paymentIntent.status === 'succeeded') {
-            onSuccess(paymentIntent.id);
-          }
+        // Payment succeeded - fetch the payment intent to get its ID
+        const { paymentIntent } = await stripe!.retrievePaymentIntent(clientSecret);
+        if (paymentIntent && paymentIntent.status === 'succeeded') {
+          onSuccess(paymentIntent.id);
         }
-      } catch (err: any) {
-        ev.complete('fail');
-        onError(err.message || 'Payment processing failed');
-      } finally {
-        setIsProcessing(false);
       }
-    });
-  }, [stripe, amount, clientSecret, onSuccess, onError]);
+    } catch (err: any) {
+      onError(err.message || 'Payment processing failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
+  // Handle traditional card payment
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -172,31 +120,26 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
         </div>
       )}
 
-      {/* Apple Pay / Google Pay / Link Button */}
-      {paymentRequest && (
-        <div className="mb-4">
-          <PaymentRequestButtonElement
-            options={{
-              paymentRequest,
-              style: {
-                paymentRequestButton: {
-                  type: 'default', // Can be: 'default', 'buy', 'donate', 'book'
-                  theme: 'dark', // Can be: 'dark', 'light', 'light-outline'
-                  height: '48px',
-                },
-              },
-            }}
-          />
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or pay with card</span>
-            </div>
+      {/* Express Checkout (Apple Pay, Google Pay, Link) */}
+      <div className="mb-4">
+        <ExpressCheckoutElement
+          onConfirm={handleExpressCheckoutConfirm}
+          options={{
+            buttonType: {
+              applePay: 'plain',
+              googlePay: 'plain',
+            },
+          }}
+        />
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or pay with card</span>
           </div>
         </div>
-      )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">

@@ -106,7 +106,8 @@
     "portsMustDiffer": "Il porto di arrivo deve essere diverso da quello di partenza",
     "selectReturnDeparturePort": "Seleziona il porto di partenza del ritorno",
     "selectReturnArrivalPort": "Seleziona il porto di arrivo del ritorno",
-    "returnPortsMustDiffer": "Il porto di arrivo del ritorno deve essere diverso"
+    "returnPortsMustDiffer": "Il porto di arrivo del ritorno deve essere diverso",
+    "pastDateNotAllowed": "Seleziona una data che sia oggi o nel futuro. Le date passate non sono disponibili per la prenotazione."
   },
   "selectFerry": "Seleziona Traghetto",
   "selectOutboundFerry": "Seleziona Traghetto Andata",
@@ -125,5 +126,6 @@
     "unavailable": "N/D",
     "selected": "Selezionato",
     "scrollHint": "Scorri per vedere altre date"
-  }
+  },
+  "showingResultsFor": "Mostrando traghetti per {{date}}"
 }

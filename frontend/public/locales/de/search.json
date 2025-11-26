@@ -106,7 +106,8 @@
     "portsMustDiffer": "Ankunftshafen muss vom Abfahrtshafen abweichen",
     "selectReturnDeparturePort": "Bitte wählen Sie den Rückfahrt-Abfahrtshafen",
     "selectReturnArrivalPort": "Bitte wählen Sie den Rückfahrt-Ankunftshafen",
-    "returnPortsMustDiffer": "Rückfahrt-Ankunftshafen muss abweichen"
+    "returnPortsMustDiffer": "Rückfahrt-Ankunftshafen muss abweichen",
+    "pastDateNotAllowed": "Bitte wählen Sie ein Datum, das heute oder in der Zukunft liegt. Vergangene Daten sind für Buchungen nicht verfügbar."
   },
   "selectFerry": "Fähre Auswählen",
   "selectOutboundFerry": "Hinfahrt-Fähre Auswählen",
@@ -125,5 +126,6 @@
     "unavailable": "N/V",
     "selected": "Ausgewählt",
     "scrollHint": "Wischen Sie, um weitere Daten anzuzeigen"
-  }
+  },
+  "showingResultsFor": "Fähren anzeigen für {{date}}"
 }

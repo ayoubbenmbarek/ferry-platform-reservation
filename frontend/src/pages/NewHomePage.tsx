@@ -278,7 +278,7 @@ const NewHomePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🛳️ {t('search:form.from')}
+                      {t('search:form.from')}
                     </label>
                     <select
                       value={form.departurePort}
@@ -310,7 +310,7 @@ const NewHomePage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🏝️ {t('search:form.to')}
+                      {t('search:form.to')}
                     </label>
                     <select
                       value={form.arrivalPort}
@@ -338,7 +338,7 @@ const NewHomePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      📅 {t('search:form.departureDate')}
+                      {t('search:form.departureDate')}
                     </label>
                     <input
                       type="date"
@@ -356,7 +356,7 @@ const NewHomePage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🔄 {t('search:form.returnDate')}
+                      {t('search:form.returnDate')}
                     </label>
                     <input
                       type="date"
@@ -392,14 +392,14 @@ const NewHomePage: React.FC = () => {
                         className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                       />
                       <span className="text-sm font-medium text-gray-700">
-                        Different return route (e.g., return from a different port)
+                        {t('search:form.differentReturnRoute')}
                       </span>
                     </label>
 
                     {form.differentReturnRoute && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">🔄 Return From</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnFrom')}</label>
                           <select
                             value={form.returnDeparturePort}
                             onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
@@ -414,13 +414,13 @@ const NewHomePage: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">🏁 Return To</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnTo')}</label>
                           <select
                             value={form.returnArrivalPort}
                             onChange={(e) => setForm({ ...form, returnArrivalPort: e.target.value })}
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
-                            <option value="">Select return arrival port</option>
+                            <option value="">{t('search:form.selectReturnArrivalPort')}</option>
                             {PORTS.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}

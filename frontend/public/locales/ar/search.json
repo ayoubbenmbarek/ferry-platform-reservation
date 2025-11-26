@@ -46,11 +46,22 @@
     "tunis": "Tunis",
     "algiers": "Algiers"
   },
+  "validation": {
+    "selectDeparturePort": "يرجى اختيار ميناء المغادرة",
+    "selectArrivalPort": "يرجى اختيار ميناء الوصول",
+    "selectDepartureDate": "يرجى اختيار تاريخ المغادرة",
+    "portsMustDiffer": "يجب أن يكون ميناء الوصول مختلفاً عن ميناء المغادرة",
+    "selectReturnDeparturePort": "يرجى اختيار ميناء مغادرة العودة",
+    "selectReturnArrivalPort": "يرجى اختيار ميناء وصول العودة",
+    "returnPortsMustDiffer": "يجب أن يكون ميناء وصول العودة مختلفاً",
+    "pastDateNotAllowed": "يرجى اختيار تاريخ اليوم أو في المستقبل. التواريخ الماضية غير متاحة للحجز."
+  },
   "datePriceSelector": {
     "title": "اختر تاريخاً مختلفاً",
     "subtitle": "قارن الأسعار للتواريخ القريبة",
     "unavailable": "غير متاح",
     "selected": "محدد",
     "scrollHint": "اسحب لرؤية المزيد من التواريخ"
-  }
+  },
+  "showingResultsFor": "عرض العبارات لـ {{date}}"
 }

@@ -128,6 +128,22 @@ export const searchFerries = createAsyncThunk(
       // Convert snake_case response to camelCase
       return snakeToCamel(response);
     } catch (error: any) {
+      // Handle validation errors with user-friendly messages
+      if (error.response?.data?.details) {
+        const details = error.response.data.details;
+        if (Array.isArray(details) && details.length > 0) {
+          const firstError = details[0];
+
+          // Extract user-friendly message
+          if (firstError.msg?.includes('Departure date cannot be in the past')) {
+            return rejectWithValue('Please select a date that is today or in the future. Past dates are not available for booking.');
+          }
+
+          // Return the validation message if available
+          return rejectWithValue(firstError.msg || firstError.ctx?.error || 'Invalid search parameters');
+        }
+      }
+
       return rejectWithValue(error.response?.data?.detail || error.message || 'Failed to search ferries');
     }
   }

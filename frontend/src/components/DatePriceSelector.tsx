@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 
@@ -17,46 +17,121 @@ interface DatePriceSelectorProps {
   departurePort: string;
   arrivalPort: string;
   selectedDate: string;
+  centerDate?: string; // Optional: date to center the calendar on (defaults to selectedDate)
+  minDate?: string; // Optional: minimum allowed date (e.g., for return after departure)
   adults?: number;
   children?: number;
   infants?: number;
   onDateSelect: (date: string) => void;
   className?: string;
+  currentResults?: any[]; // Optional: current ferry results to sync prices
 }
 
 const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
   departurePort,
   arrivalPort,
   selectedDate,
+  centerDate,
+  minDate,
   adults = 1,
   children = 0,
   infants = 0,
   onDateSelect,
   className = '',
+  currentResults,
 }) => {
   const { t } = useTranslation(['search']);
   const [datePrices, setDatePrices] = useState<DatePrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFullMonth, setShowFullMonth] = useState(false);
+  const [updatingPrice, setUpdatingPrice] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Use provided centerDate or fall back to selectedDate - memoized to prevent re-renders
+  const fetchCenterDate = useMemo(() => centerDate || selectedDate, [centerDate, selectedDate]);
+
+  // Track if we've already fetched for this combination to prevent duplicate fetches
+  const lastFetchKey = useRef<string>('');
+
+  // Fetch date prices when route, passengers, or view mode changes
+  // Note: selectedDate is NOT in dependencies - so clicking dates won't refetch!
   useEffect(() => {
+    const fetchKey = `${departurePort}-${arrivalPort}-${fetchCenterDate}-${adults}-${children}-${infants}-${showFullMonth}`;
+
+    // Only fetch if this is a new combination
+    if (lastFetchKey.current === fetchKey) {
+      console.log('⏭️  Skipping duplicate fetch');
+      return;
+    }
+
+    console.log('🔄 Fetching prices centered on:', fetchCenterDate);
+    lastFetchKey.current = fetchKey;
     fetchDatePrices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [departurePort, arrivalPort, selectedDate, adults, children, infants]);
+  }, [departurePort, arrivalPort, adults, children, infants, showFullMonth, fetchCenterDate]);
+
+  // Update the selected date's price when currentResults change
+  useEffect(() => {
+    if (currentResults && currentResults.length > 0 && datePrices.length > 0) {
+      // Calculate actual lowest price from current results
+      let lowestPrice: number | null = null;
+      currentResults.forEach((ferry: any) => {
+        const adultPrice = ferry.prices?.adult || 0;
+        if (adultPrice > 0 && (lowestPrice === null || adultPrice < lowestPrice)) {
+          lowestPrice = adultPrice;
+        }
+      });
+
+      // Check if price actually changed
+      const currentDatePrice = datePrices.find(dp => dp.date === selectedDate);
+      const priceChanged = currentDatePrice && currentDatePrice.lowestPrice !== lowestPrice;
+
+      if (priceChanged) {
+        console.log(`💰 Price updated for ${selectedDate}: €${currentDatePrice.lowestPrice} → €${lowestPrice}`);
+        setUpdatingPrice(true);
+        setTimeout(() => setUpdatingPrice(false), 1500);
+      }
+
+      // Update the price for the selected date
+      setDatePrices(prevPrices =>
+        prevPrices.map(dp =>
+          dp.date === selectedDate
+            ? { ...dp, lowestPrice: lowestPrice ? Math.round(lowestPrice * 100) / 100 : null, numFerries: currentResults.length }
+            : dp
+        )
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentResults, selectedDate, datePrices.length]);
+
+  // Scroll to selected date when it changes (but don't refetch prices)
+  useEffect(() => {
+    if (datePrices.length > 0) {
+      setTimeout(() => {
+        scrollToSelectedDate();
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   const fetchDatePrices = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      // Determine how many days to fetch
+      const daysBefore = showFullMonth ? 15 : 3;
+      const daysAfter = showFullMonth ? 15 : 3;
+
+      // Use fetchCenterDate so prices don't change when user clicks different dates
       const response = await axios.get('/api/v1/ferries/date-prices', {
         params: {
           departure_port: departurePort,
           arrival_port: arrivalPort,
-          center_date: selectedDate,
-          days_before: 3,
-          days_after: 3,
+          center_date: fetchCenterDate,
+          days_before: daysBefore,
+          days_after: daysAfter,
           adults,
           children,
           infants,
@@ -77,7 +152,7 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
 
       setDatePrices(convertedData);
 
-      // Scroll to center date after render
+      // Scroll to selected date after render
       setTimeout(() => {
         scrollToSelectedDate();
       }, 100);
@@ -120,6 +195,28 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
   };
 
   const handleDateClick = (date: string) => {
+    const selectedDateObj = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Prevent selecting dates in the past
+    if (selectedDateObj < today) {
+      console.warn('⚠️ Cannot select past date:', date);
+      return;
+    }
+
+    // Prevent selecting dates before minDate (e.g., return before departure)
+    if (minDate) {
+      const minDateObj = new Date(minDate);
+      minDateObj.setHours(0, 0, 0, 0);
+
+      if (selectedDateObj <= minDateObj) {
+        console.warn('⚠️ Cannot select date before minimum date:', date, 'minDate:', minDate);
+        return;
+      }
+    }
+
+    console.log('📅 DatePriceSelector: Date clicked:', date);
     onDateSelect(date);
   };
 
@@ -156,17 +253,24 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
             {t('search:datePriceSelector.subtitle', 'Compare prices for nearby dates')}
           </p>
         </div>
+        <button
+          onClick={() => setShowFullMonth(!showFullMonth)}
+          className="px-4 py-2 text-sm font-medium text-maritime-600 hover:text-maritime-700 hover:bg-maritime-50 rounded-lg transition-colors"
+        >
+          {showFullMonth ? '📅 Show Week' : '📅 View Month'}
+        </button>
       </div>
 
       {/* Carousel Container */}
       <div className="relative group">
-        {/* Left Arrow */}
+        {/* Left Arrow - Always visible on desktop */}
         <button
           onClick={() => handleScroll('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50 hidden md:block"
+          type="button"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition-all hidden md:block"
           aria-label="Scroll left"
         >
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -182,11 +286,17 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
         >
           {datePrices.map((datePrice) => {
             const isSelected = datePrice.date === selectedDate;
-            const isAvailable = datePrice.available;
+            const isPast = new Date(datePrice.date) < new Date(new Date().setHours(0, 0, 0, 0));
+
+            // Check if date is before minimum allowed date
+            const isBeforeMin = minDate && new Date(datePrice.date) <= new Date(minDate);
+
+            const isAvailable = datePrice.available && !isPast && !isBeforeMin;
 
             return (
               <button
                 key={datePrice.date}
+                type="button"
                 data-selected={isSelected}
                 onClick={() => isAvailable && handleDateClick(datePrice.date)}
                 disabled={!isAvailable}
@@ -196,7 +306,7 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
                     isSelected
                       ? 'border-maritime-600 bg-maritime-50 shadow-md scale-105'
                       : isAvailable
-                      ? 'border-gray-200 bg-white hover:border-maritime-400 hover:shadow-md'
+                      ? 'border-gray-200 bg-white hover:border-maritime-400 hover:shadow-md cursor-pointer'
                       : 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
                   }
                 `}
@@ -242,17 +352,27 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
 
                 {/* Price or Status */}
                 {isAvailable && datePrice.lowestPrice ? (
-                  <div>
+                  <div className="relative">
                     <div
-                      className={`text-sm font-bold ${
-                        isSelected ? 'text-maritime-700' : 'text-maritime-600'
+                      className={`text-sm font-bold transition-all ${
+                        isSelected && updatingPrice
+                          ? 'text-green-600 animate-pulse'
+                          : isSelected
+                          ? 'text-maritime-700'
+                          : 'text-maritime-600'
                       }`}
                     >
                       {formatPrice(datePrice.lowestPrice)}
                     </div>
+                    <div className="text-xs text-gray-500">per adult</div>
                     <div className="text-xs text-gray-500">
                       {datePrice.numFerries} {datePrice.numFerries === 1 ? 'ferry' : 'ferries'}
                     </div>
+                    {isSelected && updatingPrice && (
+                      <div className="absolute -top-1 -right-1 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-bounce">
+                        ✓
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-xs text-gray-400">
@@ -273,13 +393,14 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
           })}
         </div>
 
-        {/* Right Arrow */}
+        {/* Right Arrow - Always visible on desktop */}
         <button
           onClick={() => handleScroll('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50 hidden md:block"
+          type="button"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition-all hidden md:block"
           aria-label="Scroll right"
         >
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>

@@ -388,8 +388,8 @@ async def get_date_prices(
     departure_port: str = Query(..., description="Departure port code"),
     arrival_port: str = Query(..., description="Arrival port code"),
     center_date: date = Query(..., description="Center date to search around"),
-    days_before: int = Query(3, ge=0, le=7, description="Days before center date"),
-    days_after: int = Query(3, ge=0, le=7, description="Days after center date"),
+    days_before: int = Query(3, ge=0, le=15, description="Days before center date"),
+    days_after: int = Query(3, ge=0, le=15, description="Days after center date"),
     adults: int = Query(1, description="Number of adults"),
     children: int = Query(0, description="Number of children"),
     infants: int = Query(0, description="Number of infants"),
@@ -413,19 +413,23 @@ async def get_date_prices(
         from app.services.cache_service import cache_service
 
         # Check cache first
-        cache_key = f"date_prices:{departure_port}:{arrival_port}:{center_date}:{days_before}:{days_after}:{adults}:{children}:{infants}"
-        cached_result = cache_service.get_ferry_search({
+        cache_params = {
             "departure_port": departure_port,
             "arrival_port": arrival_port,
-            "center_date": center_date,
+            "center_date": center_date.isoformat(),
             "days_before": days_before,
             "days_after": days_after,
             "adults": adults,
             "children": children,
             "infants": infants
-        })
+        }
+
+        cached_result = cache_service.get_date_prices(cache_params)
         if cached_result:
+            logger.info(f"✅ Returning cached date prices for {departure_port}→{arrival_port} (A:{adults}, C:{children}, I:{infants})")
             return cached_result
+
+        logger.info(f"🔍 Fetching fresh date prices for {departure_port}→{arrival_port} on {center_date} (A:{adults}, C:{children}, I:{infants})")
 
         date_prices = []
         start_date = center_date - timedelta(days=days_before)
@@ -445,16 +449,21 @@ async def get_date_prices(
                 )
 
                 if results:
-                    # Calculate lowest total price
+                    # Calculate lowest per-adult price (to match results display)
                     lowest_price = None
+                    prices_found = []
                     for result in results:
-                        total_price = (
-                            result.prices.get("adult", 0) * adults +
-                            result.prices.get("child", 0) * children +
-                            result.prices.get("infant", 0) * infants
-                        )
-                        if lowest_price is None or total_price < lowest_price:
-                            lowest_price = total_price
+                        adult_price = result.prices.get("adult", 0)
+                        if adult_price > 0:
+                            prices_found.append(adult_price)
+                            if lowest_price is None or adult_price < lowest_price:
+                                lowest_price = adult_price
+
+                    # Debug logging
+                    if current_date.day == 1:  # Log for Dec 1 specifically
+                        logger.info(f"🔍 Date {current_date.isoformat()}: Found {len(results)} ferries")
+                        logger.info(f"   Adult prices: {prices_found}")
+                        logger.info(f"   Lowest: €{lowest_price}")
 
                     date_prices.append({
                         "date": current_date.isoformat(),
@@ -504,8 +513,8 @@ async def get_date_prices(
             "total_dates": len(date_prices)
         }
 
-        # Cache for 15 minutes (price calendars change less frequently)
-        cache_service.set_ferry_search(cache_key, response, ttl=900)
+        # Cache the results (15 minutes TTL)
+        cache_service.set_date_prices(cache_params, response, ttl=900)
 
         return response
 

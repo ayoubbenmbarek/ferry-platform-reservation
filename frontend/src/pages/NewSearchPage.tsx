@@ -308,8 +308,84 @@ const NewSearchPage: React.FC = () => {
   const [returnFerryResults, setReturnFerryResults] = useState<FerryResult[]>([]);
   const [isSearchingReturn, setIsSearchingReturn] = useState(false);
 
+  // Store the center date for the price calendar - this stays fixed when clicking dates
+  const [calendarCenterDate, setCalendarCenterDate] = useState<string>(searchParams.departureDate || '');
+  const [returnCalendarCenterDate, setReturnCalendarCenterDate] = useState<string>(searchParams.returnDate || '');
+
+  // Track date adjustment notification
+  const [dateAdjustmentMessage, setDateAdjustmentMessage] = useState<string | null>(null);
+
+  // Track previous route to detect route changes
+  const prevRouteRef = React.useRef<string>('');
+  const prevReturnRouteRef = React.useRef<string>('');
+
+  // Update calendar center date only when route or passengers change (NOT when date changes!)
+  useEffect(() => {
+    const currentRouteKey = `${searchParams.departurePort}-${searchParams.arrivalPort}-${searchParams.passengers?.adults}`;
+
+    // Check if this is a new route (different from previous)
+    if (prevRouteRef.current !== currentRouteKey && searchParams.departureDate) {
+      console.log('📍 Outbound route/passengers changed - setting calendar center to:', searchParams.departureDate);
+      setCalendarCenterDate(searchParams.departureDate);
+      prevRouteRef.current = currentRouteKey;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.passengers?.adults]);
+
+  // Update return calendar center date only when return route changes
+  useEffect(() => {
+    const returnDep = searchParams.returnDeparturePort || searchParams.arrivalPort;
+    const returnArr = searchParams.returnArrivalPort || searchParams.departurePort;
+    const currentReturnRouteKey = `${returnDep}-${returnArr}-${searchParams.passengers?.adults}`;
+
+    // Check if this is a new return route
+    if (prevReturnRouteRef.current !== currentReturnRouteKey && searchParams.returnDate) {
+      console.log('📍 Return route/passengers changed - setting return calendar center to:', searchParams.returnDate);
+      setReturnCalendarCenterDate(searchParams.returnDate);
+      prevReturnRouteRef.current = currentReturnRouteKey;
+    }
+  }, [searchParams.returnDeparturePort, searchParams.returnArrivalPort, searchParams.arrivalPort, searchParams.departurePort, searchParams.passengers?.adults, searchParams.returnDate]);
+
   // Track if we've already searched for these params to prevent duplicates
   const searchedParamsRef = React.useRef<string>('');
+
+  // Track the recommended (cheapest) ferry to highlight
+  const [recommendedFerryId, setRecommendedFerryId] = useState<string | null>(null);
+  const [recommendedReturnFerryId, setRecommendedReturnFerryId] = useState<string | null>(null);
+
+  // Debug: Log when search results change and find cheapest to highlight
+  useEffect(() => {
+    console.log('🔄 Outbound results updated:', searchResults.length, 'ferries');
+    if (searchResults.length > 0) {
+      console.log('First ferry price:', searchResults[0].prices);
+
+      // Find and highlight the cheapest ferry
+      const cheapestFerry = searchResults.reduce((min, ferry) => {
+        const minPrice = min.prices?.adult || 999999;
+        const currentPrice = ferry.prices?.adult || 999999;
+        return currentPrice < minPrice ? ferry : min;
+      }, searchResults[0]);
+
+      console.log('💡 Recommending cheapest outbound ferry:', cheapestFerry.operator, '€' + cheapestFerry.prices?.adult);
+      setRecommendedFerryId(cheapestFerry.sailingId);
+    }
+  }, [searchResults]);
+
+  // Find cheapest return ferry to highlight
+  useEffect(() => {
+    console.log('🔄 Return results updated:', returnFerryResults.length, 'ferries');
+    if (returnFerryResults.length > 0) {
+      // Find and highlight the cheapest return ferry
+      const cheapestFerry = returnFerryResults.reduce((min, ferry) => {
+        const minPrice = min.prices?.adult || 999999;
+        const currentPrice = ferry.prices?.adult || 999999;
+        return currentPrice < minPrice ? ferry : min;
+      }, returnFerryResults[0]);
+
+      console.log('💡 Recommending cheapest return ferry:', cheapestFerry.operator, '€' + cheapestFerry.prices?.adult);
+      setRecommendedReturnFerryId(cheapestFerry.sailingId);
+    }
+  }, [returnFerryResults]);
 
   // Reset to ferry selection step when mounting the page
   useEffect(() => {
@@ -415,15 +491,104 @@ const NewSearchPage: React.FC = () => {
   };
 
   const handleDateSelect = (newDate: string) => {
-    // Update search params with new date
-    const updatedParams = {
+    console.log('📅 Date selected from calendar:', newDate);
+    console.log('Current search params:', searchParams);
+
+    // Update calendar center date to the newly selected date
+    // This ensures the calendar refetches around the new date
+    setCalendarCenterDate(newDate);
+
+    // Check if new departure date is after return date
+    let updatedParams = {
       ...searchParams,
       departureDate: newDate,
     };
 
+    if (searchParams.returnDate && new Date(newDate) >= new Date(searchParams.returnDate)) {
+      // Calculate a new return date (1 day after departure)
+      const newDepartureDate = new Date(newDate);
+      const suggestedReturnDate = new Date(newDepartureDate);
+      suggestedReturnDate.setDate(suggestedReturnDate.getDate() + 1);
+      const suggestedReturnDateStr = suggestedReturnDate.toISOString().split('T')[0];
+
+      console.log(`⚠️ New departure date ${newDate} is after return date ${searchParams.returnDate}`);
+      console.log(`📅 Auto-adjusting return date to ${suggestedReturnDateStr}`);
+
+      // Update return date to be after departure
+      updatedParams = {
+        ...updatedParams,
+        returnDate: suggestedReturnDateStr,
+      };
+
+      // Update return calendar center date too
+      setReturnCalendarCenterDate(suggestedReturnDateStr);
+
+      // Show a friendly notification to the user
+      const formattedNewDate = new Date(newDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const formattedReturnDate = new Date(suggestedReturnDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      setDateAdjustmentMessage(
+        `Your outbound date was changed to ${formattedNewDate}. We've automatically adjusted your return date to ${formattedReturnDate}.`
+      );
+
+      // Clear message after 5 seconds
+      setTimeout(() => setDateAdjustmentMessage(null), 5000);
+    }
+
+    console.log('Updated params:', updatedParams);
     dispatch(setSearchParams(updatedParams));
-    // Trigger new search
+
+    // Trigger new search (cheapest will be highlighted automatically)
+    console.log('🔍 Dispatching search...');
     dispatch(searchFerries(updatedParams as any));
+  };
+
+  const handleReturnDateSelect = async (newDate: string) => {
+    // Update return calendar center date to the newly selected date
+    setReturnCalendarCenterDate(newDate);
+
+    // Update return date and search for return ferries
+    const updatedParams = {
+      ...searchParams,
+      returnDate: newDate,
+    };
+
+    dispatch(setSearchParams(updatedParams));
+
+    // Search for return ferries with new date
+    setIsSearchingReturn(true);
+
+    try {
+      const returnDeparture = searchParams.returnDeparturePort || searchParams.arrivalPort;
+      const returnArrival = searchParams.returnArrivalPort || searchParams.departurePort;
+
+      const response = await ferryAPI.search({
+        departurePort: returnDeparture || '',
+        arrivalPort: returnArrival || '',
+        departureDate: newDate,
+        passengers: (searchParams.passengers?.adults || 1) +
+                   (searchParams.passengers?.children || 0) +
+                   (searchParams.passengers?.infants || 0),
+      });
+
+      const results = response.results?.map((r: any) => ({
+        sailingId: r.sailing_id,
+        operator: r.operator,
+        departurePort: r.departure_port,
+        arrivalPort: r.arrival_port,
+        departureTime: r.departure_time,
+        arrivalTime: r.arrival_time,
+        vesselName: r.vessel_name,
+        duration: r.duration,
+        prices: r.prices,
+      })) || [];
+
+      setReturnFerryResults(results);
+    } catch (error) {
+      console.error('Failed to search return ferries:', error);
+      setReturnFerryResults([]);
+    } finally {
+      setIsSearchingReturn(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -508,18 +673,37 @@ const NewSearchPage: React.FC = () => {
             </div>
           )}
 
-          {/* Date Price Selector - Show after search is performed, only for outbound selection */}
-          {!isSelectingReturn && searchParams.departurePort && searchParams.arrivalPort && searchParams.departureDate && !isSearching && (
+          {/* Date Price Selector - Show for both outbound and return selection */}
+          {searchParams.departurePort && searchParams.arrivalPort && !isSearching && !isSearchingReturn && (
             <div className="mb-6 bg-white rounded-lg shadow-md p-6">
-              <DatePriceSelector
-                departurePort={searchParams.departurePort}
-                arrivalPort={searchParams.arrivalPort}
-                selectedDate={searchParams.departureDate}
-                adults={searchParams.passengers?.adults || 1}
-                children={searchParams.passengers?.children || 0}
-                infants={searchParams.passengers?.infants || 0}
-                onDateSelect={handleDateSelect}
-              />
+              {isSelectingReturn && searchParams.returnDate ? (
+                <DatePriceSelector
+                  key={`return-${searchParams.returnDeparturePort || searchParams.arrivalPort}-${searchParams.returnArrivalPort || searchParams.departurePort}-${searchParams.passengers?.adults || 1}`}
+                  departurePort={searchParams.returnDeparturePort || searchParams.arrivalPort}
+                  arrivalPort={searchParams.returnArrivalPort || searchParams.departurePort}
+                  selectedDate={searchParams.returnDate}
+                  centerDate={returnCalendarCenterDate}
+                  minDate={searchParams.departureDate}
+                  adults={searchParams.passengers?.adults || 1}
+                  children={searchParams.passengers?.children || 0}
+                  infants={searchParams.passengers?.infants || 0}
+                  onDateSelect={handleReturnDateSelect}
+                  currentResults={returnFerryResults}
+                />
+              ) : searchParams.departureDate ? (
+                <DatePriceSelector
+                  key={`${searchParams.departurePort}-${searchParams.arrivalPort}-${searchParams.passengers?.adults || 1}`}
+                  departurePort={searchParams.departurePort}
+                  arrivalPort={searchParams.arrivalPort}
+                  selectedDate={searchParams.departureDate}
+                  centerDate={calendarCenterDate}
+                  adults={searchParams.passengers?.adults || 1}
+                  children={searchParams.passengers?.children || 0}
+                  infants={searchParams.passengers?.infants || 0}
+                  onDateSelect={handleDateSelect}
+                  currentResults={searchResults}
+                />
+              ) : null}
             </div>
           )}
 
@@ -540,11 +724,62 @@ const NewSearchPage: React.FC = () => {
             </div>
           )}
 
+          {/* Date Adjustment Notification */}
+          {dateAdjustmentMessage && (
+            <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-6 flex items-start gap-3 animate-fade-in">
+              <div className="flex-shrink-0 mt-0.5">
+                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-800">{dateAdjustmentMessage}</p>
+              </div>
+              <button
+                onClick={() => setDateAdjustmentMessage(null)}
+                className="flex-shrink-0 text-blue-500 hover:text-blue-700"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Date Header - Show which date results are for */}
+          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length > 0 && (
+            <div className="bg-maritime-50 border border-maritime-200 rounded-lg p-4 mb-4">
+              <p className="text-sm font-medium text-maritime-800">
+                {t('search:showingResultsFor', {
+                  date: formatDate(
+                    isSelectingReturn
+                      ? (returnFerryResults[0]?.departureTime || searchParams.returnDate || '')
+                      : (searchResults[0]?.departureTime || searchParams.departureDate || '')
+                  )
+                })}
+              </p>
+              <p className="text-xs text-maritime-600 mt-1">
+                Select a ferry from the list below to continue
+              </p>
+            </div>
+          )}
+
           {/* Results - show return results or outbound results */}
           {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length > 0 && (
             <div className="space-y-4 mb-6">
-              {(isSelectingReturn ? returnFerryResults : searchResults).map((ferry) => (
-                <div key={ferry.sailingId} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+              {(isSelectingReturn ? returnFerryResults : searchResults).map((ferry) => {
+                const isRecommended = isSelectingReturn
+                  ? ferry.sailingId === recommendedReturnFerryId
+                  : ferry.sailingId === recommendedFerryId;
+                return (
+                <div
+                  key={ferry.sailingId}
+                  className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-all ${
+                    isRecommended
+                      ? 'bg-green-50 border-2 border-green-500 ring-2 ring-green-200'
+                      : 'bg-white'
+                  }`}
+                >
                   <div className="flex flex-col md:flex-row md:items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-4 mb-4">
@@ -552,6 +787,11 @@ const NewSearchPage: React.FC = () => {
                           <p className="text-sm font-semibold text-blue-800">{ferry.operator}</p>
                         </div>
                         <div className="text-gray-600 text-sm">{ferry.vesselName}</div>
+                        {isRecommended && (
+                          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                            <span>⭐</span> Best Price
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-3 gap-4">
@@ -592,7 +832,8 @@ const NewSearchPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

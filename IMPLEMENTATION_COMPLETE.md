@@ -646,9 +646,12 @@ TODO:if connect from france choose france, if ittlain chosoe italian but by defa
 TODO: when i  lick continue to paiment i receive confirmation email and reservation is pending, then when we go back to with browser arrow and click again continue to paiment i receive another email for reservaton and then both of them are pending in my bookings, is tha noemal behaviour for he same reservation?:done corrected, receive only one email for he same reservation:done
 TODO:booking page not trnaslated like Please provide details for all passengers. First name and last name are required, summary, child etc, select cabin,meals...
 TODO:add subscribe for avaialability, routes cabin vehicle..if they already reserved and seek for cabin for example
-TODO:add show prices for same routes a day before or ater with intellignet scroll or click
-TODO:continue with new calendar prices correction,(arrow dont work), selected but can't go ahead witha that selected, and that selected do not exists in list of results, duplicate calendar logo in  homepage also de et à and prix selectionné not exists in list of prices, and return do not have date selections.
+TODO:add show prices for same routes a day before or ater with intellignet scroll or click:done
+TODO:continue with new calendar prices correction,(arrow dont work), selected but can't go ahead with that selected price, and that selected do not exists in list of results, duplicate calendar logo in  homepage also de et à and prix selectionné not exists in list of prices, and return do not have date selections, also may click to show all month prices:High priority
 TOASK:every how much time token auth expired
+TODO:use cache to search on calendar form
+TODO: when i click from calendar it should be took in consideration in choice, then may we click continue,and if we choose from list selection then go to next page like avctually
+todo:Add unitest the the payment checkeout flow to cover payment failures scenarios
 TODO:agent pour surveiller l'infra et l'application et a accès aux logs et il reagit et corrige et redeploie end dev et notifie
 
 TODO:pay in 3 times, You charge the customer’s card automatically 3 times

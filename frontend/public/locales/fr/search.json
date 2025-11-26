@@ -106,7 +106,8 @@
     "portsMustDiffer": "Le port d'arrivée doit être différent du port de départ",
     "selectReturnDeparturePort": "Veuillez sélectionner le port de départ du retour",
     "selectReturnArrivalPort": "Veuillez sélectionner le port d'arrivée du retour",
-    "returnPortsMustDiffer": "Le port d'arrivée du retour doit être différent"
+    "returnPortsMustDiffer": "Le port d'arrivée du retour doit être différent",
+    "pastDateNotAllowed": "Veuillez sélectionner une date aujourd'hui ou dans le futur. Les dates passées ne sont pas disponibles pour la réservation."
   },
   "selectFerry": "Sélectionner un Ferry",
   "selectOutboundFerry": "Sélectionner Ferry Aller",
@@ -125,5 +126,6 @@
     "unavailable": "N/D",
     "selected": "Sélectionné",
     "scrollHint": "Balayez pour voir plus de dates"
-  }
+  },
+  "showingResultsFor": "Affichage des ferries pour le {{date}}"
 }

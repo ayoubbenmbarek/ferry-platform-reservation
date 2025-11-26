@@ -123,6 +123,7 @@
   "datePriceSelector": {
     "title": "Wählen Sie ein anderes Datum",
     "subtitle": "Vergleichen Sie Preise für nahe gelegene Termine",
+    "priceNote": "Die angezeigten Preise sind ungefähr. Der endgültige Preis wird nach der Auswahl angezeigt.",
     "unavailable": "N/V",
     "selected": "Ausgewählt",
     "scrollHint": "Wischen Sie, um weitere Daten anzuzeigen"

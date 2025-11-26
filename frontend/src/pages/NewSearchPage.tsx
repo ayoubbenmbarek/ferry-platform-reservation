@@ -161,7 +161,11 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                           // Update Redux state immediately when return date changes
                           dispatch(setIsRoundTrip(!!e.target.value));
                         }}
-                        min={form.departureDate || new Date().toISOString().split('T')[0]}
+                        min={
+                          form.departureDate
+                            ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
+                            : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
+                        }
                         className="w-full px-4 py-3 pr-12 border-2 border-gray-300 rounded-lg"
                       />
                       {form.returnDate && (
@@ -494,9 +498,20 @@ const NewSearchPage: React.FC = () => {
     console.log('📅 Date selected from calendar:', newDate);
     console.log('Current search params:', searchParams);
 
-    // Update calendar center date to the newly selected date
-    // This ensures the calendar refetches around the new date
-    setCalendarCenterDate(newDate);
+    // Only update calendar center date if the new date is far from current center
+    // This prevents unnecessary refetches when clicking nearby dates
+    const currentCenter = new Date(calendarCenterDate);
+    const selectedDate = new Date(newDate);
+    const daysDifference = Math.abs((selectedDate.getTime() - currentCenter.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Only recenter if selected date is more than 10 days away from current center
+    // This means it's likely outside the visible range (which shows ±3 days or ±15 days)
+    if (daysDifference > 10) {
+      console.log(`📍 Recentering calendar: ${calendarCenterDate} → ${newDate} (${daysDifference} days apart)`);
+      setCalendarCenterDate(newDate);
+    } else {
+      console.log(`⏭️ Keeping calendar center at ${calendarCenterDate} (only ${daysDifference} days apart)`);
+    }
 
     // Check if new departure date is after return date
     let updatedParams = {
@@ -543,8 +558,18 @@ const NewSearchPage: React.FC = () => {
   };
 
   const handleReturnDateSelect = async (newDate: string) => {
-    // Update return calendar center date to the newly selected date
-    setReturnCalendarCenterDate(newDate);
+    // Only update calendar center date if the new date is far from current center
+    const currentCenter = new Date(returnCalendarCenterDate);
+    const selectedDate = new Date(newDate);
+    const daysDifference = Math.abs((selectedDate.getTime() - currentCenter.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Only recenter if selected date is more than 10 days away from current center
+    if (daysDifference > 10) {
+      console.log(`📍 Recentering return calendar: ${returnCalendarCenterDate} → ${newDate} (${daysDifference} days apart)`);
+      setReturnCalendarCenterDate(newDate);
+    } else {
+      console.log(`⏭️ Keeping return calendar center at ${returnCalendarCenterDate} (only ${daysDifference} days apart)`);
+    }
 
     // Update return date and search for return ferries
     const updatedParams = {

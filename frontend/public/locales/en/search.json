@@ -123,6 +123,7 @@
   "datePriceSelector": {
     "title": "Select a different date",
     "subtitle": "Compare prices for nearby dates",
+    "priceNote": "Prices shown are approximate. Final price will be displayed after selection.",
     "unavailable": "N/A",
     "selected": "Selected",
     "scrollHint": "Swipe to see more dates"

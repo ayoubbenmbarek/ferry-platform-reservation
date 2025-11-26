@@ -252,6 +252,9 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
           <p className="text-sm text-gray-600">
             {t('search:datePriceSelector.subtitle', 'Compare prices for nearby dates')}
           </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {t('search:datePriceSelector.priceNote', 'Prices shown are approximate. Final price will be displayed after selection.')}
+          </p>
         </div>
         <button
           onClick={() => setShowFullMonth(!showFullMonth)}

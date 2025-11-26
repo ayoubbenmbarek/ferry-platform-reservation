@@ -362,7 +362,11 @@ const NewHomePage: React.FC = () => {
                       type="date"
                       value={form.returnDate}
                       onChange={(e) => setForm({ ...form, returnDate: e.target.value })}
-                      min={form.departureDate || new Date().toISOString().split('T')[0]}
+                      min={
+                        form.departureDate
+                          ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
+                          : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
+                      }
                       className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                         errors.returnDate ? 'border-red-500' : 'border-gray-300'
                       }`}

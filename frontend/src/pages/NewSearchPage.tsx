@@ -428,6 +428,7 @@ const NewSearchPage: React.FC = () => {
       // Only warn if user has selected a ferry or added passengers (booking in progress)
       if (selectedFerry || passengers.length > 0) {
         e.preventDefault();
+        // @ts-ignore - returnValue is deprecated but still needed for browser compatibility
         e.returnValue = ''; // Chrome requires returnValue to be set
         return ''; // Some browsers show this message
       }
@@ -722,6 +723,7 @@ const NewSearchPage: React.FC = () => {
                   arrivalPort={searchParams.arrivalPort}
                   selectedDate={searchParams.departureDate}
                   centerDate={calendarCenterDate}
+                  returnDate={searchParams.returnDate || undefined}
                   adults={searchParams.passengers?.adults || 1}
                   children={searchParams.passengers?.children || 0}
                   infants={searchParams.passengers?.infants || 0}

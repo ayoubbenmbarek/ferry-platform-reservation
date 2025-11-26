@@ -649,7 +649,8 @@ TODO:add subscribe for avaialability, routes cabin vehicle..if they already rese
 TODO:add show prices for same routes a day before or ater with intellignet scroll or click:done
 TODO:continue with new calendar prices correction,(arrow dont work), selected but can't go ahead with that selected price, and that selected do not exists in list of results, duplicate calendar logo in  homepage also de et à and prix selectionné not exists in list of prices, and return do not have date selections, also may click to show all month prices:High priority:done
 TOASK:every how much time token auth expired
-TODO:use cache to search on calendar form
+TODO:use cache to search on calendar form:done
+TODO:add receipt in email to download and on booking confirmation page too
 
 todo:Add unitest the the payment checkeout flow to cover payment failures scenarios
 TODO:agent pour surveiller l'infra et l'application et a accès aux logs et il reagit et corrige et redeploie end dev et notifie

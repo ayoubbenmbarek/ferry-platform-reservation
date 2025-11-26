@@ -104,9 +104,11 @@ class CacheService:
 
             if cached_data:
                 logger.info(f"✅ Cache HIT for ferry search: {cache_key}")
+                logger.debug(f"   Cache params: {json.dumps(search_params, sort_keys=True)}")
                 return json.loads(cached_data)
 
             logger.info(f"❌ Cache MISS for ferry search: {cache_key}")
+            logger.debug(f"   Searched params: {json.dumps(search_params, sort_keys=True)}")
             return None
 
         except Exception as e:

@@ -122,8 +122,14 @@ async def search_ferries(
             "operators": sorted(search_params.operators) if search_params.operators else None
         }
 
+        logger.info(f"🔑 Ferry search cache key params: {cache_params}")
         cached_response = cache_service.get_ferry_search(cache_params)
         if cached_response:
+            # Fix old cached data with vehicles as integer instead of list
+            if cached_response.get("search_params") and isinstance(cached_response["search_params"].get("vehicles"), int):
+                logger.warning(f"⚠️ Found old cache format with vehicles={cached_response['search_params']['vehicles']}, converting to list")
+                cached_response["search_params"]["vehicles"] = []
+
             # Add cache hit indicator
             cached_response["cached"] = True
             cached_response["cache_age_ms"] = (time.time() - start_time) * 1000
@@ -393,6 +399,7 @@ async def get_date_prices(
     adults: int = Query(1, description="Number of adults"),
     children: int = Query(0, description="Number of children"),
     infants: int = Query(0, description="Number of infants"),
+    return_date: Optional[date] = Query(None, description="Optional return date for round-trip context"),
     db: Session = Depends(get_db)
 ):
     """
@@ -412,7 +419,7 @@ async def get_date_prices(
         from datetime import timedelta
         from app.services.cache_service import cache_service
 
-        # Check cache first
+        # Check cache first (short TTL to balance performance vs freshness)
         cache_params = {
             "departure_port": departure_port,
             "arrival_port": arrival_port,
@@ -421,15 +428,17 @@ async def get_date_prices(
             "days_after": days_after,
             "adults": adults,
             "children": children,
-            "infants": infants
+            "infants": infants,
+            "return_date": return_date.isoformat() if return_date else None
         }
 
         cached_result = cache_service.get_date_prices(cache_params)
         if cached_result:
-            logger.info(f"✅ Returning cached date prices for {departure_port}→{arrival_port} (A:{adults}, C:{children}, I:{infants})")
+            logger.info(f"✅ Returning cached date prices for {departure_port}→{arrival_port}")
             return cached_result
 
-        logger.info(f"🔍 Fetching fresh date prices for {departure_port}→{arrival_port} on {center_date} (A:{adults}, C:{children}, I:{infants})")
+        trip_type = f"round-trip (return: {return_date.isoformat()})" if return_date else "one-way"
+        logger.info(f"🔍 Fetching date prices for {departure_port}→{arrival_port} on {center_date} ({trip_type}, A:{adults}, C:{children}, I:{infants})")
 
         date_prices = []
         start_date = center_date - timedelta(days=days_before)
@@ -438,15 +447,73 @@ async def get_date_prices(
         current_date = start_date
         while current_date <= end_date:
             try:
-                # Search for ferries on this date
-                results = await ferry_service.search_ferries(
-                    departure_port=departure_port,
-                    arrival_port=arrival_port,
-                    departure_date=current_date,
-                    adults=adults,
-                    children=children,
-                    infants=infants
-                )
+                # Try to get cached ferry search results first (5-min cache)
+                # This ensures calendar prices match the ferry list when both use cache
+                # Note: cache key uses integer for vehicles count
+                ferry_search_cache_params = {
+                    "departure_port": departure_port,
+                    "arrival_port": arrival_port,
+                    "departure_date": current_date.isoformat(),
+                    "return_date": return_date.isoformat() if return_date else None,
+                    "return_departure_port": None,
+                    "return_arrival_port": None,
+                    "adults": adults,
+                    "children": children,
+                    "infants": infants,
+                    "vehicles": 0,  # Integer count for cache key
+                    "operators": None
+                }
+
+                cached_ferry_results = cache_service.get_ferry_search(ferry_search_cache_params)
+
+                if cached_ferry_results:
+                    # Use cached results from ferry search
+                    results = [FerryResult(**r) for r in cached_ferry_results.get("results", [])]
+                    logger.info(f"  ✅ Calendar using cached ferry_search for {current_date.isoformat()} ({len(results)} ferries)")
+                else:
+                    # Cache miss - query operators directly
+                    # Pass return_date to get round-trip context pricing (if applicable)
+                    results = await ferry_service.search_ferries(
+                        departure_port=departure_port,
+                        arrival_port=arrival_port,
+                        departure_date=current_date,
+                        return_date=return_date,  # Include return context for accurate pricing
+                        adults=adults,
+                        children=children,
+                        infants=infants
+                    )
+                    logger.info(f"  ❌ Calendar queried operators for {current_date.isoformat()} ({len(results) if results else 0} ferries)")
+
+                    # Cache these results in ferry_search cache so subsequent searches use same data
+                    if results:
+                        results_dict = [r.to_dict() for r in results]
+
+                        # Build search_params dict matching FerrySearch schema
+                        search_params_for_response = {
+                            "departure_port": departure_port,
+                            "arrival_port": arrival_port,
+                            "departure_date": current_date.isoformat(),
+                            "return_date": return_date.isoformat() if return_date else None,
+                            "return_departure_port": None,
+                            "return_arrival_port": None,
+                            "adults": adults,
+                            "children": children,
+                            "infants": infants,
+                            "vehicles": [],  # List for response schema
+                            "operators": None,
+                            "passengers": None
+                        }
+
+                        cache_response = {
+                            "results": results_dict,
+                            "search_params": search_params_for_response,
+                            "operators_searched": list(set([r.operator for r in results])),
+                            "total_results": len(results),
+                            "search_time_ms": 0,  # Already searched
+                            "cached": False
+                        }
+                        cache_service.set_ferry_search(ferry_search_cache_params, cache_response, ttl=300)
+                        logger.info(f"  💾 Calendar cached ferry_search for {current_date.isoformat()} (TTL: 5min)")
 
                 if results:
                     # Calculate lowest per-adult price (to match results display)
@@ -513,8 +580,10 @@ async def get_date_prices(
             "total_dates": len(date_prices)
         }
 
-        # Cache the results (15 minutes TTL)
-        cache_service.set_date_prices(cache_params, response, ttl=900)
+        # Cache for 5 minutes to match ferry_search cache TTL
+        # Individual dates check ferry_search cache first, so prices will be consistent
+        # This whole response cache prevents re-querying when toggling week/month view
+        cache_service.set_date_prices(cache_params, response, ttl=300)
 
         return response
 
@@ -532,8 +601,7 @@ async def get_schedules(
     arrival_port: str = Query(..., description="Arrival port code"),
     date_from: date = Query(..., description="Start date for schedule"),
     date_to: Optional[date] = Query(None, description="End date for schedule"),
-    operator: Optional[str] = Query(None, description="Filter by operator"),
-    db: Session = Depends(get_db)
+    operator: Optional[str] = Query(None, description="Filter by operator")
 ):
     """
     Get ferry schedules for a specific route and date range.

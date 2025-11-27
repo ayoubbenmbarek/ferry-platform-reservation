@@ -677,7 +677,7 @@ TODO:add choose 1,2or 3 cabins,
 TODO:this should be in detail 2* example et 1 infant etc Passagers (Aller) €456.30 passagers (Retour) €337.50
 TODO:we should show total juste after search, because we know how many passengers and their ages, later we will add cabins and vehicule prices(tomake possibilities to enregister devis in second step by sending email if uuser wants that)
 TODO:added fields required:all,passeport,lieu de naissance,telephone(for adults), title Mrs or miss
-TODO:modifier ma réservation, check this aferry example publication for that
+TODO:modifier ma réservation, check this aferry example publication for that, modifier-reservation.md
 TODO:the calcul of total will be recalculated for passenger type if child or infant should not pay same as adult and add detail on price summary how many adults*price and so on:done
 TODO:delete cabins from home page and search page:done
 

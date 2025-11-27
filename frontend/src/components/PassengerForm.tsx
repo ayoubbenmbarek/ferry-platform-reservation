@@ -35,7 +35,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
   // Track previous expanded state to detect collapse
   const prevExpandedRef = React.useRef(expanded);
 
-  // Sync internal expanded state with parent's isExpanded prop
+  // Sync internal expanded state with parent's isExpanded prop and auto-save on collapse
   React.useEffect(() => {
     // Check if form is being collapsed (was expanded, now not expanded)
     const isCollapsing = prevExpandedRef.current && !isExpanded;
@@ -51,7 +51,8 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
     // Update expanded state
     setExpanded(isExpanded);
     prevExpandedRef.current = isExpanded;
-  }, [isExpanded, formData, onSave]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -96,6 +97,14 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
       onSave(formData as PassengerInfo);
       setExpanded(false);
     }
+  };
+
+  const handleCancel = () => {
+    // Auto-save before closing if required fields are filled
+    if (formData.firstName?.trim() && formData.lastName?.trim() && formData.type) {
+      onSave(formData as PassengerInfo);
+    }
+    setExpanded(false);
   };
 
   const getPassengerTypeLabel = (type: PassengerType): string => {
@@ -402,7 +411,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
         {passenger && (
           <button
             type="button"
-            onClick={() => setExpanded(false)}
+            onClick={handleCancel}
             className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium"
           >
             Cancel

@@ -32,10 +32,26 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Track previous expanded state to detect collapse
+  const prevExpandedRef = React.useRef(expanded);
+
   // Sync internal expanded state with parent's isExpanded prop
   React.useEffect(() => {
+    // Check if form is being collapsed (was expanded, now not expanded)
+    const isCollapsing = prevExpandedRef.current && !isExpanded;
+
+    if (isCollapsing) {
+      // Auto-save if required fields are filled
+      if (formData.firstName?.trim() && formData.lastName?.trim() && formData.type) {
+        // Don't validate strictly on auto-save, just save the data
+        onSave(formData as PassengerInfo);
+      }
+    }
+
+    // Update expanded state
     setExpanded(isExpanded);
-  }, [isExpanded]);
+    prevExpandedRef.current = isExpanded;
+  }, [isExpanded, formData, onSave]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};

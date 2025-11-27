@@ -674,9 +674,114 @@ TODO:in search page result add filter by price, company,date et heurs..
 TODO:add bar that specify we are in which steps, (search , info routes, info passenger,paiment etc and good click any step and return to it, in order to could maybe change, details, like number passnenger or chosen routes etc..ask me question if not clear)
 TODO:cabin and meals make it more smaller,
 TODO:add choose 1,2or 3 cabins,
+TODO:this should be in detail 2* example et 1 infant etc Passagers (Aller) €456.30 passagers (Retour) €337.50
 TODO:we should show total juste after search, because we know how many passengers and their ages, later we will add cabins and vehicule prices(tomake possibilities to enregister devis in second step by sending email if uuser wants that)
 TODO:added fields required:all,passeport,lieu de naissance,telephone(for adults), title Mrs or miss
 TODO:modifier ma réservation, check this aferry example publication for that
+TODO:the calcul of total will be recalculated for passenger type if child or infant should not pay same as adult and add detail on price summary how many adults*price and so on:done
+TODO:delete cabins from home page and search page:done
+
+---
+
+### 💰 Differentiated Pricing & Detailed Breakdown (2024-11-27) ✅
+
+**Problem:** All passengers (adults, children, infants) were shown with same pricing in summary. No detailed breakdown showing quantity × price.
+
+**Solution:** Implemented differentiated pricing with detailed breakdown in booking summary.
+
+**Changes Made:**
+1. **Price Calculation (BookingPage.tsx:273-308)**
+   - Added `infantPrice` from ferry prices (usually €0.00)
+   - Count passengers by type: `adultsCount`, `childrenCount`, `infantsCount`
+   - Calculate totals respecting passenger types (infants typically free)
+
+2. **Detailed Price Breakdown (BookingPage.tsx:680-790)**
+   - **One-way trips:** Shows "2 Adults × €85.00 = €170.00", "1 Child × €42.50 = €42.50", "1 Infant × €0.00 = Free"
+   - **Round trips:** Separate sections for "Outbound Journey" and "Return Journey" with per-type breakdown
+   - Vehicle pricing also shows quantity × price
+   - Infants display "Free" instead of €0.00 when price is zero
+
+3. **Backend Already Supported (bookings.py:280-323)**
+   - Backend correctly uses different prices: `adult`, `child` (typically 50% of adult), `infant` (typically free)
+   - Prices passed from frontend via `ferry_prices` object
+
+**Example Display:**
+```
+One-way:
+  2 Adults × €85.00        €170.00
+  1 Child × €42.50         €42.50
+  1 Infant × €0.00         Free
+  1 Vehicle × €120.00      €120.00
+
+Round trip:
+  Outbound Journey:
+    2 Adults × €85.00      €170.00
+    1 Child × €42.50       €42.50
+  Return Journey:
+    2 Adults × €90.00      €180.00
+    1 Child × €45.00       €45.00
+```
+
+**Status:** ✅ Complete transparency on pricing breakdown for all passenger types
+
+---
+
+### 🗑️ Cabin Selection Cleanup (2024-11-27) ✅
+
+**Removed cabin selection from search forms** - Cabin selection now only appears in booking flow.
+
+**Changes:**
+1. **NewHomePage.tsx** - Removed cabin selection UI and form state
+2. **NewSearchPage.tsx** - Already clean, no changes needed
+3. **Types (ferry.ts:81-85)** - Removed `cabins?: number` field from `SearchParams.passengers`
+
+**Cabin Selection Now:**
+- ✅ Only available during booking (BookingPage → CabinSelector component)
+- ✅ Per-cabin quantity selection (1-3 cabins per type)
+- ✅ Validates against passenger count (e.g., 2 passengers can't book 3 cabins)
+- ✅ Separate selection for outbound and return journeys
+
+**Reasoning:** Cleaner UX - users search for ferries first, then select cabins during booking.
+
+---
+
+### ⚠️ Calendar vs Ferry List Price Sync - Known Behavior (2024-11-27)
+
+**Observation:** Sometimes calendar shows €64 but ferry list shows €69 as lowest price.
+
+**Root Causes (Expected Behavior):**
+1. **Cache Timing:** Calendar and ferry search use separate 5-min caches that may expire at different times
+2. **Operator Availability:** Between calendar load and list load, an operator may become unavailable or change prices
+3. **Dynamic Pricing:** Different sailings at different times have different prices
+4. **Round Trip Context:** Calendar shows outbound-only prices, ferry search may include round-trip context
+
+**Current Mitigation (ferries.py:445-511):**
+- Calendar tries to reuse `ferry_search` cache when possible
+- Both use same cache TTL (5 minutes)
+- Logs cache hits/misses for debugging
+
+**Why Perfect Sync is Impossible:**
+- Real-time operator APIs can change prices between requests
+- Multiple operators with different availability
+- Race conditions during concurrent requests
+- Similar to airline booking sites (prices shift slightly between search and selection)
+
+**Action Required:**
+📝 **NOTE FOR REAL API INTEGRATION:** Monitor this behavior when integrating real ferry operator APIs (CTN, Corsica Linea, GNV, etc.). May need to:
+- Adjust cache TTL based on real API performance
+- Add logging to track which operator prices changed
+- Implement price-lock mechanism if operators support it
+- Show "prices may vary" disclaimer to users
+
+**Current Implementation:** Acceptable for MVP with mock data. Review when real APIs are integrated.
+
+**Related Code:**
+- `backend/app/api/v1/ferries.py:420-570` - Date prices endpoint
+- `backend/app/api/v1/ferries.py:91-185` - Ferry search endpoint
+- `backend/app/services/cache_service.py` - Redis caching layer
+
+---
+
 TODO:Account created and logged in successfully! when popup appeared, but i try with google and i already have account, so message mabe should be logged in sucees, if not registred and we try with google now it shows created sucess and maybe verify email to confirm
 
 

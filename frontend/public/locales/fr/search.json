@@ -12,6 +12,7 @@
     "departureDate": "📅 Date de Départ",
     "returnDate": "Date de Retour (Optionnel)",
     "passengers": "Passagers",
+    "cabins": "Cabines",
     "vehicles": "Véhicules",
     "adults": "Adultes",
     "children": "Enfants",
@@ -35,6 +36,13 @@
     "to": "🏁 À",
     "returnFrom": "🔄 Retour Depuis",
     "returnTo": "🏁 Retour Vers"
+  },
+  "cabins": {
+    "deck": "Passage Pont",
+    "one": "1 Cabine",
+    "two": "2 Cabines",
+    "three": "3 Cabines",
+    "description": "Sélectionnez le nombre de cabines nécessaire. Le passage pont signifie sans cabine."
   },
   "passengers": {
     "adults": "Adultes",

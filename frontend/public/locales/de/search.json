@@ -8,6 +8,7 @@
     "departureDate": "📅 Abfahrtsdatum",
     "returnDate": "Rückfahrtsdatum (Optional)",
     "passengers": "Passagiere",
+    "cabins": "Kabinen",
     "vehicles": "Fahrzeuge",
     "adults": "Erwachsene",
     "children": "Kinder",
@@ -35,6 +36,13 @@
     "selectReturnArrivalPort": "Wählen Sie den Rückreise-Ankunftshafen",
     "returnFrom": "🔄 Rückkehr Von",
     "returnTo": "🏁 Rückkehr Nach"
+  },
+  "cabins": {
+    "deck": "Deckpassage",
+    "one": "1 Kabine",
+    "two": "2 Kabinen",
+    "three": "3 Kabinen",
+    "description": "Wählen Sie die Anzahl der benötigten Kabinen. Deckpassage bedeutet keine Kabine."
   },
   "passengers": {
     "adults": "Erwachsene",

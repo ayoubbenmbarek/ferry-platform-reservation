@@ -8,6 +8,7 @@
     "departureDate": "📅 Data di Partenza",
     "returnDate": "Data di Ritorno (Opzionale)",
     "passengers": "Passeggeri",
+    "cabins": "Cabine",
     "vehicles": "Veicoli",
     "adults": "Adulti",
     "children": "Bambini",
@@ -35,6 +36,13 @@
     "selectReturnArrivalPort": "Seleziona il porto di arrivo del ritorno",
     "returnFrom": "🔄 Ritorno Da",
     "returnTo": "🏁 Ritorno A"
+  },
+  "cabins": {
+    "deck": "Passaggio Ponte",
+    "one": "1 Cabina",
+    "two": "2 Cabine",
+    "three": "3 Cabine",
+    "description": "Seleziona il numero di cabine necessarie. Passaggio ponte significa nessuna cabina."
   },
   "passengers": {
     "adults": "Adulti",

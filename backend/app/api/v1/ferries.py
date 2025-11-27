@@ -4,7 +4,7 @@ Ferry API endpoints for searching ferries, routes, and schedules.
 
 import time
 import logging
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
@@ -15,13 +15,13 @@ try:
 except ImportError:
     # Fallback for development
     class APIRouter:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *_args, **_kwargs):
             pass
-        def get(self, *args, **kwargs):
+        def get(self, *_args, **_kwargs):
             def decorator(func):
                 return func
             return decorator
-        def post(self, *args, **kwargs):
+        def post(self, *_args, **_kwargs):
             def decorator(func):
                 return func
             return decorator
@@ -37,17 +37,17 @@ except ImportError:
         HTTP_404_NOT_FOUND = 404
         HTTP_500_INTERNAL_SERVER_ERROR = 500
     
-    def Query(*args, **kwargs):
+    def Query(*_args, **_kwargs):
         return None
     
     class Session:
         pass
 
 try:
-    from app.api.deps import get_db, get_optional_current_user, get_common_params
+    from app.api.deps import get_db, get_optional_current_user
     from app.schemas.ferry import (
         FerrySearch, FerrySearchResponse, FerryResult,
-        RouteResponse, ScheduleResponse, HealthCheckResponse,
+        RouteResponse, HealthCheckResponse,
         PriceComparison, OperatorStatus
     )
     from app.services.ferry_service import FerryService
@@ -90,9 +90,7 @@ ferry_service = FerryService()
 
 @router.post("/search", response_model=FerrySearchResponse)
 async def search_ferries(
-    search_params: FerrySearch,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_optional_current_user)
+    search_params: FerrySearch
 ):
     """
     Search for available ferries across all operators.
@@ -201,8 +199,7 @@ async def search_ferries(
 async def get_routes(
     departure_port: Optional[str] = Query(None, description="Filter by departure port"),
     arrival_port: Optional[str] = Query(None, description="Filter by arrival port"),
-    operator: Optional[str] = Query(None, description="Filter by operator"),
-    db: Session = Depends(get_db)
+    operator: Optional[str] = Query(None, description="Filter by operator")
 ):
     """
     Get available ferry routes.
@@ -321,8 +318,7 @@ async def compare_prices(
     departure_date: date = Query(..., description="Departure date"),
     adults: int = Query(1, description="Number of adults"),
     children: int = Query(0, description="Number of children"),
-    infants: int = Query(0, description="Number of infants"),
-    db: Session = Depends(get_db)
+    infants: int = Query(0, description="Number of infants")
 ):
     """
     Compare prices across all ferry operators for a specific route.
@@ -399,8 +395,7 @@ async def get_date_prices(
     adults: int = Query(1, description="Number of adults"),
     children: int = Query(0, description="Number of children"),
     infants: int = Query(0, description="Number of infants"),
-    return_date: Optional[date] = Query(None, description="Optional return date for round-trip context"),
-    db: Session = Depends(get_db)
+    return_date: Optional[date] = Query(None, description="Optional return date for round-trip context")
 ):
     """
     Get lowest prices for dates around a center date.

@@ -30,6 +30,8 @@ const BookingPage: React.FC = () => {
   const [selectedReturnCabinId, setSelectedReturnCabinId] = useState<number | null>(null);
   const [cabinPrice, setCabinPrice] = useState(0);
   const [returnCabinPrice, setReturnCabinPrice] = useState(0);
+  const [cabinQuantity, setCabinQuantity] = useState(0);
+  const [returnCabinQuantity, setReturnCabinQuantity] = useState(0);
   const [selectedMeals, setSelectedMeals] = useState<any[]>([]);
   const [mealsPrice, setMealsPrice] = useState(0);
 
@@ -111,16 +113,24 @@ const BookingPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [selectedFerry, isCreatingBooking]);
 
-  const handleCabinSelect = (cabinId: number | null, price: number, journey?: 'outbound' | 'return') => {
+  const handleCabinSelect = (cabinId: number | null, price: number, quantity: number, journey?: 'outbound' | 'return') => {
+    // Calculate total price for multiple cabins
+    const totalPrice = price * (quantity > 0 ? quantity : 1);
+
     if (journey === 'return') {
       setSelectedReturnCabinId(cabinId);
-      setReturnCabinPrice(price);
+      setReturnCabinPrice(totalPrice);
+      setReturnCabinQuantity(quantity);
       dispatch(setReturnCabinId(cabinId));
     } else {
       setSelectedCabinId(cabinId);
-      setCabinPrice(price);
+      setCabinPrice(totalPrice);
+      setCabinQuantity(quantity);
       dispatch(setCabinId(cabinId));
     }
+
+    // Log for debugging
+    console.log(`Selected ${quantity} cabin(s) for €${price} each. Total: €${totalPrice}`);
   };
 
   const handleMealSelect = (meals: any[], totalPrice: number) => {
@@ -267,12 +277,19 @@ const BookingPage: React.FC = () => {
   // Calculate total price (simplified - should come from backend)
   const adultPrice = selectedFerry.prices?.adult || 0;
   const childPrice = selectedFerry.prices?.child || 0;
+  const infantPrice = selectedFerry.prices?.infant || 0;
   const vehiclePrice = selectedFerry.prices?.vehicle || 0;
 
   // Return ferry prices (if round trip)
   const returnAdultPrice = selectedReturnFerry?.prices?.adult || 0;
   const returnChildPrice = selectedReturnFerry?.prices?.child || 0;
+  const returnInfantPrice = selectedReturnFerry?.prices?.infant || 0;
   const returnVehiclePrice = selectedReturnFerry?.prices?.vehicle || 0;
+
+  // Count passengers by type
+  const adultsCount = passengers.filter(p => p.type === 'adult').length;
+  const childrenCount = passengers.filter(p => p.type === 'child').length;
+  const infantsCount = passengers.filter(p => p.type === 'infant').length;
 
   // Calculate passenger total (including return journey if round trip)
   const passengersTotal = passengers.reduce((sum, p) => {
@@ -284,6 +301,11 @@ const BookingPage: React.FC = () => {
     if (p.type === 'child') {
       const outboundPrice = childPrice;
       const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnChildPrice : 0;
+      return sum + outboundPrice + returnPrice;
+    }
+    if (p.type === 'infant') {
+      const outboundPrice = infantPrice;
+      const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnInfantPrice : 0;
       return sum + outboundPrice + returnPrice;
     }
     return sum;
@@ -659,53 +681,133 @@ const BookingPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Cabins */}
+              {(cabinQuantity > 0 || returnCabinQuantity > 0) && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Cabins
+                  </p>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    {cabinQuantity > 0 && (
+                      <div className="flex justify-between">
+                        <span>Outbound: {cabinQuantity} cabin{cabinQuantity > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                    {returnCabinQuantity > 0 && (
+                      <div className="flex justify-between">
+                        <span>Return: {returnCabinQuantity} cabin{returnCabinQuantity > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Price Breakdown */}
               <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
                 {isRoundTrip && selectedReturnFerry ? (
                   <>
-                    {/* Outbound Passengers */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.outbound', 'Outbound')})</span>
-                      <span>€{passengers.reduce((sum, p) => {
-                        if (p.type === 'adult') return sum + adultPrice;
-                        if (p.type === 'child') return sum + childPrice;
-                        return sum;
-                      }, 0).toFixed(2)}</span>
-                    </div>
-                    {/* Return Passengers */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.return', 'Return')})</span>
-                      <span>€{passengers.reduce((sum, p) => {
-                        if (p.type === 'adult') return sum + returnAdultPrice;
-                        if (p.type === 'child') return sum + returnChildPrice;
-                        return sum;
-                      }, 0).toFixed(2)}</span>
-                    </div>
+                    {/* Outbound Passengers - Detailed by type */}
+                    <div className="text-sm font-medium text-gray-700 mb-1">Outbound Journey:</div>
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{adultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * adultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{childPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * childPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{infantPrice.toFixed(2)}
+                        </span>
+                        <span>{infantPrice === 0 ? 'Free' : `€${(infantsCount * infantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
                     {totalVehicles > 0 && (
-                      <>
-                        {/* Outbound Vehicles */}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.outbound', 'Outbound')})</span>
-                          <span>€{outboundVehiclesTotal.toFixed(2)}</span>
-                        </div>
-                        {/* Return Vehicles */}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.return', 'Return')})</span>
-                          <span>€{returnVehiclesTotal.toFixed(2)}</span>
-                        </div>
-                      </>
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                        </span>
+                        <span>€{outboundVehiclesTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {/* Return Passengers - Detailed by type */}
+                    <div className="text-sm font-medium text-gray-700 mt-3 mb-1">Return Journey:</div>
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{returnAdultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * returnAdultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{returnChildPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * returnChildPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{returnInfantPrice.toFixed(2)}
+                        </span>
+                        <span>{returnInfantPrice === 0 ? 'Free' : `€${(infantsCount * returnInfantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
+                    {totalVehicles > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{returnVehiclePrice.toFixed(2)}
+                        </span>
+                        <span>€{returnVehiclesTotal.toFixed(2)}</span>
+                      </div>
                     )}
                   </>
                 ) : (
                   <>
-                    {/* One-way trip - combined pricing */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')}</span>
-                      <span>€{passengersTotal.toFixed(2)}</span>
-                    </div>
+                    {/* One-way trip - Detailed by passenger type */}
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{adultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * adultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{childPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * childPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{infantPrice.toFixed(2)}
+                        </span>
+                        <span>{infantPrice === 0 ? 'Free' : `€${(infantsCount * infantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
                     {totalVehicles > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">{t('booking:summary.vehicles')}</span>
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                        </span>
                         <span>€{vehiclesTotal.toFixed(2)}</span>
                       </div>
                     )}
@@ -713,13 +815,22 @@ const BookingPage: React.FC = () => {
                 )}
                 {cabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{isRoundTrip && selectedReturnFerry ? 'Cabin (Outbound)' : 'Cabin'}</span>
+                    <span className="text-gray-600">
+                      {cabinQuantity > 0 && `${cabinQuantity} `}
+                      Cabin{cabinQuantity > 1 ? 's' : ''}
+                      {isRoundTrip && selectedReturnFerry ? ' (Outbound)' : ''}
+                      {cabinQuantity > 0 && ` × €${(cabinPrice / cabinQuantity).toFixed(2)}`}
+                    </span>
                     <span>€{cabinPrice.toFixed(2)}</span>
                   </div>
                 )}
                 {isRoundTrip && selectedReturnFerry && returnCabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Cabin (Return)</span>
+                    <span className="text-gray-600">
+                      {returnCabinQuantity > 0 && `${returnCabinQuantity} `}
+                      Cabin{returnCabinQuantity > 1 ? 's' : ''} (Return)
+                      {returnCabinQuantity > 0 && ` × €${(returnCabinPrice / returnCabinQuantity).toFixed(2)}`}
+                    </span>
                     <span>€{returnCabinPrice.toFixed(2)}</span>
                   </div>
                 )}

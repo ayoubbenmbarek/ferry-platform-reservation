@@ -22,7 +22,7 @@ interface Cabin {
 interface CabinSelectorProps {
   selectedCabinId: number | null;
   selectedReturnCabinId?: number | null;
-  onCabinSelect: (cabinId: number | null, price: number, journey?: 'outbound' | 'return') => void;
+  onCabinSelect: (cabinId: number | null, price: number, quantity: number, journey?: 'outbound' | 'return') => void;
   passengerCount: number;
   isRoundTrip?: boolean;
 }
@@ -39,9 +39,11 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState<number | null>(null);
   const [selectedJourney, setSelectedJourney] = useState<'outbound' | 'return'>('outbound');
+  const [cabinQuantities, setCabinQuantities] = useState<Record<number, number>>({}); // Track quantity per cabin ID
 
   useEffect(() => {
     fetchCabins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passengerCount]);
 
   const fetchCabins = async () => {
@@ -110,8 +112,20 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   const currentSelectedCabin = selectedJourney === 'outbound' ? selectedCabinId : selectedReturnCabinId;
 
   const handleCabinSelect = (cabinId: number | null, price: number) => {
-    onCabinSelect(cabinId, price, selectedJourney);
+    const quantity = cabinId === null ? 0 : (cabinQuantities[cabinId] || 1);
+    onCabinSelect(cabinId, price, quantity, selectedJourney);
   };
+
+  const handleQuantityChange = (cabinId: number, quantity: number) => {
+    setCabinQuantities(prev => ({
+      ...prev,
+      [cabinId]: quantity
+    }));
+  };
+
+  // Calculate maximum cabins allowed based on passenger count
+  // Assuming average 2 passengers per cabin, round up
+  const maxCabinsAllowed = Math.min(3, Math.ceil(passengerCount / 2));
 
   return (
     <div className="space-y-4">
@@ -153,6 +167,14 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
         </div>
       )}
 
+      {/* Info about cabin limits */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+        <p className="text-sm text-amber-900">
+          <span className="font-semibold">👥 {passengerCount} passenger(s)</span> — You can book up to{' '}
+          <span className="font-semibold">{maxCabinsAllowed} cabin(s)</span> based on your party size.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* No Cabin Option */}
         <div
@@ -172,24 +194,45 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
         </div>
 
         {/* Cabin Options */}
-        {cabins.map((cabin) => (
-          <div
-            key={cabin.id}
-            onClick={() => handleCabinSelect(cabin.id, cabin.base_price)}
-            className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-              currentSelectedCabin === cabin.id
-                ? 'border-blue-600 bg-blue-50'
-                : 'border-gray-300 hover:border-blue-400'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl">{getCabinIcon(cabin.cabin_type)}</span>
-              <span className="text-lg font-bold text-blue-600">
-                €{cabin.base_price.toFixed(2)}
-              </span>
-            </div>
+        {cabins.map((cabin) => {
+          const quantity = cabinQuantities[cabin.id] || 1;
+          const totalPrice = cabin.base_price * quantity;
+          const isSelected = currentSelectedCabin === cabin.id;
 
-            <h4 className="font-semibold">{cabin.name}</h4>
+          return (
+            <div
+              key={cabin.id}
+              className={`border-2 rounded-lg p-4 transition-all ${
+                isSelected
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-gray-300'
+              }`}
+            >
+              {/* Header with icon and price */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">{getCabinIcon(cabin.cabin_type)}</span>
+                <div className="text-right">
+                  {quantity > 1 ? (
+                    <>
+                      <div className="text-xs text-gray-500 line-through">
+                        €{cabin.base_price.toFixed(2)}
+                      </div>
+                      <div className="text-lg font-bold text-blue-600">
+                        €{totalPrice.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        ({quantity} × €{cabin.base_price.toFixed(2)})
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-lg font-bold text-blue-600">
+                      €{cabin.base_price.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <h4 className="font-semibold">{cabin.name}</h4>
             <p className="text-xs text-gray-500 mt-1">
               {getCabinTypeName(cabin.cabin_type)} • {cabin.bed_type.toLowerCase()} • Max{' '}
               {cabin.max_occupancy}
@@ -218,6 +261,37 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
               )}
             </div>
 
+            {/* Quantity Selector and Select Button */}
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-700">Quantity:</label>
+                  <select
+                    value={quantity}
+                    onChange={(e) => handleQuantityChange(cabin.id, Number(e.target.value))}
+                    onClick={(e) => e.stopPropagation()}
+                    className="px-3 py-1 border-2 border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-600"
+                  >
+                    {[...Array(maxCabinsAllowed)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        {i + 1} {i === 0 ? 'cabin' : 'cabins'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => handleCabinSelect(cabin.id, cabin.base_price)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    isSelected
+                      ? 'bg-green-600 text-white'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {isSelected ? '✓ Selected' : 'Select'}
+                </button>
+              </div>
+            </div>
+
             {/* View Details Button */}
             <button
               onClick={(e) => {
@@ -242,7 +316,8 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
               </div>
             )}
           </div>
-        ))}
+        );
+      })}
       </div>
 
       {cabins.length === 0 && (

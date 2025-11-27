@@ -12,6 +12,7 @@
     "departureDate": "📅 Departure Date",
     "returnDate": "Return Date (Optional)",
     "passengers": "Passengers",
+    "cabins": "Cabins",
     "vehicles": "Vehicles",
     "adults": "Adults",
     "children": "Children",
@@ -35,6 +36,13 @@
     "to": "🏁 To",
     "returnFrom": "🔄 Return From",
     "returnTo": "🏁 Return To"
+  },
+  "cabins": {
+    "deck": "Deck Passage",
+    "one": "1 Cabin",
+    "two": "2 Cabins",
+    "three": "3 Cabins",
+    "description": "Select the number of cabins you need. Deck passage means no cabin."
   },
   "passengers": {
     "adults": "Adults",

@@ -9,6 +9,7 @@ import { createBooking } from '../store/slices/ferrySlice';
 import { paymentAPI, bookingAPI } from '../services/api';
 import StripePaymentForm from '../components/Payment/StripePaymentForm';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
+import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 
 // Initialize Stripe (will be loaded with publishable key from backend)
 let stripePromise: Promise<any> | null = null;
@@ -310,8 +311,14 @@ const PaymentPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Booking Step Indicator */}
+      <BookingStepIndicator
+        currentStep={BookingStep.PAYMENT}
+        onBack={() => navigate('/booking')}
+      />
+
+      <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">{t('payment:title')}</h1>

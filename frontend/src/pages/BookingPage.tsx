@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger } from '../store/slices/ferrySlice';
+import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle } from '../store/slices/ferrySlice';
 import CabinSelector from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
+import VehicleForm, { VehicleFormData } from '../components/VehicleForm';
 import { PassengerInfo, PassengerType } from '../types/ferry';
 import { promoCodeAPI } from '../services/api';
+import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 
 const BookingPage: React.FC = () => {
   const { t } = useTranslation(['booking', 'common']);
@@ -206,6 +208,18 @@ const BookingPage: React.FC = () => {
     dispatch(removePassenger(passengerId));
   };
 
+  const handleSaveVehicle = (vehicle: VehicleFormData) => {
+    // Update existing vehicle
+    dispatch(updateVehicle({
+      id: vehicle.id,
+      data: vehicle as any
+    }));
+  };
+
+  const handleRemoveVehicle = (vehicleId: string) => {
+    dispatch(removeVehicle(vehicleId));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -324,8 +338,14 @@ const BookingPage: React.FC = () => {
   const total = discountedSubtotal + tax;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-5xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Booking Step Indicator */}
+      <BookingStepIndicator
+        currentStep={BookingStep.BOOKING_DETAILS}
+        onBack={() => navigate('/search')}
+      />
+
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">{t('booking:page.title')}</h1>
           <p className="mt-2 text-gray-600">{t('booking:page.subtitle')}</p>
@@ -437,6 +457,29 @@ const BookingPage: React.FC = () => {
                 })}
               </div>
             </div>
+
+            {/* Vehicle Details */}
+            {totalVehicles > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-4">🚗 Vehicle Details</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Please provide complete information about your vehicle(s).
+                </p>
+
+                <div className="space-y-4">
+                  {vehicles.map((vehicle, index) => (
+                    <VehicleForm
+                      key={vehicle.id}
+                      vehicle={vehicle as VehicleFormData}
+                      vehicleNumber={index + 1}
+                      onSave={handleSaveVehicle}
+                      onRemove={vehicles.length > 1 ? handleRemoveVehicle : undefined}
+                      isExpanded={index === 0}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Contact Information */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -673,9 +716,33 @@ const BookingPage: React.FC = () => {
                   <p className="text-sm font-medium text-gray-700 mb-2">
                     {totalVehicles} Vehicle{totalVehicles !== 1 ? 's' : ''}
                   </p>
-                  <div className="space-y-1 text-sm text-gray-600">
+                  <div className="space-y-2 text-sm text-gray-600">
                     {vehicles.map((v, i) => (
-                      <div key={i}>{v.type}</div>
+                      <div key={i} className="bg-gray-50 p-2 rounded">
+                        <div className="font-medium text-gray-900">{v.type}</div>
+                        {v.registration && (
+                          <div className="text-xs">Registration: {v.registration}</div>
+                        )}
+                        {v.owner && (
+                          <div className="text-xs">Owner: {v.owner}</div>
+                        )}
+                        {(v.make || v.model) && (
+                          <div className="text-xs">{v.make} {v.model}</div>
+                        )}
+                        {(v.length || v.width || v.height) && (
+                          <div className="text-xs">
+                            Dimensions: {v.length || 0}cm × {v.width || 0}cm × {v.height || 0}cm
+                          </div>
+                        )}
+                        {(v.hasTrailer || v.hasCaravan || v.hasRoofBox || v.hasBikeRack) && (
+                          <div className="text-xs text-blue-600">
+                            {v.hasTrailer && '🚚 Trailer '}
+                            {v.hasCaravan && '🏕️ Caravan '}
+                            {v.hasRoofBox && '📦 Roof Box '}
+                            {v.hasBikeRack && '🚴 Bike Rack'}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

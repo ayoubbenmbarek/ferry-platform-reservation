@@ -215,10 +215,15 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
                 "vehicle_type": v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else v.vehicle_type,
                 "make": v.make,
                 "model": v.model,
+                "owner": v.owner,
                 "license_plate": v.license_plate,
                 "length_cm": v.length_cm,
                 "width_cm": v.width_cm,
                 "height_cm": v.height_cm,
+                "has_trailer": v.has_trailer or False,
+                "has_caravan": v.has_caravan or False,
+                "has_roof_box": v.has_roof_box or False,
+                "has_bike_rack": v.has_bike_rack or False,
                 "base_price": v.base_price,
                 "final_price": v.final_price
             }
@@ -499,10 +504,15 @@ async def create_booking(
                     vehicle_type=db_vehicle_type,
                     make=vehicle_data.make,
                     model=vehicle_data.model,
+                    owner=getattr(vehicle_data, 'owner', None),
                     license_plate=vehicle_data.registration or "TEMP",
                     length_cm=int(vehicle_data.length * 100),
                     width_cm=int(vehicle_data.width * 100),
                     height_cm=int(vehicle_data.height * 100),
+                    has_trailer=getattr(vehicle_data, 'has_trailer', False),
+                    has_caravan=getattr(vehicle_data, 'has_caravan', False),
+                    has_roof_box=getattr(vehicle_data, 'has_roof_box', False),
+                    has_bike_rack=getattr(vehicle_data, 'has_bike_rack', False),
                     base_price=base_vehicle_price,
                     final_price=base_vehicle_price
                 )
@@ -901,6 +911,99 @@ async def update_booking(
         raise
     except Exception as e:
         db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to update booking: {str(e)}"
+        )
+
+
+@router.patch("/{booking_id}/quick-update")
+async def quick_update_booking(
+    booking_id: int,
+    update_data: dict,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """
+    Quick update of passenger and vehicle details.
+
+    Allows updating passenger names and vehicle details without additional fees.
+    """
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check access permissions
+        if not validate_booking_access(booking_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+
+        # Update passengers
+        passenger_updates = update_data.get('passenger_updates', [])
+        for passenger_update in passenger_updates:
+            passenger_id = passenger_update.get('passenger_id')
+            if passenger_id:
+                passenger = db.query(BookingPassenger).filter(
+                    BookingPassenger.id == passenger_id,
+                    BookingPassenger.booking_id == booking_id
+                ).first()
+
+                if passenger:
+                    if 'first_name' in passenger_update:
+                        passenger.first_name = passenger_update['first_name']
+                    if 'last_name' in passenger_update:
+                        passenger.last_name = passenger_update['last_name']
+
+        # Update vehicles
+        vehicle_updates = update_data.get('vehicle_updates', [])
+        for vehicle_update in vehicle_updates:
+            vehicle_id = vehicle_update.get('vehicle_id')
+            if vehicle_id:
+                vehicle = db.query(BookingVehicle).filter(
+                    BookingVehicle.id == vehicle_id,
+                    BookingVehicle.booking_id == booking_id
+                ).first()
+
+                if vehicle:
+                    if 'registration' in vehicle_update:
+                        vehicle.license_plate = vehicle_update['registration']
+                    if 'make' in vehicle_update:
+                        vehicle.make = vehicle_update['make']
+                    if 'model' in vehicle_update:
+                        vehicle.model = vehicle_update['model']
+                    if 'owner' in vehicle_update:
+                        vehicle.owner = vehicle_update['owner']
+                    if 'length' in vehicle_update:
+                        vehicle.length_cm = vehicle_update['length']
+                    if 'width' in vehicle_update:
+                        vehicle.width_cm = vehicle_update['width']
+                    if 'height' in vehicle_update:
+                        vehicle.height_cm = vehicle_update['height']
+                    if 'hasTrailer' in vehicle_update:
+                        vehicle.has_trailer = vehicle_update['hasTrailer']
+                    if 'hasCaravan' in vehicle_update:
+                        vehicle.has_caravan = vehicle_update['hasCaravan']
+                    if 'hasRoofBox' in vehicle_update:
+                        vehicle.has_roof_box = vehicle_update['hasRoofBox']
+                    if 'hasBikeRack' in vehicle_update:
+                        vehicle.has_bike_rack = vehicle_update['hasBikeRack']
+
+        booking.updated_at = datetime.utcnow()
+        db.commit()
+
+        return {"success": True, "message": "Booking updated successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to quick update booking {booking_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to update booking: {str(e)}"

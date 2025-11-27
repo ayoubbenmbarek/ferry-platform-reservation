@@ -15,6 +15,7 @@ import {
 import { ferryAPI } from '../services/api';
 import { FerryResult, SearchParams, PORTS } from '../types/ferry';
 import DatePriceSelector from '../components/DatePriceSelector';
+import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 
 // Search Form Component
 interface SearchFormProps {
@@ -662,18 +663,62 @@ const NewSearchPage: React.FC = () => {
   // Step 2: Select ferry (previously was Step 1: Passenger details - now removed)
   if (currentStep === 2 || currentStep === 1) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-6xl mx-auto px-4">
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-600">
-                {passengers.length > 0 ? 'Step 2 of 3' : 'Step 1 of 3'}
-              </span>
-              <span className="text-sm font-medium text-gray-600">{t('search:selectFerry')}</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full" style={{ width: passengers.length > 0 ? '66%' : '33%' }}></div>
+      <div className="min-h-screen bg-gray-50">
+        {/* Booking Step Indicator */}
+        <BookingStepIndicator
+          currentStep={BookingStep.SELECT_FERRY}
+          onBack={() => navigate('/')}
+        />
+
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          {/* Search Summary Bar */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <div className="flex items-center">
+                  <span className="font-semibold text-gray-700 mr-2">Route:</span>
+                  <span className="text-gray-900">
+                    {PORTS.find(p => p.code === searchParams.departurePort)?.name || searchParams.departurePort}
+                    {' → '}
+                    {PORTS.find(p => p.code === searchParams.arrivalPort)?.name || searchParams.arrivalPort}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="font-semibold text-gray-700 mr-2">Date:</span>
+                  <span className="text-gray-900">
+                    {searchParams.departureDate ? new Date(searchParams.departureDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                  </span>
+                </div>
+                {isRoundTrip && searchParams.returnDate && (
+                  <div className="flex items-center">
+                    <span className="font-semibold text-gray-700 mr-2">Return:</span>
+                    <span className="text-gray-900">
+                      {new Date(searchParams.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center">
+                  <span className="font-semibold text-gray-700 mr-2">Passengers:</span>
+                  <span className="text-gray-900">
+                    {(searchParams.passengers?.adults || 0) + (searchParams.passengers?.children || 0) + (searchParams.passengers?.infants || 0)}
+                  </span>
+                </div>
+                {searchParams.vehicles && searchParams.vehicles.length > 0 && (
+                  <div className="flex items-center">
+                    <span className="font-semibold text-gray-700 mr-2">Vehicles:</span>
+                    <span className="text-gray-900">{searchParams.vehicles.length}</span>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Search
+              </button>
             </div>
           </div>
 

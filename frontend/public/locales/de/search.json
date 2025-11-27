@@ -60,6 +60,15 @@
     "carWithTrailer": "Auto mit Anhänger",
     "bicycle": "Fahrrad"
   },
+  "vehicleTypes": {
+    "car": "Auto",
+    "suv": "SUV / Geländewagen",
+    "van": "Transporter",
+    "motorcycle": "Motorrad",
+    "camper": "Wohnmobil",
+    "caravan": "Wohnwagen",
+    "truck": "LKW"
+  },
   "results": {
     "title": "Verfügbare Fähren",
     "noResults": "Keine Fähren für Ihre Suchkriterien gefunden",

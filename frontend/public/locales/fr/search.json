@@ -60,6 +60,15 @@
     "carWithTrailer": "Voiture avec Remorque",
     "bicycle": "Vélo"
   },
+  "vehicleTypes": {
+    "car": "Voiture",
+    "suv": "SUV / 4x4",
+    "van": "Van / Utilitaire",
+    "motorcycle": "Moto",
+    "camper": "Camping-car",
+    "caravan": "Caravane",
+    "truck": "Camion"
+  },
   "results": {
     "title": "Ferries Disponibles",
     "noResults": "Aucun ferry trouvé pour vos critères de recherche",

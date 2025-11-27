@@ -6,6 +6,7 @@ import { RootState } from '../store';
 import { resetBooking } from '../store/slices/ferrySlice';
 import CreateAccountModal from '../components/CreateAccountModal';
 import { setUser } from '../store/slices/authSlice';
+import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 
 const BookingConfirmationPage: React.FC = () => {
   const { t } = useTranslation(['booking', 'common']);
@@ -55,8 +56,14 @@ const BookingConfirmationPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-3xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Booking Step Indicator */}
+      <BookingStepIndicator
+        currentStep={BookingStep.CONFIRMATION}
+        canGoBack={false}
+      />
+
+      <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Success Message */}
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
           <div className="text-center mb-6">

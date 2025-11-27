@@ -33,6 +33,7 @@ const NewHomePage: React.FC = () => {
     children: searchParams.passengers?.children || 0,
     infants: searchParams.passengers?.infants || 0,
     hasVehicle: (vehicles && vehicles.length > 0) || false,
+    vehicleType: vehicles && vehicles.length > 0 ? vehicles[0].type : 'car',
   });
 
   // Update form when Redux state changes (e.g., coming back from search page)
@@ -50,6 +51,7 @@ const NewHomePage: React.FC = () => {
         children: searchParams.passengers?.children || 0,
         infants: searchParams.passengers?.infants || 0,
         hasVehicle: (vehicles && vehicles.length > 0) || false,
+        vehicleType: vehicles && vehicles.length > 0 ? vehicles[0].type : 'CAR',
       });
     }
   }, [searchParams, vehicles]);
@@ -206,7 +208,17 @@ const NewHomePage: React.FC = () => {
         children: form.children,
         infants: form.infants,
       },
-      vehicles: [],
+      vehicles: form.hasVehicle ? [{
+        id: crypto.randomUUID(),
+        type: form.vehicleType as any,
+        // These will be filled in on the booking page
+        registration: '',
+        make: '',
+        model: '',
+        length: 500,
+        width: 200,
+        height: 200,
+      }] : [],
     }));
 
     // Set round trip flag
@@ -549,11 +561,33 @@ const NewHomePage: React.FC = () => {
                     />
                     <span className="ml-3 text-sm font-medium text-gray-900">
                       🚗 {t('search:form.travelingWithVehicle')}
-                      <span className="block text-xs text-gray-600 mt-1">
-                        {t('search:form.vehicleDetailsLater', "You'll be able to add vehicle details in the next step")}
-                      </span>
                     </span>
                   </label>
+
+                  {/* Vehicle Type Selection - Shows when hasVehicle is checked */}
+                  {form.hasVehicle && (
+                    <div className="mt-4 pt-4 border-t border-blue-200">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        {t('search:form.vehicleType', 'Type de véhicule')}
+                      </label>
+                      <select
+                        value={form.vehicleType}
+                        onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                      >
+                        <option value="car">🚗 {t('search:vehicleTypes.car', 'Voiture')}</option>
+                        <option value="suv">🚙 {t('search:vehicleTypes.suv', 'SUV / 4x4')}</option>
+                        <option value="van">🚐 {t('search:vehicleTypes.van', 'Van / Utilitaire')}</option>
+                        <option value="motorcycle">🏍️ {t('search:vehicleTypes.motorcycle', 'Moto')}</option>
+                        <option value="camper">🚌 {t('search:vehicleTypes.camper', 'Camping-car')}</option>
+                        <option value="caravan">🏕️ {t('search:vehicleTypes.caravan', 'Caravane')}</option>
+                        <option value="truck">🚚 {t('search:vehicleTypes.truck', 'Camion')}</option>
+                      </select>
+                      <p className="text-xs text-gray-600 mt-2">
+                        {t('search:form.vehicleDetailsLater', "Les détails complets du véhicule seront demandés à l'étape suivante")}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Search Button */}

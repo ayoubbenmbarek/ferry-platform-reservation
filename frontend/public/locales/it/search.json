@@ -60,6 +60,15 @@
     "carWithTrailer": "Auto con Rimorchio",
     "bicycle": "Bicicletta"
   },
+  "vehicleTypes": {
+    "car": "Auto",
+    "suv": "SUV / Fuoristrada",
+    "van": "Furgone",
+    "motorcycle": "Moto",
+    "camper": "Camper",
+    "caravan": "Roulotte",
+    "truck": "Camion"
+  },
   "results": {
     "title": "Traghetti Disponibili",
     "noResults": "Nessun traghetto trovato per i tuoi criteri di ricerca",

@@ -222,7 +222,7 @@ export const createBooking = createAsyncThunk(
           petCarrierProvided: p.petCarrierProvided || false,
         })),
         vehicles: vehicles.length > 0 ? vehicles.map((v: VehicleInfo) => ({
-          type: v.type,
+          type: v.type.toLowerCase(),
           length: v.length,
           width: v.width,
           height: v.height,
@@ -230,6 +230,11 @@ export const createBooking = createAsyncThunk(
           registration: v.registration,
           make: v.make,
           model: v.model,
+          owner: v.owner,
+          has_trailer: v.hasTrailer || false,
+          has_caravan: v.hasCaravan || false,
+          has_roof_box: v.hasRoofBox || false,
+          has_bike_rack: v.hasBikeRack || false,
         })) : undefined,
         cabinId: selectedCabinId,
         returnCabinId: selectedReturnCabinId,
@@ -253,6 +258,10 @@ const ferrySlice = createSlice({
     // Search params actions
     setSearchParams: (state, action: PayloadAction<Partial<SearchParams>>) => {
       state.searchParams = { ...state.searchParams, ...action.payload };
+      // Sync vehicles from searchParams to main state
+      if (action.payload.vehicles !== undefined) {
+        state.vehicles = action.payload.vehicles;
+      }
       // Clear old search results when params change
       state.searchResults = [];
       state.searchError = null;

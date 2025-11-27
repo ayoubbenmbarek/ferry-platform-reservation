@@ -20,6 +20,23 @@
     "three": "3 Cabins",
     "description": "Select the number of cabins you need. Deck passage means no cabin."
   },
+  "vehicles": {
+    "car": "سيارة",
+    "motorcycle": "دراجة نارية",
+    "van": "شاحنة صغيرة",
+    "camper": "عربة تخييم",
+    "carWithTrailer": "سيارة مع مقطورة",
+    "bicycle": "دراجة"
+  },
+  "vehicleTypes": {
+    "car": "سيارة",
+    "suv": "سيارة دفع رباعي",
+    "van": "شاحنة صغيرة",
+    "motorcycle": "دراجة نارية",
+    "camper": "عربة تخييم",
+    "caravan": "مقطورة سكنية",
+    "truck": "شاحنة"
+  },
   "results": {
     "title": "Available Ferries",
     "noResults": "No ferries found for your search criteria",

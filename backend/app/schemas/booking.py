@@ -152,12 +152,19 @@ class BookingVehicleResponse(BaseModel):
     vehicle_type: str
     make: Optional[str] = None
     model: Optional[str] = None
+    owner: Optional[str] = None
     license_plate: str
     length_cm: int
     width_cm: int
     height_cm: int
     base_price: float
     final_price: float
+
+    # Accessories
+    has_trailer: bool = False
+    has_caravan: bool = False
+    has_roof_box: bool = False
+    has_bike_rack: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

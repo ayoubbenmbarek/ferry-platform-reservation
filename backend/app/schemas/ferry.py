@@ -64,6 +64,11 @@ class VehicleInfo(BaseModel):
     registration: Optional[str] = None
     make: Optional[str] = None
     model: Optional[str] = None
+    owner: Optional[str] = None
+    has_trailer: bool = False
+    has_caravan: bool = False
+    has_roof_box: bool = False
+    has_bike_rack: bool = False
 
 
 class PassengerInfo(BaseModel):

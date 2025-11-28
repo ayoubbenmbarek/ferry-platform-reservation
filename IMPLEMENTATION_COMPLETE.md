@@ -919,18 +919,22 @@ TODO:modifier ma réservation, check this aferry example publication for that, m
 ---
 TODO:the calcul of total will be recalculated for passenger type if child or infant should not pay same as adult and add detail on price summary how many adults*price and so on:done
 TODO:delete cabins from home page and search page:done
-TODO:add model,make,License plate number, owner
+TODO:add model,make,License plate number, owner:done
 TODO:add price in summary for vehicule and calculate it in total:done
 TODO: i think i need to remove search  page from bar, beacuse it is  duplicated like homepage, but i  need another bar that shows in 
 which step we are and if we want to return to previous step etc:high priority:done
 TODO:if i  click travel with vehicule, and go ahead but no vehicule more available??!
 TODO:maybe propose be alerted when vehicule is available for your route
-TODO:check modifier vehicule and passenger details if contain all vehicule informations
+TODO:check modifier vehicule and passenger details if contain all vehicule informations:done
 TODO:add price for roof box and all accesories..
-TODO:retrtieve vehicule info by plate, or add all vehicuel models and make etc for user to chooose its car
+TODO:TODO: Integrate with actual license plate lookup API in this fucntion lookup_license_plate,just add your API key to the
+  lookup_license_plate
+TODO:retrtieve vehicule info by plate, and possibility to add  vehicuel by models and make etc for user to chooose its car
 TODO:check if confirmation reservation email sent asycnh or not
 TODO:when i cancel booking or cabin or vehicule i should freed that place in the real api too? or just put it in my stock?
-
+TODO:when add car accessory may should add price
+TODO:add passenger info mandatory
+TODO:continue with {"error":true,"message":"Not Found","status_code":404} for makes
 ---
 
 ### 💰 Differentiated Pricing & Detailed Breakdown (2024-11-27) ✅

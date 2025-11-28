@@ -7,7 +7,7 @@ import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, s
 import CabinSelector from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
-import VehicleForm, { VehicleFormData } from '../components/VehicleForm';
+import VehicleForm, { VehicleFormData } from '../components/VehicleFormEnhanced';
 import { PassengerInfo, PassengerType } from '../types/ferry';
 import { promoCodeAPI } from '../services/api';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';

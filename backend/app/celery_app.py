@@ -71,6 +71,15 @@ celery_app.conf.update(
 
     # Beat schedule (for periodic tasks)
     beat_schedule={
+        # Expire old pending bookings (replaces cron job)
+        # Runs every minute to ensure timely expiration of unpaid bookings
+        'expire-old-bookings': {
+            'task': 'app.tasks.booking_tasks.expire_old_bookings',
+            'schedule': 60,  # Every minute (same as original cron)
+            'options': {
+                'expires': 300,  # Task expires after 5 minutes if not picked up
+            }
+        },
         # Check availability alerts
         # Testing: Every 1 minute for testing
         # Production: Change to 3600 (1 hour) or 7200 (2 hours)

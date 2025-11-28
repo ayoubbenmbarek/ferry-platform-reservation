@@ -135,37 +135,6 @@ services:
     networks:
       - maritime-dev-network
 
-  # Cron Job Container for Booking Expiration (Development)
-  cron-expire-bookings:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.cron
-    container_name: maritime-cron-dev
-    restart: unless-stopped
-    env_file:
-      - ./backend/.env.development
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      DEBUG: ${DEBUG}
-      ENVIRONMENT: ${ENVIRONMENT}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      FROM_EMAIL: ${FROM_EMAIL}
-      FROM_NAME: ${FROM_NAME}
-      BASE_URL: ${BASE_URL}
-      LOG_LEVEL: ${LOG_LEVEL}
-    volumes:
-      - ./backend/logs:/app/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      backend:
-        condition: service_started
-    networks:
-      - maritime-dev-network
-
   # pgAdmin for Database Management
   pgadmin:
     image: dpage/pgadmin4:latest

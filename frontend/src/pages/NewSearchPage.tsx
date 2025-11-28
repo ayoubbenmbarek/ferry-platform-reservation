@@ -16,6 +16,7 @@ import { ferryAPI } from '../services/api';
 import { FerryResult, SearchParams, PORTS } from '../types/ferry';
 import DatePriceSelector from '../components/DatePriceSelector';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
+import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 
 // Search Form Component
 interface SearchFormProps {
@@ -910,12 +911,47 @@ const NewSearchPage: React.FC = () => {
           )}
 
           {/* No Results */}
-          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length === 0 && !searchError && (
+          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length === 0 && !searchError && searchParams && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
               <p className="text-yellow-800 font-medium mb-2">
                 {isSelectingReturn ? t('search:noReturnResults') : t('search:noResults')}
               </p>
-              <p className="text-yellow-700 text-sm">{t('search:tryAdjusting')}</p>
+              <p className="text-yellow-700 text-sm mb-4">{t('search:tryAdjusting')}</p>
+
+              {/* Availability Alert Button */}
+              {searchParams.departurePort && searchParams.arrivalPort && searchParams.departureDate && (
+                <div className="mt-4">
+                  <AvailabilityAlertButton
+                    searchCriteria={{
+                      departurePort: isSelectingReturn
+                        ? (searchParams.returnDeparturePort || searchParams.arrivalPort || '')
+                        : (searchParams.departurePort || ''),
+                      arrivalPort: isSelectingReturn
+                        ? (searchParams.returnArrivalPort || searchParams.departurePort || '')
+                        : (searchParams.arrivalPort || ''),
+                      departureDate: isSelectingReturn
+                        ? (searchParams.returnDate || searchParams.departureDate || '')
+                        : (searchParams.departureDate || ''),
+                      isRoundTrip: !!searchParams.returnDate && !isSelectingReturn,
+                      returnDate: !isSelectingReturn ? searchParams.returnDate : undefined,
+                      adults: searchParams.passengers?.adults || 1,
+                      children: searchParams.passengers?.children || 0,
+                      infants: searchParams.passengers?.infants || 0,
+                      vehicle: searchParams.vehicles && searchParams.vehicles.length > 0
+                        ? { type: searchParams.vehicles[0].type, length: searchParams.vehicles[0].length }
+                        : undefined,
+                    }}
+                    alertType={
+                      searchParams.vehicles && searchParams.vehicles.length > 0
+                        ? 'vehicle'
+                        : 'passenger'
+                    }
+                  />
+                  <p className="text-sm text-yellow-600 mt-2">
+                    {t('search:notifyWhenAvailable', 'Get notified when ferries become available')}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

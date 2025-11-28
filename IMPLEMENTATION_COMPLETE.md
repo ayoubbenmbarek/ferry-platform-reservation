@@ -937,7 +937,20 @@ TODO:add passenger info mandatory
 TODO:continue with {"error":true,"message":"Not Found","status_code":404} for makes:done
 TODO:email vailaibility notification:en cours
 TODO:i have container for cron jobs, better use it as it is for cancellation or may use celery beat like alert notification?
-TODO: why notification task expires after one hour if not picked up and try to run it every minute for test and later every hours
+TODO: why notification task expires after one hour if not picked up?, and try to run it every minute for test and later every hour maybe?done
+TODO:add frontend for availaibility, and we need after search ferries small emoji shows what is vaialble and not (example,passenger,cabin,vehicule) and user can choose to be alerted just by clicking on that is not vailable, what do you think ?and suggest practical idea
+TODO:change logo in notification email from plane to ferry
+todo:on alert creation conflict https://localhost:3001/api/v1/availability-alerts
+Request Method
+POST
+Status Code
+409 Conflict
+Remote Address
+127.0.0.1:3001
+Referrer Policy
+strict-origin-when-cross, say, alert already created maybe for this, instead of this Failed to create alert. Please try again.
+TODO:if route avaialible sed notification with the correct information directly(routes, passenger etc..) that user saved on alert
+
 ---
 
 ### 💰 Differentiated Pricing & Detailed Breakdown (2024-11-27) ✅

@@ -10,8 +10,9 @@ import logging
 from app.database import get_db
 from app.models.availability_alert import AvailabilityAlert, AlertTypeEnum, AlertStatusEnum
 from app.models.user import User
-from app.api.v1.auth import get_optional_current_user
-from pydantic import BaseModel, EmailStr, validator
+from app.api.deps import get_optional_current_user
+from pydantic import BaseModel, EmailStr, validator, field_serializer
+from datetime import date
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +85,36 @@ class AvailabilityAlertResponse(BaseModel):
     expires_at: datetime
     created_at: datetime
 
+    @classmethod
+    def from_orm(cls, obj):
+        # Convert date objects to ISO strings
+        data = {
+            'id': obj.id,
+            'alert_type': obj.alert_type,
+            'email': obj.email,
+            'departure_port': obj.departure_port,
+            'arrival_port': obj.arrival_port,
+            'departure_date': obj.departure_date.isoformat() if isinstance(obj.departure_date, date) else obj.departure_date,
+            'is_round_trip': obj.is_round_trip,
+            'return_date': obj.return_date.isoformat() if obj.return_date and isinstance(obj.return_date, date) else obj.return_date,
+            'num_adults': obj.num_adults,
+            'num_children': obj.num_children,
+            'num_infants': obj.num_infants,
+            'vehicle_type': obj.vehicle_type,
+            'cabin_type': obj.cabin_type,
+            'status': obj.status,
+            'last_checked_at': obj.last_checked_at,
+            'notified_at': obj.notified_at,
+            'expires_at': obj.expires_at,
+            'created_at': obj.created_at,
+        }
+        return cls(**data)
+
     class Config:
         from_attributes = True
 
 
-@router.post("/", response_model=AvailabilityAlertResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AvailabilityAlertResponse, status_code=status.HTTP_201_CREATED)
 async def create_availability_alert(
     alert_data: AvailabilityAlertCreate,
     db: Session = Depends(get_db),
@@ -170,7 +196,7 @@ async def create_availability_alert(
 
         logger.info(f"✅ Created availability alert {new_alert.id} for {alert_data.email} ({alert_data.alert_type})")
 
-        return new_alert
+        return AvailabilityAlertResponse.from_orm(new_alert)
 
     except HTTPException:
         raise
@@ -183,7 +209,7 @@ async def create_availability_alert(
         )
 
 
-@router.get("/", response_model=List[AvailabilityAlertResponse])
+@router.get("", response_model=List[AvailabilityAlertResponse])
 async def list_availability_alerts(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_current_user),
@@ -218,7 +244,7 @@ async def list_availability_alerts(
     # Order by created_at descending and limit
     alerts = query.order_by(AvailabilityAlert.created_at.desc()).limit(limit).all()
 
-    return alerts
+    return [AvailabilityAlertResponse.from_orm(alert) for alert in alerts]
 
 
 @router.get("/{alert_id}", response_model=AvailabilityAlertResponse)
@@ -249,7 +275,7 @@ async def get_availability_alert(
             )
     # If not authenticated, they can't view
 
-    return alert
+    return AvailabilityAlertResponse.from_orm(alert)
 
 
 @router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)

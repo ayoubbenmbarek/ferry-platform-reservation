@@ -10,7 +10,7 @@ frontend/.env.production
 backend/.env
 backend/.env.production
 frontend/.env
-
+backend/celerybeat-schedule
 # Python
 __pycache__/
 *.py[cod]

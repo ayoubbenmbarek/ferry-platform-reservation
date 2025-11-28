@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store';
 import { searchFerries, selectFerry } from '../store/slices/ferrySlice';
 import DatePriceSelector from '../components/DatePriceSelector';
+import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 
 interface SearchForm {
   departurePort: string;
@@ -279,9 +280,30 @@ const SearchPage: React.FC = () => {
               />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No ferries found</h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-6">
               No ferries match your search criteria. Try adjusting your search parameters.
             </p>
+
+            {/* Availability Alert Button */}
+            <div className="mt-6">
+              <AvailabilityAlertButton
+                searchCriteria={{
+                  departurePort: searchForm.departurePort,
+                  arrivalPort: searchForm.arrivalPort,
+                  departureDate: searchForm.departureDate,
+                  isRoundTrip: !!searchForm.returnDate,
+                  returnDate: searchForm.returnDate || undefined,
+                  adults: searchForm.passengers,
+                  children: 0,
+                  infants: 0,
+                  vehicle: searchForm.vehicles > 0 ? { type: 'car', length: 450 } : undefined,
+                }}
+                alertType={searchForm.vehicles > 0 ? 'vehicle' : 'passenger'}
+              />
+              <p className="text-sm text-gray-500 mt-3">
+                Get notified when ferries become available for this route
+              </p>
+            </div>
           </div>
         )}
 

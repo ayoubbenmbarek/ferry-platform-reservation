@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 interface SearchCriteria {
   departurePort: string;
@@ -76,7 +76,7 @@ const AvailabilityAlertButton: React.FC<AvailabilityAlertButtonProps> = ({
         });
       }
 
-      await axios.post('/api/v1/availability-alerts', alertData);
+      await api.post('/availability-alerts', alertData);
 
       setSuccess(true);
       setTimeout(() => {

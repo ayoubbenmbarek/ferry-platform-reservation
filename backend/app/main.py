@@ -107,6 +107,7 @@ app = FastAPI(
     description="A comprehensive ferry booking platform for Italy/France to Tunisia routes",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    redirect_slashes=False,  # Disable automatic trailing slash redirects to avoid CORS issues
 )
 
 # Add request ID middleware (must be first)

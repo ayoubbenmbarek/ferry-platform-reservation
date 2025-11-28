@@ -4,6 +4,7 @@ Runs periodically to check if previously unavailable routes now have space.
 """
 import os
 import logging
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 from celery import shared_task
@@ -57,8 +58,9 @@ def check_availability_alerts_task(self):
 
         # 2. Get active alerts that need checking
         # Only check alerts for future dates
-        # Don't check if checked in last 2 hours (avoid rate limiting)
-        two_hours_ago = now - timedelta(hours=2)
+        # Cooldown to avoid excessive API calls (5 minutes for real-time notifications)
+        # Increase to hours=1 or hours=2 if hitting rate limits
+        cooldown_period = now - timedelta(minutes=5)
 
         alerts = db.query(AvailabilityAlert).filter(
             and_(
@@ -66,7 +68,7 @@ def check_availability_alerts_task(self):
                 AvailabilityAlert.departure_date >= now.date(),
                 or_(
                     AvailabilityAlert.last_checked_at.is_(None),
-                    AvailabilityAlert.last_checked_at < two_hours_ago
+                    AvailabilityAlert.last_checked_at < cooldown_period
                 )
             )
         ).limit(100).all()  # Process max 100 alerts per run
@@ -92,14 +94,14 @@ def check_availability_alerts_task(self):
                 search_params = {
                     "departure_port": alert.departure_port,
                     "arrival_port": alert.arrival_port,
-                    "departure_date": alert.departure_date.isoformat(),
+                    "departure_date": alert.departure_date,  # Pass as date object, not ISO string
                     "adults": alert.num_adults,
                     "children": alert.num_children,
                     "infants": alert.num_infants,
                 }
 
                 if alert.is_round_trip and alert.return_date:
-                    search_params["return_date"] = alert.return_date.isoformat()
+                    search_params["return_date"] = alert.return_date  # Pass as date object
 
                 # Check availability based on alert type
                 availability_found = False
@@ -113,12 +115,17 @@ def check_availability_alerts_task(self):
                         "height": 150
                     }]
 
-                    sailings = ferry_service.search_sailings(**search_params)
+                    # Call async ferry search (run in sync context)
+                    results = asyncio.run(ferry_service.search_ferries(**search_params))
 
                     # Check if any sailing has vehicle space
-                    for sailing in sailings:
-                        if sailing.get("has_vehicle_space", False):
+                    # Results are FerryResult objects with available_spaces attribute
+                    for result in results:
+                        available_spaces = getattr(result, "available_spaces", {})
+                        vehicles_available = available_spaces.get("vehicles", 0) if isinstance(available_spaces, dict) else 0
+                        if vehicles_available > 0:
                             availability_found = True
+                            logger.info(f"🚗 Found vehicle space: {vehicles_available} spaces available")
                             break
 
                 elif alert.alert_type == "cabin":
@@ -126,24 +133,31 @@ def check_availability_alerts_task(self):
                     search_params["cabin_required"] = True
                     search_params["cabin_type"] = alert.cabin_type or "inside"
 
-                    sailings = ferry_service.search_sailings(**search_params)
+                    # Call async ferry search (run in sync context)
+                    results = asyncio.run(ferry_service.search_ferries(**search_params))
 
                     # Check if any sailing has cabin space
-                    for sailing in sailings:
-                        cabins = sailing.get("available_cabins", [])
-                        if len(cabins) >= (alert.num_cabins or 1):
+                    for result in results:
+                        cabin_types = getattr(result, "cabin_types", [])
+                        available_cabins = [c for c in cabin_types if c.get("available", 0) >= (alert.num_cabins or 1)] if cabin_types else []
+                        if available_cabins:
                             availability_found = True
+                            logger.info(f"🛏️ Found cabin availability: {len(available_cabins)} cabin types available")
                             break
 
                 elif alert.alert_type == "passenger":
                     # Check if route has passenger capacity
-                    sailings = ferry_service.search_sailings(**search_params)
+                    # Call async ferry search (run in sync context)
+                    results = asyncio.run(ferry_service.search_ferries(**search_params))
 
                     # Check if any sailing has passenger space
                     total_passengers = alert.num_adults + alert.num_children + alert.num_infants
-                    for sailing in sailings:
-                        if sailing.get("available_seats", 0) >= total_passengers:
+                    for result in results:
+                        available_spaces = getattr(result, "available_spaces", {})
+                        passengers_available = available_spaces.get("passengers", 0) if isinstance(available_spaces, dict) else 0
+                        if passengers_available >= total_passengers:
                             availability_found = True
+                            logger.info(f"👥 Found passenger space: {passengers_available} seats available")
                             break
 
                 # 4. Send notification if availability found
@@ -199,12 +213,15 @@ def _send_availability_notification(alert: AvailabilityAlert, db):
             "return_date": alert.return_date.strftime("%B %d, %Y") if alert.return_date else None,
             "num_adults": alert.num_adults,
             "num_children": alert.num_children,
+            "num_infants": alert.num_infants,
             "vehicle_type": alert.vehicle_type,
+            "vehicle_length_cm": alert.vehicle_length_cm,
             "cabin_type": alert.cabin_type,
+            "num_cabins": alert.num_cabins,
             "search_url": f"{os.getenv('BASE_URL', 'http://localhost:3001')}/search?"
                          f"from={alert.departure_port}&to={alert.arrival_port}"
                          f"&date={alert.departure_date.isoformat()}"
-                         f"&adults={alert.num_adults}&children={alert.num_children}"
+                         f"&adults={alert.num_adults}&children={alert.num_children}&infants={alert.num_infants}"
         }
 
         # Send email using email service

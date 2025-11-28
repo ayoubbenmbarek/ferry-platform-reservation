@@ -42,12 +42,14 @@ class MockFerryIntegration(BaseFerryIntegration):
             ("TUNIS", "CIVITAVECCHIA"): {"duration_hours": 22, "distance": 480},
             ("TUNIS", "PALERMO"): {"duration_hours": 11, "distance": 210},
             ("TUNIS", "NICE"): {"duration_hours": 19, "distance": 440},
+            ("TUNIS", "SALERNO"): {"duration_hours": 20, "distance": 450},
             # Reverse routes
             ("GENOA", "TUNIS"): {"duration_hours": 24, "distance": 520},
             ("MARSEILLE", "TUNIS"): {"duration_hours": 21, "distance": 465},
             ("CIVITAVECCHIA", "TUNIS"): {"duration_hours": 22, "distance": 480},
             ("PALERMO", "TUNIS"): {"duration_hours": 11, "distance": 210},
             ("NICE", "TUNIS"): {"duration_hours": 19, "distance": 440},
+            ("SALERNO", "TUNIS"): {"duration_hours": 20, "distance": 450},
         }
 
     async def search_ferries(self, search_request: SearchRequest) -> List[FerryResult]:

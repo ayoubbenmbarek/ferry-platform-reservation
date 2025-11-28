@@ -76,7 +76,6 @@ try:
     )
     from app.services.ferry_service import FerryService
     from app.services.ferry_integrations.base import FerryAPIError
-    from app.services.email_service import email_service
     from app.services.invoice_service import invoice_service
     from app.models.meal import BookingMeal
     from app.models.payment import Payment, PaymentStatusEnum
@@ -662,13 +661,20 @@ async def create_booking(
             }
             booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
 
-            email_service.send_booking_confirmation(
-                booking_data=booking_dict,
-                to_email=db_booking.contact_email
-            )
+            # Send booking confirmation email asynchronously using Celery
+            try:
+                from app.tasks.email_tasks import send_booking_confirmation_email_task
+                send_booking_confirmation_email_task.delay(
+                    booking_data=booking_dict,
+                    to_email=db_booking.contact_email
+                )
+                logger.info(f"📧 Booking confirmation email task queued for {db_booking.contact_email}")
+            except Exception as email_error:
+                # Log email task error but don't fail the booking
+                logger.error(f"Failed to queue booking confirmation email: {str(email_error)}")
         except Exception as e:
             # Log email error but don't fail the booking
-            print(f"Failed to send booking confirmation email: {str(e)}")
+            logger.error(f"Failed to prepare booking confirmation email: {str(e)}")
 
         return booking_to_response(db_booking)
         

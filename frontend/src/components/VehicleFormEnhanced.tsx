@@ -48,7 +48,6 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(isExpanded);
   const [formData, setFormData] = useState<VehicleFormData>(vehicle);
-  const [hasChanges, setHasChanges] = useState(false);
 
   // License plate lookup state
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -58,7 +57,9 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
   const [makes, setMakes] = useState<VehicleMake[]>([]);
   const [models, setModels] = useState<VehicleModel[]>([]);
   const [selectedMakeId, setSelectedMakeId] = useState<number | null>(null);
+  const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [useDropdowns, setUseDropdowns] = useState(false);
+  const [makesLoading, setMakesLoading] = useState(true);
 
   // Track if form was just collapsed
   const prevExpandedRef = React.useRef(expanded);
@@ -67,10 +68,15 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
   useEffect(() => {
     const fetchMakes = async () => {
       try {
+        console.log('Fetching vehicle makes...');
         const response = await axios.get('/api/v1/vehicles/makes');
+        console.log('Vehicle makes response:', response.data);
         setMakes(response.data);
-      } catch (error) {
+        setMakesLoading(false);
+      } catch (error: any) {
         console.error('Failed to fetch vehicle makes:', error);
+        console.error('Error details:', error.response?.data, error.message);
+        setMakesLoading(false);
       }
     };
     fetchMakes();
@@ -98,14 +104,12 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
     const isCollapsing = prevExpandedRef.current && !expanded;
     if (isCollapsing && formData.registration?.trim()) {
       onSave(formData);
-      setHasChanges(false);
     }
     prevExpandedRef.current = expanded;
   }, [expanded, formData, onSave]);
 
   const handleChange = (field: keyof VehicleFormData, value: any) => {
     setFormData({ ...formData, [field]: value });
-    setHasChanges(true);
   };
 
   const handleLicensePlateLookup = async () => {
@@ -149,6 +153,7 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
 
   const handleMakeChange = (makeId: number) => {
     setSelectedMakeId(makeId);
+    setSelectedModelId(null);
     const make = makes.find(m => m.id === makeId);
     if (make) {
       handleChange('make', make.name);
@@ -158,6 +163,7 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
   };
 
   const handleModelChange = (modelId: number) => {
+    setSelectedModelId(modelId);
     const model = models.find(m => m.id === modelId);
     if (model) {
       handleChange('model', model.name);
@@ -177,7 +183,6 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
 
   const handleSave = () => {
     onSave(formData);
-    setHasChanges(false);
     setExpanded(false);
   };
 
@@ -337,9 +342,16 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
               checked={useDropdowns}
               onChange={(e) => setUseDropdowns(e.target.checked)}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              disabled={makesLoading}
             />
             <label htmlFor={`use-dropdowns-${vehicle.id}`} className="text-sm text-gray-700">
-              Select from vehicle database (auto-fills dimensions)
+              {makesLoading ? (
+                '⏳ Loading vehicle database...'
+              ) : makes.length > 0 ? (
+                `✓ Select from vehicle database (${makes.length} makes, 140+ models) - auto-fills dimensions`
+              ) : (
+                '⚠️ Vehicle database unavailable - use manual entry'
+              )}
             </label>
           </div>
 
@@ -368,7 +380,7 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
                   Model
                 </label>
                 <select
-                  value={formData.model || ''}
+                  value={selectedModelId || ''}
                   onChange={(e) => {
                     const modelId = parseInt(e.target.value);
                     if (modelId) handleModelChange(modelId);

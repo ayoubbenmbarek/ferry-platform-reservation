@@ -3,7 +3,7 @@ Vehicle make and model database models.
 """
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
-from app.db.base_class import Base
+from app.database import Base
 
 
 class VehicleMake(Base):

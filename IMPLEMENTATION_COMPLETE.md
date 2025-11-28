@@ -934,7 +934,7 @@ TODO:check if confirmation reservation email sent asycnh or not
 TODO:when i cancel booking or cabin or vehicule i should freed that place in the real api too? or just put it in my stock?
 TODO:when add car accessory may should add price
 TODO:add passenger info mandatory
-TODO:continue with {"error":true,"message":"Not Found","status_code":404} for makes
+TODO:continue with {"error":true,"message":"Not Found","status_code":404} for makes:done
 ---
 
 ### 💰 Differentiated Pricing & Detailed Breakdown (2024-11-27) ✅

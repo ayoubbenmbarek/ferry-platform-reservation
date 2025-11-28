@@ -18,6 +18,7 @@ celery_app = Celery(
         "app.tasks.email_tasks",
         "app.tasks.payment_tasks",
         "app.tasks.booking_tasks",
+        "app.tasks.availability_check_tasks",
     ]
 )
 
@@ -68,6 +69,27 @@ celery_app.conf.update(
         "app.tasks.booking_tasks.*": {"queue": "bookings", "routing_key": "booking.process"},
     },
 
-    # Beat schedule (for periodic tasks - can be added later)
-    beat_schedule={},
+    # Beat schedule (for periodic tasks)
+    beat_schedule={
+        # Check availability alerts
+        # Testing: Every 1 minute for testing
+        # Production: Change to 3600 (1 hour) or 7200 (2 hours)
+        'check-availability-alerts': {
+            'task': 'app.tasks.availability_check_tasks.check_availability_alerts',
+            'schedule': 60,  # 60 seconds = 1 minute for testing
+            # 'schedule': 3600,  # Uncomment for 1 hour in production
+            # 'schedule': 7200,  # Uncomment for 2 hours in production
+            'options': {
+                'expires': 300,  # Task expires after 5 minutes if not picked up (shorter for frequent checks)
+            }
+        },
+        # Cleanup old alerts daily
+        'cleanup-old-alerts': {
+            'task': 'app.tasks.availability_check_tasks.cleanup_old_alerts',
+            'schedule': 86400,  # 24 hours in seconds
+            'options': {
+                'expires': 7200,  # Task expires after 2 hours if not picked up
+            }
+        },
+    },
 )

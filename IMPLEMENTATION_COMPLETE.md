@@ -923,7 +923,7 @@ TODO:add model,make,License plate number, owner:done
 TODO:add price in summary for vehicule and calculate it in total:done
 TODO: i think i need to remove search  page from bar, beacuse it is  duplicated like homepage, but i  need another bar that shows in 
 which step we are and if we want to return to previous step etc:high priority:done
-TODO:if i  click travel with vehicule, and go ahead but no vehicule more available??!
+TODO:if i  click travel with vehicule, and go ahead but no vehicule more available??!:done
 TODO:maybe propose be alerted when vehicule is available for your route
 TODO:check modifier vehicule and passenger details if contain all vehicule informations:done
 TODO:add price for roof box and all accesories..
@@ -935,6 +935,9 @@ TODO:when i cancel booking or cabin or vehicule i should freed that place in the
 TODO:when add car accessory may should add price
 TODO:add passenger info mandatory
 TODO:continue with {"error":true,"message":"Not Found","status_code":404} for makes:done
+TODO:email vailaibility notification:en cours
+TODO:i have container for cron jobs, better use it as it is for cancellation or may use celery beat like alert notification?
+TODO: why notification task expires after one hour if not picked up and try to run it every minute for test and later every hours
 ---
 
 ### 💰 Differentiated Pricing & Detailed Breakdown (2024-11-27) ✅

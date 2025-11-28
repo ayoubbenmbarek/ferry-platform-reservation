@@ -26,7 +26,7 @@ except ImportError:
 
 # Import API routes using importlib to avoid __init__.py conflicts
 import importlib
-auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = modifications = vehicles = None
+auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = modifications = vehicles = availability_alerts = None
 
 try:
     auth = importlib.import_module('app.api.v1.auth')
@@ -89,6 +89,11 @@ try:
     vehicles = importlib.import_module('app.api.v1.vehicles')
 except ImportError as e:
     print(f"Failed to import vehicles module: {e}")
+
+try:
+    availability_alerts = importlib.import_module('app.api.v1.availability_alerts')
+except ImportError as e:
+    print(f"Failed to import availability_alerts module: {e}")
 
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
@@ -299,6 +304,9 @@ if modifications:
 
 if vehicles:
     app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["Vehicles"])
+
+if availability_alerts:
+    app.include_router(availability_alerts.router, prefix="/api/v1/availability-alerts", tags=["Availability Alerts"])
 
 
 # Startup event

@@ -114,6 +114,27 @@ services:
     networks:
       - maritime-dev-network
 
+  # Celery Beat for periodic tasks (Development)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: maritime-celery-beat-dev
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file:
+      - ./backend/.env.development
+    volumes:
+      - ./backend:/app
+      - ./backend/logs:/app/logs
+    depends_on:
+      - redis
+      - postgres
+      - backend
+      - celery-worker
+    networks:
+      - maritime-dev-network
+
   # Cron Job Container for Booking Expiration (Development)
   cron-expire-bookings:
     build:

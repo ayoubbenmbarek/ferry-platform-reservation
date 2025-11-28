@@ -338,6 +338,45 @@ class EmailService:
             logger.error(f"Failed to send email verification: {str(e)}")
             return False
 
+    def send_availability_alert(
+        self,
+        alert_data: Dict[str, Any],
+        to_email: str
+    ) -> bool:
+        """
+        Send availability alert notification email.
+
+        Args:
+            alert_data: Alert information including route, dates, type
+            to_email: Recipient email address
+
+        Returns:
+            bool: True if email sent successfully
+        """
+        try:
+            # Render email template
+            template = self.jinja_env.get_template("availability_alert.html")
+            html_content = template.render(alert=alert_data)
+
+            # Determine subject based on alert type
+            alert_type_names = {
+                "vehicle": "Vehicle Space",
+                "cabin": "Cabin",
+                "passenger": "Passenger Seats"
+            }
+            type_name = alert_type_names.get(alert_data.get("alert_type", ""), "Space")
+
+            subject = f"🎉 {type_name} Now Available: {alert_data['departure_port']} → {alert_data['arrival_port']}"
+
+            return self.send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content
+            )
+        except Exception as e:
+            logger.error(f"Failed to send availability alert: {str(e)}")
+            return False
+
 
 # Singleton instance
 email_service = EmailService()

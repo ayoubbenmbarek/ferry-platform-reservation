@@ -67,6 +67,7 @@ class User(Base):
     # Relationships
     bookings = relationship("Booking", back_populates="user")
     payments = relationship("Payment", back_populates="user")
+    availability_alerts = relationship("AvailabilityAlert", back_populates="user")
     
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}')>"

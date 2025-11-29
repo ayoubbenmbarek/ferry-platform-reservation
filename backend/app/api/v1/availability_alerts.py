@@ -29,6 +29,8 @@ class AvailabilityAlertCreate(BaseModel):
     departure_date: str  # ISO date format
     is_round_trip: bool = False
     return_date: Optional[str] = None
+    operator: Optional[str] = None  # Ferry operator (e.g., "CTN", "GNV"), None = any operator
+    sailing_time: Optional[str] = None  # Sailing departure time (e.g., "19:00"), None = any time
 
     # Passenger details
     num_adults: int = 1
@@ -74,6 +76,8 @@ class AvailabilityAlertResponse(BaseModel):
     departure_date: str
     is_round_trip: bool
     return_date: Optional[str] = None
+    operator: Optional[str] = None
+    sailing_time: Optional[str] = None
     num_adults: int
     num_children: int
     num_infants: int
@@ -97,6 +101,8 @@ class AvailabilityAlertResponse(BaseModel):
             'departure_date': obj.departure_date.isoformat() if isinstance(obj.departure_date, date) else obj.departure_date,
             'is_round_trip': obj.is_round_trip,
             'return_date': obj.return_date.isoformat() if obj.return_date and isinstance(obj.return_date, date) else obj.return_date,
+            'operator': obj.operator,
+            'sailing_time': obj.sailing_time.isoformat() if obj.sailing_time else None,
             'num_adults': obj.num_adults,
             'num_children': obj.num_children,
             'num_infants': obj.num_infants,
@@ -151,19 +157,39 @@ async def create_availability_alert(
                     detail="Return date must be after departure date"
                 )
 
+        # Parse sailing_time if provided
+        sailing_time_obj = None
+        if alert_data.sailing_time:
+            try:
+                # Parse time string (e.g., "19:00" or "19:00:00")
+                from datetime import time as dt_time
+                time_parts = alert_data.sailing_time.split(':')
+                sailing_time_obj = dt_time(int(time_parts[0]), int(time_parts[1]))
+            except (ValueError, IndexError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="sailing_time must be in HH:MM format (e.g., '19:00')"
+                )
+
         # Check if similar active alert already exists for this email
+        # Include operator AND sailing_time so users can create alerts for different sailings
         existing_alert = db.query(AvailabilityAlert).filter(
             AvailabilityAlert.email == alert_data.email,
             AvailabilityAlert.departure_port == alert_data.departure_port,
             AvailabilityAlert.arrival_port == alert_data.arrival_port,
             AvailabilityAlert.departure_date == departure_date,
+            AvailabilityAlert.alert_type == alert_data.alert_type,
+            AvailabilityAlert.operator == alert_data.operator,
+            AvailabilityAlert.sailing_time == sailing_time_obj,  # Allow different alerts for different sailing times
             AvailabilityAlert.status == AlertStatusEnum.ACTIVE.value
         ).first()
 
         if existing_alert:
+            operator_msg = f" for {existing_alert.operator}" if existing_alert.operator else ""
+            time_msg = f" at {existing_alert.sailing_time.strftime('%H:%M')}" if existing_alert.sailing_time else ""
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"You already have an active alert for this route. Alert ID: {existing_alert.id}"
+                detail=f"You already have an active {existing_alert.alert_type} alert{operator_msg}{time_msg} for this route. Alert ID: {existing_alert.id}"
             )
 
         # Calculate expiration date
@@ -179,6 +205,8 @@ async def create_availability_alert(
             departure_date=departure_date,
             is_round_trip=alert_data.is_round_trip,
             return_date=return_date,
+            operator=alert_data.operator,  # Ferry-specific operator (e.g., "CTN", "GNV")
+            sailing_time=sailing_time_obj,  # Specific sailing time (e.g., 19:00)
             num_adults=alert_data.num_adults,
             num_children=alert_data.num_children,
             num_infants=alert_data.num_infants,

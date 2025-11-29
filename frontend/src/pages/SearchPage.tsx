@@ -30,9 +30,56 @@ const SearchPage: React.FC = () => {
     vehicles: 0,
   });
 
-  // Initialize form from navigation state if available
+  // Initialize form from URL query parameters or navigation state
   useEffect(() => {
-    if (location.state?.searchParams) {
+    // First, try to read from URL query parameters (from email links)
+    const urlParams = new URLSearchParams(location.search);
+    const fromUrl = urlParams.get('from');
+    const toUrl = urlParams.get('to');
+    const dateUrl = urlParams.get('date');
+
+    console.log('🔍 SearchPage URL params:', { fromUrl, toUrl, dateUrl, search: location.search });
+
+    if (fromUrl && toUrl && dateUrl) {
+      console.log('✅ URL params found, auto-searching...');
+      // URL parameters found - use these (from email notification link)
+      const urlSearchForm = {
+        departurePort: fromUrl.toUpperCase(),
+        arrivalPort: toUrl.toUpperCase(),
+        departureDate: dateUrl,
+        returnDate: urlParams.get('returnDate') || '',
+        passengers: parseInt(urlParams.get('adults') || '1'),
+        vehicles: 0,
+      };
+
+      setSearchForm(urlSearchForm);
+
+      // Build vehicles array if vehicle info is provided
+      const vehicleType = urlParams.get('vehicleType');
+      const vehicleLength = urlParams.get('vehicleLength');
+      const vehicles: any[] = vehicleType ? [{
+        id: 'url-vehicle-1',
+        type: vehicleType.toUpperCase(),
+        length: vehicleLength ? parseInt(vehicleLength) : 450,
+        width: 180,
+        height: 150,
+      }] : [];
+
+      // Auto-search with URL parameters
+      dispatch(searchFerries({
+        departurePort: urlSearchForm.departurePort,
+        arrivalPort: urlSearchForm.arrivalPort,
+        departureDate: urlSearchForm.departureDate,
+        returnDate: urlSearchForm.returnDate || undefined,
+        passengers: {
+          adults: parseInt(urlParams.get('adults') || '1'),
+          children: parseInt(urlParams.get('children') || '0'),
+          infants: parseInt(urlParams.get('infants') || '0'),
+        },
+        vehicles: vehicles,
+      }));
+    } else if (location.state?.searchParams) {
+      // Fallback to navigation state if no URL params
       const params = location.state.searchParams;
       setSearchForm(params);
       // Auto-search if params are provided

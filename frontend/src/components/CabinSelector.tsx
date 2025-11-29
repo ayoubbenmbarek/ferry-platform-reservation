@@ -25,6 +25,8 @@ interface CabinSelectorProps {
   onCabinSelect: (cabinId: number | null, price: number, quantity: number, journey?: 'outbound' | 'return') => void;
   passengerCount: number;
   isRoundTrip?: boolean;
+  ferryCabinAvailability?: any[];  // Cabin availability from selected ferry
+  returnFerryCabinAvailability?: any[];  // Cabin availability from return ferry
 }
 
 const CabinSelector: React.FC<CabinSelectorProps> = ({
@@ -33,6 +35,8 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   onCabinSelect,
   passengerCount,
   isRoundTrip = false,
+  ferryCabinAvailability = [],
+  returnFerryCabinAvailability = [],
 }) => {
   const [cabins, setCabins] = useState<Cabin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +94,36 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
       SUITE: 'Suite',
     };
     return names[cabinType] || cabinType;
+  };
+
+  // Check if a cabin type is available on the selected ferry
+  const getCabinAvailability = (cabinType: string) => {
+    const availabilityData = selectedJourney === 'outbound' ? ferryCabinAvailability : returnFerryCabinAvailability;
+
+    // If no availability data provided, assume all cabins are available (backward compatibility)
+    if (!availabilityData || availabilityData.length === 0) {
+      return { available: true, count: 999 };
+    }
+
+    // Map cabin types to ferry API types
+    const typeMapping: { [key: string]: string } = {
+      'INSIDE': 'interior',
+      'OUTSIDE': 'exterior',
+      'BALCONY': 'balcony',
+      'SUITE': 'suite',
+      'SEAT': 'deck',
+    };
+
+    const ferryType = typeMapping[cabinType];
+    if (!ferryType) return { available: false, count: 0 }; // Unknown type, treat as unavailable
+
+    const cabinInfo = availabilityData.find((c: any) => c.type === ferryType);
+    if (!cabinInfo) return { available: false, count: 0 }; // Not found in ferry data = unavailable
+
+    return {
+      available: cabinInfo.available > 0,
+      count: cabinInfo.available || 0
+    };
   };
 
   if (loading) {
@@ -175,11 +209,11 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
         {/* No Cabin Option */}
         <div
           onClick={() => handleCabinSelect(null, 0)}
-          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+          className={`border-2 rounded-lg p-4 cursor-pointer transition-all flex flex-col ${
             currentSelectedCabin === null
               ? 'border-blue-600 bg-blue-50'
               : 'border-gray-300 hover:border-blue-400'
@@ -190,7 +224,7 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
             <span className="text-lg font-bold text-green-600">€0.00</span>
           </div>
           <h4 className="font-semibold">No Cabin</h4>
-          <p className="text-sm text-gray-600 mt-1">Deck seating included with ticket</p>
+          <p className="text-sm text-gray-600 mt-1 flex-1">Deck seating included with ticket</p>
         </div>
 
         {/* Cabin Options */}
@@ -198,19 +232,30 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
           const quantity = cabinQuantities[cabin.id] || 1;
           const totalPrice = cabin.base_price * quantity;
           const isSelected = currentSelectedCabin === cabin.id;
+          const availability = getCabinAvailability(cabin.cabin_type);
+          const isUnavailable = !availability.available;
 
           return (
             <div
               key={cabin.id}
-              className={`border-2 rounded-lg p-4 transition-all ${
-                isSelected
+              className={`border-2 rounded-lg p-4 transition-all flex flex-col ${
+                isUnavailable
+                  ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                  : isSelected
                   ? 'border-blue-600 bg-blue-50'
                   : 'border-gray-300'
               }`}
             >
               {/* Header with icon and price */}
               <div className="flex items-center justify-between mb-2">
-                <span className="text-2xl">{getCabinIcon(cabin.cabin_type)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{getCabinIcon(cabin.cabin_type)}</span>
+                  {isUnavailable && (
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
+                      Unavailable
+                    </span>
+                  )}
+                </div>
                 <div className="text-right">
                   {quantity > 1 ? (
                     <>
@@ -232,90 +277,73 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
                 </div>
               </div>
 
-              <h4 className="font-semibold">{cabin.name}</h4>
-            <p className="text-xs text-gray-500 mt-1">
-              {getCabinTypeName(cabin.cabin_type)} • {cabin.bed_type.toLowerCase()} • Max{' '}
-              {cabin.max_occupancy}
-            </p>
+              {/* Content area - grows to fill space */}
+              <div className="flex-1">
+                <h4 className="font-semibold">{cabin.name}</h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  {getCabinTypeName(cabin.cabin_type)} • {cabin.bed_type.toLowerCase()} • Max{' '}
+                  {cabin.max_occupancy}
+                </p>
 
-            {cabin.description && (
-              <p className="text-sm text-gray-600 mt-2 line-clamp-2">{cabin.description}</p>
-            )}
+                {cabin.description && (
+                  <p className="text-sm text-gray-600 mt-2 line-clamp-2">{cabin.description}</p>
+                )}
 
-            {/* Amenities */}
-            <div className="flex flex-wrap gap-2 mt-3">
-              {cabin.has_private_bathroom && (
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">🚿 Bathroom</span>
-              )}
-              {cabin.has_wifi && (
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">📶 WiFi</span>
-              )}
-              {cabin.has_tv && (
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">📺 TV</span>
-              )}
-              {cabin.has_minibar && (
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">🍾 Minibar</span>
-              )}
-              {cabin.is_accessible && (
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">♿ Accessible</span>
-              )}
-            </div>
+                {/* Amenities */}
+                <div className="flex flex-wrap gap-1 mt-3">
+                  {cabin.has_private_bathroom && (
+                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">🚿</span>
+                  )}
+                  {cabin.has_wifi && (
+                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">📶</span>
+                  )}
+                  {cabin.has_tv && (
+                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">📺</span>
+                  )}
+                  {cabin.has_minibar && (
+                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">🍾</span>
+                  )}
+                  {cabin.is_accessible && (
+                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">♿</span>
+                  )}
+                </div>
+              </div>
 
-            {/* Quantity Selector and Select Button */}
-            <div className="mt-4 pt-3 border-t border-gray-200">
-              <div className="flex items-center justify-between gap-3">
+              {/* Quantity Selector and Select Button - Always at bottom */}
+              <div className="mt-4 pt-3 border-t border-gray-200">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700">Quantity:</label>
+                  <label className={`text-sm font-medium ${isUnavailable ? 'text-gray-400' : 'text-gray-700'}`}>
+                    Qty:
+                  </label>
                   <select
                     value={quantity}
                     onChange={(e) => handleQuantityChange(cabin.id, Number(e.target.value))}
                     onClick={(e) => e.stopPropagation()}
-                    className="px-3 py-1 border-2 border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-600"
+                    disabled={isUnavailable}
+                    className="px-2 py-2 border-2 border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {[...Array(maxCabinsAllowed)].map((_, i) => (
                       <option key={i + 1} value={i + 1}>
-                        {i + 1} {i === 0 ? 'cabin' : 'cabins'}
+                        {i + 1}
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={() => !isUnavailable && handleCabinSelect(cabin.id, cabin.base_price)}
+                    disabled={isUnavailable}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors text-center ${
+                      isUnavailable
+                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        : isSelected
+                        ? 'bg-green-600 text-white'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isSelected ? '✓ Selected' : 'Select'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleCabinSelect(cabin.id, cabin.base_price)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    isSelected
-                      ? 'bg-green-600 text-white'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {isSelected ? '✓ Selected' : 'Select'}
-                </button>
               </div>
             </div>
-
-            {/* View Details Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDetails(showDetails === cabin.id ? null : cabin.id);
-              }}
-              className="text-xs text-blue-600 hover:text-blue-700 mt-2"
-            >
-              {showDetails === cabin.id ? 'Hide details' : 'View details'}
-            </button>
-
-            {/* Expanded Details */}
-            {showDetails === cabin.id && (
-              <div className="mt-3 pt-3 border-t border-gray-200 text-sm">
-                <ul className="space-y-1 text-gray-600">
-                  <li>✓ Air Conditioning: {cabin.has_air_conditioning ? 'Yes' : 'No'}</li>
-                  <li>✓ Private Bathroom: {cabin.has_private_bathroom ? 'Yes' : 'No'}</li>
-                  <li>✓ TV: {cabin.has_tv ? 'Yes' : 'No'}</li>
-                  <li>✓ WiFi: {cabin.has_wifi ? 'Yes' : 'No'}</li>
-                  <li>✓ Minibar: {cabin.has_minibar ? 'Yes' : 'No'}</li>
-                </ul>
-              </div>
-            )}
-          </div>
         );
       })}
       </div>

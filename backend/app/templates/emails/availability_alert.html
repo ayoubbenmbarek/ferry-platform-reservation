@@ -134,7 +134,7 @@
 
             <!-- Route Info -->
             <div class="route">
-                {{ alert.departure_port|title }} ✈️ {{ alert.arrival_port|title }}
+                {{ alert.departure_port|title }} ⛴️ {{ alert.arrival_port|title }}
                 <span class="badge">AVAILABLE NOW</span>
             </div>
 
@@ -175,6 +175,20 @@
                 </div>
                 {% endif %}
 
+                {% if alert.operator %}
+                <div class="info-row">
+                    <span class="info-label">⛴️ Ferry Operator:</span>
+                    <span class="info-value">{{ alert.operator }}</span>
+                </div>
+                {% endif %}
+
+                {% if alert.sailing_time %}
+                <div class="info-row">
+                    <span class="info-label">⏰ Sailing Time:</span>
+                    <span class="info-value">{{ alert.sailing_time }}</span>
+                </div>
+                {% endif %}
+
                 <div class="info-row">
                     <span class="info-label">🔔 Alert Type:</span>
                     <span class="info-value">
@@ -195,8 +209,11 @@
             <!-- Call to Action -->
             <div class="cta-container">
                 <a href="{{ alert.search_url }}" class="cta-button">
-                    🔍 Search & Book Now
+                    🔍 View Available Ferries & Book Now
                 </a>
+                <p style="font-size: 12px; color: #64748b; margin-top: 10px;">
+                    Click the button above to see all ferries matching your exact search criteria
+                </p>
             </div>
 
             <p style="font-size: 14px; color: #64748b; text-align: center; margin-top: 30px;">

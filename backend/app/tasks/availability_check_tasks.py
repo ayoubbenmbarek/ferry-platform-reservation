@@ -121,28 +121,67 @@ def check_availability_alerts_task(self):
                     # Check if any sailing has vehicle space
                     # Results are FerryResult objects with available_spaces attribute
                     for result in results:
+                        # Check operator match (if alert is for specific operator)
+                        if alert.operator and result.operator != alert.operator:
+                            continue  # Skip, different operator
+
+                        # Check sailing time match (if alert is for specific sailing time)
+                        if alert.sailing_time:
+                            result_time = datetime.fromisoformat(str(result.departure_time)).time()
+                            if result_time != alert.sailing_time:
+                                continue  # Skip, different sailing time
+
                         available_spaces = getattr(result, "available_spaces", {})
                         vehicles_available = available_spaces.get("vehicles", 0) if isinstance(available_spaces, dict) else 0
                         if vehicles_available > 0:
                             availability_found = True
-                            logger.info(f"🚗 Found vehicle space: {vehicles_available} spaces available")
+                            logger.info(f"🚗 Found vehicle space: {vehicles_available} spaces available on {result.operator}")
                             break
 
                 elif alert.alert_type == "cabin":
                     # Check if route has cabin availability
-                    search_params["cabin_required"] = True
-                    search_params["cabin_type"] = alert.cabin_type or "inside"
+                    # Note: cabin_required and cabin_type are not parameters of search_ferries()
+                    # We'll search normally and filter results by cabin availability
 
                     # Call async ferry search (run in sync context)
                     results = asyncio.run(ferry_service.search_ferries(**search_params))
 
                     # Check if any sailing has cabin space
                     for result in results:
+                        # Check operator match (if alert is for specific operator)
+                        if alert.operator and result.operator != alert.operator:
+                            continue  # Skip, different operator
+
+                        # Check sailing time match (if alert is for specific sailing time)
+                        if alert.sailing_time:
+                            result_time = datetime.fromisoformat(str(result.departure_time)).time()
+                            if result_time != alert.sailing_time:
+                                continue  # Skip, different sailing time
+
+                        # Check cabin availability
                         cabin_types = getattr(result, "cabin_types", [])
-                        available_cabins = [c for c in cabin_types if c.get("available", 0) >= (alert.num_cabins or 1)] if cabin_types else []
+
+                        # If alert has specific cabin type preference, check that type
+                        if alert.cabin_type:
+                            # Map alert cabin types to ferry API types
+                            cabin_type_map = {
+                                "inside": "interior",
+                                "interior": "interior",
+                                "outside": "exterior",
+                                "exterior": "exterior",
+                                "balcony": "balcony",
+                                "suite": "suite"
+                            }
+                            ferry_cabin_type = cabin_type_map.get(alert.cabin_type.lower(), alert.cabin_type.lower())
+                            available_cabins = [c for c in cabin_types if c.get("type") == ferry_cabin_type and c.get("available", 0) >= (alert.num_cabins or 1)] if cabin_types else []
+                        else:
+                            # Any cabin type is acceptable
+                            available_cabins = [c for c in cabin_types if c.get("available", 0) >= (alert.num_cabins or 1)] if cabin_types else []
+
                         if available_cabins:
                             availability_found = True
-                            logger.info(f"🛏️ Found cabin availability: {len(available_cabins)} cabin types available")
+                            cabin_type_str = f" ({ferry_cabin_type})" if alert.cabin_type else ""
+                            logger.info(f"🛏️ Found cabin availability{cabin_type_str}: {len(available_cabins)} cabin types available on {result.operator}")
                             break
 
                 elif alert.alert_type == "passenger":
@@ -153,11 +192,21 @@ def check_availability_alerts_task(self):
                     # Check if any sailing has passenger space
                     total_passengers = alert.num_adults + alert.num_children + alert.num_infants
                     for result in results:
+                        # Check operator match (if alert is for specific operator)
+                        if alert.operator and result.operator != alert.operator:
+                            continue  # Skip, different operator
+
+                        # Check sailing time match (if alert is for specific sailing time)
+                        if alert.sailing_time:
+                            result_time = datetime.fromisoformat(str(result.departure_time)).time()
+                            if result_time != alert.sailing_time:
+                                continue  # Skip, different sailing time
+
                         available_spaces = getattr(result, "available_spaces", {})
                         passengers_available = available_spaces.get("passengers", 0) if isinstance(available_spaces, dict) else 0
                         if passengers_available >= total_passengers:
                             availability_found = True
-                            logger.info(f"👥 Found passenger space: {passengers_available} seats available")
+                            logger.info(f"👥 Found passenger space: {passengers_available} seats available on {result.operator} at {result_time}")
                             break
 
                 # 4. Send notification if availability found
@@ -202,6 +251,45 @@ def check_availability_alerts_task(self):
 def _send_availability_notification(alert: AvailabilityAlert, db):
     """Send email notification when availability is found."""
     try:
+        # Build complete search URL with all parameters
+        # Use FRONTEND_URL env var, or BASE_URL, or default to localhost with HTTPS
+        base_url = os.getenv('FRONTEND_URL', os.getenv('BASE_URL', 'https://localhost:3001'))
+
+        # Ensure HTTPS scheme for all URLs
+        if base_url.startswith('http://'):
+            base_url = base_url.replace('http://', 'https://')
+
+        # Build URL parameters
+        url_params = [
+            f"from={alert.departure_port}",
+            f"to={alert.arrival_port}",
+            f"date={alert.departure_date.isoformat()}",
+            f"adults={alert.num_adults}",
+            f"children={alert.num_children}",
+            f"infants={alert.num_infants}"
+        ]
+
+        # Add round trip parameters if applicable
+        if alert.is_round_trip and alert.return_date:
+            url_params.append(f"returnDate={alert.return_date.isoformat()}")
+
+        # Add vehicle parameters if applicable
+        if alert.vehicle_type:
+            url_params.append(f"vehicleType={alert.vehicle_type}")
+            if alert.vehicle_length_cm:
+                url_params.append(f"vehicleLength={alert.vehicle_length_cm}")
+
+        # Add operator filter if specified
+        if alert.operator:
+            url_params.append(f"operator={alert.operator}")
+
+        # Add sailing time filter if specified
+        if alert.sailing_time:
+            url_params.append(f"sailingTime={alert.sailing_time.strftime('%H:%M')}")
+
+        # Combine into full search URL
+        search_url = f"{base_url}/search?{'&'.join(url_params)}"
+
         # Prepare email data
         alert_data = {
             "alert_id": alert.id,
@@ -218,10 +306,9 @@ def _send_availability_notification(alert: AvailabilityAlert, db):
             "vehicle_length_cm": alert.vehicle_length_cm,
             "cabin_type": alert.cabin_type,
             "num_cabins": alert.num_cabins,
-            "search_url": f"{os.getenv('BASE_URL', 'http://localhost:3001')}/search?"
-                         f"from={alert.departure_port}&to={alert.arrival_port}"
-                         f"&date={alert.departure_date.isoformat()}"
-                         f"&adults={alert.num_adults}&children={alert.num_children}&infants={alert.num_infants}"
+            "operator": alert.operator,
+            "sailing_time": alert.sailing_time.strftime("%H:%M") if alert.sailing_time else None,
+            "search_url": search_url
         }
 
         # Send email using email service

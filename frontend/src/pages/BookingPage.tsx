@@ -554,6 +554,8 @@ const BookingPage: React.FC = () => {
                 onCabinSelect={handleCabinSelect}
                 passengerCount={totalPassengers}
                 isRoundTrip={isRoundTrip && !!selectedReturnFerry}
+                ferryCabinAvailability={selectedFerry?.cabinTypes || (selectedFerry as any)?.cabin_types || []}
+                returnFerryCabinAvailability={selectedReturnFerry?.cabinTypes || (selectedReturnFerry as any)?.cabin_types || []}
               />
             </div>
 

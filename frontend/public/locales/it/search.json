@@ -145,5 +145,20 @@
     "selected": "Selezionato",
     "scrollHint": "Scorri per vedere altre date"
   },
-  "showingResultsFor": "Mostrando traghetti per {{date}}"
+  "showingResultsFor": "Mostrando traghetti per {{date}}",
+  "selectFerryHint": "Seleziona un traghetto dalla lista qui sotto per continuare",
+  "availability": {
+    "noSeats": "Nessun posto",
+    "notEnoughSeats": "Posti insufficienti",
+    "seatsLeft": "{{count}} posti rimasti",
+    "seats": "{{count}} posti",
+    "noVehicleSpace": "Nessuno spazio veicolo",
+    "notEnoughSpace": "Spazio insufficiente",
+    "spacesLeft": "{{count}} spazi rimasti",
+    "spaces": "{{count}} spazi",
+    "noCabins": "Nessuna cabina",
+    "cabinsLeft": "{{count}} cabine rimaste",
+    "cabins": "{{count}} cabine",
+    "notify": "Avvisami"
+  }
 }

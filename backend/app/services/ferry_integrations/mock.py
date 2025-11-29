@@ -77,11 +77,17 @@ class MockFerryIntegration(BaseFerryIntegration):
 
             for i in range(num_sailings):
                 # Generate departure time (typically evening sailings)
-                departure_hour = random.choice([19, 20, 21, 22, 23])
+                # First sailing is always at 19:00 for consistent testing
+                if i == 0:
+                    departure_hour = 19
+                    departure_minute = 0
+                else:
+                    departure_hour = random.choice([20, 21, 22, 23])
+                    departure_minute = random.choice([0, 30])
                 departure_dt = datetime.combine(
                     search_request.departure_date,
                     datetime.min.time()
-                ).replace(hour=departure_hour, minute=random.choice([0, 30]))
+                ).replace(hour=departure_hour, minute=departure_minute)
 
                 # Calculate arrival time
                 arrival_dt = departure_dt + timedelta(hours=route_info["duration_hours"])
@@ -98,32 +104,115 @@ class MockFerryIntegration(BaseFerryIntegration):
                 }
 
                 # Generate cabin options
-                cabin_types = [
-                    {
-                        "type": "interior",
-                        "name": "Interior Cabin",
-                        "price": round(random.uniform(20, 35), 2),
-                        "available": random.randint(3, 15)
-                    },
-                    {
-                        "type": "exterior",
-                        "name": "Exterior Cabin",
-                        "price": round(random.uniform(35, 55), 2),
-                        "available": random.randint(2, 10)
-                    },
-                    {
-                        "type": "suite",
-                        "name": "Suite",
-                        "price": round(random.uniform(80, 150), 2),
-                        "available": random.randint(1, 5)
-                    },
-                    {
-                        "type": "deck",
-                        "name": "Deck Seat",
-                        "price": 0.0,
-                        "available": random.randint(20, 50)
-                    }
-                ]
+                # For PALERMO-TUNIS route (short crossing), no cabins available - deck seats only
+                if route_key == ("PALERMO", "TUNIS"):
+                    cabin_types = [
+                        {
+                            "type": "interior",
+                            "name": "Interior Cabin",
+                            "price": round(random.uniform(20, 35), 2),
+                            "available": 0  # No cabins available
+                        },
+                        {
+                            "type": "exterior",
+                            "name": "Exterior Cabin",
+                            "price": round(random.uniform(35, 55), 2),
+                            "available": 0  # No cabins available
+                        },
+                        {
+                            "type": "balcony",
+                            "name": "Balcony Cabin",
+                            "price": round(random.uniform(60, 90), 2),
+                            "available": 0  # No cabins available
+                        },
+                        {
+                            "type": "suite",
+                            "name": "Suite",
+                            "price": round(random.uniform(80, 150), 2),
+                            "available": 0  # No cabins available
+                        },
+                        {
+                            "type": "deck",
+                            "name": "Deck Seat",
+                            "price": 0.0,
+                            "available": random.randint(50, 100)  # Plenty of deck seats
+                        }
+                    ]
+                elif self.operator_name == "Corsica Lines":
+                    # Corsica Lines: Cabins NOW AVAILABLE (to trigger notification)
+                    cabin_types = [
+                        {
+                            "type": "interior",
+                            "name": "Interior Cabin",
+                            "price": round(random.uniform(20, 35), 2),
+                            "available": random.randint(3, 15)  # NOW AVAILABLE!
+                        },
+                        {
+                            "type": "exterior",
+                            "name": "Exterior Cabin",
+                            "price": round(random.uniform(35, 55), 2),
+                            "available": random.randint(2, 10)  # NOW AVAILABLE!
+                        },
+                        {
+                            "type": "balcony",
+                            "name": "Balcony Cabin",
+                            "price": round(random.uniform(60, 90), 2),
+                            "available": random.randint(1, 8)  # NOW AVAILABLE!
+                        },
+                        {
+                            "type": "suite",
+                            "name": "Suite",
+                            "price": round(random.uniform(80, 150), 2),
+                            "available": random.randint(1, 5)  # NOW AVAILABLE!
+                        },
+                        {
+                            "type": "deck",
+                            "name": "Deck Seat",
+                            "price": 0.0,
+                            "available": random.randint(20, 50)
+                        }
+                    ]
+                else:
+                    # Normal routes have cabins available
+                    cabin_types = [
+                        {
+                            "type": "interior",
+                            "name": "Interior Cabin",
+                            "price": round(random.uniform(20, 35), 2),
+                            "available": random.randint(3, 15)
+                        },
+                        {
+                            "type": "exterior",
+                            "name": "Exterior Cabin",
+                            "price": round(random.uniform(35, 55), 2),
+                            "available": random.randint(2, 10)
+                        },
+                        {
+                            "type": "balcony",
+                            "name": "Balcony Cabin",
+                            "price": round(random.uniform(60, 90), 2),
+                            "available": random.randint(1, 8)
+                        },
+                        {
+                            "type": "suite",
+                            "name": "Suite",
+                            "price": round(random.uniform(80, 150), 2),
+                            "available": random.randint(1, 5)
+                        },
+                        {
+                            "type": "deck",
+                            "name": "Deck Seat",
+                            "price": 0.0,
+                            "available": random.randint(20, 50)
+                        }
+                    ]
+
+                # Set available spaces
+                # Normal availability for all routes
+                available_spaces = {
+                    "passengers": random.randint(50, 200),
+                    "vehicles": random.randint(20, 80)
+                }
 
                 # Create ferry result
                 ferry_result = FerryResult(
@@ -136,10 +225,7 @@ class MockFerryIntegration(BaseFerryIntegration):
                     vessel_name=random.choice(vessels),
                     prices=prices,
                     cabin_types=cabin_types,
-                    available_spaces={
-                        "passengers": random.randint(50, 200),
-                        "vehicles": random.randint(20, 80)
-                    }
+                    available_spaces=available_spaces
                 )
 
                 results.append(ferry_result)

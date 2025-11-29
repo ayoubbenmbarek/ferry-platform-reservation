@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import {
@@ -17,6 +17,7 @@ import { FerryResult, SearchParams, PORTS } from '../types/ferry';
 import DatePriceSelector from '../components/DatePriceSelector';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
+import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 
 // Search Form Component
 interface SearchFormProps {
@@ -294,6 +295,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
 const NewSearchPage: React.FC = () => {
   const { t } = useTranslation(['search', 'common']);
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
   const {
     searchParams,
@@ -306,8 +308,27 @@ const NewSearchPage: React.FC = () => {
     isRoundTrip,
   } = useSelector((state: RootState) => state.ferry);
 
-  const [hasSearchParams, setHasSearchParams] = useState(true);
+  // Check if we have valid search params from Redux
+  const hasValidSearchParams = Boolean(
+    searchParams.departurePort &&
+    searchParams.arrivalPort &&
+    searchParams.departureDate
+  );
+
+  // Redirect to homepage if no valid search params (e.g., on page reload)
+  React.useEffect(() => {
+    // Check for URL params first (from email links)
+    const urlParams = new URLSearchParams(location.search);
+    const hasUrlParams = urlParams.get('from') && urlParams.get('to') && urlParams.get('date');
+
+    if (!hasValidSearchParams && !hasUrlParams) {
+      navigate('/');
+    }
+  }, [hasValidSearchParams, location.search, navigate]);
+
+  const [hasSearchParams, setHasSearchParams] = useState(hasValidSearchParams);
   const [isEditingRoute, setIsEditingRoute] = useState(false);
+  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
 
   // Return ferry selection state
   const [isSelectingReturn, setIsSelectingReturn] = useState(false);
@@ -321,9 +342,88 @@ const NewSearchPage: React.FC = () => {
   // Track date adjustment notification
   const [dateAdjustmentMessage, setDateAdjustmentMessage] = useState<string | null>(null);
 
+  // Alert creation state
+  const [alertToastMessage, setAlertToastMessage] = useState<string | null>(null);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [selectedAlertFerry, setSelectedAlertFerry] = useState<FerryResult | null>(null);
+  const [selectedAlertType, setSelectedAlertType] = useState<'passenger' | 'vehicle' | 'cabin'>('passenger');
+
   // Track previous route to detect route changes
   const prevRouteRef = React.useRef<string>('');
   const prevReturnRouteRef = React.useRef<string>('');
+
+  // Ref for scrolling to results section when coming from email link
+  const resultsRef = React.useRef<HTMLDivElement>(null);
+  const [shouldScrollToResults, setShouldScrollToResults] = useState(false);
+
+  // Handle URL query parameters (from email notification links)
+  useEffect(() => {
+    if (urlParamsProcessed) return;
+
+    const urlParams = new URLSearchParams(location.search);
+    const fromUrl = urlParams.get('from');
+    const toUrl = urlParams.get('to');
+    const dateUrl = urlParams.get('date');
+
+    console.log('🔗 Checking URL params:', { from: fromUrl, to: toUrl, date: dateUrl, search: location.search });
+
+    if (fromUrl && toUrl && dateUrl) {
+      console.log('✅ URL params found from email link, auto-searching...');
+      setUrlParamsProcessed(true);
+
+      // Build vehicles array if vehicle info is provided
+      const vehicleType = urlParams.get('vehicleType');
+      const vehicleLength = urlParams.get('vehicleLength');
+      const vehicles: any[] = vehicleType ? [{
+        id: 'url-vehicle-1',
+        type: vehicleType.toUpperCase(),
+        length: vehicleLength ? parseInt(vehicleLength) : 450,
+        width: 180,
+        height: 150,
+      }] : [];
+
+      // Build search params from URL
+      const urlSearchParams: SearchParams = {
+        departurePort: fromUrl.toUpperCase(),
+        arrivalPort: toUrl.toUpperCase(),
+        departureDate: dateUrl,
+        returnDate: urlParams.get('returnDate') || undefined,
+        passengers: {
+          adults: parseInt(urlParams.get('adults') || '1'),
+          children: parseInt(urlParams.get('children') || '0'),
+          infants: parseInt(urlParams.get('infants') || '0'),
+        },
+        vehicles: vehicles,
+      };
+
+      // Set search params in Redux store
+      dispatch(setSearchParams(urlSearchParams));
+
+      // Set round trip if return date is provided
+      if (urlSearchParams.returnDate) {
+        dispatch(setIsRoundTrip(true));
+      }
+
+      // Trigger the search
+      dispatch(searchFerries(urlSearchParams));
+
+      // Mark that we should scroll to results when they load
+      setShouldScrollToResults(true);
+
+      console.log('🚀 Auto-search triggered with params:', urlSearchParams);
+    }
+  }, [location.search, urlParamsProcessed, dispatch]);
+
+  // Scroll to results when coming from email link and results are loaded
+  useEffect(() => {
+    if (shouldScrollToResults && searchResults.length > 0 && !isSearching && resultsRef.current) {
+      // Small delay to ensure DOM is fully rendered
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setShouldScrollToResults(false);
+      }, 100);
+    }
+  }, [shouldScrollToResults, searchResults.length, isSearching]);
 
   // Update calendar center date only when route or passengers change (NOT when date changes!)
   useEffect(() => {
@@ -481,6 +581,10 @@ const NewSearchPage: React.FC = () => {
             vesselName: r.vessel_name,
             duration: r.duration,
             prices: r.prices,
+            cabinTypes: r.cabin_types,
+            cabin_types: r.cabin_types,
+            availableSpaces: r.available_spaces,
+            available_spaces: r.available_spaces,
           })) || [];
 
           setReturnFerryResults(results);
@@ -608,6 +712,10 @@ const NewSearchPage: React.FC = () => {
         vesselName: r.vessel_name,
         duration: r.duration,
         prices: r.prices,
+        cabinTypes: r.cabin_types,
+        cabin_types: r.cabin_types,
+        availableSpaces: r.available_spaces,
+        available_spaces: r.available_spaces,
       })) || [];
 
       setReturnFerryResults(results);
@@ -634,6 +742,22 @@ const NewSearchPage: React.FC = () => {
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
+  };
+
+  // Handle creating availability alert for specific ferry
+  const handleCreateAlert = (
+    ferry: FerryResult,
+    alertType: 'passenger' | 'vehicle' | 'cabin'
+  ) => {
+    setSelectedAlertFerry(ferry);
+    setSelectedAlertType(alertType);
+    setShowAlertModal(true);
+  };
+
+  // Handle successful alert creation from modal
+  const handleAlertSuccess = (message: string) => {
+    setAlertToastMessage(message);
+    setTimeout(() => setAlertToastMessage(null), 5000);
   };
 
   // Show message if no search params
@@ -672,6 +796,36 @@ const NewSearchPage: React.FC = () => {
         />
 
         <div className="max-w-6xl mx-auto px-4 py-8">
+          {/* Toast Notification for Alert Creation */}
+          {alertToastMessage && (
+            <div className="fixed top-4 right-4 z-50 animate-fade-in">
+              <div className={`rounded-lg shadow-lg p-4 ${
+                alertToastMessage.startsWith('✅') ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              }`}>
+                <p className={`font-medium ${
+                  alertToastMessage.startsWith('✅') ? 'text-green-800' : 'text-red-800'
+                }`}>
+                  {alertToastMessage}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Availability Alert Modal */}
+          <AvailabilityAlertModal
+            isOpen={showAlertModal}
+            onClose={() => setShowAlertModal(false)}
+            ferry={selectedAlertFerry ? {
+              sailingId: selectedAlertFerry.sailingId,
+              operator: selectedAlertFerry.operator,
+              departureTime: selectedAlertFerry.departureTime
+            } : null}
+            alertType={selectedAlertType}
+            searchParams={searchParams}
+            isSelectingReturn={isSelectingReturn}
+            onSuccess={handleAlertSuccess}
+          />
+
           {/* Search Summary Bar */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -723,7 +877,7 @@ const NewSearchPage: React.FC = () => {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+          <h1 ref={resultsRef} className="text-3xl font-bold text-gray-900 mb-6">
             {isSelectingReturn ? t('search:selectReturnFerry') : t('search:selectOutboundFerry')}
           </h1>
 
@@ -832,10 +986,13 @@ const NewSearchPage: React.FC = () => {
                 })}
               </p>
               <p className="text-xs text-maritime-600 mt-1">
-                Select a ferry from the list below to continue
+                {t('search:selectFerryHint')}
               </p>
             </div>
           )}
+
+          {/* Availability Summary Panel - Only show when NO ferries found */}
+          {/* Panel is now removed since we have per-ferry badges with notify buttons */}
 
           {/* Results - show return results or outbound results */}
           {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length > 0 && (
@@ -867,6 +1024,144 @@ const NewSearchPage: React.FC = () => {
                         )}
                       </div>
 
+                      {/* Availability Badges with Notify Buttons */}
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        {/* Passenger Availability */}
+                        {(() => {
+                          const passengerSpaces = ferry.availableSpaces?.passengers || (ferry as any).available_spaces?.passengers || 0;
+                          const totalPassengers = (searchParams?.passengers?.adults || 1) + (searchParams?.passengers?.children || 0) + (searchParams?.passengers?.infants || 0);
+                          const isUnavailable = passengerSpaces === 0 || passengerSpaces < totalPassengers;
+                          const isLimited = passengerSpaces > 0 && passengerSpaces <= 10;
+
+                          let badgeContent;
+                          let badgeClass;
+
+                          if (passengerSpaces === 0) {
+                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
+                            badgeContent = <><span>👥</span> {t('search:availability.noSeats')}</>;
+                          } else if (passengerSpaces < totalPassengers) {
+                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
+                            badgeContent = <><span>👥</span> {t('search:availability.notEnoughSeats')}</>;
+                          } else if (passengerSpaces <= 10) {
+                            badgeClass = "bg-yellow-50 border border-yellow-300 text-yellow-700";
+                            badgeContent = <><span>👥</span> {t('search:availability.seatsLeft', { count: passengerSpaces })}</>;
+                          } else {
+                            badgeClass = "bg-green-50 border border-green-300 text-green-700";
+                            badgeContent = <><span>👥</span> {t('search:availability.seats', { count: passengerSpaces })}</>;
+                          }
+
+                          return (
+                            <div className={`${badgeClass} px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1.5`}>
+                              {badgeContent}
+                              {(isUnavailable || isLimited) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCreateAlert(ferry, 'passenger');
+                                  }}
+                                  className="ml-1 px-2 py-0.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors text-[10px] font-semibold"
+                                  title="Get notified when seats become available"
+                                >
+                                  🔔 {t('search:availability.notify')}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Vehicle Availability */}
+                        {searchParams?.vehicles && searchParams.vehicles.length > 0 && (() => {
+                          const vehicleSpaces = ferry.availableSpaces?.vehicles || (ferry as any).available_spaces?.vehicles || 0;
+                          const numVehicles = searchParams.vehicles?.length || 0;
+                          const isUnavailable = vehicleSpaces === 0 || vehicleSpaces < numVehicles;
+                          const isLimited = vehicleSpaces > 0 && vehicleSpaces <= 5;
+
+                          let badgeContent;
+                          let badgeClass;
+
+                          if (vehicleSpaces === 0) {
+                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
+                            badgeContent = <><span>🚗</span> {t('search:availability.noVehicleSpace')}</>;
+                          } else if (vehicleSpaces < numVehicles) {
+                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
+                            badgeContent = <><span>🚗</span> {t('search:availability.notEnoughSpace')}</>;
+                          } else if (vehicleSpaces <= 5) {
+                            badgeClass = "bg-yellow-50 border border-yellow-300 text-yellow-700";
+                            badgeContent = <><span>🚗</span> {t('search:availability.spacesLeft', { count: vehicleSpaces })}</>;
+                          } else {
+                            badgeClass = "bg-green-50 border border-green-300 text-green-700";
+                            badgeContent = <><span>🚗</span> {t('search:availability.spaces', { count: vehicleSpaces })}</>;
+                          }
+
+                          return (
+                            <div className={`${badgeClass} px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1.5`}>
+                              {badgeContent}
+                              {(isUnavailable || isLimited) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCreateAlert(ferry, 'vehicle');
+                                  }}
+                                  className="ml-1 px-2 py-0.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors text-[10px] font-semibold"
+                                  title="Get notified when vehicle space becomes available"
+                                >
+                                  🔔 {t('search:availability.notify')}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Cabin Availability */}
+                        {(() => {
+                          const cabinTypes = ferry.cabinTypes || (ferry as any).cabin_types || [];
+                          const actualCabins = cabinTypes.filter((cabin: any) =>
+                            cabin.type !== 'deck' && cabin.type !== 'deck_seat'
+                          );
+
+                          if (actualCabins.length === 0) return null;
+
+                          const totalCabins = actualCabins.reduce((sum: number, cabin: any) =>
+                            sum + (cabin.available || 0), 0
+                          );
+
+                          const isUnavailable = totalCabins === 0;
+                          const isLimited = totalCabins > 0 && totalCabins <= 2;
+
+                          let badgeContent;
+                          let badgeClass;
+
+                          if (totalCabins === 0) {
+                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
+                            badgeContent = <><span>🛏️</span> {t('search:availability.noCabins')}</>;
+                          } else if (totalCabins <= 2) {
+                            badgeClass = "bg-yellow-50 border border-yellow-300 text-yellow-700";
+                            badgeContent = <><span>🛏️</span> {t('search:availability.cabinsLeft', { count: totalCabins })}</>;
+                          } else {
+                            badgeClass = "bg-green-50 border border-green-300 text-green-700";
+                            badgeContent = <><span>🛏️</span> {t('search:availability.cabins', { count: totalCabins })}</>;
+                          }
+
+                          return (
+                            <div className={`${badgeClass} px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1.5`}>
+                              {badgeContent}
+                              {(isUnavailable || isLimited) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCreateAlert(ferry, 'cabin');
+                                  }}
+                                  className="ml-1 px-2 py-0.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors text-[10px] font-semibold"
+                                  title="Get notified when cabins become available"
+                                >
+                                  🔔 {t('search:availability.notify')}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
                       <div className="grid grid-cols-3 gap-4">
                         <div>
                           <p className="text-gray-600 text-sm">{t('search:results.departure')}</p>
@@ -896,12 +1191,37 @@ const NewSearchPage: React.FC = () => {
                         €{(ferry.prices?.adult || Object.values(ferry.prices)[0] || 0).toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-500 mb-2">{t('search:results.perAdult')}</p>
-                      <button
-                        onClick={() => handleSelectFerry(ferry)}
-                        className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                      >
-                        {t('search:results.select')}
-                      </button>
+                      {(() => {
+                        // Check if there are enough passenger seats
+                        const passengerSpaces = ferry.availableSpaces?.passengers || (ferry as any).available_spaces?.passengers || 0;
+                        const totalPassengers = (searchParams?.passengers?.adults || 1) + (searchParams?.passengers?.children || 0) + (searchParams?.passengers?.infants || 0);
+                        const hasEnoughSeats = passengerSpaces >= totalPassengers;
+
+                        if (!hasEnoughSeats) {
+                          return (
+                            <div>
+                              <button
+                                disabled
+                                className="w-full md:w-auto px-6 py-2 bg-gray-400 text-gray-200 rounded-lg cursor-not-allowed font-medium mb-2"
+                              >
+                                Cannot Select
+                              </button>
+                              <p className="text-xs text-red-600 font-medium">
+                                {passengerSpaces === 0 ? 'No seats available' : `Only ${passengerSpaces} seat${passengerSpaces > 1 ? 's' : ''} left`}
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <button
+                            onClick={() => handleSelectFerry(ferry)}
+                            className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                          >
+                            {t('search:results.select')}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

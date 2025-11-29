@@ -145,5 +145,20 @@
     "selected": "Ausgewählt",
     "scrollHint": "Wischen Sie, um weitere Daten anzuzeigen"
   },
-  "showingResultsFor": "Fähren anzeigen für {{date}}"
+  "showingResultsFor": "Fähren anzeigen für {{date}}",
+  "selectFerryHint": "Wählen Sie eine Fähre aus der Liste unten aus, um fortzufahren",
+  "availability": {
+    "noSeats": "Keine Plätze",
+    "notEnoughSeats": "Nicht genug Plätze",
+    "seatsLeft": "{{count}} Plätze übrig",
+    "seats": "{{count}} Plätze",
+    "noVehicleSpace": "Kein Fahrzeugplatz",
+    "notEnoughSpace": "Nicht genug Platz",
+    "spacesLeft": "{{count}} Plätze übrig",
+    "spaces": "{{count}} Plätze",
+    "noCabins": "Keine Kabinen",
+    "cabinsLeft": "{{count}} Kabinen übrig",
+    "cabins": "{{count}} Kabinen",
+    "notify": "Benachrichtigen"
+  }
 }

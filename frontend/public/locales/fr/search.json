@@ -145,5 +145,20 @@
     "selected": "Sélectionné",
     "scrollHint": "Balayez pour voir plus de dates"
   },
-  "showingResultsFor": "Affichage des ferries pour le {{date}}"
+  "showingResultsFor": "Affichage des ferries pour le {{date}}",
+  "selectFerryHint": "Sélectionnez un ferry dans la liste ci-dessous pour continuer",
+  "availability": {
+    "noSeats": "Pas de places",
+    "notEnoughSeats": "Pas assez de places",
+    "seatsLeft": "{{count}} places restantes",
+    "seats": "{{count}} places",
+    "noVehicleSpace": "Pas d'emplacement véhicule",
+    "notEnoughSpace": "Pas assez d'espace",
+    "spacesLeft": "{{count}} emplacements restants",
+    "spaces": "{{count}} emplacements",
+    "noCabins": "Pas de cabines",
+    "cabinsLeft": "{{count}} cabines restantes",
+    "cabins": "{{count}} cabines",
+    "notify": "M'alerter"
+  }
 }

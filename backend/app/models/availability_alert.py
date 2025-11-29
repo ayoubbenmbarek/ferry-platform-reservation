@@ -1,7 +1,7 @@
 """
 Availability Alert model for notifying users when ferry capacity becomes available.
 """
-from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Time, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -39,6 +39,8 @@ class AvailabilityAlert(Base):
     departure_date = Column(Date, nullable=False, index=True)
     is_round_trip = Column(Boolean, default=False)
     return_date = Column(Date, nullable=True)
+    operator = Column(String(100), nullable=True, index=True)  # Ferry operator (e.g., "CTN", "GNV"), NULL = any operator
+    sailing_time = Column(Time, nullable=True)  # Specific sailing time (e.g., "19:00"), NULL = any time
 
     # Passenger details
     num_adults = Column(Integer, default=1)

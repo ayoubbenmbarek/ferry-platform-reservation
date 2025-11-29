@@ -89,5 +89,20 @@
     "selected": "محدد",
     "scrollHint": "اسحب لرؤية المزيد من التواريخ"
   },
-  "showingResultsFor": "عرض العبارات لـ {{date}}"
+  "showingResultsFor": "عرض العبارات لـ {{date}}",
+  "selectFerryHint": "اختر عبارة من القائمة أدناه للمتابعة",
+  "availability": {
+    "noSeats": "لا توجد مقاعد",
+    "notEnoughSeats": "مقاعد غير كافية",
+    "seatsLeft": "{{count}} مقاعد متبقية",
+    "seats": "{{count}} مقاعد",
+    "noVehicleSpace": "لا توجد مساحة للمركبات",
+    "notEnoughSpace": "مساحة غير كافية",
+    "spacesLeft": "{{count}} أماكن متبقية",
+    "spaces": "{{count}} أماكن",
+    "noCabins": "لا توجد كبائن",
+    "cabinsLeft": "{{count}} كبائن متبقية",
+    "cabins": "{{count}} كبائن",
+    "notify": "أعلمني"
+  }
 }

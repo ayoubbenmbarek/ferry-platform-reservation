@@ -50,6 +50,7 @@ class CabinType(str, Enum):
     """Cabin type enumeration."""
     INTERIOR = "interior"
     EXTERIOR = "exterior"
+    BALCONY = "balcony"
     SUITE = "suite"
     DECK = "deck"
 

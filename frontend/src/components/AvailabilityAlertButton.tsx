@@ -88,7 +88,8 @@ const AvailabilityAlertButton: React.FC<AvailabilityAlertButtonProps> = ({
 
     } catch (err: any) {
       console.error('Failed to create availability alert:', err);
-      const errorMsg = err.response?.data?.detail || 'Failed to create alert. Please try again.';
+      // Handle both 'detail' (FastAPI default) and 'message' (custom error format)
+      const errorMsg = err.response?.data?.detail || err.response?.data?.message || 'Failed to create alert. Please try again.';
       setError(errorMsg);
     } finally {
       setLoading(false);

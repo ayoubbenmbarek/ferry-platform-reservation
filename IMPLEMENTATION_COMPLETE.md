@@ -930,7 +930,7 @@ TODO:add price for roof box and all accesories..
 TODO:TODO: Integrate with actual license plate lookup API in this fucntion lookup_license_plate,just add your API key to the
   lookup_license_plate
 TODO:retrtieve vehicule info by plate, and possibility to add  vehicuel by models and make etc for user to chooose its car
-TODO:check if confirmation reservation email sent asycnh or not
+TODO:check if confirmation reservation email sent asycnh or not:done become asynch
 TODO:when i cancel booking or cabin or vehicule i should freed that place in the real api too? or just put it in my stock?
 TODO:when add car accessory may should add price
 TODO:add passenger info mandatory
@@ -938,20 +938,28 @@ TODO:continue with {"error":true,"message":"Not Found","status_code":404} for ma
 TODO:email vailaibility notification:en cours
 TODO:i have container for cron jobs, better use it as it is for cancellation or may use celery beat like alert notification?
 TODO: why notification task expires after one hour if not picked up?, and try to run it every minute for test and later every hour maybe?done
-TODO:add frontend for availaibility, and we need after search ferries small emoji shows what is vaialble and not (example,passenger,cabin,vehicule) and user can choose to be alerted just by clicking on that is not vailable, what do you think ?and suggest practical idea
-TODO:change logo in notification email from plane to ferry
-todo:on alert creation conflict https://localhost:3001/api/v1/availability-alerts
-Request Method
-POST
-Status Code
-409 Conflict
-Remote Address
-127.0.0.1:3001
-Referrer Policy
-strict-origin-when-cross, say, alert already created maybe for this, instead of this Failed to create alert. Please try again.
-TODO:if route avaialible sed notification with the correct information directly(routes, passenger etc..) that user saved on alert
+TODO:we need after click search ferries small emoji shows what is vaialble and notfor each route(example,cabin,vehicule,passenger (distinghuich by color maybe)) and user can choose to be alerted just by clicking on that is not vailable, what do you think ?and suggest practical idea
+TODO:change logo in notification email from plane to ferry:done
+todo:on alert creation conflict https://localhost:3001/api/v1/availability-alerts request Method POST Status Code 409 Conflict Remote Address 127.0.0.1:3001 Referrer Policy strict-origin-when-cross, say, alert already created maybe for this, instead of this Failed to create alert. Please try again:done
+TODO:if route avaialible send notification with the correct information directly in the link on email(routes, passenger, cabin etc..) that user saved on alert
+TODO:alert should be created also for cabine standalone or vehicule standalone also:done
+TODO:after reservation maybe possibility to add notification if cabin is become available maybe if user want change cabin maybe or add one on that routes choosed for reservation?
+TODO:why availaibility-alert on  console showed twice
+TODO:i dont see emoji for each item on eah route:done
+TODO:i see notify for cabin but when click next to detail i could choose cabin:done
+TODO:enter email if not logged in to subscribe
+todo:when i am logged in i should not prompt to enter email on susbcription only if i am not logged in, and updatethe popup elegant like the notify me that previously developed:done
+TODO:once in prod notificiation should be done by route id, because route date could change maybe!
+TODO:translate the text near emojis:done
+TODO:palermo-tunis no cabin vaialble i subscribe, but in page detail i found balcony cabin availaible (so if first page we should see lilmited maybe):done
+TODO:remove arabic from language selection
+TODO:for example i receive this url for availaibility:https://localhost:3001/search?from=tunis&to=palermo&date=2026-01-10&adults=1&children=0&infants=0 but it do not set  the search detail automatically in page:done
+TODO:check why in celery log we get No active alerts to check and  🎉 Availability check complete: checked 9, notified 0:done
+TODO:remove 1 cabin from reclining seat on dropdown list and replace it by seat:done
 
----
+TODO:the check availaibility job how much still active and check vaialibility for users:it expires automatically the day of the trip:done
+ToDo:when send link after search retrieved go to the routes in the page that contain the available item we seek
+TODO:when reload show go back to homepage not serach page:done
 
 ### 💰 Differentiated Pricing & Detailed Breakdown (2024-11-27) ✅
 

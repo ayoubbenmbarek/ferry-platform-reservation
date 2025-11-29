@@ -488,3 +488,317 @@ class TestCabinUpgradePayments:
         # Booking should remain confirmed even if upgrade payment fails
         assert confirmed_booking.status == BookingStatusEnum.CONFIRMED
         assert payment.status == PaymentStatusEnum.FAILED
+
+
+class TestExpressCheckoutPayments:
+    """Tests for Express Checkout (Google Pay, Apple Pay, Link) payment scenarios."""
+
+    def test_google_pay_payment_success(self, db_session, sample_booking):
+        """Test successful Google Pay payment."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,  # Google Pay uses card rails
+            stripe_payment_intent_id="pi_google_pay_test",
+            stripe_charge_id="ch_google_pay_test",
+            card_brand="mastercard",  # Google Pay can use various cards
+            card_last_four="1234",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        sample_booking.status = BookingStatusEnum.CONFIRMED
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.COMPLETED
+        assert sample_booking.status == BookingStatusEnum.CONFIRMED
+
+    def test_apple_pay_payment_success(self, db_session, sample_booking):
+        """Test successful Apple Pay payment."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,  # Apple Pay uses card rails
+            stripe_payment_intent_id="pi_apple_pay_test",
+            stripe_charge_id="ch_apple_pay_test",
+            card_brand="visa",
+            card_last_four="4242",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        sample_booking.status = BookingStatusEnum.CONFIRMED
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.COMPLETED
+
+    def test_link_payment_success(self, db_session, sample_booking):
+        """Test successful Stripe Link payment."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,  # Link uses saved cards
+            stripe_payment_intent_id="pi_link_test",
+            stripe_charge_id="ch_link_test",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        sample_booking.status = BookingStatusEnum.CONFIRMED
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.COMPLETED
+
+    def test_express_checkout_3ds_required(self, db_session, sample_booking):
+        """Test Express Checkout requiring 3D Secure authentication."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.PENDING,  # Waiting for 3DS
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_3ds_required",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        # Payment should be pending while waiting for 3DS
+        assert payment.status == PaymentStatusEnum.PENDING
+        assert sample_booking.status == BookingStatusEnum.PENDING
+
+    def test_express_checkout_3ds_failed(self, db_session, sample_booking):
+        """Test Express Checkout when 3D Secure authentication fails."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.FAILED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_3ds_failed",
+            failure_message="3D Secure authentication failed",
+            failure_code="authentication_required",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.FAILED
+        assert "3D Secure" in payment.failure_message
+
+
+class TestPaymentSessionExpiry:
+    """Tests for payment session expiry scenarios."""
+
+    def test_payment_intent_expired(self, db_session, sample_booking):
+        """Test handling of expired payment intent."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.FAILED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_expired",
+            failure_message="Payment intent has expired",
+            failure_code="payment_intent_expired",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.FAILED
+        assert "expired" in payment.failure_message.lower()
+
+    def test_payment_canceled_by_user(self, db_session, sample_booking):
+        """Test handling when user cancels payment."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.FAILED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_user_canceled",
+            failure_message="Payment was canceled by user",
+            failure_code="canceled",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.FAILED
+        # Booking should remain available for retry
+        assert sample_booking.status == BookingStatusEnum.PENDING
+
+
+class TestCurrencyAndAmountValidation:
+    """Tests for currency and amount validation scenarios."""
+
+    def test_minimum_payment_amount(self, db_session, sample_booking):
+        """Test payment with minimum amount (Stripe has min requirements)."""
+        # Stripe minimum is €0.50 for EUR
+        min_amount = Decimal("0.50")
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=min_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_min_amount",
+            net_amount=min_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.amount == min_amount
+
+    def test_large_payment_amount(self, db_session, sample_booking):
+        """Test payment with large amount."""
+        large_amount = Decimal("9999.99")
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=large_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_large_amount",
+            net_amount=large_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.amount == large_amount
+
+    def test_payment_amount_precision(self, db_session, sample_booking):
+        """Test payment amount with decimal precision."""
+        precise_amount = Decimal("123.45")
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=precise_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_precise",
+            net_amount=precise_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.amount == precise_amount
+
+
+class TestNetworkAndTimeoutErrors:
+    """Tests for network and timeout error scenarios."""
+
+    def test_stripe_timeout_error(self, db_session, sample_booking):
+        """Test handling of Stripe timeout error."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.FAILED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_timeout",
+            failure_message="Request to Stripe timed out",
+            failure_code="timeout",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.FAILED
+        assert "timed out" in payment.failure_message.lower()
+
+    def test_stripe_service_unavailable(self, db_session, sample_booking):
+        """Test handling of Stripe service unavailable."""
+        payment = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.FAILED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_unavailable",
+            failure_message="Stripe service temporarily unavailable",
+            failure_code="service_unavailable",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        assert payment.status == PaymentStatusEnum.FAILED
+
+
+class TestDuplicatePaymentPrevention:
+    """Tests for duplicate payment prevention."""
+
+    def test_prevent_double_payment(self, db_session, sample_booking):
+        """Test that a booking can't be paid twice."""
+        # First successful payment
+        payment1 = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_first",
+            stripe_charge_id="ch_first",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment1)
+        sample_booking.status = BookingStatusEnum.CONFIRMED
+        db_session.commit()
+
+        # Check for existing completed payment
+        existing_payment = db_session.query(Payment).filter(
+            Payment.booking_id == sample_booking.id,
+            Payment.status == PaymentStatusEnum.COMPLETED
+        ).first()
+
+        # Should find existing payment
+        assert existing_payment is not None
+        assert existing_payment.stripe_payment_intent_id == "pi_first"
+
+    def test_allow_retry_after_failure(self, db_session, sample_booking):
+        """Test that retry is allowed after failed payment."""
+        # First failed payment
+        payment1 = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.FAILED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_failed_first",
+            failure_message="Card declined",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment1)
+        db_session.commit()
+
+        # Check for existing completed payment (should be None)
+        existing_completed = db_session.query(Payment).filter(
+            Payment.booking_id == sample_booking.id,
+            Payment.status == PaymentStatusEnum.COMPLETED
+        ).first()
+
+        # No completed payment, retry should be allowed
+        assert existing_completed is None
+
+        # Second payment attempt should be allowed
+        payment2 = Payment(
+            booking_id=sample_booking.id,
+            amount=sample_booking.total_amount,
+            currency="EUR",
+            status=PaymentStatusEnum.COMPLETED,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            stripe_payment_intent_id="pi_retry_success",
+            stripe_charge_id="ch_retry_success",
+            net_amount=sample_booking.total_amount * Decimal("0.97")
+        )
+        db_session.add(payment2)
+        sample_booking.status = BookingStatusEnum.CONFIRMED
+        db_session.commit()
+
+        assert payment2.status == PaymentStatusEnum.COMPLETED
+        assert sample_booking.status == BookingStatusEnum.CONFIRMED

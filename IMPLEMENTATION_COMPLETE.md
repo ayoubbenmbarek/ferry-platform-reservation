@@ -170,6 +170,7 @@ todo check existing alerts and try to add info for that alert to be activated an
 TODO:run tests in every commit,
 TODO:create 3 environment
 todo:deploy in self managed kube
+todo: add chatbot, that maybe connected to postgres with mcp to answer user question and connect to mcp ferryhopper too, and answer some support question.
 todo:continue with sentry monitoring:done
 todo correct view booking detail url http://booking/445 onemail 
 

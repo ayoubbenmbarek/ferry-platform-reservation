@@ -25,6 +25,8 @@ class EmailService:
         self.smtp_password = os.getenv("SMTP_PASSWORD", "")
         self.from_email = os.getenv("FROM_EMAIL", "noreply@maritime-booking.com")
         self.from_name = os.getenv("FROM_NAME", "Maritime Booking System")
+        # Base URL for links in emails (frontend URL)
+        self.base_url = os.getenv("FRONTEND_URL", os.getenv("BASE_URL", "http://localhost:3001"))
 
         # Setup Jinja2 for email templates
         template_dir = Path(__file__).parent.parent / "templates" / "emails"
@@ -176,7 +178,9 @@ class EmailService:
         """
         try:
             template = self.jinja_env.get_template('booking_confirmation.html')
-            html_content = template.render(booking=booking_data)
+            # Use base_url from booking_data if provided, otherwise use service default
+            base_url = booking_data.get('base_url', self.base_url)
+            html_content = template.render(booking=booking_data, base_url=base_url)
 
             subject = f"Reservation Confirmed - {booking_data['booking_reference']}"
 
@@ -210,9 +214,12 @@ class EmailService:
         """
         try:
             template = self.jinja_env.get_template('payment_confirmation.html')
+            # Use base_url from booking_data if provided, otherwise use service default
+            base_url = booking_data.get('base_url', self.base_url)
             html_content = template.render(
                 booking=booking_data,
-                payment=payment_data
+                payment=payment_data,
+                base_url=base_url
             )
 
             subject = f"Payment Confirmation - {booking_data['booking_reference']}"
@@ -244,7 +251,9 @@ class EmailService:
         """
         try:
             template = self.jinja_env.get_template('cancellation_confirmation.html')
-            html_content = template.render(booking=booking_data)
+            # Use base_url from booking_data if provided, otherwise use service default
+            base_url = booking_data.get('base_url', self.base_url)
+            html_content = template.render(booking=booking_data, base_url=base_url)
 
             subject = f"Booking Cancellation - {booking_data['booking_reference']}"
 
@@ -304,7 +313,9 @@ class EmailService:
         """
         try:
             template = self.jinja_env.get_template('refund_confirmation.html')
-            html_content = template.render(booking=booking_data)
+            # Use base_url from booking_data if provided, otherwise use service default
+            base_url = booking_data.get('base_url', self.base_url)
+            html_content = template.render(booking=booking_data, base_url=base_url)
 
             subject = f"Refund Processed - {booking_data['booking_reference']}"
 

@@ -1,25 +1,59 @@
 """
 Pytest configuration and fixtures for Maritime Reservation Website tests.
+
+To run tests against Docker database:
+    TEST_USE_DOCKER=true pytest tests/ -v
+
+To run tests with in-memory SQLite (default, faster):
+    pytest tests/ -v
 """
 
 import os
 import sys
+
+# Add the backend directory to the path FIRST
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Check if we should use Docker database
+USE_DOCKER_DB = os.environ.get("TEST_USE_DOCKER", "").lower() in ("true", "1", "yes")
+
+# CRITICAL: Set testing environment variables BEFORE importing app modules
+# This must happen before any app imports to ensure correct database is used
+os.environ["ENVIRONMENT"] = "testing"
+
+# Only set database URLs if not already set (allows CI to override)
+if USE_DOCKER_DB:
+    # Use Docker/PostgreSQL database
+    # Check if DATABASE_URL is already set (e.g., by CI pipeline)
+    if "DATABASE_URL" not in os.environ or os.environ["DATABASE_URL"].startswith("sqlite"):
+        # Local Docker: PostgreSQL on port 5442, Redis on port 6399
+        os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:5442/maritime_reservations_dev"
+    if "REDIS_URL" not in os.environ or os.environ["REDIS_URL"].startswith("memory"):
+        os.environ["REDIS_URL"] = "redis://localhost:6399/15"
+    if "CELERY_BROKER_URL" not in os.environ or os.environ["CELERY_BROKER_URL"].startswith("memory"):
+        os.environ["CELERY_BROKER_URL"] = "redis://localhost:6399/14"
+    if "CELERY_RESULT_BACKEND" not in os.environ or os.environ["CELERY_RESULT_BACKEND"].startswith("memory"):
+        os.environ["CELERY_RESULT_BACKEND"] = "redis://localhost:6399/14"
+else:
+    # Use in-memory SQLite for fast isolated tests
+    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+    os.environ.setdefault("REDIS_URL", "memory://")
+    os.environ.setdefault("CELERY_BROKER_URL", "memory://")
+    os.environ.setdefault("CELERY_RESULT_BACKEND", "memory://")
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only-12345678901234567890")
+os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-key-for-testing-only-12345678901234567890")
+os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_fake_key")
+os.environ.setdefault("STRIPE_PUBLISHABLE_KEY", "pk_test_fake_key")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test_secret")
+os.environ.setdefault("DEBUG", "true")
+os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:3001")
+
 import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Generator, Dict, Any
 from unittest.mock import MagicMock, patch
-
-# Add the backend directory to the path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Set testing environment variables before importing app modules
-os.environ["ENVIRONMENT"] = "testing"
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only-12345678901234567890"
-os.environ["STRIPE_SECRET_KEY"] = "sk_test_fake_key"
-os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_secret"
-os.environ["REDIS_URL"] = "redis://localhost:6379/15"  # Use separate DB for tests
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session

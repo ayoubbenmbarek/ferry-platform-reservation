@@ -30,8 +30,9 @@ from app.schemas.admin import (
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (skip in testing mode)
+if os.environ.get("ENVIRONMENT") != "testing":
+    load_dotenv()
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 router = APIRouter()

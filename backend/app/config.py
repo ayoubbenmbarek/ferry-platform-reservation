@@ -11,8 +11,10 @@ from dotenv import load_dotenv
 
 # Load .env file with override to replace empty docker-compose environment variables
 # In development, prefer .env.development if it exists
-env_file = '.env.development' if os.path.exists('.env.development') else '.env'
-load_dotenv(dotenv_path=env_file, override=True)
+# IMPORTANT: Skip loading .env files in testing mode - tests control the environment via conftest.py
+if os.environ.get("ENVIRONMENT") != "testing":
+    env_file = '.env.development' if os.path.exists('.env.development') else '.env'
+    load_dotenv(dotenv_path=env_file, override=True)
 
 
 class Settings(BaseSettings):

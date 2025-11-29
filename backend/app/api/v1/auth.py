@@ -27,8 +27,10 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables (override=True to override empty docker-compose env vars)
 # In development, prefer .env.development if it exists
-env_file = '.env.development' if os.path.exists('.env.development') else '.env'
-load_dotenv(dotenv_path=env_file, override=True)
+# Skip in testing mode - tests control environment via conftest.py
+if os.environ.get("ENVIRONMENT") != "testing":
+    env_file = '.env.development' if os.path.exists('.env.development') else '.env'
+    load_dotenv(dotenv_path=env_file, override=True)
 
 router = APIRouter()
 

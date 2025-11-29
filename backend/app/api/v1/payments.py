@@ -28,8 +28,9 @@ from app.api.deps import get_optional_current_user
 from app.services.email_service import email_service
 from app.models.meal import BookingMeal
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (skip in testing mode)
+if os.environ.get("ENVIRONMENT") != "testing":
+    load_dotenv()
 
 router = APIRouter()
 

@@ -95,10 +95,24 @@ try:
 except ImportError as e:
     print(f"Failed to import availability_alerts module: {e}")
 
+try:
+    health = importlib.import_module('app.api.v1.health')
+except ImportError as e:
+    health = None
+    print(f"Failed to import health module: {e}")
+
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
 setup_logging()
 logger = get_logger(__name__)
+
+# Initialize Sentry (before app creation)
+try:
+    from app.monitoring import init_sentry
+    sentry_enabled = init_sentry()
+except ImportError:
+    sentry_enabled = False
+    logger.warning("Monitoring module not available")
 
 # Create FastAPI application
 app = FastAPI(
@@ -112,6 +126,13 @@ app = FastAPI(
 
 # Add request ID middleware (must be first)
 app.add_middleware(RequestIDMiddleware)
+
+# Set up rate limiting
+try:
+    from app.rate_limiter import setup_rate_limiting
+    setup_rate_limiting(app)
+except ImportError:
+    logger.warning("Rate limiting not available")
 
 # Add CORS middleware
 app.add_middleware(
@@ -308,6 +329,9 @@ if vehicles:
 
 if availability_alerts:
     app.include_router(availability_alerts.router, prefix="/api/v1/availability-alerts", tags=["Availability Alerts"])
+
+if health:
+    app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 
 
 # Startup event

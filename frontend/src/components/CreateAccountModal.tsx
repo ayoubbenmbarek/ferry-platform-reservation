@@ -1,5 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { useDispatch } from 'react-redux';
+import { setUser, setToken } from '../store/slices/authSlice';
+
+// Declare global Google type
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
+// Helper function to convert snake_case to camelCase
+const snakeToCamel = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+
+  return Object.keys(obj).reduce((acc: any, key: string) => {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    acc[camelKey] = snakeToCamel(obj[key]);
+    return acc;
+  }, {});
+};
 
 interface CreateAccountModalProps {
   isOpen: boolean;
@@ -16,6 +37,8 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   bookingEmail,
   onSuccess,
 }) => {
+  const dispatch = useDispatch();
+  const googleButtonRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -30,6 +53,79 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  // Memoize Google response handler
+  const handleGoogleResponse = useCallback(async (response: any) => {
+    try {
+      setLoading(true);
+      // Send the Google credential to our backend
+      const result = await axios.post('/api/v1/auth/google', {
+        credential: response.credential
+      });
+
+      // Store token and user data (convert snake_case to camelCase)
+      const { access_token, user } = result.data;
+      const camelUser = snakeToCamel(user);
+      dispatch(setToken(access_token));
+      dispatch(setUser(camelUser));
+
+      // Call success callback
+      if (onSuccess) {
+        onSuccess(access_token, camelUser);
+      }
+
+      // Close modal
+      onClose();
+
+      // Show success message
+      alert('Account created and logged in successfully!');
+    } catch (err: any) {
+      console.error('Google sign-up failed:', err);
+      setError(err.response?.data?.detail || 'Google sign-up failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [dispatch, onSuccess, onClose]);
+
+  // Initialize Google Sign-In when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const initializeGoogleSignIn = () => {
+      if (window.google && googleButtonRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+          auto_select: false,
+        });
+
+        window.google.accounts.id.renderButton(
+          googleButtonRef.current,
+          {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'signup_with',
+            logo_alignment: 'left',
+          }
+        );
+      }
+    };
+
+    // Wait for Google script to load
+    if (window.google) {
+      initializeGoogleSignIn();
+    } else {
+      const checkGoogle = setInterval(() => {
+        if (window.google) {
+          clearInterval(checkGoogle);
+          initializeGoogleSignIn();
+        }
+      }, 100);
+
+      return () => clearInterval(checkGoogle);
+    }
+  }, [isOpen, handleGoogleResponse]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,6 +335,23 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               </button>
             </div>
           </form>
+
+          {/* Divider */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or sign up with</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Google Sign-Up Button */}
+          <div className="mt-6">
+            <div ref={googleButtonRef} className="w-full"></div>
+          </div>
 
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500">

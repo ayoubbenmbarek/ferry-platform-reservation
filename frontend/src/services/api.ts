@@ -10,6 +10,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 second timeout to prevent hanging requests
 });
 
 // Request interceptor to add auth token
@@ -111,13 +112,28 @@ export interface Passenger {
 }
 
 export interface Vehicle {
-  type: 'car' | 'motorcycle' | 'camper' | 'truck';
-  make: string;
-  model: string;
+  id?: number;
+  type: 'car' | 'motorcycle' | 'camper' | 'truck' | 'suv' | 'van' | 'caravan';
+  make?: string;
+  model?: string;
+  owner?: string;
   registration?: string;
-  length: number;
-  width: number;
-  height: number;
+  licensePlate?: string;
+  license_plate?: string;
+  length?: number;
+  lengthCm?: number;
+  width?: number;
+  widthCm?: number;
+  height?: number;
+  heightCm?: number;
+  hasTrailer?: boolean;
+  has_trailer?: boolean;
+  hasCaravan?: boolean;
+  has_caravan?: boolean;
+  hasRoofBox?: boolean;
+  has_roof_box?: boolean;
+  hasBikeRack?: boolean;
+  has_bike_rack?: boolean;
 }
 
 export interface CabinSelection {

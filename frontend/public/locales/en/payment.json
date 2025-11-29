@@ -30,6 +30,8 @@
     "title": "Order Summary",
     "bookingDetails": "Booking Details",
     "route": "Route",
+    "outboundJourney": "Outbound Journey",
+    "returnJourney": "Return Journey",
     "departure": "Departure",
     "return": "Return",
     "passengers": "Passengers",
@@ -85,5 +87,16 @@
     "expiryDate": "Please enter expiry date (MM/YY)",
     "cvv": "Please enter CVV (3-4 digits)",
     "termsRequired": "You must agree to terms and conditions"
+  },
+  "timer": {
+    "expired": "Booking Expired",
+    "expiredMessage": "This booking has expired. Please start a new search to book your ferry.",
+    "criticalTitle": "⚠️ Complete Payment Soon!",
+    "warningTitle": "⏰ Time Running Out",
+    "normalTitle": "🕐 Reservation Hold",
+    "urgent": "Urgent",
+    "criticalMessage": "Your booking will be automatically cancelled in {{time}}. Please complete payment now!",
+    "normalMessage": "This booking is reserved until {{time}} ({{minutes}} minutes). Complete payment to confirm your reservation.",
+    "secureInfo": "Your payment information is secure and encrypted"
   }
 }

@@ -30,6 +30,8 @@
     "title": "Riepilogo Ordine",
     "bookingDetails": "Dettagli Prenotazione",
     "route": "Rotta",
+    "outboundJourney": "Viaggio di Andata",
+    "returnJourney": "Viaggio di Ritorno",
     "departure": "Partenza",
     "return": "Ritorno",
     "passengers": "Passeggeri",
@@ -85,5 +87,16 @@
     "expiryDate": "Inserisci data di scadenza (MM/AA)",
     "cvv": "Inserisci CVV (3-4 cifre)",
     "termsRequired": "Devi accettare i termini e le condizioni"
+  },
+  "timer": {
+    "expired": "Prenotazione Scaduta",
+    "expiredMessage": "Questa prenotazione è scaduta. Si prega di avviare una nuova ricerca per prenotare il traghetto.",
+    "criticalTitle": "⚠️ Completa il Pagamento Presto!",
+    "warningTitle": "⏰ Tempo in Scadenza",
+    "normalTitle": "🕐 Prenotazione Riservata",
+    "urgent": "Urgente",
+    "criticalMessage": "La tua prenotazione verrà automaticamente annullata tra {{time}}. Completa il pagamento ora!",
+    "normalMessage": "Questa prenotazione è riservata fino alle {{time}} ({{minutes}} minuti). Completa il pagamento per confermare la tua prenotazione.",
+    "secureInfo": "Le tue informazioni di pagamento sono sicure e crittografate"
   }
 }

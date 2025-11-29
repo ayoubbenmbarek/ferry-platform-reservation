@@ -5,9 +5,10 @@
   "form": {
     "departurePort": "Abfahrtshafen",
     "arrivalPort": "Ankunftshafen",
-    "departureDate": "Abfahrtsdatum",
+    "departureDate": "📅 Abfahrtsdatum",
     "returnDate": "Rückfahrtsdatum (Optional)",
     "passengers": "Passagiere",
+    "cabins": "Kabinen",
     "vehicles": "Fahrzeuge",
     "adults": "Erwachsene",
     "children": "Kinder",
@@ -21,12 +22,27 @@
     "vehicleLength": "Fahrzeuglänge",
     "selectPort": "Hafen auswählen",
     "selectDate": "Datum auswählen",
-    "differentReturnRoute": "Andere Rückfahrtroute",
+    "differentReturnRoute": "Unterschiedliche Rückroute (z.B. Rückkehr von einem anderen Hafen)",
     "updateSearch": "Suche Aktualisieren",
     "selectDeparturePort": "Abfahrtshafen auswählen",
     "selectArrivalPort": "Ankunftshafen auswählen",
-    "from": "Von",
-    "to": "Nach"
+    "from": "🛳️ Von",
+    "to": "🏁 Nach",
+    "title": "⚓ Fähre nach Tunesien",
+    "subtitle": "Buchen Sie Ihre Mittelmeerüberfahrt von Italien & Frankreich nach Tunesien",
+    "editTitle": "✏️ Suche Bearbeiten",
+    "editSubtitle": "Aktualisieren Sie Ihre Route und Daten. Ihre Passagier- und Fahrzeugdetails bleiben erhalten.",
+    "selectReturnDeparturePort": "Wählen Sie den Rückreise-Abfahrtshafen",
+    "selectReturnArrivalPort": "Wählen Sie den Rückreise-Ankunftshafen",
+    "returnFrom": "🔄 Rückkehr Von",
+    "returnTo": "🏁 Rückkehr Nach"
+  },
+  "cabins": {
+    "deck": "Deckpassage",
+    "one": "1 Kabine",
+    "two": "2 Kabinen",
+    "three": "3 Kabinen",
+    "description": "Wählen Sie die Anzahl der benötigten Kabinen. Deckpassage bedeutet keine Kabine."
   },
   "passengers": {
     "adults": "Erwachsene",
@@ -43,6 +59,15 @@
     "camper": "Wohnmobil",
     "carWithTrailer": "Auto mit Anhänger",
     "bicycle": "Fahrrad"
+  },
+  "vehicleTypes": {
+    "car": "Auto",
+    "suv": "SUV / Geländewagen",
+    "van": "Transporter",
+    "motorcycle": "Motorrad",
+    "camper": "Wohnmobil",
+    "caravan": "Wohnwagen",
+    "truck": "LKW"
   },
   "results": {
     "title": "Verfügbare Fähren",
@@ -98,7 +123,8 @@
     "portsMustDiffer": "Ankunftshafen muss vom Abfahrtshafen abweichen",
     "selectReturnDeparturePort": "Bitte wählen Sie den Rückfahrt-Abfahrtshafen",
     "selectReturnArrivalPort": "Bitte wählen Sie den Rückfahrt-Ankunftshafen",
-    "returnPortsMustDiffer": "Rückfahrt-Ankunftshafen muss abweichen"
+    "returnPortsMustDiffer": "Rückfahrt-Ankunftshafen muss abweichen",
+    "pastDateNotAllowed": "Bitte wählen Sie ein Datum, das heute oder in der Zukunft liegt. Vergangene Daten sind für Buchungen nicht verfügbar."
   },
   "selectFerry": "Fähre Auswählen",
   "selectOutboundFerry": "Hinfahrt-Fähre Auswählen",
@@ -110,5 +136,29 @@
   "searchingFerries": "Suche alle Fährbetreiber...",
   "searchingReturn": "Suche Rückfahrt-Fähren...",
   "noReturnResults": "Keine Rückfahrt-Fähren für Ihre Suche gefunden",
-  "tryAdjusting": "Versuchen Sie, Ihre Daten oder Route anzupassen"
+  "tryAdjusting": "Versuchen Sie, Ihre Daten oder Route anzupassen",
+  "datePriceSelector": {
+    "title": "Wählen Sie ein anderes Datum",
+    "subtitle": "Vergleichen Sie Preise für nahe gelegene Termine",
+    "priceNote": "Die angezeigten Preise sind ungefähr. Der endgültige Preis wird nach der Auswahl angezeigt.",
+    "unavailable": "N/V",
+    "selected": "Ausgewählt",
+    "scrollHint": "Wischen Sie, um weitere Daten anzuzeigen"
+  },
+  "showingResultsFor": "Fähren anzeigen für {{date}}",
+  "selectFerryHint": "Wählen Sie eine Fähre aus der Liste unten aus, um fortzufahren",
+  "availability": {
+    "noSeats": "Keine Plätze",
+    "notEnoughSeats": "Nicht genug Plätze",
+    "seatsLeft": "{{count}} Plätze übrig",
+    "seats": "{{count}} Plätze",
+    "noVehicleSpace": "Kein Fahrzeugplatz",
+    "notEnoughSpace": "Nicht genug Platz",
+    "spacesLeft": "{{count}} Plätze übrig",
+    "spaces": "{{count}} Plätze",
+    "noCabins": "Keine Kabinen",
+    "cabinsLeft": "{{count}} Kabinen übrig",
+    "cabins": "{{count}} Kabinen",
+    "notify": "Benachrichtigen"
+  }
 }

@@ -30,6 +30,8 @@
     "title": "Bestellübersicht",
     "bookingDetails": "Buchungsdetails",
     "route": "Route",
+    "outboundJourney": "Hinreise",
+    "returnJourney": "Rückreise",
     "departure": "Abfahrt",
     "return": "Rückfahrt",
     "passengers": "Passagiere",
@@ -85,5 +87,16 @@
     "expiryDate": "Bitte geben Sie das Ablaufdatum ein (MM/JJ)",
     "cvv": "Bitte geben Sie CVV ein (3-4 Ziffern)",
     "termsRequired": "Sie müssen den Allgemeinen Geschäftsbedingungen zustimmen"
+  },
+  "timer": {
+    "expired": "Buchung Abgelaufen",
+    "expiredMessage": "Diese Buchung ist abgelaufen. Bitte starten Sie eine neue Suche, um Ihre Fähre zu buchen.",
+    "criticalTitle": "⚠️ Zahlung Bald Abschließen!",
+    "warningTitle": "⏰ Zeit Läuft Ab",
+    "normalTitle": "🕐 Reservierung Gehalten",
+    "urgent": "Dringend",
+    "criticalMessage": "Ihre Buchung wird automatisch in {{time}} storniert. Bitte schließen Sie die Zahlung jetzt ab!",
+    "normalMessage": "Diese Buchung ist bis {{time}} reserviert ({{minutes}} Minuten). Schließen Sie die Zahlung ab, um Ihre Reservierung zu bestätigen.",
+    "secureInfo": "Ihre Zahlungsinformationen sind sicher und verschlüsselt"
   }
 }

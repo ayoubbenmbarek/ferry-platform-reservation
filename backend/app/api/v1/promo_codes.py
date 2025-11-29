@@ -89,6 +89,7 @@ async def create_promo_code(
             maximum_discount=float(promo.maximum_discount) if promo.maximum_discount else None,
             first_booking_only=promo.first_booking_only,
             is_active=promo.is_active,
+            effective_status=promo.effective_status,
             created_at=promo.created_at
         )
     except PromoCodeError as e:
@@ -130,6 +131,7 @@ async def list_promo_codes(
                 maximum_discount=float(p.maximum_discount) if p.maximum_discount else None,
                 first_booking_only=p.first_booking_only,
                 is_active=p.is_active,
+                effective_status=p.effective_status,  # Computed status
                 created_at=p.created_at
             ) for p in promos
         ],
@@ -169,6 +171,7 @@ async def get_promo_code(
         maximum_discount=float(promo.maximum_discount) if promo.maximum_discount else None,
         first_booking_only=promo.first_booking_only,
         is_active=promo.is_active,
+        effective_status=promo.effective_status,  # Computed status
         created_at=promo.created_at
     )
 
@@ -202,6 +205,7 @@ async def update_promo_code(
             maximum_discount=float(promo.maximum_discount) if promo.maximum_discount else None,
             first_booking_only=promo.first_booking_only,
             is_active=promo.is_active,
+            effective_status=promo.effective_status,
             created_at=promo.created_at
         )
     except PromoCodeError as e:

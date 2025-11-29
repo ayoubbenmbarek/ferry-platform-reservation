@@ -68,7 +68,8 @@ class PaymentCreate(BaseModel):
     payment_method: PaymentMethod
     billing_address: Optional[BillingAddress] = None
     save_payment_method: bool = False
-    
+    metadata: Optional[Dict[str, Any]] = None  # For cabin upgrade info, etc.
+
     @field_validator('amount')
     @classmethod
     def validate_amount(cls, v):

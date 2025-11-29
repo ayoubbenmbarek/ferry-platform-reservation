@@ -63,7 +63,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -92,6 +92,30 @@ services:
       - redis
       - postgres
       - backend
+    networks:
+      - maritime-network
+
+  # Celery Beat for periodic tasks (scheduler)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: maritime-celery-beat
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file:
+      - ./backend/.env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-maritime_reservations}
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/1
+    volumes:
+      - ./backend/logs:/app/logs
+    depends_on:
+      - redis
+      - postgres
+      - backend
+      - celery-worker
     networks:
       - maritime-network
 

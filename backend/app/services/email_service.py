@@ -120,6 +120,45 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to add attachment: {str(e)}")
 
+    def send_email_with_attachment(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        attachment_content: bytes,
+        attachment_filename: str,
+        attachment_type: str = "application/pdf",
+        text_content: Optional[str] = None
+    ) -> bool:
+        """
+        Convenience method to send an email with a single attachment.
+
+        Args:
+            to_email: Recipient email address
+            subject: Email subject
+            html_content: HTML email content
+            attachment_content: Binary content of the attachment
+            attachment_filename: Name for the attachment file
+            attachment_type: MIME type of the attachment (default: application/pdf)
+            text_content: Plain text email content (fallback)
+
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        attachments = [{
+            'content': attachment_content,
+            'filename': attachment_filename,
+            'content_type': attachment_type
+        }]
+
+        return self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            attachments=attachments
+        )
+
     def send_booking_confirmation(
         self,
         booking_data: Dict[str, Any],
@@ -336,6 +375,45 @@ class EmailService:
             )
         except Exception as e:
             logger.error(f"Failed to send email verification: {str(e)}")
+            return False
+
+    def send_availability_alert(
+        self,
+        alert_data: Dict[str, Any],
+        to_email: str
+    ) -> bool:
+        """
+        Send availability alert notification email.
+
+        Args:
+            alert_data: Alert information including route, dates, type
+            to_email: Recipient email address
+
+        Returns:
+            bool: True if email sent successfully
+        """
+        try:
+            # Render email template
+            template = self.jinja_env.get_template("availability_alert.html")
+            html_content = template.render(alert=alert_data)
+
+            # Determine subject based on alert type
+            alert_type_names = {
+                "vehicle": "Vehicle Space",
+                "cabin": "Cabin",
+                "passenger": "Passenger Seats"
+            }
+            type_name = alert_type_names.get(alert_data.get("alert_type", ""), "Space")
+
+            subject = f"🎉 {type_name} Now Available: {alert_data['departure_port']} → {alert_data['arrival_port']}"
+
+            return self.send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content
+            )
+        except Exception as e:
+            logger.error(f"Failed to send availability alert: {str(e)}")
             return False
 
 

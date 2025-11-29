@@ -20,6 +20,8 @@ passlib[bcrypt]==1.7.4
 passlib[argon2]==1.7.4
 argon2-cffi==25.1.0
 python-multipart==0.0.6
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
 
 # HTTP clients
 httpx==0.25.2
@@ -48,6 +50,13 @@ reportlab==4.0.8
 
 # Logging
 structlog==23.2.0
+
+# Monitoring and error tracking
+sentry-sdk[fastapi]==1.38.0
+psutil==5.9.7
+
+# Rate limiting
+slowapi==0.1.9
 
 # Database migrations
 alembic==1.13.0

@@ -30,6 +30,8 @@
     "title": "Récapitulatif de Commande",
     "bookingDetails": "Détails de Réservation",
     "route": "Itinéraire",
+    "outboundJourney": "Voyage Aller",
+    "returnJourney": "Voyage Retour",
     "departure": "Départ",
     "return": "Retour",
     "passengers": "Passagers",
@@ -85,5 +87,16 @@
     "expiryDate": "Veuillez entrer la date d'expiration (MM/AA)",
     "cvv": "Veuillez entrer le CVV (3-4 chiffres)",
     "termsRequired": "Vous devez accepter les conditions générales"
+  },
+  "timer": {
+    "expired": "Réservation Expirée",
+    "expiredMessage": "Cette réservation a expiré. Veuillez commencer une nouvelle recherche pour réserver votre ferry.",
+    "criticalTitle": "⚠️ Finalisez le Paiement Rapidement !",
+    "warningTitle": "⏰ Le Temps S'Écoule",
+    "normalTitle": "🕐 Réservation Maintenue",
+    "urgent": "Urgent",
+    "criticalMessage": "Votre réservation sera automatiquement annulée dans {{time}}. Veuillez finaliser le paiement maintenant !",
+    "normalMessage": "Cette réservation est maintenue jusqu'à {{time}} ({{minutes}} minutes). Finalisez le paiement pour confirmer votre réservation.",
+    "secureInfo": "Vos informations de paiement sont sécurisées et cryptées"
   }
 }

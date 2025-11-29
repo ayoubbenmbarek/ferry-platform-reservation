@@ -26,7 +26,7 @@ except ImportError:
 
 # Import API routes using importlib to avoid __init__.py conflicts
 import importlib
-auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = None
+auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = modifications = vehicles = availability_alerts = None
 
 try:
     auth = importlib.import_module('app.api.v1.auth')
@@ -80,10 +80,39 @@ try:
 except ImportError as e:
     print(f"Failed to import webhooks module: {e}")
 
+try:
+    modifications = importlib.import_module('app.api.v1.modifications')
+except ImportError as e:
+    print(f"Failed to import modifications module: {e}")
+
+try:
+    vehicles = importlib.import_module('app.api.v1.vehicles')
+except ImportError as e:
+    print(f"Failed to import vehicles module: {e}")
+
+try:
+    availability_alerts = importlib.import_module('app.api.v1.availability_alerts')
+except ImportError as e:
+    print(f"Failed to import availability_alerts module: {e}")
+
+try:
+    health = importlib.import_module('app.api.v1.health')
+except ImportError as e:
+    health = None
+    print(f"Failed to import health module: {e}")
+
 # Configure logging
 from app.logging_config import setup_logging, get_logger, RequestIDMiddleware
 setup_logging()
 logger = get_logger(__name__)
+
+# Initialize Sentry (before app creation)
+try:
+    from app.monitoring import init_sentry
+    sentry_enabled = init_sentry()
+except ImportError:
+    sentry_enabled = False
+    logger.warning("Monitoring module not available")
 
 # Create FastAPI application
 app = FastAPI(
@@ -92,10 +121,18 @@ app = FastAPI(
     description="A comprehensive ferry booking platform for Italy/France to Tunisia routes",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    redirect_slashes=False,  # Disable automatic trailing slash redirects to avoid CORS issues
 )
 
 # Add request ID middleware (must be first)
 app.add_middleware(RequestIDMiddleware)
+
+# Set up rate limiting
+try:
+    from app.rate_limiter import setup_rate_limiting
+    setup_rate_limiting(app)
+except ImportError:
+    logger.warning("Rate limiting not available")
 
 # Add CORS middleware
 app.add_middleware(
@@ -283,6 +320,18 @@ if voice_search:
 
 if webhooks:
     app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["Webhooks"])
+
+if modifications:
+    app.include_router(modifications.router, prefix="/api/v1/bookings", tags=["Modifications"])
+
+if vehicles:
+    app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["Vehicles"])
+
+if availability_alerts:
+    app.include_router(availability_alerts.router, prefix="/api/v1/availability-alerts", tags=["Availability Alerts"])
+
+if health:
+    app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 
 
 # Startup event

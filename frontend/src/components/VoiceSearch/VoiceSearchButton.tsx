@@ -22,6 +22,7 @@ const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recordingStartTimeRef = useRef<number>(0);
 
   const startRecording = async () => {
     try {
@@ -53,6 +54,7 @@ const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
 
       // Start recording
       mediaRecorder.start();
+      recordingStartTimeRef.current = Date.now();
       setIsRecording(true);
       setShowResult(false);
       setParsedResult(null);
@@ -78,6 +80,27 @@ const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
   };
 
   const processAudio = async (audioBlob: Blob) => {
+    // Check recording duration
+    const recordingDuration = Date.now() - recordingStartTimeRef.current;
+    const MIN_RECORDING_DURATION = 500; // 0.5 seconds minimum
+
+    if (recordingDuration < MIN_RECORDING_DURATION) {
+      onError?.(
+        t('voiceSearch.tooShort',
+          `Recording too short (${(recordingDuration / 1000).toFixed(1)}s). Please speak for at least 0.5 seconds.`
+        )
+      );
+      return;
+    }
+
+    // Check blob size
+    if (audioBlob.size < 1000) { // Less than 1KB is likely too small
+      onError?.(
+        t('voiceSearch.noAudio', 'No audio detected. Please try recording again and speak clearly.')
+      );
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
@@ -123,7 +146,21 @@ const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
 
     } catch (error: any) {
       console.error('Transcription error:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'Transcription failed';
+
+      // Handle specific error cases
+      let errorMessage = error.response?.data?.detail || error.message || 'Transcription failed';
+
+      // Check for "audio too short" error
+      if (errorMessage.includes('too short') || errorMessage.includes('Minimum audio length')) {
+        errorMessage = t('voiceSearch.audioTooShort',
+          'Audio recording is too short. Please speak for at least 1 second and try again.'
+        );
+      } else if (errorMessage.includes('OpenAI API key')) {
+        errorMessage = t('voiceSearch.serviceUnavailable',
+          'Voice search service is temporarily unavailable. Please try text search instead.'
+        );
+      }
+
       onError?.(errorMessage);
     } finally {
       setIsProcessing(false);

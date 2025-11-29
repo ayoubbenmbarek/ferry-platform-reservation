@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger } from '../store/slices/ferrySlice';
-import CabinSelector from '../components/CabinSelector';
+import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle } from '../store/slices/ferrySlice';
+import CabinSelector, { CabinTypeSelection } from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
+import VehicleForm, { VehicleFormData } from '../components/VehicleFormEnhanced';
 import { PassengerInfo, PassengerType } from '../types/ferry';
 import { promoCodeAPI } from '../services/api';
+import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 
 const BookingPage: React.FC = () => {
   const { t } = useTranslation(['booking', 'common']);
@@ -30,6 +32,8 @@ const BookingPage: React.FC = () => {
   const [selectedReturnCabinId, setSelectedReturnCabinId] = useState<number | null>(null);
   const [cabinPrice, setCabinPrice] = useState(0);
   const [returnCabinPrice, setReturnCabinPrice] = useState(0);
+  const [cabinQuantity, setCabinQuantity] = useState(0);
+  const [returnCabinQuantity, setReturnCabinQuantity] = useState(0);
   const [selectedMeals, setSelectedMeals] = useState<any[]>([]);
   const [mealsPrice, setMealsPrice] = useState(0);
 
@@ -111,15 +115,46 @@ const BookingPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [selectedFerry, isCreatingBooking]);
 
-  const handleCabinSelect = (cabinId: number | null, price: number, journey?: 'outbound' | 'return') => {
+  const handleCabinSelect = (cabinId: number | null, price: number, quantity: number, journey?: 'outbound' | 'return') => {
+    // Price is already the total for all selected cabins (from CabinSelector)
+    // quantity is the total number of cabins selected
+    const totalPrice = price;
+
     if (journey === 'return') {
       setSelectedReturnCabinId(cabinId);
-      setReturnCabinPrice(price);
+      setReturnCabinPrice(totalPrice);
+      setReturnCabinQuantity(quantity);
       dispatch(setReturnCabinId(cabinId));
     } else {
       setSelectedCabinId(cabinId);
-      setCabinPrice(price);
+      setCabinPrice(totalPrice);
+      setCabinQuantity(quantity);
       dispatch(setCabinId(cabinId));
+    }
+
+    // Log for debugging
+    console.log(`Selected ${quantity} cabin(s). Total price: €${totalPrice}`);
+  };
+
+  // Handle multi-cabin selections with full details for Redux
+  const handleMultiCabinSelect = (selections: CabinTypeSelection[], journey: 'outbound' | 'return') => {
+    const totalPrice = selections.reduce((sum, sel) => sum + sel.totalPrice, 0);
+    const formattedSelections = selections.map(sel => ({
+      cabinId: sel.cabinId,
+      quantity: sel.quantity,
+      price: sel.totalPrice,
+    }));
+
+    if (journey === 'return') {
+      dispatch(setReturnCabinSelections({
+        selections: formattedSelections,
+        totalPrice,
+      }));
+    } else {
+      dispatch(setCabinSelections({
+        selections: formattedSelections,
+        totalPrice,
+      }));
     }
   };
 
@@ -196,6 +231,18 @@ const BookingPage: React.FC = () => {
     dispatch(removePassenger(passengerId));
   };
 
+  const handleSaveVehicle = (vehicle: VehicleFormData) => {
+    // Update existing vehicle
+    dispatch(updateVehicle({
+      id: vehicle.id,
+      data: vehicle as any
+    }));
+  };
+
+  const handleRemoveVehicle = (vehicleId: string) => {
+    dispatch(removeVehicle(vehicleId));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -267,12 +314,19 @@ const BookingPage: React.FC = () => {
   // Calculate total price (simplified - should come from backend)
   const adultPrice = selectedFerry.prices?.adult || 0;
   const childPrice = selectedFerry.prices?.child || 0;
+  const infantPrice = selectedFerry.prices?.infant || 0;
   const vehiclePrice = selectedFerry.prices?.vehicle || 0;
 
   // Return ferry prices (if round trip)
   const returnAdultPrice = selectedReturnFerry?.prices?.adult || 0;
   const returnChildPrice = selectedReturnFerry?.prices?.child || 0;
+  const returnInfantPrice = selectedReturnFerry?.prices?.infant || 0;
   const returnVehiclePrice = selectedReturnFerry?.prices?.vehicle || 0;
+
+  // Count passengers by type
+  const adultsCount = passengers.filter(p => p.type === 'adult').length;
+  const childrenCount = passengers.filter(p => p.type === 'child').length;
+  const infantsCount = passengers.filter(p => p.type === 'infant').length;
 
   // Calculate passenger total (including return journey if round trip)
   const passengersTotal = passengers.reduce((sum, p) => {
@@ -284,6 +338,11 @@ const BookingPage: React.FC = () => {
     if (p.type === 'child') {
       const outboundPrice = childPrice;
       const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnChildPrice : 0;
+      return sum + outboundPrice + returnPrice;
+    }
+    if (p.type === 'infant') {
+      const outboundPrice = infantPrice;
+      const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnInfantPrice : 0;
       return sum + outboundPrice + returnPrice;
     }
     return sum;
@@ -302,11 +361,17 @@ const BookingPage: React.FC = () => {
   const total = discountedSubtotal + tax;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-5xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Booking Step Indicator */}
+      <BookingStepIndicator
+        currentStep={BookingStep.BOOKING_DETAILS}
+        onBack={() => navigate('/search')}
+      />
+
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Complete Your Booking</h1>
-          <p className="mt-2 text-gray-600">Review your details and confirm your reservation</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('booking:page.title')}</h1>
+          <p className="mt-2 text-gray-600">{t('booking:page.subtitle')}</p>
 
           {/* Round trip notice */}
           {isRoundTrip && (
@@ -316,11 +381,11 @@ const BookingPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <h3 className="text-sm font-medium text-blue-900">Round Trip Booking</h3>
+                  <h3 className="text-sm font-medium text-blue-900">{t('booking:page.roundTripNotice')}</h3>
                   <p className="mt-1 text-sm text-blue-700">
                     {selectedReturnFerry
-                      ? `You can select different cabins and meals for your outbound and return journeys using the tabs below.`
-                      : `Note: Return ferry was not selected. Cabin and meal selection will only apply to your outbound journey.`
+                      ? t('booking:page.roundTripWithReturn')
+                      : t('booking:page.roundTripNoReturn')
                     }
                   </p>
                 </div>
@@ -416,6 +481,29 @@ const BookingPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Vehicle Details */}
+            {totalVehicles > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-4">🚗 Vehicle Details</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Please provide complete information about your vehicle(s).
+                </p>
+
+                <div className="space-y-4">
+                  {vehicles.map((vehicle, index) => (
+                    <VehicleForm
+                      key={vehicle.id}
+                      vehicle={vehicle as VehicleFormData}
+                      vehicleNumber={index + 1}
+                      onSave={handleSaveVehicle}
+                      onRemove={vehicles.length > 1 ? handleRemoveVehicle : undefined}
+                      isExpanded={index === 0}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Contact Information */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
@@ -487,8 +575,11 @@ const BookingPage: React.FC = () => {
                 selectedCabinId={selectedCabinId}
                 selectedReturnCabinId={selectedReturnCabinId}
                 onCabinSelect={handleCabinSelect}
+                onMultiCabinSelect={handleMultiCabinSelect}
                 passengerCount={totalPassengers}
                 isRoundTrip={isRoundTrip && !!selectedReturnFerry}
+                ferryCabinAvailability={selectedFerry?.cabinTypes || (selectedFerry as any)?.cabin_types || []}
+                returnFerryCabinAvailability={selectedReturnFerry?.cabinTypes || (selectedReturnFerry as any)?.cabin_types || []}
               />
             </div>
 
@@ -586,7 +677,7 @@ const BookingPage: React.FC = () => {
           {/* Right Column - Booking Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-6 sticky top-4">
-              <h2 className="text-xl font-semibold mb-4">Booking Summary</h2>
+              <h2 className="text-xl font-semibold mb-4">{t('booking:page.bookingSummary')}</h2>
 
               {/* Ferry Details */}
               <div className="mb-4 pb-4 border-b border-gray-200">
@@ -651,10 +742,55 @@ const BookingPage: React.FC = () => {
                   <p className="text-sm font-medium text-gray-700 mb-2">
                     {totalVehicles} Vehicle{totalVehicles !== 1 ? 's' : ''}
                   </p>
-                  <div className="space-y-1 text-sm text-gray-600">
+                  <div className="space-y-2 text-sm text-gray-600">
                     {vehicles.map((v, i) => (
-                      <div key={i}>{v.type}</div>
+                      <div key={i} className="bg-gray-50 p-2 rounded">
+                        <div className="font-medium text-gray-900">{v.type}</div>
+                        {v.registration && (
+                          <div className="text-xs">Registration: {v.registration}</div>
+                        )}
+                        {v.owner && (
+                          <div className="text-xs">Owner: {v.owner}</div>
+                        )}
+                        {(v.make || v.model) && (
+                          <div className="text-xs">{v.make} {v.model}</div>
+                        )}
+                        {(v.length || v.width || v.height) && (
+                          <div className="text-xs">
+                            Dimensions: {v.length || 0}cm × {v.width || 0}cm × {v.height || 0}cm
+                          </div>
+                        )}
+                        {(v.hasTrailer || v.hasCaravan || v.hasRoofBox || v.hasBikeRack) && (
+                          <div className="text-xs text-blue-600">
+                            {v.hasTrailer && '🚚 Trailer '}
+                            {v.hasCaravan && '🏕️ Caravan '}
+                            {v.hasRoofBox && '📦 Roof Box '}
+                            {v.hasBikeRack && '🚴 Bike Rack'}
+                          </div>
+                        )}
+                      </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Cabins */}
+              {(cabinQuantity > 0 || returnCabinQuantity > 0) && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Cabins
+                  </p>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    {cabinQuantity > 0 && (
+                      <div className="flex justify-between">
+                        <span>Outbound: {cabinQuantity} cabin{cabinQuantity > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                    {returnCabinQuantity > 0 && (
+                      <div className="flex justify-between">
+                        <span>Return: {returnCabinQuantity} cabin{returnCabinQuantity > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -663,49 +799,108 @@ const BookingPage: React.FC = () => {
               <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
                 {isRoundTrip && selectedReturnFerry ? (
                   <>
-                    {/* Outbound Passengers */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.outbound', 'Outbound')})</span>
-                      <span>€{passengers.reduce((sum, p) => {
-                        if (p.type === 'adult') return sum + adultPrice;
-                        if (p.type === 'child') return sum + childPrice;
-                        return sum;
-                      }, 0).toFixed(2)}</span>
-                    </div>
-                    {/* Return Passengers */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.return', 'Return')})</span>
-                      <span>€{passengers.reduce((sum, p) => {
-                        if (p.type === 'adult') return sum + returnAdultPrice;
-                        if (p.type === 'child') return sum + returnChildPrice;
-                        return sum;
-                      }, 0).toFixed(2)}</span>
-                    </div>
+                    {/* Outbound Passengers - Detailed by type */}
+                    <div className="text-sm font-medium text-gray-700 mb-1">Outbound Journey:</div>
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{adultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * adultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{childPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * childPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{infantPrice.toFixed(2)}
+                        </span>
+                        <span>{infantPrice === 0 ? 'Free' : `€${(infantsCount * infantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
                     {totalVehicles > 0 && (
-                      <>
-                        {/* Outbound Vehicles */}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.outbound', 'Outbound')})</span>
-                          <span>€{outboundVehiclesTotal.toFixed(2)}</span>
-                        </div>
-                        {/* Return Vehicles */}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.return', 'Return')})</span>
-                          <span>€{returnVehiclesTotal.toFixed(2)}</span>
-                        </div>
-                      </>
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                        </span>
+                        <span>€{outboundVehiclesTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {/* Return Passengers - Detailed by type */}
+                    <div className="text-sm font-medium text-gray-700 mt-3 mb-1">Return Journey:</div>
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{returnAdultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * returnAdultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{returnChildPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * returnChildPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{returnInfantPrice.toFixed(2)}
+                        </span>
+                        <span>{returnInfantPrice === 0 ? 'Free' : `€${(infantsCount * returnInfantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
+                    {totalVehicles > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{returnVehiclePrice.toFixed(2)}
+                        </span>
+                        <span>€{returnVehiclesTotal.toFixed(2)}</span>
+                      </div>
                     )}
                   </>
                 ) : (
                   <>
-                    {/* One-way trip - combined pricing */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')}</span>
-                      <span>€{passengersTotal.toFixed(2)}</span>
-                    </div>
+                    {/* One-way trip - Detailed by passenger type */}
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{adultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * adultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{childPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * childPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{infantPrice.toFixed(2)}
+                        </span>
+                        <span>{infantPrice === 0 ? 'Free' : `€${(infantsCount * infantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
                     {totalVehicles > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">{t('booking:summary.vehicles')}</span>
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                        </span>
                         <span>€{vehiclesTotal.toFixed(2)}</span>
                       </div>
                     )}
@@ -713,13 +908,18 @@ const BookingPage: React.FC = () => {
                 )}
                 {cabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{isRoundTrip && selectedReturnFerry ? 'Cabin (Outbound)' : 'Cabin'}</span>
+                    <span className="text-gray-600">
+                      {cabinQuantity} Cabin{cabinQuantity > 1 ? 's' : ''}
+                      {isRoundTrip && selectedReturnFerry ? ' (Outbound)' : ''}
+                    </span>
                     <span>€{cabinPrice.toFixed(2)}</span>
                   </div>
                 )}
                 {isRoundTrip && selectedReturnFerry && returnCabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Cabin (Return)</span>
+                    <span className="text-gray-600">
+                      {returnCabinQuantity} Cabin{returnCabinQuantity > 1 ? 's' : ''} (Return)
+                    </span>
                     <span>€{returnCabinPrice.toFixed(2)}</span>
                   </div>
                 )}

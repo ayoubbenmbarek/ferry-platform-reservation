@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface BookingExpirationTimerProps {
   expiresAt: string | Date;
@@ -9,6 +10,7 @@ const BookingExpirationTimer: React.FC<BookingExpirationTimerProps> = ({
   expiresAt,
   onExpired,
 }) => {
+  const { t } = useTranslation(['payment', 'common']);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isExpired, setIsExpired] = useState(false);
   const hasCalledExpired = useRef(false);
@@ -81,9 +83,9 @@ const BookingExpirationTimer: React.FC<BookingExpirationTimerProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-red-900">Booking Expired</h3>
+            <h3 className="text-lg font-bold text-red-900">{t('payment:timer.expired')}</h3>
             <p className="text-sm text-red-700 mt-1">
-              This booking has expired. Please start a new search to book your ferry.
+              {t('payment:timer.expiredMessage')}
             </p>
           </div>
         </div>
@@ -136,10 +138,10 @@ const BookingExpirationTimer: React.FC<BookingExpirationTimerProps> = ({
               }`}
             >
               {urgencyLevel === 'critical'
-                ? '⚠️ Complete Payment Soon!'
+                ? t('payment:timer.criticalTitle')
                 : urgencyLevel === 'warning'
-                ? '⏰ Time Running Out'
-                : '🕐 Reservation Hold'}
+                ? t('payment:timer.warningTitle')
+                : t('payment:timer.normalTitle')}
             </h3>
             <div
               className={`text-2xl font-mono font-bold ${
@@ -164,13 +166,11 @@ const BookingExpirationTimer: React.FC<BookingExpirationTimerProps> = ({
           >
             {urgencyLevel === 'critical' ? (
               <>
-                <strong>Urgent:</strong> Your booking will be automatically cancelled in{' '}
-                <strong>{formatTime(timeRemaining)}</strong>. Please complete payment now!
+                <strong>{t('payment:timer.urgent')}:</strong> {t('payment:timer.criticalMessage', { time: formatTime(timeRemaining) })}
               </>
             ) : (
               <>
-                This booking is reserved until <strong>{getFormattedExpiration()}</strong> (
-                {totalMinutes} minutes). Complete payment to confirm your reservation.
+                {t('payment:timer.normalMessage', { time: getFormattedExpiration(), minutes: totalMinutes })}
               </>
             )}
           </p>

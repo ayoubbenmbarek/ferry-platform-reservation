@@ -41,6 +41,11 @@ export interface VehicleInfo {
   registration?: string;
   make?: string;
   model?: string;
+  owner?: string;
+  hasTrailer?: boolean;
+  hasCaravan?: boolean;
+  hasRoofBox?: boolean;
+  hasBikeRack?: boolean;
 }
 
 export interface PassengerInfo {

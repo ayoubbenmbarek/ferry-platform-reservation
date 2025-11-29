@@ -93,8 +93,23 @@ class PromoCodeService:
     def list_promo_codes(self, page: int = 1, page_size: int = 20, active_only: bool = False) -> tuple:
         """List promo codes with pagination."""
         query = self.db.query(PromoCode)
+
         if active_only:
-            query = query.filter(PromoCode.is_active == True)
+            # Filter for truly active promo codes (not just is_active=True)
+            # Must meet all conditions: active, valid period, not used up
+            now = datetime.now(timezone.utc)
+            query = query.filter(
+                PromoCode.is_active == True,
+                PromoCode.valid_from <= now,
+                or_(
+                    PromoCode.valid_until.is_(None),
+                    PromoCode.valid_until >= now
+                ),
+                or_(
+                    PromoCode.max_uses.is_(None),
+                    PromoCode.current_uses < PromoCode.max_uses
+                )
+            )
 
         total = query.count()
         promos = query.order_by(PromoCode.created_at.desc()).offset(

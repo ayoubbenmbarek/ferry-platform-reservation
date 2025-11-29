@@ -37,7 +37,8 @@ const bookingSlice = {
 };
 
 export const { setCurrentBooking, setBookings, setLoading, setError, clearError } = bookingSlice.reducers || {};
-export default (state = initialState, action: any) => {
+
+const bookingReducer = (state = initialState, action: any) => {
   switch (action.type) {
     case 'booking/setCurrentBooking':
       return { ...state, currentBooking: action.payload };
@@ -52,4 +53,6 @@ export default (state = initialState, action: any) => {
     default:
       return state;
   }
-}; 
+};
+
+export default bookingReducer; 

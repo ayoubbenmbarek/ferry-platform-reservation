@@ -19,6 +19,7 @@ interface PromoCode {
   maximum_discount: number | null;
   first_booking_only: boolean;
   is_active: boolean;
+  effective_status: string; // 'active', 'expired', 'used_up', 'not_started', 'inactive'
   created_at: string;
 }
 
@@ -200,6 +201,44 @@ const AdminPromoCodes: React.FC = () => {
     });
   };
 
+  const getStatusBadge = (effectiveStatus: string) => {
+    const statusConfig = {
+      active: {
+        label: 'Active',
+        bgColor: 'bg-green-100',
+        textColor: 'text-green-800',
+      },
+      expired: {
+        label: 'Expired',
+        bgColor: 'bg-red-100',
+        textColor: 'text-red-800',
+      },
+      used_up: {
+        label: 'Used Up',
+        bgColor: 'bg-orange-100',
+        textColor: 'text-orange-800',
+      },
+      not_started: {
+        label: 'Not Started',
+        bgColor: 'bg-blue-100',
+        textColor: 'text-blue-800',
+      },
+      inactive: {
+        label: 'Inactive',
+        bgColor: 'bg-gray-100',
+        textColor: 'text-gray-800',
+      },
+    };
+
+    const config = statusConfig[effectiveStatus as keyof typeof statusConfig] || statusConfig.inactive;
+
+    return (
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${config.bgColor} ${config.textColor}`}>
+        {config.label}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -328,7 +367,7 @@ const AdminPromoCodes: React.FC = () => {
                 </tr>
               ) : (
                 promoCodes.map((promo) => (
-                  <tr key={promo.id} className={!promo.is_active ? 'bg-gray-50' : ''}>
+                  <tr key={promo.id} className={promo.effective_status !== 'active' ? 'bg-gray-50' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-mono font-bold text-lg">{promo.code}</div>
                       {promo.description && (
@@ -368,15 +407,7 @@ const AdminPromoCodes: React.FC = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {promo.is_active ? (
-                        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 rounded-full">
-                          Inactive
-                        </span>
-                      )}
+                      {getStatusBadge(promo.effective_status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex gap-2">
@@ -386,7 +417,7 @@ const AdminPromoCodes: React.FC = () => {
                         >
                           Stats
                         </button>
-                        {promo.is_active && (
+                        {promo.is_active && ['active', 'not_started'].includes(promo.effective_status) && (
                           <button
                             onClick={() => handleDeactivate(promo.id)}
                             className="text-red-600 hover:text-red-800"

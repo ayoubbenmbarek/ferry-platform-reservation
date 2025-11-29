@@ -136,12 +136,15 @@ async def create_payment_intent(
                 f"custom_{k}": str(v) for k, v in payment_data.metadata.items() if v is not None
             })
 
-        # Create Stripe payment intent
+        # Create Stripe payment intent with all payment methods enabled
         intent = stripe.PaymentIntent.create(
             amount=amount_cents,
             currency=payment_data.currency.value.lower(),
             metadata=stripe_metadata,
-            automatic_payment_methods={"enabled": True},
+            automatic_payment_methods={
+                "enabled": True,
+                "allow_redirects": "always"  # Allow redirects for wallets
+            },
         )
 
         # Create payment record in database

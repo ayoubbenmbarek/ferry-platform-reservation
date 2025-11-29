@@ -488,7 +488,15 @@ const PaymentPage: React.FC = () => {
 
               {/* Stripe Payment Form */}
               {paymentMethod === 'card' && clientSecret && stripePromise && (
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    clientSecret,
+                    appearance: {
+                      theme: 'stripe',
+                    },
+                  }}
+                >
                   <StripePaymentForm
                     clientSecret={clientSecret}
                     amount={bookingTotal}

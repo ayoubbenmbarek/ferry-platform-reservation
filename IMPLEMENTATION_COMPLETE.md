@@ -170,7 +170,8 @@ todo check existing alerts and try to add info for that alert to be activated an
 TODO:run tests in every commit,
 TODO:create 3 environment
 todo:deploy in self managed kube
-todo:continue with sentry monitoring
+todo:continue with sentry monitoring:done
+todo correct view booking detail url http://booking/445 onemail 
 
 ### Payment & Pricing
 

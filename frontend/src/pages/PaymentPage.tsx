@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { RootState, AppDispatch } from '../store';
 import { createBooking } from '../store/slices/ferrySlice';
-import { paymentAPI, bookingAPI } from '../services/api';
+import api, { paymentAPI, bookingAPI } from '../services/api';
 import StripePaymentForm from '../components/Payment/StripePaymentForm';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
@@ -19,7 +19,31 @@ const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { bookingId: existingBookingId } = useParams<{ bookingId: string }>();
+  const [searchParams] = useSearchParams();
   const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip } = useSelector((state: RootState) => state.ferry);
+
+  // Check for cabin upgrade payment
+  const paymentType = searchParams.get('type');
+  const isCabinUpgrade = paymentType === 'cabin_upgrade';
+
+  // Parse cabin selections from URL (format: "cabinId:qty,cabinId:qty")
+  const parseCabinSelections = (selectionsStr: string | null): { cabinId: number; quantity: number }[] => {
+    if (!selectionsStr) return [];
+    return selectionsStr.split(',').map(item => {
+      const [cabinId, qty] = item.split(':');
+      return { cabinId: parseInt(cabinId), quantity: parseInt(qty) };
+    }).filter(s => s.cabinId && s.quantity);
+  };
+
+  const cabinUpgradeData = isCabinUpgrade ? {
+    // Support both old format (cabin_id) and new format (cabin_selections)
+    cabinSelections: parseCabinSelections(searchParams.get('cabin_selections')),
+    cabinId: parseInt(searchParams.get('cabin_id') || '0'), // Legacy support
+    totalCabins: parseInt(searchParams.get('total_cabins') || searchParams.get('quantity') || '1'),
+    journeyType: searchParams.get('journey_type') || 'outbound',
+    amount: parseFloat(searchParams.get('amount') || '0'),
+    alertId: searchParams.get('alert_id')
+  } : null;
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +53,8 @@ const PaymentPage: React.FC = () => {
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [bookingTotal, setBookingTotal] = useState<number>(0);
   const [bookingDetails, setBookingDetails] = useState<any>(null);
+  // Store cabin details for display in summary
+  const [cabinDetails, setCabinDetails] = useState<Record<number, { name: string; price: number }>>({});
 
   // Use ref to prevent double initialization in React StrictMode
   const initializingRef = useRef(false);
@@ -110,8 +136,8 @@ const PaymentPage: React.FC = () => {
         setBookingDetails(booking);
       }
 
-      // Check if booking is already confirmed/completed BEFORE attempting payment
-      if (booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') {
+      // For cabin upgrades on confirmed bookings, don't redirect - allow payment for the upgrade
+      if (!isCabinUpgrade && (booking.status === 'CONFIRMED' || booking.status === 'COMPLETED')) {
         console.log('Booking already confirmed/completed, redirecting to confirmation page');
         navigate('/booking/confirmation', {
           state: { booking }
@@ -119,22 +145,56 @@ const PaymentPage: React.FC = () => {
         return;
       }
 
-      // Use the actual total from the booking (includes cabin, meals, tax, etc.)
-      // Use explicit check for undefined/null to allow 0 as a valid value
-      const totalAmount = booking.totalAmount !== undefined && booking.totalAmount !== null
-        ? booking.totalAmount
-        : (booking.total_amount !== undefined && booking.total_amount !== null
-            ? booking.total_amount
-            : calculateTotal());
+      // Fetch cabin details for cabin upgrade summary display
+      if (isCabinUpgrade && cabinUpgradeData && cabinUpgradeData.cabinSelections.length > 0) {
+        try {
+          const cabinsResponse = await api.get('/cabins');
+          const cabinsMap: Record<number, { name: string; price: number }> = {};
+          (cabinsResponse.data || []).forEach((c: any) => {
+            cabinsMap[c.id] = { name: c.name, price: c.base_price };
+          });
+          setCabinDetails(cabinsMap);
+        } catch (err) {
+          console.warn('Could not fetch cabin details:', err);
+        }
+      }
+
+      // Calculate amount based on payment type
+      let totalAmount: number;
+      if (isCabinUpgrade && cabinUpgradeData) {
+        // For cabin upgrades, use the cabin supplement amount (with 10% tax)
+        totalAmount = cabinUpgradeData.amount * 1.10;
+        console.log('Cabin upgrade payment:', cabinUpgradeData.amount, '+ tax =', totalAmount);
+      } else {
+        // Use the actual total from the booking (includes cabin, meals, tax, etc.)
+        // Use explicit check for undefined/null to allow 0 as a valid value
+        totalAmount = booking.totalAmount !== undefined && booking.totalAmount !== null
+          ? booking.totalAmount
+          : (booking.total_amount !== undefined && booking.total_amount !== null
+              ? booking.total_amount
+              : calculateTotal());
+      }
       setBookingTotal(totalAmount);
 
-      // Create payment intent
-      const paymentIntent = await paymentAPI.createPaymentIntent({
+      // Create payment intent with cabin upgrade metadata if applicable
+      const paymentIntentData: any = {
         booking_id: booking.id,
         amount: totalAmount,
         currency: 'EUR',
         payment_method: 'credit_card',
-      });
+      };
+
+      if (isCabinUpgrade && cabinUpgradeData) {
+        paymentIntentData.metadata = {
+          type: 'cabin_upgrade',
+          cabin_selections: cabinUpgradeData.cabinSelections.map(s => `${s.cabinId}:${s.quantity}`).join(','),
+          total_cabins: cabinUpgradeData.totalCabins,
+          journey_type: cabinUpgradeData.journeyType,
+          alert_id: cabinUpgradeData.alertId
+        };
+      }
+
+      const paymentIntent = await paymentAPI.createPaymentIntent(paymentIntentData);
 
       // Handle free booking (100% discount)
       if (paymentIntent.client_secret === 'free_booking') {
@@ -214,16 +274,61 @@ const PaymentPage: React.FC = () => {
       // Confirm payment with backend
       const confirmation = await paymentAPI.confirmPayment(paymentIntentId);
 
+      // If this is a cabin upgrade payment, add the cabins to the booking
+      if (isCabinUpgrade && cabinUpgradeData && bookingId) {
+        try {
+          // Handle multi-cabin selections
+          if (cabinUpgradeData.cabinSelections.length > 0) {
+            // Add each cabin selection
+            for (const selection of cabinUpgradeData.cabinSelections) {
+              await api.post(`/bookings/${bookingId}/add-cabin`, {
+                cabin_id: selection.cabinId,
+                quantity: selection.quantity,
+                journey_type: cabinUpgradeData.journeyType
+              });
+            }
+          } else if (cabinUpgradeData.cabinId) {
+            // Legacy: single cabin
+            await api.post(`/bookings/${bookingId}/add-cabin`, {
+              cabin_id: cabinUpgradeData.cabinId,
+              quantity: cabinUpgradeData.totalCabins,
+              journey_type: cabinUpgradeData.journeyType
+            });
+          }
+
+          // Mark alert as fulfilled if there was one
+          if (cabinUpgradeData.alertId) {
+            try {
+              await api.patch(`/availability-alerts/${cabinUpgradeData.alertId}`, {
+                status: 'fulfilled'
+              });
+            } catch (alertErr) {
+              console.warn('Could not mark alert as fulfilled:', alertErr);
+            }
+          }
+        } catch (cabinErr) {
+          console.error('Failed to add cabin after payment:', cabinErr);
+          // Continue anyway since payment was successful
+        }
+      }
+
       // Fetch the updated booking to get the latest status
       if (bookingId) {
         const updatedBooking = await bookingAPI.getById(bookingId);
 
-        // Navigate to confirmation page with updated booking data
-        navigate('/booking/confirmation', {
-          state: {
-            booking: updatedBooking,
-          },
-        });
+        // For cabin upgrades, redirect to booking details instead of confirmation
+        if (isCabinUpgrade) {
+          navigate(`/booking/${bookingId}`, {
+            state: { cabinUpgradeSuccess: true }
+          });
+        } else {
+          // Navigate to confirmation page with updated booking data
+          navigate('/booking/confirmation', {
+            state: {
+              booking: updatedBooking,
+            },
+          });
+        }
       } else {
         // Fallback if no bookingId (shouldn't happen)
         navigate('/booking/confirmation', {
@@ -321,8 +426,14 @@ const PaymentPage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{t('payment:title')}</h1>
-          <p className="mt-2 text-gray-600">{t('payment:subtitle')}</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isCabinUpgrade ? t('payment:cabinUpgrade.title', 'Cabin Upgrade Payment') : t('payment:title')}
+          </h1>
+          <p className="mt-2 text-gray-600">
+            {isCabinUpgrade
+              ? t('payment:cabinUpgrade.subtitle', 'Complete payment to add a cabin to your booking')
+              : t('payment:subtitle')}
+          </p>
         </div>
 
         {/* Expiration Timer */}
@@ -405,10 +516,73 @@ const PaymentPage: React.FC = () => {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('payment:orderSummary.title')}</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                {isCabinUpgrade ? t('payment:cabinUpgrade.summary', 'Cabin Upgrade Summary') : t('payment:orderSummary.title')}
+              </h2>
 
               <div className="space-y-3 mb-4">
-                {bookingDetails ? (
+                {isCabinUpgrade && cabinUpgradeData ? (
+                  <>
+                    {/* Cabin Upgrade Summary */}
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-purple-700 font-medium">
+                        {t('payment:cabinUpgrade.addingCabin', 'Adding cabin to booking')}:
+                      </p>
+                      <p className="text-purple-900 font-semibold">
+                        {bookingDetails?.booking_reference || bookingDetails?.bookingReference}
+                      </p>
+                    </div>
+
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-600 font-medium">
+                        {cabinUpgradeData.journeyType === 'return' ? 'Return' : 'Outbound'} Journey
+                      </span>
+                    </div>
+
+                    {/* Show each cabin type with quantity */}
+                    {cabinUpgradeData.cabinSelections.length > 0 ? (
+                      <div className="space-y-2 border-l-2 border-purple-200 pl-3 mb-3">
+                        {cabinUpgradeData.cabinSelections.map((selection, idx) => {
+                          const cabin = cabinDetails[selection.cabinId];
+                          const cabinPrice = cabin ? cabin.price * selection.quantity : 0;
+                          return (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <span className="text-gray-600">
+                                {cabin?.name || `Cabin #${selection.cabinId}`} × {selection.quantity}
+                              </span>
+                              <span className="font-medium">€{cabinPrice.toFixed(2)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex justify-between text-sm text-gray-500 pl-4">
+                        <span>• {cabinUpgradeData.totalCabins} × Cabin</span>
+                        <span>€{cabinUpgradeData.amount.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-sm border-t pt-2">
+                      <span className="text-gray-600">{t('payment:cabinUpgrade.cabinCost', 'Subtotal')}</span>
+                      <span className="font-medium">€{cabinUpgradeData.amount.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Tax (10%)</span>
+                      <span className="font-medium">€{(cabinUpgradeData.amount * 0.10).toFixed(2)}</span>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3 mt-3">
+                      <div className="flex justify-between">
+                        <div>
+                          <span className="text-lg font-bold">{t('payment:orderSummary.total')}</span>
+                          <span className="text-sm text-gray-500 block">{cabinUpgradeData.totalCabins} cabin{cabinUpgradeData.totalCabins > 1 ? 's' : ''}</span>
+                        </div>
+                        <span className="text-lg font-bold text-blue-600">€{bookingTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : bookingDetails ? (
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal</span>

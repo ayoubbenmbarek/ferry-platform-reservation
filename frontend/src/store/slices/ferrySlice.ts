@@ -48,6 +48,11 @@ interface FerryState {
   selectedCabin: string | null;
   selectedCabinId: number | null;
   selectedReturnCabinId: number | null;  // For return journey cabin
+  // Multi-cabin selection support
+  cabinSelections: { cabinId: number; quantity: number; price: number }[];
+  returnCabinSelections: { cabinId: number; quantity: number; price: number }[];
+  totalCabinPrice: number;
+  totalReturnCabinPrice: number;
   selectedMeals: any[];
   contactInfo: ContactInfo | null;
 
@@ -91,6 +96,11 @@ const initialState: FerryState = {
   selectedCabin: null,
   selectedCabinId: null,
   selectedReturnCabinId: null,
+  // Multi-cabin selection support
+  cabinSelections: [],
+  returnCabinSelections: [],
+  totalCabinPrice: 0,
+  totalReturnCabinPrice: 0,
   selectedMeals: [],
   contactInfo: null,
   passengers: [],
@@ -161,6 +171,11 @@ export const createBooking = createAsyncThunk(
         vehicles,
         selectedCabinId,
         selectedReturnCabinId,
+        // Multi-cabin selection support
+        cabinSelections,
+        returnCabinSelections,
+        totalCabinPrice,
+        totalReturnCabinPrice,
         selectedMeals,
         contactInfo,
         isRoundTrip,
@@ -236,8 +251,14 @@ export const createBooking = createAsyncThunk(
           has_roof_box: v.hasRoofBox || false,
           has_bike_rack: v.hasBikeRack || false,
         })) : undefined,
+        // Legacy single cabin support (backward compatibility)
         cabinId: selectedCabinId,
         returnCabinId: selectedReturnCabinId,
+        // Multi-cabin selection data with prices
+        cabinSelections: cabinSelections && cabinSelections.length > 0 ? cabinSelections : undefined,
+        returnCabinSelections: returnCabinSelections && returnCabinSelections.length > 0 ? returnCabinSelections : undefined,
+        totalCabinPrice: totalCabinPrice || 0,
+        totalReturnCabinPrice: totalReturnCabinPrice || 0,
         meals: selectedMeals && selectedMeals.length > 0 ? selectedMeals : undefined,
         promoCode: promoCode || undefined,
       });
@@ -302,6 +323,26 @@ const ferrySlice = createSlice({
 
     setReturnCabinId: (state, action: PayloadAction<number | null>) => {
       state.selectedReturnCabinId = action.payload;
+    },
+
+    // Multi-cabin selection actions
+    setCabinSelections: (state, action: PayloadAction<{ selections: { cabinId: number; quantity: number; price: number }[]; totalPrice: number }>) => {
+      state.cabinSelections = action.payload.selections;
+      state.totalCabinPrice = action.payload.totalPrice;
+    },
+
+    setReturnCabinSelections: (state, action: PayloadAction<{ selections: { cabinId: number; quantity: number; price: number }[]; totalPrice: number }>) => {
+      state.returnCabinSelections = action.payload.selections;
+      state.totalReturnCabinPrice = action.payload.totalPrice;
+    },
+
+    clearCabinSelections: (state) => {
+      state.cabinSelections = [];
+      state.returnCabinSelections = [];
+      state.totalCabinPrice = 0;
+      state.totalReturnCabinPrice = 0;
+      state.selectedCabinId = null;
+      state.selectedReturnCabinId = null;
     },
 
     setReturnFerry: (state, action: PayloadAction<FerryResult | null>) => {
@@ -394,6 +435,12 @@ const ferrySlice = createSlice({
       state.currentStep = 1;
       state.selectedFerry = null;
       state.selectedCabin = null;
+      state.selectedCabinId = null;
+      state.selectedReturnCabinId = null;
+      state.cabinSelections = [];
+      state.returnCabinSelections = [];
+      state.totalCabinPrice = 0;
+      state.totalReturnCabinPrice = 0;
       state.passengers = [];
       state.vehicles = [];
       state.searchResults = [];
@@ -428,6 +475,10 @@ const ferrySlice = createSlice({
       state.selectedCabin = null;
       state.selectedCabinId = null;
       state.selectedReturnCabinId = null;
+      state.cabinSelections = [];
+      state.returnCabinSelections = [];
+      state.totalCabinPrice = 0;
+      state.totalReturnCabinPrice = 0;
       state.selectedMeals = [];
       state.contactInfo = null;
       state.passengers = [];
@@ -489,6 +540,9 @@ export const {
   selectCabin,
   setCabinId,
   setReturnCabinId,
+  setCabinSelections,
+  setReturnCabinSelections,
+  clearCabinSelections,
   setReturnFerry,
   setIsRoundTrip,
   setMeals,

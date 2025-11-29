@@ -120,6 +120,45 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to add attachment: {str(e)}")
 
+    def send_email_with_attachment(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        attachment_content: bytes,
+        attachment_filename: str,
+        attachment_type: str = "application/pdf",
+        text_content: Optional[str] = None
+    ) -> bool:
+        """
+        Convenience method to send an email with a single attachment.
+
+        Args:
+            to_email: Recipient email address
+            subject: Email subject
+            html_content: HTML email content
+            attachment_content: Binary content of the attachment
+            attachment_filename: Name for the attachment file
+            attachment_type: MIME type of the attachment (default: application/pdf)
+            text_content: Plain text email content (fallback)
+
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        attachments = [{
+            'content': attachment_content,
+            'filename': attachment_filename,
+            'content_type': attachment_type
+        }]
+
+        return self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            attachments=attachments
+        )
+
     def send_booking_confirmation(
         self,
         booking_data: Dict[str, Any],

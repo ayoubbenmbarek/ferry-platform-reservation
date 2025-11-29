@@ -179,26 +179,55 @@ async def create_availability_alert(
                     detail="sailing_time must be in HH:MM format (e.g., '19:00')"
                 )
 
-        # Check if similar active alert already exists for this email
-        # Include operator AND sailing_time so users can create alerts for different sailings
-        existing_alert = db.query(AvailabilityAlert).filter(
-            AvailabilityAlert.email == alert_data.email,
-            AvailabilityAlert.departure_port == alert_data.departure_port,
-            AvailabilityAlert.arrival_port == alert_data.arrival_port,
-            AvailabilityAlert.departure_date == departure_date,
-            AvailabilityAlert.alert_type == alert_data.alert_type,
-            AvailabilityAlert.operator == alert_data.operator,
-            AvailabilityAlert.sailing_time == sailing_time_obj,  # Allow different alerts for different sailing times
-            AvailabilityAlert.status == AlertStatusEnum.ACTIVE.value
-        ).first()
+        # Check if similar active alert already exists
+        # For cabin alerts linked to a booking, check by booking_id + journey_type (more strict)
+        # For general alerts, check by route + date + type + operator
+        if alert_data.alert_type == 'cabin' and alert_data.booking_id:
+            # Strict check for booking-linked cabin alerts: one alert per booking + journey type
+            existing_alert = db.query(AvailabilityAlert).filter(
+                AvailabilityAlert.booking_id == alert_data.booking_id,
+                AvailabilityAlert.journey_type == alert_data.journey_type,
+                AvailabilityAlert.alert_type == 'cabin',
+                AvailabilityAlert.status == AlertStatusEnum.ACTIVE.value
+            ).first()
 
-        if existing_alert:
-            operator_msg = f" for {existing_alert.operator}" if existing_alert.operator else ""
-            time_msg = f" at {existing_alert.sailing_time.strftime('%H:%M')}" if existing_alert.sailing_time else ""
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"You already have an active {existing_alert.alert_type} alert{operator_msg}{time_msg} for this route. Alert ID: {existing_alert.id}"
-            )
+            if existing_alert:
+                journey_msg = f" ({existing_alert.journey_type})" if existing_alert.journey_type else ""
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"You already have an active cabin alert{journey_msg} for this booking. Alert ID: {existing_alert.id}"
+                )
+        else:
+            # General alerts: check by route + date + type + operator
+            existing_alert = db.query(AvailabilityAlert).filter(
+                AvailabilityAlert.email == alert_data.email,
+                AvailabilityAlert.departure_port == alert_data.departure_port.lower(),
+                AvailabilityAlert.arrival_port == alert_data.arrival_port.lower(),
+                AvailabilityAlert.departure_date == departure_date,
+                AvailabilityAlert.alert_type == alert_data.alert_type,
+                AvailabilityAlert.operator == alert_data.operator,
+                AvailabilityAlert.status == AlertStatusEnum.ACTIVE.value
+            ).first()
+
+            if existing_alert:
+                operator_msg = f" for {existing_alert.operator}" if existing_alert.operator else ""
+                time_msg = f" at {existing_alert.sailing_time.strftime('%H:%M')}" if existing_alert.sailing_time else ""
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"You already have an active {existing_alert.alert_type} alert{operator_msg}{time_msg} for this route. Alert ID: {existing_alert.id}"
+                )
+
+        # For cabin alerts linked to a booking, verify the booking exists
+        if alert_data.alert_type == 'cabin' and alert_data.booking_id:
+            from app.models.booking import Booking
+
+            booking = db.query(Booking).filter(Booking.id == alert_data.booking_id).first()
+            if not booking:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Linked booking not found"
+                )
+            # No cabin limit - users can add as many cabins as available
 
         # Calculate expiration date
         expires_at = datetime.now(timezone.utc) + timedelta(days=alert_data.alert_duration_days)

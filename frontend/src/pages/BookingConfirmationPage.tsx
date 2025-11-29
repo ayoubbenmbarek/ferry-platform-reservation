@@ -179,10 +179,34 @@ const BookingConfirmationPage: React.FC = () => {
               <p className="text-sm font-medium text-gray-700 mb-2">
                 {t('booking:confirmation.passengers')} ({booking.totalPassengers})
               </p>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {booking.passengers?.map((p: any, i: number) => (
-                  <div key={i} className="text-sm text-gray-600">
-                    {p.firstName} {p.lastName} ({p.passengerType})
+                  <div key={i} className="flex justify-between items-start">
+                    <div>
+                      <span className="font-medium text-gray-900">{p.firstName || p.first_name} {p.lastName || p.last_name}</span>
+                      <span className="text-sm text-gray-500 ml-2">({p.passengerType || p.passenger_type})</span>
+                      {(p.hasPet || p.has_pet) && (
+                        <div className="text-sm text-gray-500 mt-1">
+                          <span className="mr-1">{p.petType === 'cat' ? '🐱' : '🐕'}</span>
+                          {t('booking:confirmation.travelingWithPet', 'Traveling with pet')}
+                          {p.petName && <span className="ml-1">({p.petName || p.pet_name})</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {(booking.isRoundTrip || booking.is_round_trip) ? (
+                        <div className="space-y-1">
+                          <div className="text-sm text-gray-600">
+                            €{(p.finalPrice || p.final_price || 0).toFixed(2)} × 2
+                          </div>
+                          <div className="font-medium text-gray-900">
+                            €{((p.finalPrice || p.final_price || 0) * 2).toFixed(2)}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="font-medium text-gray-900">€{(p.finalPrice || p.final_price || 0).toFixed(2)}</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -194,10 +218,34 @@ const BookingConfirmationPage: React.FC = () => {
                 <p className="text-sm font-medium text-gray-700 mb-2">
                   {t('booking:confirmation.vehicles')} ({booking.totalVehicles})
                 </p>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {booking.vehicles?.map((v: any, i: number) => (
-                    <div key={i} className="text-sm text-gray-600">
-                      {v.vehicleType} - {v.licensePlate}
+                    <div key={i} className="flex justify-between items-start">
+                      <div>
+                        <span className="font-medium text-gray-900">{v.vehicleType || v.vehicle_type}</span>
+                        <div className="text-sm text-gray-500">
+                          {t('booking:confirmation.licensePlate', 'License Plate')}: {v.licensePlate || v.license_plate}
+                        </div>
+                        {(v.lengthCm || v.length_cm) && (
+                          <div className="text-sm text-gray-500">
+                            {t('booking:confirmation.dimensions', 'Dimensions')}: {((v.lengthCm || v.length_cm) / 100).toFixed(1)}m × {((v.widthCm || v.width_cm) / 100).toFixed(1)}m × {((v.heightCm || v.height_cm) / 100).toFixed(1)}m
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {(booking.isRoundTrip || booking.is_round_trip) ? (
+                          <div className="space-y-1">
+                            <div className="text-sm text-gray-600">
+                              €{(v.finalPrice || v.final_price || 0).toFixed(2)} × 2
+                            </div>
+                            <div className="font-medium text-gray-900">
+                              €{((v.finalPrice || v.final_price || 0) * 2).toFixed(2)}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-medium text-gray-900">€{(v.finalPrice || v.final_price || 0).toFixed(2)}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -243,8 +291,18 @@ const BookingConfirmationPage: React.FC = () => {
                 </div>
                 {(booking.cabinSupplement || booking.cabin_supplement) > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{t('booking:confirmation.cabinSupplement')}</span>
+                    <span className="text-gray-600">
+                      {booking.isRoundTrip || booking.is_round_trip
+                        ? t('booking:confirmation.cabinOutbound', 'Cabin (Outbound)')
+                        : t('booking:confirmation.cabinSupplement')}
+                    </span>
                     <span>€{(booking.cabinSupplement || booking.cabin_supplement)?.toFixed(2)}</span>
+                  </div>
+                )}
+                {(booking.returnCabinSupplement || booking.return_cabin_supplement) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{t('booking:confirmation.cabinReturn', 'Cabin (Return)')}</span>
+                    <span>€{(booking.returnCabinSupplement || booking.return_cabin_supplement)?.toFixed(2)}</span>
                   </div>
                 )}
                 {booking.meals && booking.meals.length > 0 && (

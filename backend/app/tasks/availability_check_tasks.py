@@ -302,6 +302,9 @@ def _send_availability_notification(alert: AvailabilityAlert, db):
         if alert.booking_id:
             journey_param = f"&journey={alert.journey_type}" if alert.journey_type else ""
             upgrade_url = f"{base_url}/booking/{alert.booking_id}/add-cabin?alertId={alert.id}{journey_param}"
+            logger.info(f"📎 Alert {alert.id} has booking_id={alert.booking_id}, upgrade_url={upgrade_url}")
+        else:
+            logger.info(f"📎 Alert {alert.id} has no booking_id, using search_url")
 
         # Prepare email data
         alert_data = {

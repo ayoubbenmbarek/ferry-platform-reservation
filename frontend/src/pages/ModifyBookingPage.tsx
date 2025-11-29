@@ -1,14 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { bookingAPI, Booking } from '../services/api';
+import { bookingAPI } from '../services/api';
+import CabinAlertForBooking from '../components/CabinAlertForBooking';
+
+// Extended booking type with all fields needed for modify page
+interface ExtendedBooking {
+  id: number;
+  bookingReference: string;
+  status: string;
+  departurePort: string;
+  arrivalPort: string;
+  departureTime: string;
+  operator: string;
+  totalPassengers: number;
+  contactEmail: string;
+  isRoundTrip?: boolean;
+  returnDeparturePort?: string;
+  returnArrivalPort?: string;
+  returnDepartureTime?: string;
+  returnOperator?: string;
+  cabinSupplement?: number;
+  returnCabinSupplement?: number;
+  passengers?: any[];
+  vehicles?: any[];
+}
 
 const ModifyBookingPage: React.FC = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation(['common', 'booking']);
 
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [booking, setBooking] = useState<ExtendedBooking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canModify, setCanModify] = useState<boolean>(false);
@@ -20,6 +43,10 @@ const ModifyBookingPage: React.FC = () => {
   const [vehicleUpdates, setVehicleUpdates] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Track cabin alerts created
+  const [outboundAlertCreated, setOutboundAlertCreated] = useState(false);
+  const [returnAlertCreated, setReturnAlertCreated] = useState(false);
 
   useEffect(() => {
     const fetchBookingAndEligibility = async () => {
@@ -484,6 +511,115 @@ const ModifyBookingPage: React.FC = () => {
                 {isSaving ? t('booking:modify.saving') : t('booking:modify.saveChanges')}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Cabin Section - Shows cabin info and add more options */}
+        {booking && ['confirmed', 'pending'].includes(booking.status?.toLowerCase()) && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              {t('booking:modify.cabinManagement', 'Cabin Management')}
+            </h2>
+
+            {/* Current Cabins Display */}
+            {((booking.cabinSupplement || 0) > 0 || (booking.returnCabinSupplement || 0) > 0) && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-medium text-green-800 mb-2">
+                  ✓ {t('booking:modify.currentCabins', 'Current Cabins')}
+                </h3>
+                <div className="space-y-2">
+                  {(booking.cabinSupplement || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-700">
+                        {t('booking:modify.outboundCabin', 'Outbound Cabin')}
+                      </span>
+                      <span className="font-medium text-green-800">€{Number(booking.cabinSupplement).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {(booking.returnCabinSupplement || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-700">
+                        {t('booking:modify.returnCabin', 'Return Cabin')}
+                      </span>
+                      <span className="font-medium text-green-800">€{Number(booking.returnCabinSupplement).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Add More Cabins Section */}
+            {(() => {
+              const isFutureOutbound = booking.departureTime && new Date(booking.departureTime) >= new Date(new Date().setHours(0, 0, 0, 0));
+              const isFutureReturn = booking.returnDepartureTime && new Date(booking.returnDepartureTime) >= new Date(new Date().setHours(0, 0, 0, 0));
+
+              // Show add cabin options for future journeys
+              const canAddOutbound = isFutureOutbound;
+              const canAddReturn = booking.isRoundTrip && isFutureReturn;
+
+              if (!canAddOutbound && !canAddReturn) return null;
+
+              return (
+                <div className="space-y-3">
+                  <div className="border-t border-gray-200 pt-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">
+                      {t('booking:modify.addMoreCabins', 'Add More Cabins')}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-3">
+                      {t('booking:modify.cabinAlertDescription', 'Get notified when a cabin becomes available for your booking.')}
+                    </p>
+                  </div>
+
+                  {/* Outbound Cabin Alert */}
+                  {canAddOutbound && !outboundAlertCreated && (
+                    <CabinAlertForBooking
+                      booking={{
+                        id: booking.id,
+                        bookingReference: booking.bookingReference,
+                        departurePort: booking.departurePort,
+                        arrivalPort: booking.arrivalPort,
+                        departureTime: booking.departureTime,
+                        operator: booking.operator,
+                        totalPassengers: booking.totalPassengers,
+                        contactEmail: booking.contactEmail,
+                        isRoundTrip: false,
+                      }}
+                      journeyType="outbound"
+                      onSuccess={() => setOutboundAlertCreated(true)}
+                    />
+                  )}
+                  {outboundAlertCreated && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                      ✓ {t('booking:modify.outboundAlertCreated', 'Outbound cabin alert created! We\'ll notify you when available.')}
+                    </div>
+                  )}
+
+                  {/* Return Cabin Alert */}
+                  {canAddReturn && !returnAlertCreated && (
+                    <CabinAlertForBooking
+                      booking={{
+                        id: booking.id,
+                        bookingReference: booking.bookingReference,
+                        departurePort: booking.returnDeparturePort || booking.arrivalPort,
+                        arrivalPort: booking.returnArrivalPort || booking.departurePort,
+                        departureTime: booking.returnDepartureTime!,
+                        operator: booking.returnOperator || booking.operator,
+                        totalPassengers: booking.totalPassengers,
+                        contactEmail: booking.contactEmail,
+                        isRoundTrip: false,
+                      }}
+                      journeyType="return"
+                      onSuccess={() => setReturnAlertCreated(true)}
+                    />
+                  )}
+                  {returnAlertCreated && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                      ✓ {t('booking:modify.returnAlertCreated', 'Return cabin alert created! We\'ll notify you when available.')}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 

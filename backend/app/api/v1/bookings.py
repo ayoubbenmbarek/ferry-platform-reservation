@@ -68,7 +68,7 @@ try:
         get_common_params, validate_booking_access
     )
     from app.models.user import User
-    from app.models.booking import Booking, BookingPassenger, BookingVehicle, BookingStatusEnum, PassengerTypeEnum, VehicleTypeEnum
+    from app.models.booking import Booking, BookingPassenger, BookingVehicle, BookingStatusEnum, PassengerTypeEnum, VehicleTypeEnum, BookingCabin, JourneyTypeEnum
     from app.models.ferry import Schedule
     from app.schemas.booking import (
         BookingCreate, BookingResponse, BookingUpdate, BookingCancellation,
@@ -257,7 +257,38 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
                 "created_at": m.created_at
             }
             for m in db_booking.meals
-        ] if hasattr(db_booking, 'meals') and db_booking.meals else []
+        ] if hasattr(db_booking, 'meals') and db_booking.meals else [],
+        booking_cabins=[
+            {
+                "id": bc.id,
+                "booking_id": bc.booking_id,
+                "cabin_id": bc.cabin_id,
+                "journey_type": bc.journey_type.value if hasattr(bc.journey_type, 'value') else str(bc.journey_type),
+                "quantity": bc.quantity,
+                "unit_price": float(bc.unit_price),
+                "total_price": float(bc.total_price),
+                "is_paid": bc.is_paid or False,
+                "created_at": bc.created_at,
+                # Include cabin details from relationship
+                "cabin_name": bc.cabin.name if bc.cabin else None,
+                "cabin_type": bc.cabin.cabin_type.value if bc.cabin and hasattr(bc.cabin.cabin_type, 'value') else (str(bc.cabin.cabin_type) if bc.cabin else None),
+                "cabin_capacity": bc.cabin.max_occupancy if bc.cabin else None,
+                # Build amenities list from boolean fields
+                "cabin_amenities": [
+                    a for a in [
+                        "Private Bathroom" if bc.cabin and bc.cabin.has_private_bathroom else None,
+                        "Window" if bc.cabin and bc.cabin.has_window else None,
+                        "Balcony" if bc.cabin and bc.cabin.has_balcony else None,
+                        "Air Conditioning" if bc.cabin and bc.cabin.has_air_conditioning else None,
+                        "TV" if bc.cabin and bc.cabin.has_tv else None,
+                        "Minibar" if bc.cabin and bc.cabin.has_minibar else None,
+                        "WiFi" if bc.cabin and bc.cabin.has_wifi else None,
+                        "Accessible" if bc.cabin and bc.cabin.is_accessible else None,
+                    ] if a is not None
+                ] if bc.cabin else None,
+            }
+            for bc in db_booking.booking_cabins
+        ] if hasattr(db_booking, 'booking_cabins') and db_booking.booking_cabins else []
     )
 
 
@@ -328,9 +359,22 @@ async def create_booking(
                 subtotal += return_vehicle_price * len(booking_data.vehicles)
         
         # Add cabin supplement if selected (outbound)
+        # Priority: multi-cabin selections with pre-calculated prices > legacy single cabin
         cabin_supplement = 0.0
         selected_cabin_id = None
-        if booking_data.cabin_id:
+
+        if hasattr(booking_data, 'total_cabin_price') and booking_data.total_cabin_price and booking_data.total_cabin_price > 0:
+            # Use pre-calculated multi-cabin total from frontend
+            cabin_supplement = float(booking_data.total_cabin_price)
+            subtotal += cabin_supplement
+            # Store first cabin ID for backward compatibility (if any selections)
+            if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
+                selected_cabin_id = booking_data.cabin_selections[0].cabin_id
+            elif booking_data.cabin_id:
+                selected_cabin_id = booking_data.cabin_id
+            logger.info(f"Using multi-cabin total price: €{cabin_supplement}")
+        elif booking_data.cabin_id:
+            # Legacy: single cabin lookup
             from app.models.ferry import Cabin
             cabin = db.query(Cabin).filter(Cabin.id == booking_data.cabin_id).first()
             if cabin:
@@ -339,9 +383,22 @@ async def create_booking(
                 selected_cabin_id = cabin.id
 
         # Add return cabin supplement if selected
+        # Priority: multi-cabin selections with pre-calculated prices > legacy single cabin
         return_cabin_supplement = 0.0
         selected_return_cabin_id = None
-        if hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
+
+        if hasattr(booking_data, 'total_return_cabin_price') and booking_data.total_return_cabin_price and booking_data.total_return_cabin_price > 0:
+            # Use pre-calculated multi-cabin total from frontend
+            return_cabin_supplement = float(booking_data.total_return_cabin_price)
+            subtotal += return_cabin_supplement
+            # Store first cabin ID for backward compatibility (if any selections)
+            if hasattr(booking_data, 'return_cabin_selections') and booking_data.return_cabin_selections:
+                selected_return_cabin_id = booking_data.return_cabin_selections[0].cabin_id
+            elif hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
+                selected_return_cabin_id = booking_data.return_cabin_id
+            logger.info(f"Using multi-cabin return total price: €{return_cabin_supplement}")
+        elif hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
+            # Legacy: single cabin lookup
             from app.models.ferry import Cabin
             return_cabin = db.query(Cabin).filter(Cabin.id == booking_data.return_cabin_id).first()
             if return_cabin:
@@ -1035,6 +1092,7 @@ async def add_cabin_to_booking(
     Add a cabin to an existing booking.
 
     This allows users to upgrade their booking by adding a cabin after initial booking.
+    Cabins are tracked in the booking_cabins table to support multiple cabins per journey.
     The cabin supplement will be added to the total and the booking will be updated.
     """
     try:
@@ -1047,14 +1105,22 @@ async def add_cabin_to_booking(
             )
 
         # Verify booking status allows modifications
-        if booking.status not in ['pending', 'confirmed']:
+        allowed_statuses = [BookingStatusEnum.PENDING, BookingStatusEnum.CONFIRMED]
+        if booking.status not in allowed_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot add cabin to booking with status '{booking.status}'"
+                detail=f"Cannot add cabin to booking with status '{booking.status.value if hasattr(booking.status, 'value') else booking.status}'"
+            )
+
+        # Validate journey type for return cabins
+        if cabin_request.journey_type == 'return' and not booking.is_round_trip:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot add return cabin to one-way booking"
             )
 
         # Get the cabin
-        from app.models.cabin import Cabin
+        from app.models.ferry import Cabin
         cabin = db.query(Cabin).filter(Cabin.id == cabin_request.cabin_id).first()
         if not cabin:
             raise HTTPException(
@@ -1062,39 +1128,136 @@ async def add_cabin_to_booking(
                 detail="Cabin not found"
             )
 
-        # Calculate cabin supplement
-        cabin_supplement = cabin.base_price * cabin_request.quantity
+        # Calculate cabin price
+        from decimal import Decimal
+        unit_price = Decimal(str(cabin.base_price))
+        total_price = unit_price * cabin_request.quantity
 
-        # Update booking based on journey type
-        if cabin_request.journey_type == 'return':
-            if not booking.is_round_trip:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot add return cabin to one-way booking"
-                )
+        # Determine journey type enum
+        journey_type_enum = JourneyTypeEnum.RETURN if cabin_request.journey_type == 'return' else JourneyTypeEnum.OUTBOUND
+
+        # Create BookingCabin record
+        booking_cabin = BookingCabin(
+            booking_id=booking_id,
+            cabin_id=cabin_request.cabin_id,
+            journey_type=journey_type_enum,
+            quantity=cabin_request.quantity,
+            unit_price=unit_price,
+            total_price=total_price,
+            is_paid=False  # Will be marked as paid after payment confirmation
+        )
+        db.add(booking_cabin)
+        db.flush()  # Get the ID
+
+        # Update booking's cabin supplement totals
+        # Keep original cabin supplement and ADD the upgrade totals from bookingCabins
+        # Original cabin supplement = cabins selected during initial booking
+        # bookingCabins = cabin upgrades added after initial booking
+
+        # Calculate upgrade totals from bookingCabins (including the new one being added)
+        outbound_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.OUTBOUND
+        ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.OUTBOUND else 0)
+
+        return_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.RETURN
+        ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.RETURN else 0)
+
+        # Get original cabin costs (if any) - these are cabins from initial booking
+        # If cabin_supplement was not previously set from upgrades, it contains the original cabin cost
+        # We need to track original vs upgrade separately
+
+        # For now, add upgrade amount to existing supplement
+        # (This means cabin_supplement = original_cabin + all_upgrades)
+        original_outbound = float(booking.cabin_supplement or 0) - sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.OUTBOUND
+        )
+        original_return = float(booking.return_cabin_supplement or 0) - sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.RETURN
+        )
+
+        # Ensure originals are not negative (in case of data issues)
+        original_outbound = max(0, original_outbound)
+        original_return = max(0, original_return)
+
+        booking.cabin_supplement = Decimal(str(original_outbound + outbound_upgrades))
+        booking.return_cabin_supplement = Decimal(str(original_return + return_upgrades))
+
+        # Keep cabin_id for backward compatibility (store latest cabin)
+        if journey_type_enum == JourneyTypeEnum.RETURN:
             booking.return_cabin_id = cabin_request.cabin_id
-            booking.return_cabin_supplement = cabin_supplement
         else:
             booking.cabin_id = cabin_request.cabin_id
-            booking.cabin_supplement = cabin_supplement
 
         # Recalculate total amount
-        subtotal = booking.subtotal or 0
-        cabin_total = (booking.cabin_supplement or 0) + (booking.return_cabin_supplement or 0)
-        discount = booking.discount_amount or 0
-        tax_rate = 0.10  # 10% tax
+        subtotal = Decimal(str(booking.subtotal or 0))
+        cabin_total = Decimal(str(booking.cabin_supplement or 0)) + Decimal(str(booking.return_cabin_supplement or 0))
+        discount = Decimal(str(booking.discount_amount or 0))
+        tax_rate = Decimal('0.10')
         taxable_amount = subtotal + cabin_total - discount
         tax_amount = taxable_amount * tax_rate
-        total_amount = taxable_amount + tax_amount
+        total_amount_new = taxable_amount + tax_amount
 
         booking.tax_amount = tax_amount
-        booking.total_amount = total_amount
+        booking.total_amount = total_amount_new
         booking.updated_at = datetime.utcnow()
 
         db.commit()
         db.refresh(booking)
 
-        logger.info(f"Added cabin {cabin_request.cabin_id} to booking {booking.booking_reference} ({cabin_request.journey_type})")
+        logger.info(f"Added cabin {cabin_request.cabin_id} x{cabin_request.quantity} to booking {booking.booking_reference} ({cabin_request.journey_type}) - BookingCabin ID: {booking_cabin.id}")
+
+        # Send cabin upgrade confirmation email
+        try:
+            from app.tasks.email_tasks import send_cabin_upgrade_confirmation_email_task
+
+            base_url = os.getenv('FRONTEND_URL', 'https://localhost:3001')
+
+            booking_dict = {
+                "booking_reference": booking.booking_reference,
+                "operator": booking.operator,
+                "departure_port": booking.departure_port,
+                "arrival_port": booking.arrival_port,
+                "departure_time": str(booking.departure_time) if booking.departure_time else None,
+                "return_departure_port": booking.return_departure_port,
+                "return_arrival_port": booking.return_arrival_port,
+                "return_departure_time": str(booking.return_departure_time) if booking.return_departure_time else None,
+                "contact_email": booking.contact_email,
+                "contact_first_name": booking.contact_first_name,
+                "contact_last_name": booking.contact_last_name,
+                "currency": booking.currency,
+            }
+
+            cabin_data = {
+                "cabin_name": cabin.name,
+                "cabin_type": cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type),
+                "quantity": cabin_request.quantity,
+                "unit_price": float(cabin.base_price),
+                "total_price": float(total_price),
+                "journey_type": cabin_request.journey_type,
+                "booking_url": f"{base_url}/booking/{booking.id}",
+                "booking_cabin_id": booking_cabin.id,
+            }
+
+            payment_dict = {
+                "amount": float(total_price),
+                "payment_method": "Credit Card",
+                "stripe_payment_intent_id": f"cabin_upgrade_{booking.booking_reference}_{booking_cabin.id}",
+            }
+
+            send_cabin_upgrade_confirmation_email_task.delay(
+                booking_data=booking_dict,
+                cabin_data=cabin_data,
+                payment_data=payment_dict,
+                to_email=booking.contact_email
+            )
+            logger.info(f"Queued cabin upgrade confirmation email for {booking.contact_email}")
+        except Exception as email_error:
+            logger.warning(f"Failed to queue cabin upgrade email: {str(email_error)}")
 
         return booking_to_response(booking)
 
@@ -1162,54 +1325,65 @@ async def cancel_booking(
             # Log the error but continue with local cancellation
             pass
 
-        # Process refund if payment was made
+        # Process refunds for ALL completed payments (includes cabin upgrades paid separately)
         from app.models.payment import Payment, PaymentStatusEnum as PaymentStatus
         import stripe
 
-        payment = (
+        # Get ALL completed payments for this booking
+        payments = (
             db.query(Payment)
             .filter(
                 Payment.booking_id == booking_id,
                 Payment.status == PaymentStatus.COMPLETED
             )
-            .first()
+            .all()
         )
 
-        if payment and payment.stripe_charge_id:
-            try:
-                # Create refund in Stripe
-                refund = stripe.Refund.create(
-                    charge=payment.stripe_charge_id,
-                    reason="requested_by_customer",
-                    metadata={
-                        "booking_id": booking_id,
-                        "booking_reference": booking.booking_reference,
-                        "cancellation_reason": cancellation_data.reason
-                    }
-                )
+        total_refund_amount = 0.0
+        refunds_processed = 0
+        refund_errors = []
 
-                # Update payment status
-                payment.status = PaymentStatus.REFUNDED
-                payment.refund_amount = float(refund.amount) / 100  # Convert from cents
-                payment.stripe_refund_id = refund.id
+        for payment in payments:
+            if payment.stripe_charge_id:
+                try:
+                    # Create refund in Stripe
+                    refund = stripe.Refund.create(
+                        charge=payment.stripe_charge_id,
+                        reason="requested_by_customer",
+                        metadata={
+                            "booking_id": booking_id,
+                            "booking_reference": booking.booking_reference,
+                            "cancellation_reason": cancellation_data.reason,
+                            "payment_type": payment.metadata.get('type', 'booking') if payment.metadata else 'booking'
+                        }
+                    )
 
-                logger.info(f"Refund created for booking {booking_id}: {refund.id}")
+                    # Update payment status
+                    payment.status = PaymentStatus.REFUNDED
+                    payment.refund_amount = float(refund.amount) / 100  # Convert from cents
+                    payment.stripe_refund_id = refund.id
+                    total_refund_amount += payment.refund_amount
+                    refunds_processed += 1
 
-            except stripe.StripeError as e:
-                logger.error(f"Failed to create Stripe refund for booking {booking_id}: {str(e)}")
-                # Continue with cancellation even if refund fails
-                # Admin can manually process refund later
+                    logger.info(f"Refund created for booking {booking_id}, payment {payment.id}: {refund.id} (€{payment.refund_amount})")
+
+                except stripe.StripeError as e:
+                    error_msg = f"Payment {payment.id}: {str(e)}"
+                    refund_errors.append(error_msg)
+                    logger.error(f"Failed to create Stripe refund for booking {booking_id}, payment {payment.id}: {str(e)}")
+                    # Continue with other refunds even if one fails
+
+        if refund_errors:
+            logger.warning(f"Some refunds failed for booking {booking_id}: {refund_errors}")
 
         # Update booking status
         booking.status = BookingStatusEnum.CANCELLED
         booking.cancellation_reason = cancellation_data.reason
         booking.cancelled_at = datetime.utcnow()
         booking.updated_at = datetime.utcnow()
-        if payment:
-            booking.refund_amount = payment.refund_amount
-            # Mark refund as processed since we successfully created it in Stripe
-            if payment.stripe_refund_id:
-                booking.refund_processed = True
+        if total_refund_amount > 0:
+            booking.refund_amount = total_refund_amount
+            booking.refund_processed = refunds_processed > 0
 
         db.commit()
         db.refresh(booking)
@@ -1243,7 +1417,8 @@ async def cancel_booking(
                 "total_vehicles": booking.total_vehicles,
                 "cancellation_reason": cancellation_data.reason,
                 "cancelled_at": booking.cancelled_at.isoformat() if booking.cancelled_at else None,
-                "refund_amount": float(payment.refund_amount) if payment and payment.refund_amount else None,
+                "refund_amount": total_refund_amount if total_refund_amount > 0 else None,
+                "refunds_count": refunds_processed,
                 "base_url": os.getenv("BASE_URL", "http://localhost:3001")
             }
 
@@ -1261,8 +1436,9 @@ async def cancel_booking(
         return {
             "message": "Booking cancelled successfully",
             "booking_id": booking_id,
-            "refund_issued": payment is not None,
-            "refund_amount": payment.refund_amount if payment else None
+            "refunds_issued": refunds_processed,
+            "total_refund_amount": total_refund_amount if total_refund_amount > 0 else None,
+            "refund_errors": refund_errors if refund_errors else None
         }
 
     except HTTPException:
@@ -1484,7 +1660,28 @@ async def get_booking_invoice(
                 'total_price': float(m.total_price)
             })
 
-        # Prepare booking data
+        # Calculate original cabin costs (excluding upgrades from bookingCabins)
+        # bookingCabins contains cabin upgrades added AFTER the initial booking
+        # Sum up all cabin upgrades
+        outbound_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.OUTBOUND
+        )
+        return_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.RETURN
+        )
+
+        # Original cabin = total supplement - upgrades
+        original_cabin_supplement = max(0, float(booking.cabin_supplement or 0) - outbound_upgrades)
+        original_return_cabin_supplement = max(0, float(booking.return_cabin_supplement or 0) - return_upgrades)
+
+        # Calculate original total and tax (without upgrades)
+        total_upgrades = outbound_upgrades + return_upgrades
+        original_total = float(booking.total_amount or 0) - (total_upgrades * 1.10)  # Remove upgrades + their tax
+        original_tax = float(booking.tax_amount or 0) - (total_upgrades * 0.10)  # Remove upgrade tax
+
+        # Prepare booking data with ORIGINAL values (excluding cabin upgrades)
         booking_data = {
             'id': booking.id,
             'booking_reference': booking.booking_reference,
@@ -1503,11 +1700,12 @@ async def get_booking_invoice(
             'total_passengers': booking.total_passengers,
             'total_vehicles': booking.total_vehicles,
             'subtotal': float(booking.subtotal),
-            'tax_amount': float(booking.tax_amount) if booking.tax_amount else 0,
-            'total_amount': float(booking.total_amount),
+            'tax_amount': original_tax,
+            'total_amount': original_total,
             'currency': booking.currency,
-            'cabin_supplement': float(booking.cabin_supplement) if booking.cabin_supplement else 0,
-            'return_cabin_supplement': float(booking.return_cabin_supplement) if booking.return_cabin_supplement else 0,
+            # Use original cabin costs (excluding upgrades)
+            'cabin_supplement': original_cabin_supplement,
+            'return_cabin_supplement': original_return_cabin_supplement,
         }
 
         # Prepare payment data
@@ -1546,4 +1744,180 @@ async def get_booking_invoice(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate invoice: {str(e)}"
+        )
+
+
+@router.get("/{booking_id}/cabin-upgrade-invoice")
+async def get_cabin_upgrade_invoice(
+    booking_id: int,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download PDF invoice for all cabin upgrades.
+
+    Includes all cabins from the booking_cabins table for this booking.
+    User must own the booking or be admin.
+    """
+    try:
+        import io
+
+        # Get booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check user permission
+        if current_user:
+            if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this booking"
+                )
+        elif booking.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authentication required"
+            )
+
+        # Get all cabin upgrades from booking_cabins table
+        booking_cabins = db.query(BookingCabin).filter(
+            BookingCabin.booking_id == booking_id
+        ).all()
+
+        # Also check legacy cabin supplements
+        cabin_supplement = float(booking.cabin_supplement or 0)
+        return_cabin_supplement = float(booking.return_cabin_supplement or 0)
+
+        if not booking_cabins and cabin_supplement == 0 and return_cabin_supplement == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No cabin upgrade found for this booking"
+            )
+
+        # Get payment - must be completed to generate invoice
+        payment = db.query(Payment).filter(
+            Payment.booking_id == booking_id,
+            Payment.status == PaymentStatusEnum.COMPLETED
+        ).first()
+
+        if not payment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invoice only available for paid bookings"
+            )
+
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'booking_reference': booking.booking_reference,
+            'operator': booking.operator,
+            'departure_port': booking.departure_port,
+            'arrival_port': booking.arrival_port,
+            'departure_time': booking.departure_time,
+            'arrival_time': booking.arrival_time,
+            'vessel_name': booking.vessel_name,
+            'is_round_trip': booking.is_round_trip,
+            'return_departure_port': booking.return_departure_port,
+            'return_arrival_port': booking.return_arrival_port,
+            'return_departure_time': booking.return_departure_time,
+            'contact_email': booking.contact_email,
+            'contact_phone': booking.contact_phone,
+            'contact_first_name': booking.contact_first_name,
+            'contact_last_name': booking.contact_last_name,
+            'currency': booking.currency,
+        }
+
+        # Build list of all cabins with details
+        cabins_list = []
+        total_cabin_price = 0.0
+
+        for bc in booking_cabins:
+            cabin_info = {
+                'cabin_name': bc.cabin.name if bc.cabin else 'Cabin',
+                'cabin_type': bc.cabin.cabin_type.value if bc.cabin and hasattr(bc.cabin.cabin_type, 'value') else 'Standard',
+                'quantity': bc.quantity,
+                'unit_price': float(bc.unit_price),
+                'total_price': float(bc.total_price),
+                'journey_type': bc.journey_type.value if hasattr(bc.journey_type, 'value') else str(bc.journey_type),
+            }
+            cabins_list.append(cabin_info)
+            total_cabin_price += float(bc.total_price)
+
+        # If no booking_cabins but has legacy supplements, create legacy entry
+        if not cabins_list and (cabin_supplement > 0 or return_cabin_supplement > 0):
+            from app.models.ferry import Cabin
+            cabin_name = "Cabin"
+            cabin_type = "Standard"
+            if booking.cabin_id:
+                cabin = db.query(Cabin).filter(Cabin.id == booking.cabin_id).first()
+                if cabin:
+                    cabin_name = cabin.name
+                    cabin_type = cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type)
+
+            total_cabin_price = cabin_supplement + return_cabin_supplement
+            journey_type = 'outbound'
+            if cabin_supplement > 0 and return_cabin_supplement > 0:
+                journey_type = 'both'
+            elif return_cabin_supplement > 0:
+                journey_type = 'return'
+
+            cabins_list.append({
+                'cabin_name': cabin_name,
+                'cabin_type': cabin_type,
+                'quantity': 1,
+                'unit_price': total_cabin_price,
+                'total_price': total_cabin_price,
+                'journey_type': journey_type,
+            })
+
+        # cabin_data now includes all cabins
+        cabin_data = {
+            'cabins': cabins_list,
+            'total_price': total_cabin_price,
+            # Keep backward compatibility - use first cabin's info for single cabin display
+            'cabin_name': cabins_list[0]['cabin_name'] if cabins_list else 'Cabin',
+            'cabin_type': cabins_list[0]['cabin_type'] if cabins_list else 'Standard',
+            'quantity': sum(c['quantity'] for c in cabins_list),
+            'unit_price': cabins_list[0]['unit_price'] if len(cabins_list) == 1 else total_cabin_price,
+            'journey_type': 'both' if any(c['journey_type'] == 'RETURN' for c in cabins_list) and any(c['journey_type'] == 'OUTBOUND' for c in cabins_list) else (cabins_list[0]['journey_type'] if cabins_list else 'outbound'),
+        }
+
+        # Prepare payment data
+        payment_data = {
+            'payment_method': payment.payment_method.value if hasattr(payment.payment_method, 'value') else str(payment.payment_method),
+            'stripe_payment_intent_id': payment.stripe_payment_intent_id,
+            'stripe_charge_id': payment.stripe_charge_id,
+            'card_brand': payment.card_brand,
+            'card_last_four': payment.card_last_four,
+        }
+
+        # Generate PDF using cabin upgrade invoice generator
+        pdf_content = invoice_service.generate_cabin_upgrade_invoice(
+            booking=booking_data,
+            cabin_data=cabin_data,
+            payment=payment_data
+        )
+
+        # Return as downloadable file
+        filename = f"cabin_upgrade_invoice_{booking.booking_reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate cabin upgrade invoice: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate cabin upgrade invoice: {str(e)}"
         )

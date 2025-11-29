@@ -139,6 +139,7 @@ class Booking(Base):
     payments = relationship("Payment", back_populates="booking")
     meals = relationship("BookingMeal", back_populates="booking", cascade="all, delete-orphan")
     modifications = relationship("BookingModification", back_populates="booking", cascade="all, delete-orphan")
+    booking_cabins = relationship("BookingCabin", back_populates="booking", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Booking(id={self.id}, ref='{self.booking_reference}', status='{self.status.value}')>"
@@ -286,9 +287,48 @@ class BookingModification(Base):
         return f"<BookingModification(id={self.id}, booking_id={self.booking_id}, status='{self.status}')>"
 
 
+class JourneyTypeEnum(enum.Enum):
+    """Journey type enum for round trips."""
+    OUTBOUND = "OUTBOUND"
+    RETURN = "RETURN"
+
+
+class BookingCabin(Base):
+    """Cabin selections for a booking - supports multiple cabins per journey."""
+
+    __tablename__ = "booking_cabins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False)
+    cabin_id = Column(Integer, ForeignKey("cabins.id"), nullable=False)
+
+    # Journey type (outbound or return)
+    journey_type = Column(Enum(JourneyTypeEnum), default=JourneyTypeEnum.OUTBOUND)
+
+    # Quantity and pricing
+    quantity = Column(Integer, default=1)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    total_price = Column(Numeric(10, 2), nullable=False)
+
+    # Payment tracking
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True)  # Link to payment if paid separately
+    is_paid = Column(Boolean, default=False)
+
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    booking = relationship("Booking", back_populates="booking_cabins")
+    cabin = relationship("Cabin")
+    payment = relationship("Payment")
+
+    def __repr__(self):
+        return f"<BookingCabin(id={self.id}, booking_id={self.booking_id}, cabin_id={self.cabin_id}, qty={self.quantity})>"
+
+
 class ModificationQuote(Base):
     """Temporary modification quotes that expire."""
-    
+
     __tablename__ = "modification_quotes"
     
     id = Column(Integer, primary_key=True, index=True)

@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle } from '../store/slices/ferrySlice';
-import CabinSelector from '../components/CabinSelector';
+import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle } from '../store/slices/ferrySlice';
+import CabinSelector, { CabinTypeSelection } from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
 import VehicleForm, { VehicleFormData } from '../components/VehicleFormEnhanced';
@@ -116,8 +116,9 @@ const BookingPage: React.FC = () => {
   }, [selectedFerry, isCreatingBooking]);
 
   const handleCabinSelect = (cabinId: number | null, price: number, quantity: number, journey?: 'outbound' | 'return') => {
-    // Calculate total price for multiple cabins
-    const totalPrice = price * (quantity > 0 ? quantity : 1);
+    // Price is already the total for all selected cabins (from CabinSelector)
+    // quantity is the total number of cabins selected
+    const totalPrice = price;
 
     if (journey === 'return') {
       setSelectedReturnCabinId(cabinId);
@@ -132,7 +133,29 @@ const BookingPage: React.FC = () => {
     }
 
     // Log for debugging
-    console.log(`Selected ${quantity} cabin(s) for €${price} each. Total: €${totalPrice}`);
+    console.log(`Selected ${quantity} cabin(s). Total price: €${totalPrice}`);
+  };
+
+  // Handle multi-cabin selections with full details for Redux
+  const handleMultiCabinSelect = (selections: CabinTypeSelection[], journey: 'outbound' | 'return') => {
+    const totalPrice = selections.reduce((sum, sel) => sum + sel.totalPrice, 0);
+    const formattedSelections = selections.map(sel => ({
+      cabinId: sel.cabinId,
+      quantity: sel.quantity,
+      price: sel.totalPrice,
+    }));
+
+    if (journey === 'return') {
+      dispatch(setReturnCabinSelections({
+        selections: formattedSelections,
+        totalPrice,
+      }));
+    } else {
+      dispatch(setCabinSelections({
+        selections: formattedSelections,
+        totalPrice,
+      }));
+    }
   };
 
   const handleMealSelect = (meals: any[], totalPrice: number) => {
@@ -552,6 +575,7 @@ const BookingPage: React.FC = () => {
                 selectedCabinId={selectedCabinId}
                 selectedReturnCabinId={selectedReturnCabinId}
                 onCabinSelect={handleCabinSelect}
+                onMultiCabinSelect={handleMultiCabinSelect}
                 passengerCount={totalPassengers}
                 isRoundTrip={isRoundTrip && !!selectedReturnFerry}
                 ferryCabinAvailability={selectedFerry?.cabinTypes || (selectedFerry as any)?.cabin_types || []}
@@ -885,10 +909,8 @@ const BookingPage: React.FC = () => {
                 {cabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">
-                      {cabinQuantity > 0 && `${cabinQuantity} `}
-                      Cabin{cabinQuantity > 1 ? 's' : ''}
+                      {cabinQuantity} Cabin{cabinQuantity > 1 ? 's' : ''}
                       {isRoundTrip && selectedReturnFerry ? ' (Outbound)' : ''}
-                      {cabinQuantity > 0 && ` × €${(cabinPrice / cabinQuantity).toFixed(2)}`}
                     </span>
                     <span>€{cabinPrice.toFixed(2)}</span>
                   </div>
@@ -896,9 +918,7 @@ const BookingPage: React.FC = () => {
                 {isRoundTrip && selectedReturnFerry && returnCabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">
-                      {returnCabinQuantity > 0 && `${returnCabinQuantity} `}
-                      Cabin{returnCabinQuantity > 1 ? 's' : ''} (Return)
-                      {returnCabinQuantity > 0 && ` × €${(returnCabinPrice / returnCabinQuantity).toFixed(2)}`}
+                      {returnCabinQuantity} Cabin{returnCabinQuantity > 1 ? 's' : ''} (Return)
                     </span>
                     <span>€{returnCabinPrice.toFixed(2)}</span>
                   </div>

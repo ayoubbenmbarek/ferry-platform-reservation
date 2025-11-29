@@ -54,8 +54,14 @@ async def create_payment_intent(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
             )
 
+        # Check if this is a cabin upgrade payment
+        is_cabin_upgrade = (
+            payment_data.metadata is not None
+            and payment_data.metadata.get('type') == 'cabin_upgrade'
+        )
+
         # Check if user has permission to pay for this booking
-        # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin, 4) Booking is pending (allows sharing payment links)
+        # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin, 4) Booking is pending (allows sharing payment links), 5) Cabin upgrade
         if current_user:
             if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
                 raise HTTPException(
@@ -64,27 +70,27 @@ async def create_payment_intent(
                 )
         elif booking.user_id:
             # Guest trying to pay for a registered user's booking
-            # Allow if booking is still pending (enables sharing payment links)
-            if booking.status != BookingStatusEnum.PENDING:
+            # Allow if booking is still pending (enables sharing payment links) OR it's a cabin upgrade
+            if booking.status != BookingStatusEnum.PENDING and not is_cabin_upgrade:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="This booking requires authentication",
                 )
 
-        # Check if booking is already paid
-        existing_payment = (
-            db.query(Payment)
-            .filter(
-                Payment.booking_id == payment_data.booking_id,
-                Payment.status == PaymentStatusEnum.COMPLETED,
+        if not is_cabin_upgrade:
+            existing_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.booking_id == payment_data.booking_id,
+                    Payment.status == PaymentStatusEnum.COMPLETED,
+                )
+                .first()
             )
-            .first()
-        )
-        if existing_payment:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Booking is already paid",
-            )
+            if existing_payment:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Booking is already paid",
+                )
 
         # Handle zero amount (100% discount)
         if payment_data.amount <= 0:
@@ -117,15 +123,23 @@ async def create_payment_intent(
         # Convert amount to cents for Stripe
         amount_cents = int(payment_data.amount * 100)
 
+        # Build Stripe metadata
+        stripe_metadata = {
+            "booking_id": payment_data.booking_id,
+            "user_id": current_user.id if current_user else "guest",
+            "booking_reference": booking.booking_reference,
+        }
+        # Add custom metadata (e.g., cabin upgrade info)
+        if payment_data.metadata:
+            stripe_metadata.update({
+                f"custom_{k}": str(v) for k, v in payment_data.metadata.items() if v is not None
+            })
+
         # Create Stripe payment intent
         intent = stripe.PaymentIntent.create(
             amount=amount_cents,
             currency=payment_data.currency.value.lower(),
-            metadata={
-                "booking_id": payment_data.booking_id,
-                "user_id": current_user.id if current_user else "guest",
-                "booking_reference": booking.booking_reference,
-            },
+            metadata=stripe_metadata,
             automatic_payment_methods={"enabled": True},
         )
 
@@ -155,11 +169,15 @@ async def create_payment_intent(
         )
 
     except stripe.StripeError as e:
+        import logging
+        logging.error(f"Stripe error creating payment intent: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Stripe error: {str(e)}",
         )
     except Exception as e:
+        import logging
+        logging.error(f"Error creating payment intent: {str(e)}", exc_info=True)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -283,7 +301,13 @@ async def confirm_payment(
             receipt_url = getattr(charge, 'receipt_url', None)
 
         # Send payment confirmation email with invoice if payment succeeded
-        if intent.status == "succeeded" and booking:
+        # But NOT for cabin upgrades - those are handled separately in add-cabin endpoint
+        is_cabin_upgrade = intent.metadata.get('custom_type') == 'cabin_upgrade' if intent.metadata else False
+
+        if is_cabin_upgrade:
+            logger.info(f"Cabin upgrade payment confirmed for booking {booking.booking_reference if booking else 'unknown'} - skipping original invoice email")
+
+        if intent.status == "succeeded" and booking and not is_cabin_upgrade:
             try:
                 # Prepare booking data for email
                 booking_dict = {

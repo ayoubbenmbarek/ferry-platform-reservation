@@ -26,6 +26,24 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   const handleExpressCheckoutConfirm = async (event: any) => {
     setIsProcessing(true);
     try {
+      // First check the current status of the payment intent
+      const { paymentIntent: existingIntent } = await stripe!.retrievePaymentIntent(clientSecret);
+
+      if (existingIntent) {
+        // If already succeeded, just call success callback
+        if (existingIntent.status === 'succeeded') {
+          console.log('Payment already succeeded, proceeding...');
+          onSuccess(existingIntent.id);
+          return;
+        }
+
+        // If canceled, show error
+        if (existingIntent.status === 'canceled') {
+          onError('This payment session has expired. Please refresh the page and try again.');
+          return;
+        }
+      }
+
       const { error: confirmError } = await stripe!.confirmPayment({
         elements: elements!,
         clientSecret,
@@ -36,7 +54,18 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
       });
 
       if (confirmError) {
-        onError(confirmError.message || 'Payment failed');
+        // Handle payment_intent_unexpected_state error
+        if (confirmError.code === 'payment_intent_unexpected_state') {
+          const { paymentIntent: refreshedIntent } = await stripe!.retrievePaymentIntent(clientSecret);
+          if (refreshedIntent && refreshedIntent.status === 'succeeded') {
+            console.log('Payment was already successful');
+            onSuccess(refreshedIntent.id);
+            return;
+          }
+          onError('Payment session expired. Please refresh the page and try again.');
+        } else {
+          onError(confirmError.message || 'Payment failed');
+        }
       } else {
         // Payment succeeded - fetch the payment intent to get its ID
         const { paymentIntent } = await stripe!.retrievePaymentIntent(clientSecret);
@@ -67,6 +96,24 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
     setIsProcessing(true);
 
     try {
+      // First check the current status of the payment intent
+      const { paymentIntent: existingIntent } = await stripe.retrievePaymentIntent(clientSecret);
+
+      if (existingIntent) {
+        // If already succeeded, just call success callback
+        if (existingIntent.status === 'succeeded') {
+          console.log('Payment already succeeded, proceeding...');
+          onSuccess(existingIntent.id);
+          return;
+        }
+
+        // If canceled or requires action, show appropriate error
+        if (existingIntent.status === 'canceled') {
+          onError('This payment session has expired. Please refresh the page and try again.');
+          return;
+        }
+      }
+
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: cardElement,
@@ -74,7 +121,19 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
       });
 
       if (error) {
-        onError(error.message || 'Payment failed');
+        // Handle specific Stripe error codes
+        if (error.code === 'payment_intent_unexpected_state') {
+          // Payment may have already been processed
+          const { paymentIntent: refreshedIntent } = await stripe.retrievePaymentIntent(clientSecret);
+          if (refreshedIntent && refreshedIntent.status === 'succeeded') {
+            console.log('Payment was already successful');
+            onSuccess(refreshedIntent.id);
+            return;
+          }
+          onError('Payment session expired. Please refresh the page and try again.');
+        } else {
+          onError(error.message || 'Payment failed');
+        }
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
         onSuccess(paymentIntent.id);
       }

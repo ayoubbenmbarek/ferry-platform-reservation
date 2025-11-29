@@ -31,27 +31,68 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
   const { t } = useTranslation(['booking', 'common']);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(false);
+  const [existingAlert, setExistingAlert] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [selectedCabinType, setSelectedCabinType] = useState<string>('any');
-  const [numCabins, setNumCabins] = useState(1);
 
-  const cabinTypes = [
-    { value: 'any', label: t('booking:cabinAlert.cabinTypes.any', 'Any Cabin (All Types)') },
-    { value: 'inside', label: t('booking:cabinAlert.cabinTypes.inside', 'Inside Cabin') },
-    { value: 'outside', label: t('booking:cabinAlert.cabinTypes.outside', 'Outside Cabin') },
-    { value: 'balcony', label: t('booking:cabinAlert.cabinTypes.balcony', 'Balcony Cabin') },
-    { value: 'suite', label: t('booking:cabinAlert.cabinTypes.suite', 'Suite') },
-  ];
+  // Check for existing alerts when modal opens
+  const checkExistingAlert = async () => {
+    setCheckingExisting(true);
+    try {
+      const response = await api.get(`/availability-alerts?email=${encodeURIComponent(booking.contactEmail)}&status=active`);
+      const alerts = response.data || [];
+
+      // Find alert matching this booking and journey type
+      const existing = alerts.find((alert: any) =>
+        alert.booking_id === booking.id &&
+        alert.journey_type === journeyType &&
+        alert.alert_type === 'cabin'
+      );
+
+      if (existing) {
+        setExistingAlert(existing);
+      }
+    } catch (err) {
+      console.error('Failed to check existing alerts:', err);
+    } finally {
+      setCheckingExisting(false);
+    }
+  };
+
+  const handleOpenModal = () => {
+    setShowModal(true);
+    setExistingAlert(null);
+    setError(null);
+    setSuccess(false);
+    checkExistingAlert();
+  };
+
+  const handleCancelExistingAlert = async () => {
+    if (!existingAlert) return;
+
+    setLoading(true);
+    try {
+      await api.delete(`/availability-alerts/${existingAlert.id}?email=${encodeURIComponent(booking.contactEmail)}`);
+      setExistingAlert(null);
+    } catch (err: any) {
+      console.error('Failed to cancel alert:', err);
+      setError(err.response?.data?.detail || 'Failed to cancel existing alert');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateAlert = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Extract departure date from departure time
-      const departureDate = new Date(booking.departureTime).toISOString().split('T')[0];
-      const sailingTime = new Date(booking.departureTime).toTimeString().slice(0, 5);
+      // Extract departure date and time in UTC (to match backend storage)
+      const departureDateObj = new Date(booking.departureTime);
+      const departureDate = departureDateObj.toISOString().split('T')[0];
+      // Use UTC time to match how the backend stores departure times
+      const sailingTime = departureDateObj.toISOString().split('T')[1].slice(0, 5);
 
       const alertData = {
         alert_type: 'cabin',
@@ -66,8 +107,8 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
         num_adults: booking.totalPassengers,
         num_children: 0,
         num_infants: 0,
-        cabin_type: selectedCabinType === 'any' ? null : selectedCabinType,
-        num_cabins: numCabins,
+        cabin_type: null, // User will choose cabin type when notified
+        num_cabins: 1,
         booking_id: booking.id,  // Link alert to existing booking
         journey_type: journeyType,  // 'outbound' or 'return'
         alert_duration_days: 30,
@@ -76,6 +117,7 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
       await api.post('/availability-alerts', alertData);
 
       setSuccess(true);
+      // Just call onSuccess callback without page reload
       setTimeout(() => {
         setShowModal(false);
         setSuccess(false);
@@ -115,7 +157,7 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
     <>
       {/* Trigger Button */}
       <button
-        onClick={() => setShowModal(true)}
+        onClick={handleOpenModal}
         className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,7 +204,45 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
               </div>
             )}
 
+            {/* Loading State */}
+            {checkingExisting && (
+              <div className="mb-4 flex items-center justify-center py-4">
+                <svg className="animate-spin h-6 w-6 text-purple-600 mr-2" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span className="text-gray-600">{t('booking:cabinAlert.checking', 'Checking for existing alerts...')}</span>
+              </div>
+            )}
+
+            {/* Existing Alert Warning */}
+            {existingAlert && !checkingExisting && (
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-yellow-800 font-medium">
+                      {t('booking:cabinAlert.existingAlert', 'You already have an active alert for this journey')}
+                    </p>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      Alert ID: {existingAlert.id} • Created: {new Date(existingAlert.created_at).toLocaleDateString()}
+                    </p>
+                    <button
+                      onClick={handleCancelExistingAlert}
+                      disabled={loading}
+                      className="mt-2 text-sm text-yellow-800 underline hover:text-yellow-900"
+                    >
+                      {loading ? t('common:common.loading', 'Loading...') : t('booking:cabinAlert.cancelExisting', 'Cancel existing alert to create a new one')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Content */}
+            {!checkingExisting && !existingAlert && (
             <div className="mb-6">
               <p className="text-gray-600 mb-4">
                 {t('booking:cabinAlert.description', 'We\'ll check periodically and email you when a cabin becomes available for your booking.')}
@@ -199,44 +279,6 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
                 </div>
               </div>
 
-              {/* Cabin Type Selection */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('booking:cabinAlert.selectCabinType', 'Preferred Cabin Type')}
-                </label>
-                <select
-                  value={selectedCabinType}
-                  onChange={(e) => setSelectedCabinType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  disabled={loading || success}
-                >
-                  {cabinTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Number of Cabins */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('booking:cabinAlert.numCabins', 'Number of Cabins')}
-                </label>
-                <select
-                  value={numCabins}
-                  onChange={(e) => setNumCabins(parseInt(e.target.value))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  disabled={loading || success}
-                >
-                  {[1, 2, 3, 4].map((num) => (
-                    <option key={num} value={num}>
-                      {num} {num === 1 ? t('booking:cabinAlert.cabin', 'Cabin') : t('booking:cabinAlert.cabins', 'Cabins')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Email confirmation */}
               <div className="bg-blue-50 rounded-lg p-3 mb-4">
                 <p className="text-sm text-blue-800">
@@ -251,6 +293,7 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
                 {t('booking:cabinAlert.duration', 'Alert will be active for 30 days or until the departure date')}
               </p>
             </div>
+            )}
 
             {/* Footer Actions */}
             <div className="flex gap-3">
@@ -261,23 +304,25 @@ const CabinAlertForBooking: React.FC<CabinAlertForBookingProps> = ({
               >
                 {t('common:common.cancel', 'Cancel')}
               </button>
-              <button
-                onClick={handleCreateAlert}
-                disabled={loading || success}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    {t('common:common.loading', 'Loading...')}
-                  </>
-                ) : (
-                  t('booking:cabinAlert.createAlert', 'Create Alert')
-                )}
-              </button>
+              {!existingAlert && !checkingExisting && (
+                <button
+                  onClick={handleCreateAlert}
+                  disabled={loading || success}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      {t('common:common.loading', 'Loading...')}
+                    </>
+                  ) : (
+                    t('booking:cabinAlert.createAlert', 'Create Alert')
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

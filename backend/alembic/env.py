@@ -10,6 +10,11 @@ import sys
 # Add the parent directory to the path so we can import our app
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# If DATABASE_URL is already set (e.g., by CI), mark as testing to prevent
+# .env file from overwriting it
+if os.environ.get("DATABASE_URL") and "test" in os.environ.get("DATABASE_URL", ""):
+    os.environ["ENVIRONMENT"] = "testing"
+
 # Import settings and models
 from app.config import settings
 from app.database import Base

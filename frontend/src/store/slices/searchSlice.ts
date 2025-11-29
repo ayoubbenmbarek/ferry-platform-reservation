@@ -37,7 +37,8 @@ const searchSlice = {
 };
 
 export const { setSearchParams, setSearchResults, setLoading, setError, clearError } = searchSlice.reducers || {};
-export default (state = initialState, action: any) => {
+
+const searchReducer = (state = initialState, action: any) => {
   switch (action.type) {
     case 'search/setSearchParams':
       return { ...state, searchParams: action.payload };
@@ -52,4 +53,6 @@ export default (state = initialState, action: any) => {
     default:
       return state;
   }
-}; 
+};
+
+export default searchReducer; 

@@ -164,6 +164,11 @@
 | Unit tests & CI/CD | Tests for Celery tasks and all functions |
 todo:Add unitest the the payment checkeout flow to cover payment failures scenarios
 todo:subscribe and get notify if price drops
+TODO:add notification for prices, for a given routes, weekly or something like that in increased or dropped
+price watch:something like this on hooper
+todo check existing alerts and try to add info for that alert to be activated and receive email
+TODO:run tests in every commit,
+TODO:create 3 environment
 
 ### Payment & Pricing
 

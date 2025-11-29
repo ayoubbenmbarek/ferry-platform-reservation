@@ -58,15 +58,26 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-asyncio
 
-      - name: Run unit tests
+      - name: Run database migrations
+        working-directory: ./backend
+        env:
+          DATABASE_URL: "postgresql://test_user:test_password@localhost:5432/test_db"
+        run: |
+          alembic upgrade head
+
+      - name: Run tests
         working-directory: ./backend
         env:
           ENVIRONMENT: "testing"
-          DATABASE_URL: "sqlite:///:memory:"
+          TEST_USE_DOCKER: "true"
+          DATABASE_URL: "postgresql://test_user:test_password@localhost:5432/test_db"
           SECRET_KEY: "test-secret-key-for-ci-testing-only-12345678901234567890"
+          JWT_SECRET_KEY: "test-jwt-secret-key-for-ci-testing-only-12345678901234567890"
           STRIPE_SECRET_KEY: "sk_test_fake_key"
           STRIPE_WEBHOOK_SECRET: "whsec_test_secret"
           REDIS_URL: "redis://localhost:6379/15"
+          CELERY_BROKER_URL: "redis://localhost:6379/14"
+          CELERY_RESULT_BACKEND: "redis://localhost:6379/14"
         run: |
           pytest tests/ -v --tb=short --cov=app --cov-report=xml --cov-report=term-missing
 

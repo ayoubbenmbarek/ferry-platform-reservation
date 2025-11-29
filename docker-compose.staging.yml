@@ -1,0 +1,175 @@
+services:
+  # PostgreSQL Database (Staging)
+  postgres:
+    image: postgres:15-alpine
+    container_name: maritime-postgres-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-maritime_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-staging_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging_password}
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-staging_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - maritime-staging-network
+
+  # Redis for caching and Celery (Staging)
+  redis:
+    image: redis:7-alpine
+    container_name: maritime-redis-staging
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_staging_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - maritime-staging-network
+
+  # Mailhog for email testing in staging
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: maritime-mailhog-staging
+    restart: unless-stopped
+    ports:
+      - "8025:8025"  # Web UI
+    networks:
+      - maritime-staging-network
+
+  # Backend API (Staging)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: maritime-backend-staging
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env.staging
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-staging_user}:${POSTGRES_PASSWORD:-staging_password}@postgres:5432/${POSTGRES_DB:-maritime_staging}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      ENVIRONMENT: staging
+      DEBUG: "false"
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+    volumes:
+      - staging_uploads:/app/uploads
+      - staging_logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - maritime-staging-network
+
+  # Celery Worker (Staging)
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: maritime-celery-staging
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - ./backend/.env.staging
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-staging_user}:${POSTGRES_PASSWORD:-staging_password}@postgres:5432/${POSTGRES_DB:-maritime_staging}
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      ENVIRONMENT: staging
+    volumes:
+      - staging_uploads:/app/uploads
+      - staging_logs:/app/logs
+    depends_on:
+      - redis
+      - postgres
+      - backend
+    networks:
+      - maritime-staging-network
+
+  # Celery Beat (Staging)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: maritime-celery-beat-staging
+    restart: unless-stopped
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file:
+      - ./backend/.env.staging
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-staging_user}:${POSTGRES_PASSWORD:-staging_password}@postgres:5432/${POSTGRES_DB:-maritime_staging}
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      ENVIRONMENT: staging
+    volumes:
+      - staging_logs:/app/logs
+    depends_on:
+      - redis
+      - postgres
+      - backend
+      - celery-worker
+    networks:
+      - maritime-staging-network
+
+  # Frontend (Staging)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+        - NEXT_PUBLIC_ENVIRONMENT=staging
+    container_name: maritime-frontend-staging
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_ENVIRONMENT=staging
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - maritime-staging-network
+
+volumes:
+  postgres_staging_data:
+    driver: local
+  redis_staging_data:
+    driver: local
+  staging_uploads:
+    driver: local
+  staging_logs:
+    driver: local
+
+networks:
+  maritime-staging-network:
+    driver: bridge

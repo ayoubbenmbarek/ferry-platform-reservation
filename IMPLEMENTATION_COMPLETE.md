@@ -162,6 +162,8 @@
 | Other login methods | Evaluate additional OAuth providers |
 | MCP for PostgreSQL | Add Model Context Protocol support |
 | Unit tests & CI/CD | Tests for Celery tasks and all functions |
+todo:Add unitest the the payment checkeout flow to cover payment failures scenarios
+todo:subscribe and get notify if price drops
 
 ### Payment & Pricing
 

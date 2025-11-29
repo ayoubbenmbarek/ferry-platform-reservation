@@ -163,6 +163,8 @@ jobs:
             REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
             REACT_APP_ENVIRONMENT=staging
             REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID }}
+            REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND }}
+            REACT_APP_VERSION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

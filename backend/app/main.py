@@ -242,6 +242,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle general exceptions."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
+
+    # Send to Sentry
+    try:
+        from app.monitoring import capture_exception
+        capture_exception(exc, path=str(request.url), method=request.method)
+    except ImportError:
+        pass
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -261,6 +269,28 @@ async def health_check():
         "version": settings.VERSION,
         "timestamp": time.time()
     }
+
+
+# Sentry test endpoint (only in debug mode)
+if settings.DEBUG:
+    @app.get("/api/v1/test-sentry")
+    async def test_sentry():
+        """Test Sentry error tracking."""
+        import uuid
+        error_id = str(uuid.uuid4())[:8]
+
+        try:
+            from app.monitoring import capture_message
+            capture_message(f"Test message from backend [{error_id}]", level="info")
+            raise ValueError(f"Test error for Sentry [{error_id}]")
+        except ValueError as e:
+            from app.monitoring import capture_exception
+            capture_exception(e, test=True, source="test_endpoint", error_id=error_id)
+            return {
+                "status": "sent",
+                "message": f"Test error [{error_id}] sent to Sentry. Check your dashboard.",
+                "sentry_enabled": sentry_enabled
+            }
 
 
 # Test email endpoint

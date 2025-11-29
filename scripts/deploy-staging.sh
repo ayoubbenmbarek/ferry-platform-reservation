@@ -19,7 +19,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-REGISTRY="${DOCKER_REGISTRY:-ghcr.io/yourusername}"  # Change to your registry
+REGISTRY="${DOCKER_REGISTRY:-ghcr.io/ayoubbenmbarek}"  # Change to your registry
 IMAGE_TAG="${IMAGE_TAG:-staging}"
 NAMESPACE="maritime-reservations-staging"
 

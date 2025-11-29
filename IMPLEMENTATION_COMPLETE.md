@@ -169,6 +169,8 @@ price watch:something like this on hooper
 todo check existing alerts and try to add info for that alert to be activated and receive email
 TODO:run tests in every commit,
 TODO:create 3 environment
+todo:deploy in self managed kube
+todo:continue with sentry monitoring
 
 ### Payment & Pricing
 
@@ -261,6 +263,88 @@ docker exec maritime-postgres-dev psql -U postgres -d maritime_reservations_dev 
 # Monitor cron
 docker exec maritime-cron-dev tail -f /var/log/cron.log
 ```
+
+---
+
+## 🚀 DEPLOYMENT & INFRASTRUCTURE
+
+### CI/CD Pipeline ✅
+- **GitHub Actions CI** - Tests on every push (backend + frontend)
+- **GitHub Actions Deploy** - Auto-deploy to staging on develop branch
+- **Docker Images** - Multi-stage builds for backend and frontend
+- **Container Registry** - GitHub Container Registry (ghcr.io)
+
+### Kubernetes Setup ✅
+```
+k8s/
+├── base/                    # Common configuration
+│   ├── namespace.yaml
+│   ├── configmap.yaml
+│   ├── secrets.yaml
+│   ├── backend-deployment.yaml
+│   ├── frontend-deployment.yaml
+│   ├── celery-worker-deployment.yaml
+│   ├── celery-beat-deployment.yaml
+│   ├── redis-deployment.yaml
+│   ├── ingress.yaml
+│   ├── hpa.yaml             # Horizontal Pod Autoscaler
+│   └── pdb.yaml             # Pod Disruption Budget
+├── overlays/
+│   ├── staging/             # 1 replica, debug enabled
+│   └── production/          # 3 replicas, production config
+└── README.md
+```
+
+### Security Features ✅
+- **Security Headers**: X-Frame-Options, X-Content-Type-Options, CSP, HSTS
+- **Rate Limiting**: SlowAPI with Redis backend
+- **Circuit Breaker**: Fault tolerance for Stripe, Email, Ferry APIs
+- **Health Checks**: `/health/live`, `/health/ready`, `/health/detailed`
+- **Sentry Monitoring**: Error tracking with performance monitoring
+
+### Environment Configuration ✅
+| File | Purpose |
+|------|---------|
+| `.env.development` | Local Docker development |
+| `.env.staging.example` | Staging template |
+| `.env.production.example` | Production template |
+| `k8s/base/secrets.yaml` | K8s secrets template |
+| `k8s/base/configmap.yaml` | K8s non-sensitive config |
+
+### Deployment Commands
+
+**Docker Compose (Development)**
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+**Docker Compose (Staging)**
+```bash
+docker-compose -f docker-compose.staging.yml up -d
+```
+
+**Kubernetes (Staging)**
+```bash
+# Create secrets first
+kubectl create secret generic maritime-secrets -n maritime-reservations-staging \
+  --from-literal=DATABASE_URL="postgresql://..." \
+  --from-literal=SECRET_KEY="..." \
+  # ... other secrets
+
+# Deploy
+kubectl apply -k k8s/overlays/staging
+```
+
+**Kubernetes (Production)**
+```bash
+kubectl apply -k k8s/overlays/production
+```
+
+### Self-Managed K8s Options
+See `k8s/SELF-MANAGED-K8S.md` for detailed setup with:
+- **k3s** - Best for VPS/single server
+- **kubeadm** - Multi-node production
+- **microk8s** - Ubuntu/development
 
 ---
 

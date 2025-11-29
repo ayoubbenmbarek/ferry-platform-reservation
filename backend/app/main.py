@@ -151,14 +151,44 @@ if not settings.DEBUG:
     )
 
 
-# Request timing middleware
+# Security headers and request timing middleware
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    """Add processing time to response headers."""
+async def add_security_headers(request: Request, call_next):
+    """Add security headers and processing time to response."""
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
+
+    # Processing time header
     response.headers["X-Process-Time"] = str(process_time)
+
+    # Security headers (OWASP recommendations)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+
+    # HSTS header for production (forces HTTPS)
+    if not settings.DEBUG:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
+    # Content Security Policy
+    # Adjust as needed for your frontend requirements
+    csp_directives = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: https:",
+        "connect-src 'self' https://api.stripe.com https://*.sentry.io",
+        "frame-src https://js.stripe.com https://hooks.stripe.com",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ]
+    response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+
     return response
 
 

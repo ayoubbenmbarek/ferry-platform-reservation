@@ -171,6 +171,35 @@
   "meals": {
     "title": "Seleziona Pasti (Opzionale)"
   },
+  "cabinAlert": {
+    "button": "Avviso Cabina",
+    "title": "Avviso Disponibilità Cabina",
+    "outboundJourney": "Andata",
+    "returnJourney": "Ritorno",
+    "description": "Controlleremo periodicamente e ti invieremo un'email quando una cabina sarà disponibile per la tua prenotazione.",
+    "bookingRef": "Riferimento Prenotazione",
+    "route": "Percorso",
+    "date": "Data",
+    "time": "Orario",
+    "operator": "Operatore",
+    "passengers": "Passeggeri",
+    "selectCabinType": "Tipo di Cabina Preferito",
+    "numCabins": "Numero di Cabine",
+    "cabin": "Cabina",
+    "cabins": "Cabine",
+    "emailTo": "La notifica sarà inviata a",
+    "duration": "L'avviso sarà attivo per 30 giorni o fino alla data di partenza",
+    "createAlert": "Crea Avviso",
+    "success": "Avviso creato! Ti avviseremo quando una cabina sarà disponibile.",
+    "error": "Impossibile creare l'avviso. Riprova.",
+    "cabinTypes": {
+      "any": "Tutte le Cabine",
+      "inside": "Cabina Interna",
+      "outside": "Cabina Esterna",
+      "balcony": "Cabina con Balcone",
+      "suite": "Suite"
+    }
+  },
   "modify": {
     "title": "Modifica Prenotazione",
     "backToBookings": "Torna alle Mie Prenotazioni",

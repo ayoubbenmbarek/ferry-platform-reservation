@@ -952,6 +952,7 @@ todo:when i am logged in i should not prompt to enter email on susbcription only
 TODO:once in prod notificiation should be done by route id, because route date could change maybe!
 TODO:translate the text near emojis:done
 TODO:palermo-tunis no cabin vaialble i subscribe, but in page detail i found balcony cabin availaible (so if first page we should see lilmited maybe):done
+TODO:i received Cabin Now Available: Genoa → Tunis, we should go to cabin and try to add and pay only cabin not new route 
 TODO:remove arabic from language selection
 TODO:for example i receive this url for availaibility:https://localhost:3001/search?from=tunis&to=palermo&date=2026-01-10&adults=1&children=0&infants=0 but it do not set  the search detail automatically in page:done
 TODO:check why in celery log we get No active alerts to check and  🎉 Availability check complete: checked 9, notified 0:done

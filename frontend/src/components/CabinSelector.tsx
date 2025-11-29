@@ -41,7 +41,6 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   const [cabins, setCabins] = useState<Cabin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showDetails, setShowDetails] = useState<number | null>(null);
   const [selectedJourney, setSelectedJourney] = useState<'outbound' | 'return'>('outbound');
   const [cabinQuantities, setCabinQuantities] = useState<Record<number, number>>({}); // Track quantity per cabin ID
 

@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { bookingAPI } from '../services/api';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
+import CabinAlertForBooking from '../components/CabinAlertForBooking';
 
 // Helper to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -497,6 +498,42 @@ const BookingDetailsPage: React.FC = () => {
                   </>
                 )}
               </button>
+            )}
+
+            {/* Cabin Alert Button for outbound - show for all confirmed/pending bookings with future departure */}
+            {['confirmed', 'pending'].includes(booking.status?.toLowerCase()) && booking.departureTime && new Date(booking.departureTime) >= new Date(new Date().setHours(0,0,0,0)) && (
+              <CabinAlertForBooking
+                booking={{
+                  id: booking.id,
+                  bookingReference: booking.bookingReference,
+                  departurePort: booking.departurePort,
+                  arrivalPort: booking.arrivalPort,
+                  departureTime: booking.departureTime,
+                  operator: booking.operator,
+                  totalPassengers: booking.totalPassengers,
+                  contactEmail: booking.contactEmail,
+                  isRoundTrip: false,
+                }}
+                journeyType="outbound"
+              />
+            )}
+
+            {/* Cabin Alert Button for return - for round trip bookings with future return */}
+            {['confirmed', 'pending'].includes(booking.status?.toLowerCase()) && booking.isRoundTrip && booking.returnDepartureTime && new Date(booking.returnDepartureTime) >= new Date(new Date().setHours(0,0,0,0)) && (
+              <CabinAlertForBooking
+                booking={{
+                  id: booking.id,
+                  bookingReference: booking.bookingReference,
+                  departurePort: booking.returnDeparturePort || booking.arrivalPort,
+                  arrivalPort: booking.returnArrivalPort || booking.departurePort,
+                  departureTime: booking.returnDepartureTime,
+                  operator: booking.returnOperator || booking.operator,
+                  totalPassengers: booking.totalPassengers,
+                  contactEmail: booking.contactEmail,
+                  isRoundTrip: false,
+                }}
+                journeyType="return"
+              />
             )}
 
             {/* Cancel Booking Button */}

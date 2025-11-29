@@ -171,6 +171,49 @@
   "meals": {
     "title": "Select Meals (Optional)"
   },
+  "addCabin": {
+    "title": "Add Cabin to Your Booking",
+    "subtitle": "Select a cabin to add to your existing booking",
+    "bookingSummary": "Booking Summary",
+    "forReturnJourney": "Adding cabin for return journey",
+    "availableCabins": "Available Cabins",
+    "noCabins": "No cabins available at the moment",
+    "maxOccupancy": "Max",
+    "orderSummary": "Order Summary",
+    "quantity": "Number of Cabins",
+    "addCabin": "Add Cabin",
+    "success": "Cabin Added Successfully!",
+    "successMessage": "Your cabin has been added to your booking. Redirecting..."
+  },
+  "cabinAlert": {
+    "button": "Cabin Alert",
+    "title": "Cabin Availability Alert",
+    "outboundJourney": "Outbound",
+    "returnJourney": "Return",
+    "description": "We'll check periodically and email you when a cabin becomes available for your booking.",
+    "bookingRef": "Booking Reference",
+    "route": "Route",
+    "date": "Date",
+    "time": "Time",
+    "operator": "Operator",
+    "passengers": "Passengers",
+    "selectCabinType": "Preferred Cabin Type",
+    "numCabins": "Number of Cabins",
+    "cabin": "Cabin",
+    "cabins": "Cabins",
+    "emailTo": "Notification will be sent to",
+    "duration": "Alert will be active for 30 days or until the departure date",
+    "createAlert": "Create Alert",
+    "success": "Alert created! We'll notify you when a cabin becomes available.",
+    "error": "Failed to create alert. Please try again.",
+    "cabinTypes": {
+      "any": "Any Cabin (All Types)",
+      "inside": "Inside Cabin",
+      "outside": "Outside Cabin",
+      "balcony": "Balcony Cabin",
+      "suite": "Suite"
+    }
+  },
   "modify": {
     "title": "Modify Booking",
     "backToBookings": "Back to My Bookings",

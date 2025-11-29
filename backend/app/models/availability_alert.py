@@ -55,6 +55,10 @@ class AvailabilityAlert(Base):
     cabin_type = Column(String(50), nullable=True)
     num_cabins = Column(Integer, default=1)
 
+    # Linked booking (for cabin upgrade alerts from existing bookings)
+    booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True)
+    journey_type = Column(String(20), nullable=True)  # 'outbound' or 'return' for round trips
+
     # Alert status
     status = Column(String(50), nullable=False, default="active")
     last_checked_at = Column(DateTime(timezone=True), nullable=True)

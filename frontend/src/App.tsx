@@ -17,6 +17,7 @@ const BookingConfirmationPage = React.lazy(() => import('./pages/BookingConfirma
 const MyBookingsPage = React.lazy(() => import('./pages/MyBookingsPage'));
 const BookingDetailsPage = React.lazy(() => import('./pages/BookingDetailsPage'));
 const ModifyBookingPage = React.lazy(() => import('./pages/ModifyBookingPage'));
+const AddCabinPage = React.lazy(() => import('./pages/AddCabinPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
@@ -105,7 +106,10 @@ function App() {
 
               {/* Booking details - accessible to both authenticated users and guests */}
               <Route path="/booking/:id" element={<BookingDetailsPage />} />
-              
+
+              {/* Add cabin to existing booking */}
+              <Route path="/booking/:bookingId/add-cabin" element={<AddCabinPage />} />
+
               {/* 404 page */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

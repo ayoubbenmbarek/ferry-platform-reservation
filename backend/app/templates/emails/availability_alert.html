@@ -208,12 +208,21 @@
 
             <!-- Call to Action -->
             <div class="cta-container">
+                {% if alert.booking_id %}
+                <a href="{{ alert.upgrade_url }}" class="cta-button">
+                    🛏️ Add Cabin to Your Booking
+                </a>
+                <p style="font-size: 12px; color: #64748b; margin-top: 10px;">
+                    Click the button above to add a cabin to your existing booking
+                </p>
+                {% else %}
                 <a href="{{ alert.search_url }}" class="cta-button">
                     🔍 View Available Ferries & Book Now
                 </a>
                 <p style="font-size: 12px; color: #64748b; margin-top: 10px;">
                     Click the button above to see all ferries matching your exact search criteria
                 </p>
+                {% endif %}
             </div>
 
             <p style="font-size: 14px; color: #64748b; text-align: center; margin-top: 30px;">

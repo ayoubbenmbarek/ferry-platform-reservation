@@ -7,6 +7,7 @@ import os
 import logging
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -1013,6 +1014,98 @@ async def quick_update_booking(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to update booking: {str(e)}"
+        )
+
+
+class AddCabinRequest(BaseModel):
+    """Request schema for adding a cabin to an existing booking."""
+    cabin_id: int
+    quantity: int = 1
+    journey_type: Optional[str] = "outbound"  # 'outbound' or 'return'
+
+
+@router.post("/{booking_id}/add-cabin", response_model=BookingResponse)
+async def add_cabin_to_booking(
+    booking_id: int,
+    cabin_request: AddCabinRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """
+    Add a cabin to an existing booking.
+
+    This allows users to upgrade their booking by adding a cabin after initial booking.
+    The cabin supplement will be added to the total and the booking will be updated.
+    """
+    try:
+        # Get the booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Verify booking status allows modifications
+        if booking.status not in ['pending', 'confirmed']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot add cabin to booking with status '{booking.status}'"
+            )
+
+        # Get the cabin
+        from app.models.cabin import Cabin
+        cabin = db.query(Cabin).filter(Cabin.id == cabin_request.cabin_id).first()
+        if not cabin:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cabin not found"
+            )
+
+        # Calculate cabin supplement
+        cabin_supplement = cabin.base_price * cabin_request.quantity
+
+        # Update booking based on journey type
+        if cabin_request.journey_type == 'return':
+            if not booking.is_round_trip:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot add return cabin to one-way booking"
+                )
+            booking.return_cabin_id = cabin_request.cabin_id
+            booking.return_cabin_supplement = cabin_supplement
+        else:
+            booking.cabin_id = cabin_request.cabin_id
+            booking.cabin_supplement = cabin_supplement
+
+        # Recalculate total amount
+        subtotal = booking.subtotal or 0
+        cabin_total = (booking.cabin_supplement or 0) + (booking.return_cabin_supplement or 0)
+        discount = booking.discount_amount or 0
+        tax_rate = 0.10  # 10% tax
+        taxable_amount = subtotal + cabin_total - discount
+        tax_amount = taxable_amount * tax_rate
+        total_amount = taxable_amount + tax_amount
+
+        booking.tax_amount = tax_amount
+        booking.total_amount = total_amount
+        booking.updated_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(booking)
+
+        logger.info(f"Added cabin {cabin_request.cabin_id} to booking {booking.booking_reference} ({cabin_request.journey_type})")
+
+        return booking_to_response(booking)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to add cabin to booking: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add cabin: {str(e)}"
         )
 
 

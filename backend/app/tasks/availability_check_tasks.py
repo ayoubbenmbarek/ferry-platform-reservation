@@ -161,6 +161,13 @@ def check_availability_alerts_task(self):
                         # Check cabin availability
                         cabin_types = getattr(result, "cabin_types", [])
 
+                        # Log cabin types for debugging
+                        logger.debug(f"🔍 Alert {alert.id}: Checking cabins for {result.operator} at {getattr(result, 'departure_time', 'unknown')}")
+                        logger.debug(f"   Cabin types available: {cabin_types}")
+
+                        # Filter out deck/seat types - they are NOT real cabins
+                        real_cabins = [c for c in cabin_types if c.get("type") not in ("deck", "seat", "reclining_seat")] if cabin_types else []
+
                         # If alert has specific cabin type preference, check that type
                         if alert.cabin_type:
                             # Map alert cabin types to ferry API types
@@ -173,14 +180,14 @@ def check_availability_alerts_task(self):
                                 "suite": "suite"
                             }
                             ferry_cabin_type = cabin_type_map.get(alert.cabin_type.lower(), alert.cabin_type.lower())
-                            available_cabins = [c for c in cabin_types if c.get("type") == ferry_cabin_type and c.get("available", 0) >= (alert.num_cabins or 1)] if cabin_types else []
+                            available_cabins = [c for c in real_cabins if c.get("type") == ferry_cabin_type and c.get("available", 0) >= (alert.num_cabins or 1)]
                         else:
-                            # Any cabin type is acceptable
-                            available_cabins = [c for c in cabin_types if c.get("available", 0) >= (alert.num_cabins or 1)] if cabin_types else []
+                            # Any cabin type is acceptable (but NOT deck/seat)
+                            available_cabins = [c for c in real_cabins if c.get("available", 0) >= (alert.num_cabins or 1)]
 
                         if available_cabins:
                             availability_found = True
-                            cabin_type_str = f" ({ferry_cabin_type})" if alert.cabin_type else ""
+                            cabin_type_str = f" ({alert.cabin_type})" if alert.cabin_type else " (any type)"
                             logger.info(f"🛏️ Found cabin availability{cabin_type_str}: {len(available_cabins)} cabin types available on {result.operator}")
                             break
 
@@ -290,6 +297,12 @@ def _send_availability_notification(alert: AvailabilityAlert, db):
         # Combine into full search URL
         search_url = f"{base_url}/search?{'&'.join(url_params)}"
 
+        # Build upgrade URL for alerts linked to existing bookings
+        upgrade_url = None
+        if alert.booking_id:
+            journey_param = f"&journey={alert.journey_type}" if alert.journey_type else ""
+            upgrade_url = f"{base_url}/booking/{alert.booking_id}/add-cabin?alertId={alert.id}{journey_param}"
+
         # Prepare email data
         alert_data = {
             "alert_id": alert.id,
@@ -308,7 +321,10 @@ def _send_availability_notification(alert: AvailabilityAlert, db):
             "num_cabins": alert.num_cabins,
             "operator": alert.operator,
             "sailing_time": alert.sailing_time.strftime("%H:%M") if alert.sailing_time else None,
-            "search_url": search_url
+            "search_url": search_url,
+            "booking_id": alert.booking_id,
+            "journey_type": alert.journey_type,
+            "upgrade_url": upgrade_url
         }
 
         # Send email using email service

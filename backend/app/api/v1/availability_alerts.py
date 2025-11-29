@@ -45,6 +45,10 @@ class AvailabilityAlertCreate(BaseModel):
     cabin_type: Optional[str] = None  # inside, outside, suite
     num_cabins: int = 1
 
+    # Linked booking (for cabin upgrade alerts)
+    booking_id: Optional[int] = None
+    journey_type: Optional[str] = None  # 'outbound' or 'return'
+
     # Alert duration in days (default 30 days)
     alert_duration_days: int = 30
 
@@ -83,6 +87,8 @@ class AvailabilityAlertResponse(BaseModel):
     num_infants: int
     vehicle_type: Optional[str] = None
     cabin_type: Optional[str] = None
+    booking_id: Optional[int] = None
+    journey_type: Optional[str] = None
     status: str
     last_checked_at: Optional[datetime] = None
     notified_at: Optional[datetime] = None
@@ -108,6 +114,8 @@ class AvailabilityAlertResponse(BaseModel):
             'num_infants': obj.num_infants,
             'vehicle_type': obj.vehicle_type,
             'cabin_type': obj.cabin_type,
+            'booking_id': obj.booking_id,
+            'journey_type': obj.journey_type,
             'status': obj.status,
             'last_checked_at': obj.last_checked_at,
             'notified_at': obj.notified_at,
@@ -214,6 +222,8 @@ async def create_availability_alert(
             vehicle_length_cm=alert_data.vehicle_length_cm,
             cabin_type=alert_data.cabin_type,
             num_cabins=alert_data.num_cabins,
+            booking_id=alert_data.booking_id,
+            journey_type=alert_data.journey_type,
             status=AlertStatusEnum.ACTIVE.value,
             expires_at=expires_at
         )
@@ -302,6 +312,69 @@ async def get_availability_alert(
                 detail="Not authorized to view this alert"
             )
     # If not authenticated, they can't view
+
+    return AvailabilityAlertResponse.from_orm(alert)
+
+
+class AvailabilityAlertUpdate(BaseModel):
+    """Schema for updating an availability alert."""
+    status: Optional[str] = None  # active, notified, expired, cancelled, fulfilled
+
+
+@router.patch("/{alert_id}", response_model=AvailabilityAlertResponse)
+async def update_availability_alert(
+    alert_id: int,
+    update_data: AvailabilityAlertUpdate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    email: Optional[str] = Query(None, description="Email for unauthenticated update")
+):
+    """
+    Update an availability alert (e.g., mark as fulfilled after cabin is added).
+
+    Can be updated by:
+    - Authenticated user who owns it
+    - Anyone with the correct email (for guest alerts)
+    - The system via alertId from email link
+    """
+    alert = db.query(AvailabilityAlert).filter(AvailabilityAlert.id == alert_id).first()
+
+    if not alert:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alert not found"
+        )
+
+    # Authorization: allow update if user owns it, email matches, or came from alert link
+    authorized = False
+    if current_user and alert.user_id == current_user.id:
+        authorized = True
+    elif email and alert.email == email:
+        authorized = True
+    elif not current_user and not email:
+        # Allow system updates from alert email links (no auth needed for marking as fulfilled)
+        authorized = True
+
+    if not authorized:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this alert"
+        )
+
+    # Update status if provided
+    if update_data.status:
+        valid_statuses = ['active', 'notified', 'expired', 'cancelled', 'fulfilled']
+        if update_data.status not in valid_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {valid_statuses}"
+            )
+        alert.status = update_data.status
+
+    db.commit()
+    db.refresh(alert)
+
+    logger.info(f"✏️ Updated availability alert {alert_id} - status: {alert.status}")
 
     return AvailabilityAlertResponse.from_orm(alert)
 

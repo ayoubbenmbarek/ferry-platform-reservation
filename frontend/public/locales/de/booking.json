@@ -171,6 +171,35 @@
   "meals": {
     "title": "Mahlzeiten Auswählen (Optional)"
   },
+  "cabinAlert": {
+    "button": "Kabinen-Benachrichtigung",
+    "title": "Kabinen-Verfügbarkeitsbenachrichtigung",
+    "outboundJourney": "Hinfahrt",
+    "returnJourney": "Rückfahrt",
+    "description": "Wir prüfen regelmäßig und benachrichtigen Sie per E-Mail, wenn eine Kabine für Ihre Buchung verfügbar wird.",
+    "bookingRef": "Buchungsreferenz",
+    "route": "Route",
+    "date": "Datum",
+    "time": "Uhrzeit",
+    "operator": "Betreiber",
+    "passengers": "Passagiere",
+    "selectCabinType": "Bevorzugter Kabinentyp",
+    "numCabins": "Anzahl der Kabinen",
+    "cabin": "Kabine",
+    "cabins": "Kabinen",
+    "emailTo": "Benachrichtigung wird gesendet an",
+    "duration": "Die Benachrichtigung ist 30 Tage aktiv oder bis zum Abfahrtsdatum",
+    "createAlert": "Benachrichtigung Erstellen",
+    "success": "Benachrichtigung erstellt! Wir informieren Sie, wenn eine Kabine verfügbar wird.",
+    "error": "Fehler beim Erstellen der Benachrichtigung. Bitte versuchen Sie es erneut.",
+    "cabinTypes": {
+      "any": "Alle Kabinen",
+      "inside": "Innenkabine",
+      "outside": "Außenkabine",
+      "balcony": "Balkonkabine",
+      "suite": "Suite"
+    }
+  },
   "modify": {
     "title": "Buchung Ändern",
     "backToBookings": "Zurück zu Meinen Buchungen",

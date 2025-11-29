@@ -171,6 +171,49 @@
   "meals": {
     "title": "Sélectionner les Repas (Optionnel)"
   },
+  "addCabin": {
+    "title": "Ajouter une Cabine à Votre Réservation",
+    "subtitle": "Sélectionnez une cabine à ajouter à votre réservation existante",
+    "bookingSummary": "Résumé de la Réservation",
+    "forReturnJourney": "Ajout de cabine pour le voyage retour",
+    "availableCabins": "Cabines Disponibles",
+    "noCabins": "Aucune cabine disponible pour le moment",
+    "maxOccupancy": "Max",
+    "orderSummary": "Récapitulatif de Commande",
+    "quantity": "Nombre de Cabines",
+    "addCabin": "Ajouter la Cabine",
+    "success": "Cabine Ajoutée avec Succès !",
+    "successMessage": "Votre cabine a été ajoutée à votre réservation. Redirection..."
+  },
+  "cabinAlert": {
+    "button": "Alerte Cabine",
+    "title": "Alerte Disponibilité Cabine",
+    "outboundJourney": "Aller",
+    "returnJourney": "Retour",
+    "description": "Nous vérifierons périodiquement et vous enverrons un email lorsqu'une cabine sera disponible pour votre réservation.",
+    "bookingRef": "Référence de Réservation",
+    "route": "Itinéraire",
+    "date": "Date",
+    "time": "Heure",
+    "operator": "Opérateur",
+    "passengers": "Passagers",
+    "selectCabinType": "Type de Cabine Préféré",
+    "numCabins": "Nombre de Cabines",
+    "cabin": "Cabine",
+    "cabins": "Cabines",
+    "emailTo": "La notification sera envoyée à",
+    "duration": "L'alerte sera active pendant 30 jours ou jusqu'à la date de départ",
+    "createAlert": "Créer l'Alerte",
+    "success": "Alerte créée ! Nous vous notifierons lorsqu'une cabine sera disponible.",
+    "error": "Échec de création de l'alerte. Veuillez réessayer.",
+    "cabinTypes": {
+      "any": "Toutes les Cabines",
+      "inside": "Cabine Intérieure",
+      "outside": "Cabine Extérieure",
+      "balcony": "Cabine avec Balcon",
+      "suite": "Suite"
+    }
+  },
   "modify": {
     "title": "Modifier la Réservation",
     "backToBookings": "Retour à Mes Réservations",

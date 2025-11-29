@@ -65,18 +65,15 @@ jobs:
             sleep 2
           done
 
-      - name: Run database migrations
+      - name: Create database tables
         working-directory: ./backend
         env:
           DATABASE_URL: "postgresql://test_user:test_password@localhost:5432/test_db"
           ENVIRONMENT: "testing"
           SECRET_KEY: "test-secret-key-for-ci-testing-only-12345678901234567890"
         run: |
-          echo "Running alembic migrations..."
-          alembic upgrade head || {
-            echo "Alembic migrations failed, creating tables directly..."
-            python -c "from app.database import Base, engine; Base.metadata.create_all(bind=engine)"
-          }
+          echo "Creating database tables..."
+          python scripts/create_tables.py
 
       - name: Run tests
         working-directory: ./backend

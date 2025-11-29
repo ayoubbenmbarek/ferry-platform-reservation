@@ -81,7 +81,8 @@ class CacheService:
         """
         # Sort params for consistent hashing
         sorted_params = json.dumps(params, sort_keys=True)
-        param_hash = hashlib.md5(sorted_params.encode()).hexdigest()
+        # MD5 is used for cache key generation, not security
+        param_hash = hashlib.md5(sorted_params.encode(), usedforsecurity=False).hexdigest()
         return f"{prefix}:{param_hash}"
 
     def get_ferry_search(self, search_params: Dict[str, Any]) -> Optional[Dict[str, Any]]:

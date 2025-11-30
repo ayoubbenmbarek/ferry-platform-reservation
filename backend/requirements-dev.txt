@@ -23,4 +23,4 @@ pytest-postgresql==5.0.0
 
 # API testing
 factory-boy==3.3.0
-faker==20.1.0 
+faker==20.1.0

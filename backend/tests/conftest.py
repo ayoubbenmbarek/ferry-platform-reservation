@@ -493,3 +493,96 @@ def create_test_booking(
     db_session.commit()
     db_session.refresh(booking)
     return booking
+
+
+# ============================================
+# API Integration Test Fixtures
+# ============================================
+
+@pytest.fixture
+def client(db_session: Session):
+    """Create a test client for API integration tests."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.database import get_db
+
+    # Override the database dependency to use the test session
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    # Also override any direct engine usage
+    from app import database
+    original_engine = database.engine
+    database.engine = TEST_ENGINE
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    # Clean up
+    app.dependency_overrides.clear()
+    database.engine = original_engine
+
+
+@pytest.fixture
+def auth_headers(client: "TestClient", db_session: Session) -> Dict[str, str]:
+    """Create authentication headers for API tests."""
+    from app.core.security import create_access_token
+
+    # Create a test user if not exists
+    user = db_session.query(User).filter(User.email == "apitest@example.com").first()
+    if not user:
+        user = User(
+            email="apitest@example.com",
+            hashed_password="$argon2id$v=19$m=65536,t=3,p=4$fakehash",
+            first_name="API",
+            last_name="Test",
+            is_active=True,
+            is_verified=True
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+    # Create access token
+    access_token = create_access_token(data={"sub": str(user.id)})
+
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def test_booking(db_session: Session, auth_headers: Dict[str, str]) -> Booking:
+    """Create a test booking for API tests."""
+    # Get the user from auth_headers
+    user = db_session.query(User).filter(User.email == "apitest@example.com").first()
+
+    booking = Booking(
+        user_id=user.id if user else None,
+        sailing_id="CTN-API-001",
+        operator="CTN",
+        departure_port="Tunis",
+        arrival_port="Marseille",
+        departure_time=datetime.utcnow() + timedelta(days=14),
+        arrival_time=datetime.utcnow() + timedelta(days=14, hours=20),
+        vessel_name="Carthage",
+        booking_reference=create_booking_reference(),
+        contact_email="apitest@example.com",
+        contact_phone="+33612345678",
+        contact_first_name="API",
+        contact_last_name="Test",
+        total_passengers=1,
+        total_vehicles=0,
+        subtotal=Decimal("150.00"),
+        tax_amount=Decimal("15.00"),
+        total_amount=Decimal("165.00"),
+        currency="EUR",
+        status=BookingStatusEnum.PENDING
+    )
+    db_session.add(booking)
+    db_session.commit()
+    db_session.refresh(booking)
+    return booking

@@ -27,6 +27,7 @@ const BookingDetailsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
@@ -158,11 +159,12 @@ const BookingDetailsPage: React.FC = () => {
 
   const handleCancelBooking = async () => {
     if (!cancelReason.trim()) {
-      alert('Please provide a reason for cancellation');
+      setCancelError('Please provide a reason for cancellation');
       return;
     }
 
     setIsCancelling(true);
+    setCancelError(null);
     try {
       await bookingAPI.cancel(parseInt(id!), cancelReason);
       // Refresh booking data
@@ -170,10 +172,9 @@ const BookingDetailsPage: React.FC = () => {
       setBooking(snakeToCamel(response));
       setShowCancelModal(false);
       setCancelReason('');
-      // Show success message
-      setError(null);
+      setCancelError(null);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to cancel booking');
+      setCancelError(err.response?.data?.message || err.response?.data?.detail || 'Failed to cancel booking');
     } finally {
       setIsCancelling(false);
     }
@@ -964,6 +965,12 @@ const BookingDetailsPage: React.FC = () => {
               Are you sure you want to cancel this booking? This action cannot be undone.
             </p>
 
+            {cancelError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-700">{cancelError}</p>
+              </div>
+            )}
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Reason for Cancellation
@@ -983,6 +990,7 @@ const BookingDetailsPage: React.FC = () => {
                 onClick={() => {
                   setShowCancelModal(false);
                   setCancelReason('');
+                  setCancelError(null);
                 }}
                 disabled={isCancelling}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle } from '../store/slices/ferrySlice';
+import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, setCancellationProtection, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle } from '../store/slices/ferrySlice';
 import CabinSelector, { CabinTypeSelection } from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
@@ -44,6 +44,16 @@ const BookingPage: React.FC = () => {
   const [promoCodeInput, setPromoCodeInput] = useState(promoCode || '');
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
+
+  // Cancellation protection insurance
+  const [hasCancellationProtection, setHasCancellationProtectionLocal] = useState(false);
+  const CANCELLATION_PROTECTION_PRICE = 15.00; // €15 per booking
+
+  // Sync cancellation protection to Redux when changed
+  const handleCancellationProtectionChange = (value: boolean) => {
+    setHasCancellationProtectionLocal(value);
+    dispatch(setCancellationProtection(value));
+  };
 
   // Ref to prevent duplicate passenger initialization
   const passengersInitializedRef = React.useRef(false);
@@ -354,7 +364,8 @@ const BookingPage: React.FC = () => {
   const vehiclesTotal = outboundVehiclesTotal + returnVehiclesTotal;
 
   const totalCabinPrice = cabinPrice + (isRoundTrip && selectedReturnFerry ? returnCabinPrice : 0);
-  const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice;
+  const cancellationProtectionTotal = hasCancellationProtection ? CANCELLATION_PROTECTION_PRICE : 0;
+  const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice + cancellationProtectionTotal;
   const discount = promoDiscount || 0;
   const discountedSubtotal = subtotal - discount;
   const tax = discountedSubtotal * 0.1; // 10% tax
@@ -640,6 +651,81 @@ const BookingPage: React.FC = () => {
                   {promoError && (
                     <p className="mt-2 text-sm text-red-600">{promoError}</p>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* Cancellation Protection */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold mb-2 flex items-center">
+                    <svg className="w-6 h-6 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Cancellation Protection
+                  </h2>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Protect your booking with our cancellation guarantee. Get a full refund if you need to cancel for any reason up to 24 hours before departure.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      100% refund
+                    </span>
+                    <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Cancel for any reason
+                    </span>
+                    <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Easy online process
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-4 text-right">
+                  <p className="text-2xl font-bold text-green-600">€{CANCELLATION_PROTECTION_PRICE.toFixed(2)}</p>
+                  <p className="text-xs text-gray-500">per booking</p>
+                </div>
+              </div>
+
+              <div
+                onClick={() => handleCancellationProtectionChange(!hasCancellationProtection)}
+                className={`mt-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  hasCancellationProtection
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 hover:border-green-300 hover:bg-green-50/50'
+                }`}
+              >
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasCancellationProtection}
+                    onChange={(e) => handleCancellationProtectionChange(e.target.checked)}
+                    className="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span className="ml-3 font-medium text-gray-900">
+                    {hasCancellationProtection ? '✓ Protection added' : 'Add Cancellation Protection'}
+                  </span>
+                </label>
+              </div>
+
+              {!hasCancellationProtection && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-800 flex items-start">
+                    <svg className="w-4 h-4 mr-1 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>
+                      <strong>Standard fare:</strong> This booking is non-refundable and cannot be modified once confirmed. Cancellations will not be eligible for a refund.
+                    </span>
+                  </p>
                 </div>
               )}
             </div>
@@ -936,6 +1022,17 @@ const BookingPage: React.FC = () => {
                       )}
                     </span>
                     <span>€{mealsPrice.toFixed(2)}</span>
+                  </div>
+                )}
+                {hasCancellationProtection && (
+                  <div className="flex justify-between text-sm text-green-700">
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Cancellation Protection
+                    </span>
+                    <span>€{CANCELLATION_PROTECTION_PRICE.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-medium pt-2 border-t border-gray-100">

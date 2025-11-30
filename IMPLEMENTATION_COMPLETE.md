@@ -172,7 +172,27 @@ TODO:create 3 environment
 todo:deploy in self managed kube
 todo: add chatbot, that maybe connected to postgres with mcp to answer user question and connect to mcp ferryhopper too, and answer some support question.
 todo:continue with sentry monitoring:done
-todo correct view booking detail url http://booking/445 onemail 
+todo correct view booking detail url http://booking/445 onemail
+todo:Search filters by operator maybe too
+todo:Mobile app         | 60%+ bookings are mobile 
+todo: add cancellation policy, check screenshot for no refundable, no changes..for basic, add fee for cancellation garantee
+todo: add Pre-departure reminder emails
+Phase 1 (1-2 months):
+  - Price watch alerts ⭐
+  - Loyalty program basics
+  - PayPal integration
+
+  Phase 2 (2-4 months):
+  - Mobile app (React Native)
+  - Ferryhopper MCP integration
+  - Group booking
+  - Carbon footprint tracker
+
+  Phase 3 (4-6 months):
+  - AI trip planner
+  - Business portal
+  - Live ship tracking
+  - Full loyalty program with tiers
 
 ### Payment & Pricing
 

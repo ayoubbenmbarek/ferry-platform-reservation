@@ -73,6 +73,9 @@ interface FerryState {
   promoDiscount: number | null;
   promoValidationMessage: string | null;
 
+  // Cancellation protection
+  hasCancellationProtection: boolean;
+
   // UI state
   isLoading: boolean;
   error: string | null;
@@ -112,6 +115,7 @@ const initialState: FerryState = {
   promoCode: null,
   promoDiscount: null,
   promoValidationMessage: null,
+  hasCancellationProtection: false,
   isLoading: false,
   error: null,
 };
@@ -180,7 +184,8 @@ export const createBooking = createAsyncThunk(
         contactInfo,
         isRoundTrip,
         searchParams,
-        promoCode
+        promoCode,
+        hasCancellationProtection
       } = state.ferry;
 
       if (!selectedFerry) {
@@ -261,6 +266,7 @@ export const createBooking = createAsyncThunk(
         totalReturnCabinPrice: totalReturnCabinPrice || 0,
         meals: selectedMeals && selectedMeals.length > 0 ? selectedMeals : undefined,
         promoCode: promoCode || undefined,
+        hasCancellationProtection: hasCancellationProtection || false,
       });
 
       // Use axios directly to send snake_case data
@@ -372,6 +378,10 @@ const ferrySlice = createSlice({
       state.promoValidationMessage = null;
     },
 
+    setCancellationProtection: (state, action: PayloadAction<boolean>) => {
+      state.hasCancellationProtection = action.payload;
+    },
+
     setContactInfo: (state, action: PayloadAction<ContactInfo>) => {
       state.contactInfo = action.payload;
     },
@@ -448,6 +458,7 @@ const ferrySlice = createSlice({
       state.promoCode = null;
       state.promoDiscount = null;
       state.promoValidationMessage = null;
+      state.hasCancellationProtection = false;
     },
 
     clearError: (state) => {
@@ -488,6 +499,7 @@ const ferrySlice = createSlice({
       state.currentBooking = null;
       state.isCreatingBooking = false;
       state.bookingError = null;
+      state.hasCancellationProtection = false;
     },
 
     // Reset all ferry state (used on logout)
@@ -549,6 +561,7 @@ export const {
   setPromoCode,
   setPromoDiscount,
   clearPromoCode,
+  setCancellationProtection,
   setContactInfo,
   addPassenger,
   updatePassenger,

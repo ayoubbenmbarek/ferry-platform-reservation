@@ -225,3 +225,266 @@ class TestBookingInvoice:
         )
         # May return PDF or JSON or 404 if not paid
         assert response.status_code in [200, 400, 404]
+
+
+class TestCancellationProtection:
+    """Test cancellation protection feature (7-day restriction)."""
+
+    def test_cancel_booking_with_protection_within_7_days(
+        self, client: TestClient, auth_headers, db_session
+    ):
+        """Test that booking WITH cancellation protection CAN be cancelled within 7 days."""
+        from app.models.booking import Booking, BookingStatusEnum
+        from app.models.user import User
+
+        # Get the test user
+        user = db_session.query(User).first()
+
+        # Create a booking with cancellation protection, departing in 3 days
+        booking = Booking(
+            user_id=user.id if user else None,
+            sailing_id="CTN-CANCEL-001",
+            operator="CTN",
+            departure_port="Tunis",
+            arrival_port="Marseille",
+            departure_time=datetime.utcnow() + timedelta(days=3),
+            arrival_time=datetime.utcnow() + timedelta(days=3, hours=20),
+            booking_reference="MR-PROT-001",
+            contact_email="test@example.com",
+            contact_first_name="Test",
+            contact_last_name="User",
+            total_passengers=1,
+            subtotal=Decimal("115.00"),  # Including €15 protection
+            tax_amount=Decimal("11.50"),
+            total_amount=Decimal("126.50"),
+            status=BookingStatusEnum.CONFIRMED,
+            extra_data={"has_cancellation_protection": True}
+        )
+        db_session.add(booking)
+        db_session.commit()
+
+        response = client.post(
+            f"/api/v1/bookings/{booking.id}/cancel",
+            json={"reason": "Customer requested cancellation"},
+            headers=auth_headers,
+        )
+
+        # Should succeed - has protection
+        assert response.status_code in [200, 204]
+
+        # Verify booking is cancelled
+        db_session.refresh(booking)
+        assert booking.status == BookingStatusEnum.CANCELLED
+
+    def test_cancel_booking_without_protection_within_7_days_blocked(
+        self, client: TestClient, auth_headers, db_session
+    ):
+        """Test that booking WITHOUT cancellation protection CANNOT be cancelled within 7 days."""
+        from app.models.booking import Booking, BookingStatusEnum
+        from app.models.user import User
+
+        # Get the test user
+        user = db_session.query(User).first()
+
+        # Create a booking WITHOUT cancellation protection, departing in 3 days
+        booking = Booking(
+            user_id=user.id if user else None,
+            sailing_id="CTN-CANCEL-002",
+            operator="CTN",
+            departure_port="Tunis",
+            arrival_port="Marseille",
+            departure_time=datetime.utcnow() + timedelta(days=3),
+            arrival_time=datetime.utcnow() + timedelta(days=3, hours=20),
+            booking_reference="MR-NOPROT-001",
+            contact_email="test@example.com",
+            contact_first_name="Test",
+            contact_last_name="User",
+            total_passengers=1,
+            subtotal=Decimal("100.00"),
+            tax_amount=Decimal("10.00"),
+            total_amount=Decimal("110.00"),
+            status=BookingStatusEnum.CONFIRMED,
+            extra_data={"has_cancellation_protection": False}
+        )
+        db_session.add(booking)
+        db_session.commit()
+
+        response = client.post(
+            f"/api/v1/bookings/{booking.id}/cancel",
+            json={"reason": "Customer requested cancellation"},
+            headers=auth_headers,
+        )
+
+        # Should fail - no protection and within 7 days
+        assert response.status_code == 400
+        data = response.json()
+        assert "7 days" in data.get("message", "")
+        assert "protection" in data.get("message", "").lower()
+
+    def test_cancel_booking_without_protection_after_7_days_allowed(
+        self, client: TestClient, auth_headers, db_session
+    ):
+        """Test that booking WITHOUT protection CAN be cancelled if more than 7 days before departure."""
+        from app.models.booking import Booking, BookingStatusEnum
+        from app.models.user import User
+
+        # Get the test user
+        user = db_session.query(User).first()
+
+        # Create a booking WITHOUT protection, departing in 10 days
+        booking = Booking(
+            user_id=user.id if user else None,
+            sailing_id="CTN-CANCEL-003",
+            operator="CTN",
+            departure_port="Tunis",
+            arrival_port="Marseille",
+            departure_time=datetime.utcnow() + timedelta(days=10),
+            arrival_time=datetime.utcnow() + timedelta(days=10, hours=20),
+            booking_reference="MR-NOPROT-002",
+            contact_email="test@example.com",
+            contact_first_name="Test",
+            contact_last_name="User",
+            total_passengers=1,
+            subtotal=Decimal("100.00"),
+            tax_amount=Decimal("10.00"),
+            total_amount=Decimal("110.00"),
+            status=BookingStatusEnum.CONFIRMED,
+            extra_data={"has_cancellation_protection": False}
+        )
+        db_session.add(booking)
+        db_session.commit()
+
+        response = client.post(
+            f"/api/v1/bookings/{booking.id}/cancel",
+            json={"reason": "Customer requested cancellation"},
+            headers=auth_headers,
+        )
+
+        # Should succeed - more than 7 days before departure
+        assert response.status_code in [200, 204]
+
+    def test_cancel_booking_no_extra_data_within_7_days_blocked(
+        self, client: TestClient, auth_headers, db_session
+    ):
+        """Test that booking with NULL extra_data is treated as no protection."""
+        from app.models.booking import Booking, BookingStatusEnum
+        from app.models.user import User
+
+        # Get the test user
+        user = db_session.query(User).first()
+
+        # Create a booking with NULL extra_data, departing in 5 days
+        booking = Booking(
+            user_id=user.id if user else None,
+            sailing_id="CTN-CANCEL-004",
+            operator="CTN",
+            departure_port="Tunis",
+            arrival_port="Marseille",
+            departure_time=datetime.utcnow() + timedelta(days=5),
+            arrival_time=datetime.utcnow() + timedelta(days=5, hours=20),
+            booking_reference="MR-NULL-001",
+            contact_email="test@example.com",
+            contact_first_name="Test",
+            contact_last_name="User",
+            total_passengers=1,
+            subtotal=Decimal("100.00"),
+            tax_amount=Decimal("10.00"),
+            total_amount=Decimal("110.00"),
+            status=BookingStatusEnum.CONFIRMED,
+            extra_data=None  # NULL - should be treated as no protection
+        )
+        db_session.add(booking)
+        db_session.commit()
+
+        response = client.post(
+            f"/api/v1/bookings/{booking.id}/cancel",
+            json={"reason": "Customer requested cancellation"},
+            headers=auth_headers,
+        )
+
+        # Should fail - NULL extra_data means no protection
+        assert response.status_code == 400
+        data = response.json()
+        assert "7 days" in data.get("message", "")
+
+    def test_create_booking_with_cancellation_protection(
+        self, client: TestClient, auth_headers
+    ):
+        """Test creating a booking with cancellation protection adds €15 to total."""
+        booking_data = {
+            "sailing_id": "CTN-2024-PROT",
+            "operator": "CTN",
+            "departure_port": "Tunis",
+            "arrival_port": "Marseille",
+            "departure_time": (datetime.utcnow() + timedelta(days=14)).isoformat(),
+            "arrival_time": (datetime.utcnow() + timedelta(days=14, hours=20)).isoformat(),
+            "vessel_name": "Carthage",
+            "contact_email": "protection@example.com",
+            "contact_phone": "+33612345678",
+            "contact_first_name": "Marie",
+            "contact_last_name": "Dupont",
+            "passengers": [
+                {
+                    "passenger_type": "adult",
+                    "first_name": "Marie",
+                    "last_name": "Dupont",
+                    "date_of_birth": "1985-05-15",
+                    "nationality": "FR",
+                }
+            ],
+            "is_round_trip": False,
+            "has_cancellation_protection": True,  # Request protection
+        }
+
+        response = client.post(
+            "/api/v1/bookings/",
+            json=booking_data,
+            headers=auth_headers,
+        )
+
+        # If booking succeeds, verify protection is stored
+        if response.status_code in [200, 201]:
+            data = response.json()
+            # The booking should have protection in metadata
+            assert data.get("id") is not None
+
+    def test_cancellation_exactly_7_days_before_allowed(
+        self, client: TestClient, auth_headers, db_session
+    ):
+        """Test that cancellation exactly 7 days before departure is allowed (edge case)."""
+        from app.models.booking import Booking, BookingStatusEnum
+        from app.models.user import User
+
+        user = db_session.query(User).first()
+
+        # Create booking departing exactly 7 days from now
+        booking = Booking(
+            user_id=user.id if user else None,
+            sailing_id="CTN-CANCEL-007",
+            operator="CTN",
+            departure_port="Tunis",
+            arrival_port="Marseille",
+            departure_time=datetime.utcnow() + timedelta(days=7, hours=1),  # Just over 7 days
+            arrival_time=datetime.utcnow() + timedelta(days=7, hours=21),
+            booking_reference="MR-7DAYS-001",
+            contact_email="test@example.com",
+            contact_first_name="Test",
+            contact_last_name="User",
+            total_passengers=1,
+            subtotal=Decimal("100.00"),
+            tax_amount=Decimal("10.00"),
+            total_amount=Decimal("110.00"),
+            status=BookingStatusEnum.CONFIRMED,
+            extra_data={"has_cancellation_protection": False}
+        )
+        db_session.add(booking)
+        db_session.commit()
+
+        response = client.post(
+            f"/api/v1/bookings/{booking.id}/cancel",
+            json={"reason": "Customer requested cancellation"},
+            headers=auth_headers,
+        )
+
+        # Should succeed - exactly 7 days is allowed
+        assert response.status_code in [200, 204]

@@ -442,6 +442,11 @@ async def create_booking(
                     detail=f"Promo code error: {validation.message}"
                 )
 
+        # Add cancellation protection if selected (€15)
+        CANCELLATION_PROTECTION_PRICE = 15.00
+        cancellation_protection_amount = CANCELLATION_PROTECTION_PRICE if getattr(booking_data, 'has_cancellation_protection', False) else 0.0
+        subtotal += cancellation_protection_amount
+
         # Calculate tax on discounted subtotal (10% for example)
         discounted_subtotal = subtotal - discount_amount
         tax_amount = discounted_subtotal * 0.10
@@ -490,7 +495,10 @@ async def create_booking(
             return_cabin_supplement=return_cabin_supplement,
             special_requests=booking_data.special_requests,
             status=BookingStatusEnum.PENDING,
-            expires_at=expires_at  # Expires 30 minutes from creation
+            expires_at=expires_at,  # Expires 30 minutes from creation
+            extra_data={
+                "has_cancellation_protection": getattr(booking_data, 'has_cancellation_protection', False)
+            }
         )
         
         db.add(db_booking)
@@ -1301,11 +1309,32 @@ async def cancel_booking(
             )
 
         # Check if booking can be cancelled
-        if booking.status in ["cancelled", "completed"]:
+        if booking.status in [BookingStatusEnum.CANCELLED, BookingStatusEnum.COMPLETED]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Booking cannot be cancelled"
             )
+
+        # Check 7-day cancellation restriction (unless booking has cancellation protection)
+        # Cancellation protection is stored in booking extra_data field
+        has_cancellation_protection = booking.extra_data.get("has_cancellation_protection", False) if booking.extra_data else False
+        logger.info(f"Booking {booking_id} cancellation check: extra_data={booking.extra_data}, has_protection={has_cancellation_protection}")
+
+        if not has_cancellation_protection and booking.departure_time:
+            from datetime import timedelta, timezone
+            # Make sure we compare timezone-aware datetimes
+            now_utc = datetime.now(timezone.utc)
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=timezone.utc)
+            days_until_departure = (departure - now_utc).days
+            logger.info(f"Days until departure: {days_until_departure}, departure={departure}, now={now_utc}")
+
+            if days_until_departure < 7:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cancellations are not allowed within 7 days of departure. Your trip departs in {days_until_departure} days. Consider purchasing cancellation protection for future bookings."
+                )
 
         # Cancel with ferry operator
         try:
@@ -1351,10 +1380,10 @@ async def cancel_booking(
                         charge=payment.stripe_charge_id,
                         reason="requested_by_customer",
                         metadata={
-                            "booking_id": booking_id,
+                            "booking_id": str(booking_id),
                             "booking_reference": booking.booking_reference,
-                            "cancellation_reason": cancellation_data.reason,
-                            "payment_type": payment.metadata.get('type', 'booking') if payment.metadata else 'booking'
+                            "cancellation_reason": cancellation_data.reason or "Customer requested",
+                            "payment_type": "booking"
                         }
                     )
 

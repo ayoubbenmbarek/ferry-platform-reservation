@@ -119,6 +119,9 @@ class BookingCreate(BaseModel):
     # Promo code
     promo_code: Optional[str] = None
 
+    # Cancellation protection
+    has_cancellation_protection: Optional[bool] = False
+
     @field_validator('passengers')
     @classmethod
     def validate_passengers(cls, v):

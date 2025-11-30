@@ -13,7 +13,7 @@ import {
   setCurrentStep,
 } from '../store/slices/ferrySlice';
 import { ferryAPI } from '../services/api';
-import { FerryResult, SearchParams, PORTS } from '../types/ferry';
+import { FerryResult, SearchParams } from '../types/ferry';
 import DatePriceSelector from '../components/DatePriceSelector';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
@@ -29,6 +29,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
   const { t } = useTranslation(['search', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const existingParams = useSelector((state: RootState) => state.ferry.searchParams);
+  const ports = useSelector((state: RootState) => state.ferry.ports);
 
   const [form, setForm] = useState({
     departurePort: existingParams.departurePort || '',
@@ -120,7 +121,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departurePort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
-                      {PORTS.filter(p => p.countryCode !== 'TN').map(port => (
+                      {ports.filter(p => p.countryCode !== 'TN').map(port => (
                         <option key={port.code} value={port.code}>{port.name}</option>
                       ))}
                     </select>
@@ -134,7 +135,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.arrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      {PORTS.filter(p => p.countryCode === 'TN').map(port => (
+                      {ports.filter(p => p.countryCode === 'TN').map(port => (
                         <option key={port.code} value={port.code}>{port.name}</option>
                       ))}
                     </select>
@@ -224,7 +225,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnDeparturePort')}</option>
-                            {PORTS.map(port => (
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>
@@ -239,7 +240,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            {PORTS.map(port => (
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>
@@ -306,6 +307,7 @@ const NewSearchPage: React.FC = () => {
     passengers,
     selectedFerry,
     isRoundTrip,
+    ports,
   } = useSelector((state: RootState) => state.ferry);
 
   // Check if we have valid search params from Redux
@@ -833,9 +835,9 @@ const NewSearchPage: React.FC = () => {
                 <div className="flex items-center">
                   <span className="font-semibold text-gray-700 mr-2">Route:</span>
                   <span className="text-gray-900">
-                    {PORTS.find(p => p.code === searchParams.departurePort)?.name || searchParams.departurePort}
+                    {ports.find(p => p.code === searchParams.departurePort)?.name || searchParams.departurePort}
                     {' → '}
-                    {PORTS.find(p => p.code === searchParams.arrivalPort)?.name || searchParams.arrivalPort}
+                    {ports.find(p => p.code === searchParams.arrivalPort)?.name || searchParams.arrivalPort}
                   </span>
                 </div>
                 <div className="flex items-center">

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { SearchParams, FerryResult, VehicleInfo, PassengerInfo } from '../../types/ferry';
+import { SearchParams, FerryResult, VehicleInfo, PassengerInfo, Port, PORTS } from '../../types/ferry';
 import api, { ferryAPI } from '../../services/api';
 
 // ContactInfo type (using snake_case for backend compatibility)
@@ -35,6 +35,11 @@ const camelToSnake = (obj: any): any => {
 };
 
 interface FerryState {
+  // Ports and routes
+  ports: Port[];
+  routes: { [departure: string]: string[] };
+  isLoadingPorts: boolean;
+
   // Search state
   searchParams: Partial<SearchParams>;
   searchResults: FerryResult[];
@@ -82,6 +87,11 @@ interface FerryState {
 }
 
 const initialState: FerryState = {
+  // Ports and routes - start with static data as fallback
+  ports: PORTS,
+  routes: {},
+  isLoadingPorts: false,
+
   searchParams: {
     passengers: {
       adults: 1,
@@ -121,6 +131,58 @@ const initialState: FerryState = {
 };
 
 // Async thunks
+export const fetchPorts = createAsyncThunk(
+  'ferry/fetchPorts',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await ferryAPI.getPorts();
+      // Transform API response to match Port type
+      return response.map((port: any) => ({
+        code: port.code.toLowerCase(),
+        name: port.name,
+        city: port.name,
+        country: port.country,
+        countryCode: port.country === 'Tunisia' ? 'TN' :
+                     port.country === 'Italy' ? 'IT' :
+                     port.country === 'France' ? 'FR' :
+                     port.country === 'Spain' ? 'ES' : 'XX'
+      }));
+    } catch (error: any) {
+      console.warn('Failed to fetch ports from API, using static data');
+      return rejectWithValue('Failed to fetch ports');
+    }
+  }
+);
+
+export const fetchRoutes = createAsyncThunk(
+  'ferry/fetchRoutes',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await ferryAPI.getRoutes();
+      // Transform API response to { departure: [arrivals] } format
+      const routes: { [departure: string]: string[] } = {};
+      // Response can be { routes: [...] } or just [...]
+      const routesList = (response as any).routes || response;
+      if (Array.isArray(routesList)) {
+        for (const route of routesList) {
+          const dep = route.departure_port.toLowerCase();
+          const arr = route.arrival_port.toLowerCase();
+          if (!routes[dep]) {
+            routes[dep] = [];
+          }
+          if (!routes[dep].includes(arr)) {
+            routes[dep].push(arr);
+          }
+        }
+      }
+      return routes;
+    } catch (error: any) {
+      console.warn('Failed to fetch routes from API');
+      return rejectWithValue('Failed to fetch routes');
+    }
+  }
+);
+
 export const searchFerries = createAsyncThunk(
   'ferry/searchFerries',
   async (searchParams: SearchParams, { rejectWithValue }) => {
@@ -509,6 +571,22 @@ const ferrySlice = createSlice({
     builder
       // Listen for auth logout to clear ferry state
       .addCase('auth/logout', () => initialState)
+      // Fetch ports
+      .addCase(fetchPorts.pending, (state) => {
+        state.isLoadingPorts = true;
+      })
+      .addCase(fetchPorts.fulfilled, (state, action) => {
+        state.isLoadingPorts = false;
+        state.ports = action.payload;
+      })
+      .addCase(fetchPorts.rejected, (state) => {
+        state.isLoadingPorts = false;
+        // Keep static PORTS as fallback - already set in initialState
+      })
+      // Fetch routes
+      .addCase(fetchRoutes.fulfilled, (state, action) => {
+        state.routes = action.payload;
+      })
       // Search ferries
       .addCase(searchFerries.pending, (state) => {
         state.isSearching = true;

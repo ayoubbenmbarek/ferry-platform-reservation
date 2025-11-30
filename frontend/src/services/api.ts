@@ -277,6 +277,11 @@ export const ferryAPI = {
     return response.data;
   },
 
+  getPorts: async (): Promise<any[]> => {
+    const response: AxiosResponse<any[]> = await api.get('/ferries/ports');
+    return response.data;
+  },
+
   getOperators: async (): Promise<any[]> => {
     const response: AxiosResponse<any[]> = await api.get('/ferries/operators');
     return response.data;

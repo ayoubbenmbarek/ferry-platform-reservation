@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip, startNewSearch } from '../store/slices/ferrySlice';
+import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip, startNewSearch, fetchPorts, fetchRoutes } from '../store/slices/ferrySlice';
 import { RootState, AppDispatch } from '../store';
-import { PORTS } from '../types/ferry';
 import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
 
@@ -12,7 +11,13 @@ const NewHomePage: React.FC = () => {
   const { t } = useTranslation(['search', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { searchParams, isSearching, vehicles } = useSelector((state: RootState) => state.ferry);
+  const { searchParams, isSearching, vehicles, ports } = useSelector((state: RootState) => state.ferry);
+
+  // Fetch ports and routes on mount
+  useEffect(() => {
+    dispatch(fetchPorts());
+    dispatch(fetchRoutes());
+  }, [dispatch]);
 
   // Reset search state on mount to clear any stuck loading states
   useEffect(() => {
@@ -78,14 +83,14 @@ const NewHomePage: React.FC = () => {
       const normalizedName = portName.toLowerCase();
       console.log(`Voice search: Looking for port "${portName}" (normalized: "${normalizedName}")`);
 
-      const port = PORTS.find(p =>
+      const port = ports.find(p =>
         p.code.toLowerCase() === normalizedName ||
         p.name.toLowerCase().includes(normalizedName) ||
         p.city.toLowerCase().includes(normalizedName)
       );
 
       if (!port) {
-        console.warn(`Voice search: Could not find port for "${portName}". Available ports:`, PORTS.map(p => p.code));
+        console.warn(`Voice search: Could not find port for "${portName}". Available ports:`, ports.map(p => p.code));
       } else {
         console.log(`Voice search: Mapped "${portName}" to ${port.code} (${port.name})`);
       }
@@ -301,14 +306,14 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
                       <optgroup label="🇮🇹 Italy">
-                        {PORTS.filter(p => p.countryCode === 'IT').map(port => (
+                        {ports.filter(p => p.countryCode === 'IT').map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
                         ))}
                       </optgroup>
                       <optgroup label="🇫🇷 France">
-                        {PORTS.filter(p => p.countryCode === 'FR').map(port => (
+                        {ports.filter(p => p.countryCode === 'FR').map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -333,7 +338,7 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
-                        {PORTS.filter(p => p.countryCode === 'TN').map(port => (
+                        {ports.filter(p => p.countryCode === 'TN').map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -422,7 +427,7 @@ const NewHomePage: React.FC = () => {
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">Select return departure port</option>
-                            {PORTS.map(port => (
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>
@@ -437,7 +442,7 @@ const NewHomePage: React.FC = () => {
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            {PORTS.map(port => (
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>

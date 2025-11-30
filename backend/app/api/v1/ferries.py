@@ -203,25 +203,25 @@ async def get_routes(
 ):
     """
     Get available ferry routes.
-    
+
     Returns a list of all available ferry routes, optionally filtered
     by departure port, arrival port, or operator.
     """
     try:
         supported_routes = ferry_service.get_supported_routes()
-        
+
         # Filter routes based on query parameters
         filtered_routes = []
         for op, routes in supported_routes.items():
             if operator and op != operator:
                 continue
-            
+
             for route in routes:
                 if departure_port and route["departure"] != departure_port:
                     continue
                 if arrival_port and route["arrival"] != arrival_port:
                     continue
-                
+
                 filtered_routes.append({
                     "departure_port": route["departure"],
                     "arrival_port": route["arrival"],
@@ -230,9 +230,9 @@ async def get_routes(
                     "operator": op,
                     "seasonal": False
                 })
-        
+
         return RouteResponse(routes=filtered_routes)
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -271,6 +271,68 @@ async def get_operators():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get operators: {str(e)}"
+        )
+
+
+@router.get("/ports")
+async def get_ports():
+    """
+    Get list of available ports.
+
+    Returns information about all ports available for ferry travel.
+    """
+    try:
+        supported_routes = ferry_service.get_supported_routes()
+
+        # Collect unique ports from all routes
+        ports_set = set()
+        for operator, routes in supported_routes.items():
+            for route in routes:
+                ports_set.add(route["departure"])
+                ports_set.add(route["arrival"])
+
+        # Port information mapping
+        port_info = {
+            "TUN": {"code": "TUN", "name": "Tunis", "country": "Tunisia"},
+            "TUNIS": {"code": "TUNIS", "name": "Tunis", "country": "Tunisia"},
+            "MRS": {"code": "MRS", "name": "Marseille", "country": "France"},
+            "MARSEILLE": {"code": "MARSEILLE", "name": "Marseille", "country": "France"},
+            "GEN": {"code": "GEN", "name": "Genoa", "country": "Italy"},
+            "GENOA": {"code": "GENOA", "name": "Genoa", "country": "Italy"},
+            "CIV": {"code": "CIV", "name": "Civitavecchia", "country": "Italy"},
+            "CIVITAVECCHIA": {"code": "CIVITAVECCHIA", "name": "Civitavecchia", "country": "Italy"},
+            "PAL": {"code": "PAL", "name": "Palermo", "country": "Italy"},
+            "PALERMO": {"code": "PALERMO", "name": "Palermo", "country": "Italy"},
+            "NAP": {"code": "NAP", "name": "Naples", "country": "Italy"},
+            "NAPLES": {"code": "NAPLES", "name": "Naples", "country": "Italy"},
+            "LIV": {"code": "LIV", "name": "Livorno", "country": "Italy"},
+            "LIVORNO": {"code": "LIVORNO", "name": "Livorno", "country": "Italy"},
+            "SAL": {"code": "SAL", "name": "Salerno", "country": "Italy"},
+            "SALERNO": {"code": "SALERNO", "name": "Salerno", "country": "Italy"},
+            "ALG": {"code": "ALG", "name": "Algiers", "country": "Algeria"},
+            "BAR": {"code": "BAR", "name": "Barcelona", "country": "Spain"},
+            "BARCELONA": {"code": "BARCELONA", "name": "Barcelona", "country": "Spain"},
+            "NICE": {"code": "NICE", "name": "Nice", "country": "France"},
+        }
+
+        ports = []
+        for port_code in sorted(ports_set):
+            if port_code in port_info:
+                ports.append(port_info[port_code])
+            else:
+                # Default for unknown ports
+                ports.append({
+                    "code": port_code,
+                    "name": port_code.title(),
+                    "country": "Unknown"
+                })
+
+        return ports
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get ports: {str(e)}"
         )
 
 

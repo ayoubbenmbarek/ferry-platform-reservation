@@ -149,7 +149,7 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
         params.return_date = returnDate;
       }
 
-      const response = await axios.get('/api/v1/ferries/date-prices', { params });
+      const response = await axios.get('/api/v1/ferries/date-prices', { params, timeout: 60000 });
 
       // Convert snake_case to camelCase
       const convertedData = response.data.date_prices.map((dp: any) => ({

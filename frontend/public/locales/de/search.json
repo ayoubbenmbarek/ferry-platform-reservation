@@ -93,7 +93,9 @@
     "skipReturn": "Jetzt Überspringen",
     "backToSearch": "Zurück zur Suche",
     "perAdult": "pro Erwachsener",
-    "select": "Auswählen"
+    "select": "Auswählen",
+    "total": "Gesamt",
+    "bestPrice": "Bester Preis"
   },
   "filters": {
     "title": "Filter",

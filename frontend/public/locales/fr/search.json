@@ -85,6 +85,8 @@
     "perPerson": "par personne",
     "select": "Sélectionner",
     "selectButton": "Sélectionner",
+    "total": "Total",
+    "bestPrice": "Meilleur Prix",
     "seatsAvailable": "{{count}} place disponible",
     "seatsAvailable_plural": "{{count}} places disponibles",
     "soldOut": "Complet",

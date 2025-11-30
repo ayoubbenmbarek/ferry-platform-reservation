@@ -461,39 +461,52 @@ const NewSearchPage: React.FC = () => {
   const [recommendedFerryId, setRecommendedFerryId] = useState<string | null>(null);
   const [recommendedReturnFerryId, setRecommendedReturnFerryId] = useState<string | null>(null);
 
+  // Helper function to calculate total price for a ferry based on passenger counts
+  const calculateTotalPrice = (ferry: any) => {
+    const adults = searchParams?.passengers?.adults || 1;
+    const children = searchParams?.passengers?.children || 0;
+    const infants = searchParams?.passengers?.infants || 0;
+    const adultPrice = ferry.prices?.adult || Object.values(ferry.prices)[0] || 0;
+    const childPrice = ferry.prices?.child || ferry.prices?.children || adultPrice * 0.5;
+    const infantPrice = ferry.prices?.infant || ferry.prices?.infants || 0;
+    return (adults * adultPrice) + (children * childPrice) + (infants * infantPrice);
+  };
+
   // Debug: Log when search results change and find cheapest to highlight
   useEffect(() => {
     console.log('🔄 Outbound results updated:', searchResults.length, 'ferries');
     if (searchResults.length > 0) {
       console.log('First ferry price:', searchResults[0].prices);
 
-      // Find and highlight the cheapest ferry
+      // Find and highlight the cheapest ferry based on total price
       const cheapestFerry = searchResults.reduce((min, ferry) => {
-        const minPrice = min.prices?.adult || 999999;
-        const currentPrice = ferry.prices?.adult || 999999;
-        return currentPrice < minPrice ? ferry : min;
+        const minTotal = calculateTotalPrice(min);
+        const currentTotal = calculateTotalPrice(ferry);
+        return currentTotal < minTotal ? ferry : min;
       }, searchResults[0]);
 
-      console.log('💡 Recommending cheapest outbound ferry:', cheapestFerry.operator, '€' + cheapestFerry.prices?.adult);
+      console.log('💡 Recommending cheapest outbound ferry:', cheapestFerry.operator, '€' + calculateTotalPrice(cheapestFerry).toFixed(2));
       setRecommendedFerryId(cheapestFerry.sailingId);
     }
-  }, [searchResults]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchResults, searchParams?.passengers]);
 
   // Find cheapest return ferry to highlight
   useEffect(() => {
     console.log('🔄 Return results updated:', returnFerryResults.length, 'ferries');
     if (returnFerryResults.length > 0) {
-      // Find and highlight the cheapest return ferry
+      // Find and highlight the cheapest return ferry based on total price
       const cheapestFerry = returnFerryResults.reduce((min, ferry) => {
-        const minPrice = min.prices?.adult || 999999;
-        const currentPrice = ferry.prices?.adult || 999999;
-        return currentPrice < minPrice ? ferry : min;
+        const minTotal = calculateTotalPrice(min);
+        const currentTotal = calculateTotalPrice(ferry);
+        return currentTotal < minTotal ? ferry : min;
       }, returnFerryResults[0]);
 
-      console.log('💡 Recommending cheapest return ferry:', cheapestFerry.operator, '€' + cheapestFerry.prices?.adult);
+      console.log('💡 Recommending cheapest return ferry:', cheapestFerry.operator, '€' + calculateTotalPrice(cheapestFerry).toFixed(2));
       setRecommendedReturnFerryId(cheapestFerry.sailingId);
     }
-  }, [returnFerryResults]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnFerryResults, searchParams?.passengers]);
 
   // Reset to ferry selection step when mounting the page
   useEffect(() => {
@@ -1020,8 +1033,8 @@ const NewSearchPage: React.FC = () => {
                         </div>
                         <div className="text-gray-600 text-sm">{ferry.vesselName}</div>
                         {isRecommended && (
-                          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                            <span>⭐</span> Best Price
+                          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse">
+                            <span>⭐</span> {t('search:results.bestPrice', 'Best Price')}
                           </div>
                         )}
                       </div>
@@ -1188,11 +1201,57 @@ const NewSearchPage: React.FC = () => {
                     </div>
 
                     <div className="mt-4 md:mt-0 md:ml-6 md:text-right">
-                      <p className="text-gray-600 text-sm mb-1">{t('search:results.from')}</p>
-                      <p className="text-3xl font-bold text-blue-600 mb-2">
-                        €{(ferry.prices?.adult || Object.values(ferry.prices)[0] || 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-500 mb-2">{t('search:results.perAdult')}</p>
+                      {(() => {
+                        const adults = searchParams?.passengers?.adults || 1;
+                        const children = searchParams?.passengers?.children || 0;
+                        const infants = searchParams?.passengers?.infants || 0;
+                        const adultPrice = ferry.prices?.adult || Object.values(ferry.prices)[0] || 0;
+                        const childPrice = ferry.prices?.child || ferry.prices?.children || adultPrice * 0.5;
+                        const infantPrice = ferry.prices?.infant || ferry.prices?.infants || 0;
+                        const totalPrice = (adults * adultPrice) + (children * childPrice) + (infants * infantPrice);
+                        const hasMultiplePassengerTypes = children > 0 || infants > 0 || adults > 1;
+
+                        return (
+                          <>
+                            {hasMultiplePassengerTypes ? (
+                              <div className="space-y-1 mb-2">
+                                {adults > 0 && (
+                                  <div className="flex justify-end items-center gap-2 text-sm">
+                                    <span className="text-gray-600">{adults}x {t('search:passengers.adults')}</span>
+                                    <span className="text-gray-800 font-medium">€{(adults * adultPrice).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {children > 0 && (
+                                  <div className="flex justify-end items-center gap-2 text-sm">
+                                    <span className="text-gray-600">{children}x {t('search:passengers.children')}</span>
+                                    <span className="text-gray-800 font-medium">€{(children * childPrice).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {infants > 0 && (
+                                  <div className="flex justify-end items-center gap-2 text-sm">
+                                    <span className="text-gray-600">{infants}x {t('search:passengers.infants')}</span>
+                                    <span className="text-gray-800 font-medium">€{(infants * infantPrice).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                <div className="border-t border-gray-200 pt-1 mt-1">
+                                  <div className="flex justify-end items-center gap-2">
+                                    <span className="text-gray-700 font-medium">{t('search:results.total', 'Total')}</span>
+                                    <span className="text-2xl font-bold text-blue-600">€{totalPrice.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-gray-600 text-sm mb-1">{t('search:results.from')}</p>
+                                <p className="text-3xl font-bold text-blue-600 mb-2">
+                                  €{adultPrice.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-gray-500 mb-2">{t('search:results.perAdult')}</p>
+                              </>
+                            )}
+                          </>
+                        );
+                      })()}
                       {(() => {
                         // Check if there are enough passenger seats
                         const passengerSpaces = ferry.availableSpaces?.passengers || (ferry as any).available_spaces?.passengers || 0;

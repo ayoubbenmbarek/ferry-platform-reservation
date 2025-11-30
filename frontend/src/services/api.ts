@@ -10,7 +10,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 second timeout to prevent hanging requests
+  timeout: 60000, // 60 second timeout to handle slower network/server responses
 });
 
 // Request interceptor to add auth token
@@ -256,6 +256,7 @@ export const authAPI = {
 export const ferryAPI = {
   search: async (params: SearchParams): Promise<any> => {
     // Backend expects POST with body, not GET with query params
+    // Use longer timeout for search as it may query multiple operators
     const response: AxiosResponse<any> = await api.post('/ferries/search', {
       departure_port: params.departurePort,
       arrival_port: params.arrivalPort,
@@ -268,6 +269,8 @@ export const ferryAPI = {
       children: 0,
       infants: 0,
       operators: params.operator ? [params.operator] : undefined
+    }, {
+      timeout: 60000, // 60 second timeout for search (queries multiple operators)
     });
     return response.data;
   },

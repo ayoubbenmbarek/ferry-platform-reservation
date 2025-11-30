@@ -20,6 +20,14 @@
     "three": "3 Cabins",
     "description": "Select the number of cabins you need. Deck passage means no cabin."
   },
+  "passengers": {
+    "adults": "بالغين",
+    "adultsDesc": "12+ سنة",
+    "children": "أطفال",
+    "childrenDesc": "2-11 سنة",
+    "infants": "رضع",
+    "infantsDesc": "أقل من سنتين"
+  },
   "vehicles": {
     "car": "سيارة",
     "motorcycle": "دراجة نارية",
@@ -48,6 +56,9 @@
     "price": "Price",
     "from": "from",
     "selectButton": "Select",
+    "total": "المجموع",
+    "perAdult": "للبالغ",
+    "bestPrice": "أفضل سعر",
     "seatsAvailable": "{{count}} seats available",
     "soldOut": "Sold Out"
   },

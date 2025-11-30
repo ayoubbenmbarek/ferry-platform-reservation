@@ -21,33 +21,53 @@ USE_DOCKER_DB = os.environ.get("TEST_USE_DOCKER", "").lower() in ("true", "1", "
 # This must happen before any app imports to ensure correct database is used
 os.environ["ENVIRONMENT"] = "testing"
 
+# Helper to set env var only if not set or empty
+def set_env_if_empty(key: str, value: str):
+    if not os.environ.get(key):
+        os.environ[key] = value
+
 # Only set database URLs if not already set (allows CI to override)
 if USE_DOCKER_DB:
     # Use Docker/PostgreSQL database
     # Check if DATABASE_URL is already set (e.g., by CI pipeline)
-    if "DATABASE_URL" not in os.environ or os.environ["DATABASE_URL"].startswith("sqlite"):
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not db_url or db_url.startswith("sqlite"):
         # Local Docker: PostgreSQL on port 5442, Redis on port 6399
         os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:5442/maritime_reservations_dev"
-    if "REDIS_URL" not in os.environ or os.environ["REDIS_URL"].startswith("memory"):
+    redis_url = os.environ.get("REDIS_URL", "")
+    if not redis_url or redis_url.startswith("memory"):
         os.environ["REDIS_URL"] = "redis://localhost:6399/15"
-    if "CELERY_BROKER_URL" not in os.environ or os.environ["CELERY_BROKER_URL"].startswith("memory"):
+    celery_broker = os.environ.get("CELERY_BROKER_URL", "")
+    if not celery_broker or celery_broker.startswith("memory"):
         os.environ["CELERY_BROKER_URL"] = "redis://localhost:6399/14"
-    if "CELERY_RESULT_BACKEND" not in os.environ or os.environ["CELERY_RESULT_BACKEND"].startswith("memory"):
+    celery_result = os.environ.get("CELERY_RESULT_BACKEND", "")
+    if not celery_result or celery_result.startswith("memory"):
         os.environ["CELERY_RESULT_BACKEND"] = "redis://localhost:6399/14"
 else:
     # Use in-memory SQLite for fast isolated tests
-    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-    os.environ.setdefault("REDIS_URL", "memory://")
-    os.environ.setdefault("CELERY_BROKER_URL", "memory://")
-    os.environ.setdefault("CELERY_RESULT_BACKEND", "memory://")
+    set_env_if_empty("DATABASE_URL", "sqlite:///:memory:")
+    set_env_if_empty("REDIS_URL", "memory://")
+    set_env_if_empty("CELERY_BROKER_URL", "memory://")
+    set_env_if_empty("CELERY_RESULT_BACKEND", "memory://")
 
-os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only-12345678901234567890")
-os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-key-for-testing-only-12345678901234567890")
-os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_fake_key")
-os.environ.setdefault("STRIPE_PUBLISHABLE_KEY", "pk_test_fake_key")
-os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test_secret")
-os.environ.setdefault("DEBUG", "true")
-os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:3001")
+set_env_if_empty("SECRET_KEY", "test-secret-key-for-testing-only-12345678901234567890")
+set_env_if_empty("JWT_SECRET_KEY", "test-jwt-secret-key-for-testing-only-12345678901234567890")
+set_env_if_empty("STRIPE_SECRET_KEY", "sk_test_fake_key")
+set_env_if_empty("STRIPE_PUBLISHABLE_KEY", "pk_test_fake_key")
+set_env_if_empty("STRIPE_WEBHOOK_SECRET", "whsec_test_secret")
+set_env_if_empty("DEBUG", "true")
+set_env_if_empty("ALLOWED_ORIGINS", "http://localhost:3001")
+set_env_if_empty("SMTP_PORT", "587")
+set_env_if_empty("SMTP_HOST", "smtp.test.com")
+set_env_if_empty("SMTP_USERNAME", "test@test.com")
+set_env_if_empty("SMTP_PASSWORD", "testpassword")
+set_env_if_empty("FROM_EMAIL", "test@test.com")
+set_env_if_empty("FROM_NAME", "Test")
+set_env_if_empty("BASE_URL", "http://localhost:3001")
+set_env_if_empty("LOG_LEVEL", "INFO")
+set_env_if_empty("GOOGLE_CLIENT_ID", "test-google-client-id")
+set_env_if_empty("GOOGLE_CLIENT_SECRET", "test-google-client-secret")
+set_env_if_empty("GOOGLE_REDIRECT_URI", "http://localhost:3001/auth/google/callback")
 
 import pytest
 from datetime import datetime, timedelta

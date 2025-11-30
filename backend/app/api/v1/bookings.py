@@ -1735,6 +1735,8 @@ async def get_booking_invoice(
             # Use original cabin costs (excluding upgrades)
             'cabin_supplement': original_cabin_supplement,
             'return_cabin_supplement': original_return_cabin_supplement,
+            # Include extra_data for cancellation protection
+            'extra_data': booking.extra_data,
         }
 
         # Prepare payment data

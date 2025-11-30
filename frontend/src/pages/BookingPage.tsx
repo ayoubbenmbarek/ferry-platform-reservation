@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, setCancellationProtection, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle } from '../store/slices/ferrySlice';
+import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, setCancellationProtection, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle, clearCurrentBooking } from '../store/slices/ferrySlice';
 import CabinSelector, { CabinTypeSelection } from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
@@ -16,9 +16,17 @@ const BookingPage: React.FC = () => {
   const { t } = useTranslation(['booking', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams, promoCode, promoDiscount, promoValidationMessage } = useSelector(
-    (state: RootState) => state.ferry
-  );
+  const {
+    selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams,
+    promoCode, promoDiscount, promoValidationMessage,
+    // Get cabin/meal/protection state from Redux to persist across navigation
+    cabinSelections: reduxCabinSelections,
+    returnCabinSelections: reduxReturnCabinSelections,
+    totalCabinPrice: reduxTotalCabinPrice,
+    totalReturnCabinPrice: reduxTotalReturnCabinPrice,
+    selectedMeals: reduxSelectedMeals,
+    hasCancellationProtection: reduxHasCancellationProtection,
+  } = useSelector((state: RootState) => state.ferry);
   const { user } = useSelector((state: RootState) => state.auth);
 
   const [localContactInfo, setLocalContactInfo] = useState({
@@ -28,14 +36,26 @@ const BookingPage: React.FC = () => {
     phone: user?.phone || '',
   });
 
-  const [selectedCabinId, setSelectedCabinId] = useState<number | null>(null);
-  const [selectedReturnCabinId, setSelectedReturnCabinId] = useState<number | null>(null);
-  const [cabinPrice, setCabinPrice] = useState(0);
-  const [returnCabinPrice, setReturnCabinPrice] = useState(0);
-  const [cabinQuantity, setCabinQuantity] = useState(0);
-  const [returnCabinQuantity, setReturnCabinQuantity] = useState(0);
-  const [selectedMeals, setSelectedMeals] = useState<any[]>([]);
-  const [mealsPrice, setMealsPrice] = useState(0);
+  // Initialize cabin state from Redux (persists across navigation)
+  const [selectedCabinId, setSelectedCabinId] = useState<number | null>(
+    reduxCabinSelections?.[0]?.cabinId || null
+  );
+  const [selectedReturnCabinId, setSelectedReturnCabinId] = useState<number | null>(
+    reduxReturnCabinSelections?.[0]?.cabinId || null
+  );
+  const [cabinPrice, setCabinPrice] = useState(reduxTotalCabinPrice || 0);
+  const [returnCabinPrice, setReturnCabinPrice] = useState(reduxTotalReturnCabinPrice || 0);
+  const [cabinQuantity, setCabinQuantity] = useState(
+    reduxCabinSelections?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0
+  );
+  const [returnCabinQuantity, setReturnCabinQuantity] = useState(
+    reduxReturnCabinSelections?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0
+  );
+  // Initialize meals from Redux
+  const [selectedMeals, setSelectedMeals] = useState<any[]>(reduxSelectedMeals || []);
+  const [mealsPrice, setMealsPrice] = useState(
+    reduxSelectedMeals?.reduce((sum: number, m: any) => sum + (m.price || 0) * (m.quantity || 1), 0) || 0
+  );
 
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +65,10 @@ const BookingPage: React.FC = () => {
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
 
-  // Cancellation protection insurance
-  const [hasCancellationProtection, setHasCancellationProtectionLocal] = useState(false);
+  // Cancellation protection insurance - initialize from Redux
+  const [hasCancellationProtection, setHasCancellationProtectionLocal] = useState(
+    reduxHasCancellationProtection || false
+  );
   const CANCELLATION_PROTECTION_PRICE = 15.00; // €15 per booking
 
   // Sync cancellation protection to Redux when changed
@@ -57,6 +79,12 @@ const BookingPage: React.FC = () => {
 
   // Ref to prevent duplicate passenger initialization
   const passengersInitializedRef = React.useRef(false);
+
+  // Clear any existing booking when entering the booking details page
+  // This ensures that when user goes to payment, a new booking with updated details is created
+  useEffect(() => {
+    dispatch(clearCurrentBooking());
+  }, [dispatch]);
 
   useEffect(() => {
     // Redirect if no ferry selected
@@ -591,6 +619,8 @@ const BookingPage: React.FC = () => {
                 isRoundTrip={isRoundTrip && !!selectedReturnFerry}
                 ferryCabinAvailability={selectedFerry?.cabinTypes || (selectedFerry as any)?.cabin_types || []}
                 returnFerryCabinAvailability={selectedReturnFerry?.cabinTypes || (selectedReturnFerry as any)?.cabin_types || []}
+                initialOutboundSelections={reduxCabinSelections || []}
+                initialReturnSelections={reduxReturnCabinSelections || []}
               />
             </div>
 

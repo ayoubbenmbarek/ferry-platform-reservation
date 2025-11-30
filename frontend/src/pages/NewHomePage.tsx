@@ -37,8 +37,10 @@ const NewHomePage: React.FC = () => {
     adults: searchParams.passengers?.adults || 1,
     children: searchParams.passengers?.children || 0,
     infants: searchParams.passengers?.infants || 0,
-    hasVehicle: (vehicles && vehicles.length > 0) || false,
-    vehicleType: vehicles && vehicles.length > 0 ? vehicles[0].type : 'car',
+    // Support multiple vehicles of different types
+    vehiclesList: vehicles && vehicles.length > 0
+      ? vehicles.map(v => ({ id: v.id || crypto.randomUUID(), type: v.type || 'car' }))
+      : [] as { id: string; type: string }[],
   });
 
   // Update form when Redux state changes (e.g., coming back from search page)
@@ -55,8 +57,9 @@ const NewHomePage: React.FC = () => {
         adults: searchParams.passengers?.adults || 1,
         children: searchParams.passengers?.children || 0,
         infants: searchParams.passengers?.infants || 0,
-        hasVehicle: (vehicles && vehicles.length > 0) || false,
-        vehicleType: vehicles && vehicles.length > 0 ? vehicles[0].type : 'CAR',
+        vehiclesList: vehicles && vehicles.length > 0
+          ? vehicles.map(v => ({ id: v.id || crypto.randomUUID(), type: v.type || 'car' }))
+          : [],
       });
     }
   }, [searchParams, vehicles]);
@@ -113,7 +116,10 @@ const NewHomePage: React.FC = () => {
       adults: result.adults || form.adults,
       children: result.children || form.children,
       infants: result.infants || form.infants,
-      hasVehicle: result.hasVehicle || form.hasVehicle,
+      // Add a vehicle if voice search detected one
+      vehiclesList: result.hasVehicle && form.vehiclesList.length === 0
+        ? [{ id: crypto.randomUUID(), type: 'car' }]
+        : form.vehiclesList,
     };
 
     console.log('Voice search: Setting form state with new values:', {
@@ -213,9 +219,9 @@ const NewHomePage: React.FC = () => {
         children: form.children,
         infants: form.infants,
       },
-      vehicles: form.hasVehicle ? [{
-        id: crypto.randomUUID(),
-        type: form.vehicleType as any,
+      vehicles: form.vehiclesList.length > 0 ? form.vehiclesList.map(v => ({
+        id: v.id,
+        type: v.type as any,
         // These will be filled in on the booking page
         registration: '',
         make: '',
@@ -223,7 +229,7 @@ const NewHomePage: React.FC = () => {
         length: 500,
         width: 200,
         height: 200,
-      }] : [],
+      })) : [],
     }));
 
     // Set round trip flag
@@ -548,50 +554,77 @@ const NewHomePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Vehicle Toggle */}
+                {/* Vehicles Section - Multiple vehicles support */}
                 <div className="bg-blue-50 rounded-lg p-4">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.hasVehicle}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setForm({ ...form, hasVehicle: checked });
-                        // Clear vehicles from Redux when unchecked
-                        if (!checked) {
-                          dispatch(clearVehicles());
-                        }
-                      }}
-                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="ml-3 text-sm font-medium text-gray-900">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-gray-900">
                       🚗 {t('search:form.travelingWithVehicle')}
                     </span>
-                  </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVehicle = { id: crypto.randomUUID(), type: 'car' };
+                        setForm({ ...form, vehiclesList: [...form.vehiclesList, newVehicle] });
+                      }}
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+                    >
+                      <span>+</span> {t('search:form.addVehicle', 'Add Vehicle')}
+                    </button>
+                  </div>
 
-                  {/* Vehicle Type Selection - Shows when hasVehicle is checked */}
-                  {form.hasVehicle && (
-                    <div className="mt-4 pt-4 border-t border-blue-200">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('search:form.vehicleType', 'Type de véhicule')}
-                      </label>
-                      <select
-                        value={form.vehicleType}
-                        onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                      >
-                        <option value="car">🚗 {t('search:vehicleTypes.car', 'Voiture')}</option>
-                        <option value="suv">🚙 {t('search:vehicleTypes.suv', 'SUV / 4x4')}</option>
-                        <option value="van">🚐 {t('search:vehicleTypes.van', 'Van / Utilitaire')}</option>
-                        <option value="motorcycle">🏍️ {t('search:vehicleTypes.motorcycle', 'Moto')}</option>
-                        <option value="camper">🚌 {t('search:vehicleTypes.camper', 'Camping-car')}</option>
-                        <option value="caravan">🏕️ {t('search:vehicleTypes.caravan', 'Caravane')}</option>
-                        <option value="truck">🚚 {t('search:vehicleTypes.truck', 'Camion')}</option>
-                      </select>
+                  {/* List of vehicles */}
+                  {form.vehiclesList.length > 0 ? (
+                    <div className="space-y-3">
+                      {form.vehiclesList.map((vehicle, index) => (
+                        <div key={vehicle.id} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-blue-200">
+                          <span className="text-sm font-medium text-gray-600 min-w-[80px]">
+                            {t('search:form.vehicle', 'Vehicle')} {index + 1}
+                          </span>
+                          <select
+                            value={vehicle.type}
+                            onChange={(e) => {
+                              const updatedList = form.vehiclesList.map(v =>
+                                v.id === vehicle.id ? { ...v, type: e.target.value } : v
+                              );
+                              setForm({ ...form, vehiclesList: updatedList });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm"
+                          >
+                            <option value="car">🚗 {t('search:vehicleTypes.car', 'Car')}</option>
+                            <option value="suv">🚙 {t('search:vehicleTypes.suv', 'SUV / 4x4')}</option>
+                            <option value="van">🚐 {t('search:vehicleTypes.van', 'Van')}</option>
+                            <option value="motorcycle">🏍️ {t('search:vehicleTypes.motorcycle', 'Motorcycle')}</option>
+                            <option value="camper">🚌 {t('search:vehicleTypes.camper', 'Camper')}</option>
+                            <option value="caravan">🏕️ {t('search:vehicleTypes.caravan', 'Caravan')}</option>
+                            <option value="truck">🚚 {t('search:vehicleTypes.truck', 'Truck')}</option>
+                            <option value="jetski">🚤 {t('search:vehicleTypes.jetski', 'Jet Ski')}</option>
+                            <option value="boat">⛵ {t('search:vehicleTypes.boat', 'Boat/Trailer')}</option>
+                            <option value="bicycle">🚲 {t('search:vehicleTypes.bicycle', 'Bicycle')}</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedList = form.vehiclesList.filter(v => v.id !== vehicle.id);
+                              setForm({ ...form, vehiclesList: updatedList });
+                              if (updatedList.length === 0) {
+                                dispatch(clearVehicles());
+                              }
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title={t('search:form.removeVehicle', 'Remove')}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                       <p className="text-xs text-gray-600 mt-2">
-                        {t('search:form.vehicleDetailsLater', "Les détails complets du véhicule seront demandés à l'étape suivante")}
+                        {t('search:form.vehicleDetailsLater', 'Full vehicle details will be requested in the next step')}
                       </p>
                     </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">
+                      {t('search:form.noVehicles', 'No vehicles added. Click "Add Vehicle" to travel with a vehicle.')}
+                    </p>
                   )}
                 </div>
 

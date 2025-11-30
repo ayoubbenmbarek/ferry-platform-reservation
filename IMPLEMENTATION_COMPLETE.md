@@ -177,6 +177,64 @@ todo:Search filters by operator maybe too
 todo:Mobile app         | 60%+ bookings are mobile 
 todo: add cancellation policy, check screenshot for no refundable, no changes..for basic, add fee for cancellation garantee
 todo: add Pre-departure reminder emails
+todo:add sentry for mobile
+todo:do we use it Code scanning: CodeQL Action v2 is now retired
+todo: why this is blank page http://localhost:8010/docs
+todo:in search page that shows ferries price shown per adult, try to show all prices for all passenger in search page take in consideration passenger type and may put total
+ in frontend and mobile
+ todo:passenger inforamtion collapse automatically without saving data
+ todo:add modify booking in booking detail page
+ todo:when choose two vehicule should could choose 2 same or different type
+
+todo:from payment page i have amount of 529 to pay i go back to detail page and added cabins etc amount become 1036 example but
+  when i go again to payment i see the old price 529 to pay, correct this please and verify all details
+--------------------
+TODO mobile:
+-gmail login
+-when select depart date and return date it appear both calendar in same time, i think after choosing, calendar should collapse:done
+-add tests for mobile app
+-add download invoice in mobile
+-continue profile settings
+-add cancel button in mobile
+-payments method not work on profile settings
+-search shown empty, and return get no retun available while in frontend available:done
+-trip summary empty too:done
+-proceed to paiment get validation error
+-passenger add child, infant like in frontend:done
+-date of birth change to calendar easiets selection
+-todo add bar show in which step we are and possibility to return to any step if possibile to change passneger, meals or something else, because when i return back from payment to search, it show next the page to choose ferry then go directly to paiment page without changing price even if i changed it, and do not respect steps to show melas or cabin agin etc
+todo:don't see vehicule information detail
+
+-link sends in email should open applictation or url to browse on browser
+-add page to choose cabin meals etc like frontend:done
+-apple pay shown but do not work
+-Cache MISS for ferry search - fetching from operators, just after few seconds from previous search, how much time the cache stay?
+-security 2FA
+-could we add cache in mobile too to ameliorer response time and performance?
+-wifi and restaurant are not centralized in search page:done
+-on trip summary show all details for all passenger and vehicule for their respoective price and melas and cabin etc and any details about price and booking summary before proceeed:done
+-mention price shown in search per adult, and try to show all prices for all passenger in search page take in consideration passenger type:done
+-add possibility return port different from departure port like frontend:done
+-measl do not increase price
+-price undefined on cabin
+-i choose price on search then in trip summary i found other prices on outbound and return:done
+-sign in for exclusive deals have button to the right not really well designed
+- show best price highlited best may add:done
+-add passeport number and details in mobile app
+- should could save actual state, even if i go back, or save on pending then continue to pay, or save and send link via email to coud retrieve that again
+-todo when choose two vehicule should could choose 2 same or different type
+
+1. Configure Apple Sign-In
+  capability in your Xcode project
+  2. Register the app bundle ID in
+  Apple Developer Console
+  3. Update
+  backend/.env.development with
+  APPLE_BUNDLE_ID (default:
+  com.maritime.ferries)
+
+
+-------------------
 Phase 1 (1-2 months):
   - Price watch alerts ⭐
   - Loyalty program basics

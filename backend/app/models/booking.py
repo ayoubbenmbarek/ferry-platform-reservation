@@ -41,6 +41,10 @@ class VehicleTypeEnum(enum.Enum):
     CAMPER = "CAMPER"
     CARAVAN = "CARAVAN"
     TRUCK = "TRUCK"
+    TRAILER = "TRAILER"
+    JETSKI = "JETSKI"
+    BOAT_TRAILER = "BOAT_TRAILER"
+    BICYCLE = "BICYCLE"
 
 
 class Booking(Base):

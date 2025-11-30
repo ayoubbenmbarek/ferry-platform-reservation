@@ -817,10 +817,17 @@ async def google_login(
                 detail="Google OAuth is not configured on the server"
             )
 
-        # Verify the Google token
+        # Verify the Google token (accept both 'credential' and 'id_token' field names)
+        google_token = token_data.get("credential") or token_data.get("id_token")
+        if not google_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing Google token. Provide 'credential' or 'id_token' field."
+            )
+
         try:
             id_info = id_token.verify_oauth2_token(
-                token_data.get("credential"),
+                google_token,
                 requests.Request(),
                 google_client_id
             )
@@ -920,6 +927,203 @@ async def google_login(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Google login failed: {str(e)}"
+        )
+
+
+@router.post("/apple")
+async def apple_login(
+    token_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Authenticate user with Apple Sign-In.
+
+    Accepts an Apple identity token from the mobile app, verifies it,
+    and creates/logs in the user.
+    """
+    import httpx
+    import json
+    import base64
+    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+    from cryptography.hazmat.backends import default_backend
+
+    try:
+        identity_token = token_data.get("identity_token")
+        if not identity_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing identity_token field"
+            )
+
+        # Apple's public keys endpoint
+        apple_keys_url = "https://appleid.apple.com/auth/keys"
+
+        # Fetch Apple's public keys
+        async with httpx.AsyncClient() as client:
+            response = await client.get(apple_keys_url)
+            apple_keys = response.json()
+
+        # Decode the JWT header to get the key ID (without verification)
+        try:
+            header_segment = identity_token.split('.')[0]
+            # Add padding if needed
+            padding = 4 - len(header_segment) % 4
+            if padding != 4:
+                header_segment += '=' * padding
+            header_data = base64.urlsafe_b64decode(header_segment)
+            unverified_header = json.loads(header_data)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Apple identity token format"
+            )
+
+        # Find the matching key
+        kid = unverified_header.get("kid")
+        matching_key = None
+        for key in apple_keys.get("keys", []):
+            if key.get("kid") == kid:
+                matching_key = key
+                break
+
+        if not matching_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unable to find matching Apple public key"
+            )
+
+        # Convert JWK to RSA public key
+        def decode_value(val):
+            decoded = base64.urlsafe_b64decode(val + '==')
+            return int.from_bytes(decoded, byteorder='big')
+
+        e = decode_value(matching_key['e'])
+        n = decode_value(matching_key['n'])
+        public_numbers = RSAPublicNumbers(e, n)
+        public_key = public_numbers.public_key(default_backend())
+
+        # Get Apple Bundle ID from environment (or use default for development)
+        apple_bundle_id = os.getenv("APPLE_BUNDLE_ID", "com.maritime.ferries")
+
+        # Verify the token using python-jose
+        try:
+            decoded = jwt.decode(
+                identity_token,
+                public_key,
+                algorithms=["RS256"],
+                audience=apple_bundle_id,
+                issuer="https://appleid.apple.com"
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Apple identity token has expired"
+            )
+        except JWTError as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid Apple identity token: {str(e)}"
+            )
+
+        # Extract user information from Apple token
+        apple_user_id = decoded.get("sub")  # Apple's unique user ID
+        email = decoded.get("email")
+        email_verified = decoded.get("email_verified", False)
+
+        # Apple only provides name on first sign-in, so get from request if available
+        first_name = token_data.get("first_name", "")
+        last_name = token_data.get("last_name", "")
+
+        if not apple_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Apple user ID not found in token"
+            )
+
+        # Check if user exists by Apple ID first, then by email
+        user = db.query(User).filter(User.apple_user_id == apple_user_id).first()
+
+        if not user and email:
+            # Check if user exists by email
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                # Link Apple ID to existing account
+                user.apple_user_id = apple_user_id
+
+        if user:
+            # User exists - log them in
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is deactivated"
+                )
+
+            # Update last login
+            user.last_login = datetime.now(timezone.utc)
+
+            # If user wasn't verified, verify them now (Apple verified the email)
+            if not user.is_verified and email_verified:
+                user.is_verified = True
+
+        else:
+            # Create new user account
+            # If no email provided by Apple (user chose to hide), generate a placeholder
+            if not email:
+                email = f"{apple_user_id}@privaterelay.appleid.com"
+
+            user = User(
+                email=email,
+                first_name=first_name or "Apple",
+                last_name=last_name or "User",
+                is_active=True,
+                is_verified=email_verified if email_verified else True,  # Trust Apple's verification
+                hashed_password=get_password_hash(secrets.token_urlsafe(32)),  # Random password
+                apple_user_id=apple_user_id
+            )
+            db.add(user)
+            db.flush()  # Get user ID
+
+        # Auto-link any guest bookings with matching email
+        from app.models.booking import Booking
+        guest_bookings = db.query(Booking).filter(
+            Booking.contact_email == user.email,
+            Booking.user_id == None
+        ).all()
+
+        linked_count = 0
+        for booking in guest_bookings:
+            booking.user_id = user.id
+            linked_count += 1
+
+        if linked_count > 0:
+            logger.info(f"Auto-linked {linked_count} guest booking(s) to user {user.id} on Apple login")
+
+        db.commit()
+        db.refresh(user)
+
+        # Create access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=access_token_expires
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": UserResponse.model_validate(user).model_dump(),
+            "is_new_user": linked_count == 0 and not user.last_login
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Apple login failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Apple login failed: {str(e)}"
         )
 
 

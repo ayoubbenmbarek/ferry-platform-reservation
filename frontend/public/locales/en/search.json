@@ -24,6 +24,8 @@
     "removeVehicle": "Remove Vehicle",
     "vehicleType": "Vehicle Type",
     "vehicleLength": "Vehicle Length",
+    "vehicle": "Vehicle",
+    "noVehicles": "No vehicles added. Click \"Add Vehicle\" to travel with a vehicle.",
     "selectPort": "Select a port",
     "selectDate": "Select date",
     "differentReturnRoute": "Different return route (e.g., return from a different port)",
@@ -67,7 +69,10 @@
     "motorcycle": "Motorcycle",
     "camper": "Camper",
     "caravan": "Caravan",
-    "truck": "Truck"
+    "truck": "Truck",
+    "jetski": "Jet Ski",
+    "boat": "Boat/Trailer",
+    "bicycle": "Bicycle"
   },
   "results": {
     "title": "Available Ferries",

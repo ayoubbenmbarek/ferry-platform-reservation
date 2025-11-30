@@ -25,6 +25,7 @@ class User(Base):
 
     # OAuth fields
     google_user_id = Column(String(255), nullable=True, unique=True, index=True)
+    apple_user_id = Column(String(255), nullable=True, unique=True, index=True)
     
     # Account status
     is_active = Column(Boolean, default=True)

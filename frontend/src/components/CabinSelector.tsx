@@ -39,6 +39,9 @@ interface CabinSelectorProps {
   isRoundTrip?: boolean;
   ferryCabinAvailability?: any[];  // Cabin availability from selected ferry
   returnFerryCabinAvailability?: any[];  // Cabin availability from return ferry
+  // Initial cabin selections from Redux (for persistence across navigation)
+  initialOutboundSelections?: { cabinId: number; quantity: number; price: number }[];
+  initialReturnSelections?: { cabinId: number; quantity: number; price: number }[];
 }
 
 const CabinSelector: React.FC<CabinSelectorProps> = ({
@@ -50,15 +53,33 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   isRoundTrip = false,
   ferryCabinAvailability = [],
   returnFerryCabinAvailability = [],
+  initialOutboundSelections = [],
+  initialReturnSelections = [],
 }) => {
   const [cabins, setCabins] = useState<Cabin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJourney, setSelectedJourney] = useState<'outbound' | 'return'>('outbound');
 
-  // Track quantity per cabin ID for each journey
-  const [outboundCabinQuantities, setOutboundCabinQuantities] = useState<Record<number, number>>({});
-  const [returnCabinQuantities, setReturnCabinQuantities] = useState<Record<number, number>>({});
+  // Track quantity per cabin ID for each journey - initialize from props
+  const [outboundCabinQuantities, setOutboundCabinQuantities] = useState<Record<number, number>>(() => {
+    const initial: Record<number, number> = {};
+    initialOutboundSelections.forEach(s => {
+      if (s.cabinId && s.quantity > 0) {
+        initial[s.cabinId] = s.quantity;
+      }
+    });
+    return initial;
+  });
+  const [returnCabinQuantities, setReturnCabinQuantities] = useState<Record<number, number>>(() => {
+    const initial: Record<number, number> = {};
+    initialReturnSelections.forEach(s => {
+      if (s.cabinId && s.quantity > 0) {
+        initial[s.cabinId] = s.quantity;
+      }
+    });
+    return initial;
+  });
 
   useEffect(() => {
     fetchCabins();

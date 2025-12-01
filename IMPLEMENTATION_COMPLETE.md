@@ -225,8 +225,12 @@ todo:don't see vehicule information detail
 -todo when choose two vehicule should could choose 2 same or different type
 -todo add latest prices instead of popular routes,maybe in frontend too
 -todo:precise price for each type of vehicule, velo, car, jetski etc
-todo:complete with use stripe sdk we already implement this o frontend and backend with test keys
+todo:complete with use stripe sdk we already implement this o frontend and backend with test keys:done
 todo:add search with voice like frontend
+todo:if user logged in contact information should be pre-rempli
+-todo:add mobile notification for the watch alert and check vaialbibility
+-todo:how deploy the mobile app, in kubernets, docker compose?
+-integrate mobile tests in ci cd
 
 1. Configure Apple Sign-In
   capability in your Xcode project

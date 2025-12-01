@@ -1,0 +1,42 @@
+import React from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { NavigationContainer } from '@react-navigation/native';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { Provider as ReduxProvider } from 'react-redux';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
+import { StripeProvider } from '@stripe/stripe-react-native';
+
+import { store } from './src/store';
+import RootNavigator from './src/navigation/RootNavigator';
+import { lightTheme } from './src/constants/theme';
+import { STRIPE_PUBLISHABLE_KEY } from './src/constants/config';
+
+export default function App() {
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <ReduxProvider store={store}>
+        <StripeProvider
+          publishableKey={STRIPE_PUBLISHABLE_KEY}
+          merchantIdentifier="merchant.com.maritime.reservations"
+        >
+          <PaperProvider theme={lightTheme}>
+            <SafeAreaProvider>
+              <NavigationContainer>
+                <StatusBar style="auto" />
+                <RootNavigator />
+              </NavigationContainer>
+            </SafeAreaProvider>
+          </PaperProvider>
+        </StripeProvider>
+      </ReduxProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

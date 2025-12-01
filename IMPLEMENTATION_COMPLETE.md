@@ -223,6 +223,10 @@ todo:don't see vehicule information detail
 -add passeport number and details in mobile app
 - should could save actual state, even if i go back, or save on pending then continue to pay, or save and send link via email to coud retrieve that again
 -todo when choose two vehicule should could choose 2 same or different type
+-todo add latest prices instead of popular routes,maybe in frontend too
+-todo:precise price for each type of vehicule, velo, car, jetski etc
+todo:complete with use stripe sdk we already implement this o frontend and backend with test keys
+todo:add search with voice like frontend
 
 1. Configure Apple Sign-In
   capability in your Xcode project

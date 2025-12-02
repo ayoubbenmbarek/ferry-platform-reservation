@@ -77,6 +77,29 @@ jest.mock('expo-apple-authentication', () => ({
   },
 }));
 
+// Mock expo-local-authentication
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn(() => Promise.resolve(true)),
+  isEnrolledAsync: jest.fn(() => Promise.resolve(true)),
+  supportedAuthenticationTypesAsync: jest.fn(() => Promise.resolve([1])),
+  authenticateAsync: jest.fn(() => Promise.resolve({ success: true })),
+  AuthenticationType: {
+    FINGERPRINT: 1,
+    FACIAL_RECOGNITION: 2,
+    IRIS: 3,
+  },
+}));
+
+// Mock @react-native-community/netinfo
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn(() => Promise.resolve({
+    isConnected: true,
+    isInternetReachable: true,
+    type: 'wifi',
+  })),
+  addEventListener: jest.fn(() => jest.fn()),
+}));
+
 // Mock @stripe/stripe-react-native
 jest.mock('@stripe/stripe-react-native', () => ({
   StripeProvider: ({ children }: { children: React.ReactNode }) => children,

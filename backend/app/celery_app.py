@@ -19,6 +19,7 @@ celery_app = Celery(
         "app.tasks.payment_tasks",
         "app.tasks.booking_tasks",
         "app.tasks.availability_check_tasks",
+        "app.tasks.reminder_tasks",
     ]
 )
 
@@ -98,6 +99,24 @@ celery_app.conf.update(
             'schedule': 86400,  # 24 hours in seconds
             'options': {
                 'expires': 7200,  # Task expires after 2 hours if not picked up
+            }
+        },
+        # Check for departure reminders (24h and 2h before departure)
+        # Runs every 15 minutes to catch bookings in the reminder windows
+        'check-departure-reminders': {
+            'task': 'app.tasks.reminder_tasks.check_departure_reminders',
+            'schedule': 900,  # 15 minutes in seconds
+            'options': {
+                'expires': 600,  # Task expires after 10 minutes if not picked up
+            }
+        },
+        # Complete past bookings (mark CONFIRMED -> COMPLETED after departure)
+        # Runs every hour to update booking statuses
+        'complete-past-bookings': {
+            'task': 'app.tasks.booking_tasks.complete_past_bookings',
+            'schedule': 3600,  # 1 hour in seconds
+            'options': {
+                'expires': 1800,  # Task expires after 30 minutes if not picked up
             }
         },
     },

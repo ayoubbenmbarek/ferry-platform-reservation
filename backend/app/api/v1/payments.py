@@ -57,8 +57,8 @@ async def create_payment_intent(
 
         # Check if this is a cabin upgrade payment
         is_cabin_upgrade = (
-            payment_data.metadata is not None
-            and payment_data.metadata.get('type') == 'cabin_upgrade'
+            payment_data.is_upgrade
+            or (payment_data.metadata is not None and payment_data.metadata.get('type') == 'cabin_upgrade')
         )
 
         # Check if user has permission to pay for this booking

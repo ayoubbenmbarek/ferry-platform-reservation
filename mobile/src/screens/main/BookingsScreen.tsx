@@ -18,6 +18,8 @@ import { fetchUserBookings } from '../../store/slices/bookingSlice';
 import { RootStackParamList } from '../../types';
 import { Booking, BookingStatus } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import { useNetwork } from '../../contexts/NetworkContext';
+import { offlineService } from '../../services/offlineService';
 
 // Booking expiration time in minutes
 const BOOKING_EXPIRATION_MINUTES = 30;
@@ -75,9 +77,12 @@ export default function BookingsScreen() {
   const { userBookings, isLoadingBookings, bookingsError } = useAppSelector(
     (state) => state.booking
   );
+  const { isConnected, pendingOperationsCount, isSyncing } = useNetwork();
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isViewingCached, setIsViewingCached] = useState(false);
+  const [cachedBookings, setCachedBookings] = useState<Booking[]>([]);
 
   // Update current time every second for countdown
   useEffect(() => {
@@ -87,11 +92,35 @@ export default function BookingsScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  // Cache bookings when loaded from server
+  useEffect(() => {
+    if (userBookings.length > 0 && isConnected) {
+      offlineService.cacheBookings(userBookings);
+      setIsViewingCached(false);
+    }
+  }, [userBookings, isConnected]);
+
+  // Load cached bookings when offline
+  useEffect(() => {
+    const loadCachedData = async () => {
+      if (!isConnected && isAuthenticated) {
+        const cached = await offlineService.getCachedBookings();
+        if (cached) {
+          setCachedBookings(cached);
+          setIsViewingCached(true);
+        }
+      } else {
+        setIsViewingCached(false);
+      }
+    };
+    loadCachedData();
+  }, [isConnected, isAuthenticated]);
+
   const loadBookings = useCallback(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && isConnected) {
       dispatch(fetchUserBookings());
     }
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, isAuthenticated, isConnected]);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,10 +129,14 @@ export default function BookingsScreen() {
   );
 
   const onRefresh = async () => {
+    if (!isConnected) return;
     setRefreshing(true);
     await dispatch(fetchUserBookings());
     setRefreshing(false);
   };
+
+  // Use cached bookings when offline
+  const displayedBookings = isViewingCached ? cachedBookings : userBookings;
 
   const formatDateTime = (dateString: string) => {
     try {
@@ -311,7 +344,7 @@ export default function BookingsScreen() {
   }
 
   // Loading
-  if (isLoadingBookings && userBookings.length === 0) {
+  if (isLoadingBookings && displayedBookings.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
@@ -323,7 +356,7 @@ export default function BookingsScreen() {
   }
 
   // Empty state
-  if (!isLoadingBookings && userBookings.length === 0) {
+  if (!isLoadingBookings && displayedBookings.length === 0 && !isViewingCached) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.emptyContainer}>
@@ -349,16 +382,49 @@ export default function BookingsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>My Bookings</Text>
-        <Text style={styles.subtitle}>{userBookings.length} booking{userBookings.length !== 1 ? 's' : ''}</Text>
+        <Text style={styles.subtitle}>{displayedBookings.length} booking{displayedBookings.length !== 1 ? 's' : ''}</Text>
       </View>
 
+      {/* Offline Banner */}
+      {!isConnected && (
+        <View style={styles.offlineBanner}>
+          <Ionicons name="cloud-offline-outline" size={20} color="#92400E" />
+          <View style={styles.offlineBannerContent}>
+            <Text style={styles.offlineBannerTitle}>You're offline</Text>
+            <Text style={styles.offlineBannerText}>
+              {isViewingCached ? 'Showing cached bookings' : 'Connect to load bookings'}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Pending Operations Banner */}
+      {isConnected && pendingOperationsCount > 0 && (
+        <View style={styles.syncBanner}>
+          <Ionicons
+            name={isSyncing ? 'sync' : 'cloud-upload-outline'}
+            size={20}
+            color={colors.primary}
+          />
+          <Text style={styles.syncBannerText}>
+            {isSyncing
+              ? 'Syncing changes...'
+              : `${pendingOperationsCount} pending change${pendingOperationsCount > 1 ? 's' : ''}`}
+          </Text>
+        </View>
+      )}
+
       <FlatList
-        data={userBookings}
+        data={displayedBookings}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderBookingCard}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            enabled={isConnected}
+          />
         }
         showsVerticalScrollIndicator={false}
       />
@@ -512,6 +578,44 @@ const styles = StyleSheet.create({
   searchButton: {
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.lg,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+  },
+  offlineBannerContent: {
+    flex: 1,
+  },
+  offlineBannerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    color: '#B45309',
+    marginTop: 2,
+  },
+  syncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    padding: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+  },
+  syncBannerText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
   },
   // Pending booking styles
   pendingBanner: {

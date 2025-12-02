@@ -39,6 +39,8 @@ export interface FerrySchedule {
   currency: string;
   available_capacity: number;
   vehicle_capacity: number;
+  available_vehicle_space?: number;
+  available_cabins?: number;
   amenities: string[];
 }
 
@@ -77,13 +79,23 @@ export interface Passenger {
 export type VehicleType = 'car' | 'suv' | 'van' | 'motorcycle' | 'camper' | 'caravan' | 'truck' | 'trailer' | 'jetski' | 'boat_trailer' | 'bicycle';
 
 export interface Vehicle {
-  id?: string;
+  id?: string | number;
   vehicle_type: VehicleType;
   make?: string;
   model?: string;
+  owner?: string;
   license_plate: string;
   length_meters?: number;
+  length_cm?: number;
+  width_cm?: number;
   height_meters?: number;
+  height_cm?: number;
+  has_trailer?: boolean;
+  has_caravan?: boolean;
+  has_roof_box?: boolean;
+  has_bike_rack?: boolean;
+  base_price?: number;
+  final_price?: number;
 }
 
 // Cabin Types
@@ -108,6 +120,21 @@ export interface Meal {
 
 // Booking Types
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'expired';
+
+// Booking Cabin type for cabin upgrades
+export interface BookingCabin {
+  id: number;
+  booking_id: number;
+  cabin_id: number;
+  cabin_name?: string;
+  cabin_type?: string;
+  journey_type: 'OUTBOUND' | 'RETURN';
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  is_paid: boolean;
+  created_at: string;
+}
 
 export interface Booking {
   id: number;
@@ -140,11 +167,21 @@ export interface Booking {
   total_amount: number;
   currency: string;
   status: BookingStatus;
+  // Original cabin selection (from initial booking)
+  cabin_id?: number;
+  cabin_supplement?: number;
+  cabin_name?: string;
+  cabin_type?: string;
+  return_cabin_id?: number;
+  return_cabin_supplement?: number;
+  return_cabin_name?: string;
+  return_cabin_type?: string;
   extra_data?: {
     has_cancellation_protection?: boolean;
   };
   passengers?: Passenger[];
   vehicles?: Vehicle[];
+  booking_cabins?: BookingCabin[];  // Upgraded cabins
   created_at: string;
   expires_at?: string;
 }
@@ -157,6 +194,14 @@ export interface PaymentIntent {
   currency: string;
 }
 
+// Cabin Upgrade Types
+export interface CabinUpgradeParams {
+  bookingId: number;
+  alertId?: number;
+  alertType?: 'cabin' | 'vehicle' | 'passenger';
+  journeyType?: 'outbound' | 'return';
+}
+
 // Navigation Types
 export type RootStackParamList = {
   Main: undefined;
@@ -165,13 +210,25 @@ export type RootStackParamList = {
   SearchResults: { params: SearchParams };
   FerryDetails: { schedule: FerrySchedule };
   Booking: { schedule: FerrySchedule; returnSchedule?: FerrySchedule };
-  Payment: { bookingId: number };
+  Payment: { bookingId: number; cabinUpgrade?: CabinUpgradePaymentParams };
   BookingConfirmation: { bookingReference: string };
   BookingDetails: { bookingId: number };
+  ETicket: { booking: Booking };
   MyBookings: undefined;
+  MyAlerts: undefined;
+  AddCabin: CabinUpgradeParams;
   Profile: undefined;
   Settings: undefined;
+  NotificationSettings: undefined;
 };
+
+// Cabin Upgrade Payment Params
+export interface CabinUpgradePaymentParams {
+  cabinSelections: Array<{ cabinId: number; quantity: number; unitPrice: number }>;
+  totalAmount: number;
+  journeyType: 'outbound' | 'return';
+  alertId?: number;
+}
 
 export type AuthStackParamList = {
   Login: undefined;

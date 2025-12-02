@@ -14,6 +14,11 @@ import BookingScreen from '../screens/BookingScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import BookingConfirmationScreen from '../screens/BookingConfirmationScreen';
 import BookingDetailsScreen from '../screens/BookingDetailsScreen';
+import ETicketScreen from '../screens/ETicketScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import MyAlertsScreen from '../screens/MyAlertsScreen';
+import AddCabinScreen from '../screens/AddCabinScreen';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -34,13 +39,15 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {/* Main app flow - accessible to all users */}
-      <Stack.Screen name="Main" component={MainNavigator} />
+    <>
+      <OfflineIndicator showWhenOnline />
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        {/* Main app flow - accessible to all users */}
+        <Stack.Screen name="Main" component={MainNavigator} />
 
       {/* Auth screens - always available as modal */}
       <Stack.Screen
@@ -106,7 +113,44 @@ export default function RootNavigator() {
           headerBackTitle: 'Back',
         }}
       />
+      <Stack.Screen
+        name="ETicket"
+        component={ETicketScreen}
+        options={{
+          headerShown: true,
+          title: 'E-Ticket',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{
+          headerShown: true,
+          title: 'Notifications',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="MyAlerts"
+        component={MyAlertsScreen}
+        options={{
+          headerShown: true,
+          title: 'My Alerts',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="AddCabin"
+        component={AddCabinScreen}
+        options={{
+          headerShown: true,
+          title: 'Add Cabin',
+          headerBackTitle: 'Back',
+        }}
+      />
     </Stack.Navigator>
+    </>
   );
 }
 

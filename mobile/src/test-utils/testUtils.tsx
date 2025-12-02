@@ -6,12 +6,14 @@ import { Provider } from 'react-redux';
 import authReducer from '../store/slices/authSlice';
 import searchReducer from '../store/slices/searchSlice';
 import bookingReducer from '../store/slices/bookingSlice';
+import alertReducer from '../store/slices/alertSlice';
 
 // Create root reducer
 const rootReducer = combineReducers({
   auth: authReducer,
   search: searchReducer,
   booking: bookingReducer,
+  alerts: alertReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -137,18 +139,29 @@ export const createMockBooking = (overrides = {}) => ({
   departure_time: '2024-06-15T08:00:00Z',
   arrival_time: '2024-06-15T20:00:00Z',
   vessel_name: 'Carthage',
+  is_round_trip: false,
+  return_departure_port: undefined,
+  return_arrival_port: undefined,
+  return_departure_time: undefined,
+  return_arrival_time: undefined,
+  return_vessel_name: undefined,
   contact_email: 'test@example.com',
   contact_phone: '+1234567890',
   contact_first_name: 'John',
   contact_last_name: 'Doe',
+  total_passengers: 3,
   total_adults: 2,
   total_children: 1,
   total_infants: 0,
   total_vehicles: 1,
   subtotal: 350,
+  discount_amount: 0,
   tax_amount: 35,
   total_amount: 385,
-  has_cancellation_protection: true,
+  currency: 'EUR',
+  extra_data: {
+    has_cancellation_protection: true,
+  },
   passengers: [createMockPassenger()],
   vehicles: [createMockVehicle()],
   created_at: '2024-06-01T10:00:00Z',
@@ -181,11 +194,43 @@ export const createMockPaymentIntent = (overrides = {}) => ({
   ...overrides,
 });
 
+export const createMockAvailabilityAlert = (overrides = {}) => ({
+  id: 1,
+  alert_type: 'cabin' as const,
+  email: 'test@example.com',
+  departure_port: 'Tunis',
+  arrival_port: 'Marseille',
+  departure_date: '2024-06-15',
+  is_round_trip: false,
+  return_date: undefined,
+  operator: 'CTN',
+  sailing_time: '08:00',
+  num_adults: 2,
+  num_children: 1,
+  num_infants: 0,
+  vehicle_type: undefined,
+  vehicle_length_cm: undefined,
+  status: 'active' as const,
+  created_at: '2024-06-01T10:00:00Z',
+  updated_at: '2024-06-01T10:00:00Z',
+  expires_at: '2024-07-01T10:00:00Z',
+  notified_at: undefined,
+  ...overrides,
+});
+
+export const createMockAlertStats = (overrides = {}) => ({
+  total_alerts: 5,
+  active_alerts: 3,
+  notified_alerts: 1,
+  success_rate: 0.75,
+  ...overrides,
+});
+
 // ============================================
 // API Mock Helpers
 // ============================================
 
-export const mockApiSuccess = <T>(data: T) => {
+export const mockApiSuccess = <T,>(data: T) => {
   return Promise.resolve({ data });
 };
 

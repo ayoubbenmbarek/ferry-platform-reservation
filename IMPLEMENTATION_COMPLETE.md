@@ -176,18 +176,17 @@ todo correct view booking detail url http://booking/445 onemail
 todo:Search filters by operator maybe too
 todo:Mobile app         | 60%+ bookings are mobile 
 todo: add cancellation policy, check screenshot for no refundable, no changes..for basic, add fee for cancellation garantee
-todo: add Pre-departure reminder emails
+todo: add Pre-departure reminder emails:done
 todo:add sentry for mobile
 todo:do we use it Code scanning: CodeQL Action v2 is now retired
 todo: why this is blank page http://localhost:8010/docs
-todo:in search page that shows ferries price shown per adult, try to show all prices for all passenger in search page take in consideration passenger type and may put total
- in frontend and mobile
+todo:in search page that shows ferries price shown per adult, try to show all prices for all passenger in search page take in consideration passenger type and may put total in frontend and mobile:done
  todo:passenger inforamtion collapse automatically without saving data
  todo:add modify booking in booking detail page
- todo:when choose two vehicule should could choose 2 same or different type
+ todo:when choose two vehicule should could choose 2 same or different type::done
 
 todo:from payment page i have amount of 529 to pay i go back to detail page and added cabins etc amount become 1036 example but
-  when i go again to payment i see the old price 529 to pay, correct this please and verify all details
+  when i go again to payment i see the old price 529 to pay, correct this please and verify all details:done
 --------------------
 TODO mobile:
 -gmail login
@@ -227,10 +226,84 @@ todo:don't see vehicule information detail
 -todo:precise price for each type of vehicule, velo, car, jetski etc
 todo:complete with use stripe sdk we already implement this o frontend and backend with test keys:done
 todo:add search with voice like frontend
-todo:if user logged in contact information should be pre-rempli
+todo:if user logged in contact information should be pre-rempli:done
 -todo:add mobile notification for the watch alert and check vaialbibility
 -todo:how deploy the mobile app, in kubernets, docker compose?
--integrate mobile tests in ci cd
+-integrate mobile tests in ci cd:done
+todo:sometime when login get 401 unauthorized
+todo:i activate facid but nothing appeared,
+todo:after logout redirect to home page:done
+todo:where to find qr code:done
+todo:possibility to send emails for all passenger in specific routes for information updated from the company or any thing
+
+
+new features:
+Next Features (Priority Order)
+
+  1. E-Ticket / QR Code
+    - Generate QR code for
+  confirmed bookings
+    - Display downloadable e-ticket
+    - display downloadable invoice
+    - Add to Apple/Google Wallet
+  2. Push Notifications
+    - Booking confirmations
+    - Departure reminders (24h, 2h
+  before)
+    - Price alerts for saved routes
+  3. Biometric Authentication
+    - Face ID / Touch ID login
+    - Secure token storage with
+  biometrics
+  4. Offline Support
+    - Cache bookings for offline
+  viewing
+    - Queue actions when offline
+    - Sync when back online
+
+  ---
+  Which feature would you like to
+  implement next?
+
+
+----------what was implemented-----------
+
+  1. ETicketScreen
+  (src/screens/ETicketScreen.tsx)
+    - QR code with booking
+  verification data
+    - Ticket-style design with
+  route, passengers, and vessel
+  info
+    - Support for round-trip
+  bookings
+    - Check-in instructions
+  2. Share & Download
+    - Share ticket as image via
+  device share
+    - Save ticket to device storage
+  3. Integration
+    - Added "View E-Ticket" button
+  on BookingDetailsScreen (for
+  confirmed bookings)
+    - Added ETicket route to
+  navigation
+  4. Tests - 10 new tests (151
+  total)
+
+  Dependencies added:
+
+  - react-native-qrcode-svg - QR
+  code generation
+  - react-native-svg - SVG support
+  - react-native-view-shot -
+  Capture ticket as image
+  - expo-sharing - Native share
+  functionality
+  - expo-file-system - File
+  operations
+
+---------------------------------
 
 1. Configure Apple Sign-In
   capability in your Xcode project
@@ -244,7 +317,7 @@ todo:if user logged in contact information should be pre-rempli
 
 -------------------
 Phase 1 (1-2 months):
-  - Price watch alerts ⭐
+  - Price watch alerts ⭐ tockeck
   - Loyalty program basics
   - PayPal integration
 
@@ -270,12 +343,123 @@ Phase 1 (1-2 months):
 | Accessories pricing | Roof box, bike rack, etc. |
 | Price comparison | Show prices for day before/after |
 TODO:add paiment cabin supplement and email confirmation:done
-TODO:check invoice and total summary with more details in booking page and invoice
-TODO:alert cabin should be shown only if he dont have selected cabin
-todo:cabin alert independant from initial invoice, add it  to midify page and user could select as many cabin as available
-todo:and for cabin type alert add any cabin, then the user will see what are available and make his  choice
-TODO: Add unit tests and correct ci cd
+TODO:check invoice and total summary with more details in booking page and invoice:done
+TODO:alert cabin should be shown only if he dont have selected cabin:done
+todo:cabin alert independant from initial invoice, add it  to midify page and user could select as many cabin as available:done
+todo:and for cabin type alert add any cabin, then the user will see what are available and make his  choice:done
+TODO: Add unit tests and correct ci cd:done
 TODO:store al invoices somewhere
+todo:should secure urls /booking/201 for example is clear so anyone could check others bookings??!!
+todo:add agree condition checkbox on mobile beforem pyment
+todo:add download e ticket on frontend:done
+todo:view mybooking button in mobile after pay should redirect to my ookings not to home page:done
+todo:i see cabin logo and vehicule are red and 0 in routes serach  on mobile, but i can select cabin later and i added vehicule, so it is not coherent
+todo:where pdf are stored now?invoice and e tickets
+ todo: click cabin avalaibilty alert get:done
+ todo notify me in mobile get 68.65.1:25343 - "POST /api/v1/availability-alerts HTTP/1.1" 400 Bad Request, it works one time but the or notify me get 400 error:done
+  
+todo: faceid each time needs to be reactivated, but still not works with sign in
+todo alert of cabin should be active untile departure because sometime passenger seek on cabin on the ferry:done
+todo:add settings profile
+todo:when click sign in with faceid it redirect to phone passcode not face check and not log in
+todo:forget password get not found in mobile
+todo:onsign up should push notification may an email has been sent pleease confirm etc, we already send email on signup backend 
+todo:i try sign in with inexstant user or not yet confirmed i see 403 forbidden in backend log but no message shown in mobile, throw message please confirm account if it already sign up , and other message if dont exist
+no message even if enter a non email address to login just show home page again and no warning
+todo:i can choose today ferry if it is in the past but today, example i book 22h for a trip that is scheduled 19h the same day it could be not possible, may could book the same day but should not be in the past that day
+todo when password in correct page reload to home page but no error shown just this in log  ERROR  AuthSlice login error: Incorrect password. Please try again.
+todo: i receive email on cabin available or passenger or vehicule, any alert i have set but do not receive push notification on mobile, i receive push notification for example for trip reminder before 2h and 24hours, could you add push notif for that availaibility if not yet?
+
+todo: idont see cabin and vehicule logo(red,gree etc) in each search result, see only remaning passengers:done
+todo:on add cabin payment page after click agree, it stil grayed the button pay:done
+todo add cabin invoice to my booking and cabin availaibility alert made should be updated after booking the cabin? and add cabin to trip details
+todo:add calendar price routes search, and arrow to go forward in days and backward, to see prices and availaibility etc
+todo:add signup at the end if user book without registration, also add possibility to search its trip like on frontend by email and booking reference
+
+Important note about cabin 
+  alerts:
+  For a notified cabin alert to
+  navigate to the "Add Cabin"
+  screen, it must have a booking_id
+   associated with it. This means:
+  - Cabin alerts created from the
+  Booking Details page (linked to a
+   specific booking) will navigate
+  to AddCabin
+  - General cabin alerts created
+  from Search Results (not linked
+  to a booking) will show an info
+  dialog instead
+
+  If your cabin alerts are not
+  navigating, they might be general
+   alerts without a booking_id. In
+  that case, the app shows an alert
+   dialog saying "Availability
+  found! Search for this route to
+  book now!"
+
+API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]
+
+todo:click cabin avalaibilty alert get:404 not found:done
+todo:sign out should redirect to home page, actually i logout but still in same page, and faceid activated but after logout it do not work
+todo:i agree checkbox should appear when it is not selected, it is blank on blank when not selected actually
+
+to test all:
+All done! Here's the summary:
+
+  Deployment Complete
+
+  Dependencies Installed
+
+  - qrcode - QR code generation for
+   E-Tickets
+  - pillow - Image processing
+  (required by qrcode)
+
+  Database Migration
+
+  - booking_reminders table already
+   exists
+  - All migrations merged and
+  stamped
+
+  Containers Rebuilt & Restarted
+
+  - maritime-backend-dev - API
+  server
+  - maritime-celery-dev - Celery
+  worker
+  - maritime-celery-beat-dev -
+  Scheduled tasks
+
+  E-Ticket Endpoint Testing
+
+  # By booking ID
+  curl http://localhost:8010/api/v1
+  /bookings/3/eticket -o
+  eticket.pdf
+  # Result: PDF document, version 
+  1.4, 2 pages ✓
+
+  # By booking reference (with 
+  email for guest bookings)
+  curl "http://localhost:8010/api/v
+  1/bookings/reference/MRD7EAB8D5/e
+  ticket?email=test@example.com" -o
+   eticket.pdf
+  # Result: PDF document, version 
+  1.4, 2 pages ✓
+
+  Celery Beat Schedule
+
+  The departure reminder task runs
+  every 15 minutes checking for:
+  - 24h before departure → sends
+  reminder email with E-Ticket PDF
+  attached
+  - 2h before departure → sends
+  final reminder email
 
 ### Booking Flow
 

@@ -334,3 +334,99 @@ def expire_old_bookings_task(self):
 
     finally:
         db.close()
+
+
+@celery_app.task(
+    name="app.tasks.booking_tasks.complete_past_bookings",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=300  # 5 minutes
+)
+def complete_past_bookings_task(self):
+    """
+    Periodic task to mark confirmed bookings as completed after departure.
+
+    This task:
+    1. Finds all CONFIRMED bookings where departure_time has passed
+    2. Updates their status to COMPLETED
+    3. Also handles round-trip bookings (waits for return journey to complete)
+
+    Runs every hour to update booking statuses.
+    """
+    from app.database import SessionLocal
+    from app.models.booking import Booking, BookingStatusEnum
+
+    db = SessionLocal()
+
+    try:
+        logger.info("🔍 Starting past bookings completion check...")
+
+        # Get current time with some buffer (2 hours after departure)
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(hours=2)
+
+        # Find confirmed bookings where:
+        # - For one-way: departure_time has passed
+        # - For round-trip: return_departure_time has passed (or departure_time if no return)
+        completed_count = 0
+
+        # One-way bookings: departure has passed
+        one_way_bookings = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.CONFIRMED,
+            Booking.is_round_trip == False,
+            Booking.departure_time != None,
+            Booking.departure_time < cutoff_time
+        ).all()
+
+        for booking in one_way_bookings:
+            logger.info(f"✅ Completing one-way booking {booking.booking_reference}")
+            booking.status = BookingStatusEnum.COMPLETED
+            booking.updated_at = now
+            completed_count += 1
+
+        # Round-trip bookings: return departure has passed
+        round_trip_bookings = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.CONFIRMED,
+            Booking.is_round_trip == True,
+            Booking.return_departure_time != None,
+            Booking.return_departure_time < cutoff_time
+        ).all()
+
+        for booking in round_trip_bookings:
+            logger.info(f"✅ Completing round-trip booking {booking.booking_reference}")
+            booking.status = BookingStatusEnum.COMPLETED
+            booking.updated_at = now
+            completed_count += 1
+
+        # Round-trip bookings without return time: use outbound departure
+        round_trip_no_return = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.CONFIRMED,
+            Booking.is_round_trip == True,
+            Booking.return_departure_time == None,
+            Booking.departure_time != None,
+            Booking.departure_time < cutoff_time
+        ).all()
+
+        for booking in round_trip_no_return:
+            logger.info(f"✅ Completing round-trip booking (no return time) {booking.booking_reference}")
+            booking.status = BookingStatusEnum.COMPLETED
+            booking.updated_at = now
+            completed_count += 1
+
+        db.commit()
+
+        logger.info(f"✅ Completed {completed_count} past booking(s)")
+
+        return {
+            'status': 'success',
+            'completed_count': completed_count,
+            'checked_at': now.isoformat()
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Error completing past bookings: {str(e)}")
+        raise self.retry(exc=e)
+
+    finally:
+        db.close()

@@ -44,8 +44,15 @@ export const authService = {
         token_type: response.data.token_type,
         user: userResponse.data,
       };
-    } catch (error) {
-      throw new Error(getErrorMessage(error));
+    } catch (error: any) {
+      // Log error for debugging
+      console.error('Login error:', {
+        status: error?.response?.status,
+        detail: error?.response?.data?.detail,
+        message: error?.message,
+      });
+      const errorMessage = getErrorMessage(error);
+      throw new Error(errorMessage);
     }
   },
 
@@ -140,6 +147,28 @@ export const authService = {
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
+    }
+  },
+
+  // Register push notification token
+  async registerPushToken(pushToken: string): Promise<void> {
+    try {
+      await api.post('/auth/push-token', { push_token: pushToken });
+      console.log('Push token registered with backend');
+    } catch (error) {
+      console.error('Failed to register push token:', getErrorMessage(error));
+      // Don't throw - push token registration is not critical
+    }
+  },
+
+  // Remove push notification token
+  async removePushToken(): Promise<void> {
+    try {
+      await api.delete('/auth/push-token');
+      console.log('Push token removed from backend');
+    } catch (error) {
+      console.error('Failed to remove push token:', getErrorMessage(error));
+      // Don't throw - push token removal is not critical
     }
   },
 };

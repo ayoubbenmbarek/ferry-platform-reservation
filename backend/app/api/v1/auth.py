@@ -274,12 +274,13 @@ async def login(
     Returns a JWT access token for authenticated requests.
     """
     try:
-        user = authenticate_user(db, form_data.username, form_data.password)
+        # First check if user exists
+        user = db.query(User).filter(User.email == form_data.username).first()
+
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password",
-                headers={"WWW-Authenticate": "Bearer"},
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No account found with this email address. Please check your email or create a new account."
             )
 
         if not user.is_active:
@@ -292,6 +293,14 @@ async def login(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Please verify your email before logging in. Check your inbox for the verification link."
+            )
+
+        # Now verify password
+        if not verify_password(form_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password. Please try again.",
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
         # Update last login
@@ -345,11 +354,13 @@ async def login_with_email(
     Alternative login endpoint that accepts JSON data instead of form data.
     """
     try:
-        user = authenticate_user(db, login_data.email, login_data.password)
+        # First check if user exists
+        user = db.query(User).filter(User.email == login_data.email).first()
+
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No account found with this email address. Please check your email or create a new account."
             )
 
         if not user.is_active:
@@ -362,6 +373,13 @@ async def login_with_email(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Please verify your email before logging in. Check your inbox for the verification link."
+            )
+
+        # Now verify password
+        if not verify_password(login_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password. Please try again."
             )
 
         # Update last login
@@ -1136,4 +1154,75 @@ async def logout(
 
     Logs out the current user (client should discard the token).
     """
-    return {"message": "Successfully logged out"} 
+    return {"message": "Successfully logged out"}
+
+
+@router.post("/push-token")
+async def register_push_token(
+    token_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Register or update push notification token.
+
+    Stores the user's Expo push token for sending push notifications.
+    """
+    try:
+        push_token = token_data.get("push_token")
+        if not push_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="push_token is required"
+            )
+
+        # Validate Expo push token format
+        if not push_token.startswith("ExponentPushToken[") and not push_token.startswith("ExpoPushToken["):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid push token format"
+            )
+
+        current_user.push_token = push_token
+        current_user.push_token_updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+        logger.info(f"Push token registered for user {current_user.id}")
+        return {"message": "Push token registered successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Push token registration failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Push token registration failed: {str(e)}"
+        )
+
+
+@router.delete("/push-token")
+async def remove_push_token(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove push notification token.
+
+    Removes the user's push token (e.g., on logout or when notifications are disabled).
+    """
+    try:
+        current_user.push_token = None
+        current_user.push_token_updated_at = None
+        db.commit()
+
+        logger.info(f"Push token removed for user {current_user.id}")
+        return {"message": "Push token removed successfully"}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Push token removal failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Push token removal failed: {str(e)}"
+        ) 

@@ -3,6 +3,7 @@ Email service for sending booking confirmations and notifications.
 """
 import os
 import smtplib
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -14,6 +15,21 @@ from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def format_datetime(value, fmt='%B %d, %Y at %H:%M'):
+    """Jinja2 filter to format datetime - handles both datetime objects and ISO strings."""
+    if value is None:
+        return 'N/A'
+    if isinstance(value, str):
+        try:
+            # Parse ISO format string
+            value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            return value
+    if isinstance(value, datetime):
+        return value.strftime(fmt)
+    return str(value)
 
 class EmailService:
     """Service for handling email notifications."""
@@ -36,6 +52,8 @@ class EmailService:
             loader=FileSystemLoader(str(template_dir)),
             autoescape=select_autoescape(['html', 'xml'])
         )
+        # Add custom filter for datetime formatting (handles both datetime objects and ISO strings)
+        self.jinja_env.filters['format_datetime'] = format_datetime
 
     def send_email(
         self,
@@ -269,28 +287,64 @@ class EmailService:
     def send_departure_reminder(
         self,
         booking_data: Dict[str, Any],
-        to_email: str
+        to_email: str,
+        reminder_type: str = "24h",
+        journey_type: str = "outbound",
+        passengers: List[Dict[str, Any]] = None,
+        eticket_pdf: bytes = None,
     ) -> bool:
         """
-        Send departure reminder email (24 hours before departure).
+        Send departure reminder email with optional E-Ticket attachment.
 
         Args:
             booking_data: Dictionary containing booking information
             to_email: Recipient email address
+            reminder_type: "24h" or "2h" reminder
+            journey_type: "outbound" or "return" journey
+            passengers: List of passenger dictionaries
+            eticket_pdf: E-Ticket PDF bytes to attach
 
         Returns:
             bool: True if email sent successfully
         """
         try:
+            from datetime import datetime
             template = self.jinja_env.get_template('departure_reminder.html')
-            html_content = template.render(booking=booking_data)
 
-            subject = f"Departure Reminder - {booking_data['booking_reference']}"
+            # Prepare template context
+            context = {
+                'booking': booking_data,
+                'reminder_type': reminder_type,
+                'journey_type': journey_type,
+                'passengers': passengers or [],
+                'has_eticket': eticket_pdf is not None,
+                'base_url': booking_data.get('base_url', self.base_url),
+                'eticket_url': f"{self.base_url}/bookings/{booking_data.get('booking_reference')}/eticket",
+                'current_year': datetime.now().year,
+            }
+
+            html_content = template.render(**context)
+
+            # Determine subject based on reminder type
+            if reminder_type == "24h":
+                subject = f"Departure Tomorrow - {booking_data['booking_reference']}"
+            else:
+                subject = f"Departing in 2 Hours - {booking_data['booking_reference']}"
+
+            # Prepare attachments if E-Ticket provided
+            attachments = None
+            if eticket_pdf:
+                attachments = [{
+                    'content': eticket_pdf,
+                    'filename': f"eticket-{booking_data['booking_reference']}.pdf",
+                    'content_type': 'application/pdf'
+                }]
 
             return self.send_email(
                 to_email=to_email,
                 subject=subject,
-                html_content=html_content
+                html_content=html_content,
+                attachments=attachments
             )
         except Exception as e:
             logger.error(f"Failed to send departure reminder: {str(e)}")
@@ -425,6 +479,105 @@ class EmailService:
             )
         except Exception as e:
             logger.error(f"Failed to send availability alert: {str(e)}")
+            return False
+
+    def send_cabin_upgrade_confirmation(
+        self,
+        booking_data: Dict[str, Any],
+        cabin_data: Dict[str, Any],
+        to_email: str,
+        invoice_pdf: Optional[bytes] = None
+    ) -> bool:
+        """
+        Send cabin upgrade confirmation email with invoice.
+
+        Args:
+            booking_data: Original booking information
+            cabin_data: Cabin upgrade details (cabin_name, quantity, price, journey_type)
+            to_email: Recipient email address
+            invoice_pdf: Optional PDF invoice bytes
+
+        Returns:
+            bool: True if email sent successfully
+        """
+        try:
+            booking_ref = booking_data.get('booking_reference', 'N/A')
+            cabin_name = cabin_data.get('cabin_name', 'Cabin')
+            quantity = cabin_data.get('quantity', 1)
+            journey_type = cabin_data.get('journey_type', 'outbound')
+            total_price = cabin_data.get('total_price', 0)
+
+            # Build HTML content
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+                    .content {{ background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }}
+                    .cabin-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed; }}
+                    .price {{ font-size: 24px; font-weight: bold; color: #7c3aed; }}
+                    .journey-badge {{ display: inline-block; background: #e9d5ff; color: #7c3aed; padding: 4px 12px; border-radius: 20px; font-size: 12px; }}
+                    .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>🛏️ Cabin Added Successfully!</h1>
+                        <p>Your cabin upgrade has been confirmed</p>
+                    </div>
+                    <div class="content">
+                        <p>Dear {booking_data.get('contact_first_name', 'Customer')},</p>
+                        <p>Great news! Your cabin upgrade for booking <strong>#{booking_ref}</strong> has been successfully processed.</p>
+
+                        <div class="cabin-box">
+                            <span class="journey-badge">{'Return' if journey_type == 'return' else 'Outbound'} Journey</span>
+                            <h3 style="margin: 10px 0 5px 0;">{cabin_name}</h3>
+                            <p style="margin: 0; color: #666;">Quantity: {quantity}</p>
+                            <p class="price" style="margin: 15px 0 0 0;">€{total_price:.2f}</p>
+                        </div>
+
+                        <h3>Journey Details</h3>
+                        <p>
+                            <strong>Route:</strong> {booking_data.get('departure_port', '')} → {booking_data.get('arrival_port', '')}<br>
+                            <strong>Departure:</strong> {booking_data.get('departure_time', 'N/A')}<br>
+                            <strong>Vessel:</strong> {booking_data.get('vessel_name', 'N/A')}
+                        </p>
+
+                        <p>Your cabin upgrade invoice is attached to this email.</p>
+
+                        <p>Thank you for choosing our ferry service!</p>
+                    </div>
+                    <div class="footer">
+                        <p>Maritime Booking System | support@maritime-booking.com</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            subject = f"🛏️ Cabin Added to Booking #{booking_ref}"
+
+            if invoice_pdf:
+                return self.send_email_with_attachment(
+                    to_email=to_email,
+                    subject=subject,
+                    html_content=html_content,
+                    attachment_content=invoice_pdf,
+                    attachment_filename=f"cabin_upgrade_invoice_{booking_ref}.pdf",
+                    attachment_type="application/pdf"
+                )
+            else:
+                return self.send_email(
+                    to_email=to_email,
+                    subject=subject,
+                    html_content=html_content
+                )
+        except Exception as e:
+            logger.error(f"Failed to send cabin upgrade confirmation: {str(e)}")
             return False
 
 

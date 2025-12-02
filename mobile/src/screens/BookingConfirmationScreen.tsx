@@ -39,8 +39,13 @@ export default function BookingConfirmationScreen() {
           {
             name: 'Main',
             state: {
-              routes: [{ name: 'Bookings' }],
-              index: 2,
+              routes: [
+                { name: 'Home' },
+                { name: 'Search' },
+                { name: 'Bookings' },
+                { name: 'Profile' },
+              ],
+              index: 2, // Bookings tab
             },
           },
         ],
@@ -59,8 +64,13 @@ export default function BookingConfirmationScreen() {
           {
             name: 'Main',
             state: {
-              routes: [{ name: 'Search' }],
-              index: 1,
+              routes: [
+                { name: 'Home' },
+                { name: 'Search' },
+                { name: 'Bookings' },
+                { name: 'Profile' },
+              ],
+              index: 1, // Search tab
             },
           },
         ],

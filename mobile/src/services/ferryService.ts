@@ -31,8 +31,16 @@ export const ferryService = {
           vessel_name: result.vessel_name || result.vessel || 'Ferry',
           base_price: result.prices?.adult || result.base_price || result.price || 0,
           currency: result.currency || 'EUR',
+          // Passenger availability
           available_capacity: result.available_spaces?.passengers || result.available_capacity || result.available_seats || 100,
+          // Vehicle availability
           vehicle_capacity: result.available_spaces?.vehicles || result.vehicle_capacity || 50,
+          available_vehicle_space: result.available_spaces?.vehicles || result.available_vehicle_space || result.vehicle_capacity || 20,
+          // Cabin availability - from cabin_types if available
+          available_cabins: result.cabin_types?.reduce((sum: number, cabin: any) => sum + (cabin.available || 0), 0)
+            || result.available_cabins
+            || result.available_spaces?.cabins
+            || 10,
           amenities: result.amenities || ['WiFi', 'Restaurant'],
         }));
       };

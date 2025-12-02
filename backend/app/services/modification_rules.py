@@ -2,7 +2,7 @@
 Modification rules engine for booking modifications.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Tuple
 from app.models.booking import Booking, BookingStatusEnum
 
@@ -39,13 +39,21 @@ class ModificationRules:
             return False, "none", "Cannot modify completed bookings"
 
         # Rule 4: Cannot modify if departure has passed
-        if booking.departure_time and datetime.now(booking.departure_time.tzinfo) >= booking.departure_time:
-            return False, "none", "Cannot modify bookings after departure time has passed"
+        if booking.departure_time:
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=timezone.utc)
+            now_utc = datetime.now(timezone.utc)
+            if now_utc >= departure:
+                return False, "none", "Cannot modify bookings after departure time has passed"
 
         # Rule 5: Cannot modify if check-in is open
         if booking.departure_time:
-            checkin_opens_at = booking.departure_time - timedelta(hours=ModificationRules.CHECK_IN_HOURS_BEFORE)
-            current_time = datetime.now(booking.departure_time.tzinfo)
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=timezone.utc)
+            checkin_opens_at = departure - timedelta(hours=ModificationRules.CHECK_IN_HOURS_BEFORE)
+            current_time = datetime.now(timezone.utc)
 
             if current_time >= checkin_opens_at:
                 return False, "none", f"Check-in is already open. Modifications must be made at least {ModificationRules.CHECK_IN_HOURS_BEFORE} hours before departure"
@@ -65,7 +73,10 @@ class ModificationRules:
 
         # Rule 8: Check if booking is expired (pending bookings)
         if booking.status == BookingStatusEnum.PENDING and booking.expires_at:
-            if datetime.now(booking.expires_at.tzinfo) >= booking.expires_at:
+            expires = booking.expires_at
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) >= expires:
                 return False, "none", "Booking has expired. Please create a new booking"
 
         # All checks passed - full modification allowed
@@ -107,8 +118,11 @@ class ModificationRules:
 
         # Check-in timing
         if booking.departure_time:
-            checkin_opens_at = booking.departure_time - timedelta(hours=ModificationRules.CHECK_IN_HOURS_BEFORE)
-            hours_until_checkin = (checkin_opens_at - datetime.now(booking.departure_time.tzinfo)).total_seconds() / 3600
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=timezone.utc)
+            checkin_opens_at = departure - timedelta(hours=ModificationRules.CHECK_IN_HOURS_BEFORE)
+            hours_until_checkin = (checkin_opens_at - datetime.now(timezone.utc)).total_seconds() / 3600
 
             if hours_until_checkin < 24:
                 restrictions.append(f"Less than 24 hours until check-in opens")

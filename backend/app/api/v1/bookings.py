@@ -6,7 +6,7 @@ import uuid
 import os
 import logging
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -175,11 +175,15 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
         total_amount=db_booking.total_amount,
         currency=db_booking.currency,
         promo_code=db_booking.promo_code,
-        # Cabin information
+        # Cabin information (original selection during booking)
         cabin_id=db_booking.cabin_id,
         cabin_supplement=db_booking.cabin_supplement or 0.0,
+        cabin_name=db_booking.cabin.name if db_booking.cabin else None,
+        cabin_type=db_booking.cabin.cabin_type.value if db_booking.cabin and hasattr(db_booking.cabin.cabin_type, 'value') else (str(db_booking.cabin.cabin_type) if db_booking.cabin else None),
         return_cabin_id=db_booking.return_cabin_id,
         return_cabin_supplement=db_booking.return_cabin_supplement or 0.0,
+        return_cabin_name=db_booking.return_cabin.name if db_booking.return_cabin else None,
+        return_cabin_type=db_booking.return_cabin.cabin_type.value if db_booking.return_cabin and hasattr(db_booking.return_cabin.cabin_type, 'value') else (str(db_booking.return_cabin.cabin_type) if db_booking.return_cabin else None),
         # Special requirements
         special_requests=db_booking.special_requests,
         # Timestamps
@@ -300,11 +304,44 @@ async def create_booking(
 ):
     """
     Create a new ferry booking.
-    
+
     Creates a booking with the specified ferry operator and returns
     the booking confirmation details.
     """
     try:
+        # Validate departure time is not in the past
+        if booking_data.departure_time:
+            now = datetime.utcnow()
+            # Add 1 hour buffer before departure for check-in
+            min_booking_time = now + timedelta(hours=1)
+
+            if booking_data.departure_time < now:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot book a ferry that has already departed"
+                )
+            elif booking_data.departure_time < min_booking_time:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Bookings must be made at least 1 hour before departure"
+                )
+
+        # Validate return departure time if round trip
+        if booking_data.is_round_trip and booking_data.return_departure_time:
+            now = datetime.utcnow()
+            min_booking_time = now + timedelta(hours=1)
+
+            if booking_data.return_departure_time < now:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot book a return ferry that has already departed"
+                )
+            elif booking_data.return_departure_time < min_booking_time:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Return bookings must be made at least 1 hour before departure"
+                )
+
         # Generate unique booking reference
         booking_reference = generate_booking_reference()
         
@@ -453,7 +490,6 @@ async def create_booking(
         total_amount = discounted_subtotal + tax_amount
 
         # Calculate expiration time (30 minutes from now for pending bookings)
-        from datetime import datetime, timedelta
         expires_at = datetime.utcnow() + timedelta(minutes=30)
 
         # Create booking record
@@ -1087,6 +1123,7 @@ class AddCabinRequest(BaseModel):
     cabin_id: int
     quantity: int = 1
     journey_type: Optional[str] = "outbound"  # 'outbound' or 'return'
+    alert_id: Optional[int] = None  # Optional alert to mark as fulfilled
 
 
 @router.post("/{booking_id}/add-cabin", response_model=BookingResponse)
@@ -1214,6 +1251,15 @@ async def add_cabin_to_booking(
         booking.total_amount = total_amount_new
         booking.updated_at = datetime.utcnow()
 
+        # Mark alert as fulfilled if provided
+        if cabin_request.alert_id:
+            from app.models.availability_alert import AvailabilityAlert
+            alert = db.query(AvailabilityAlert).filter(AvailabilityAlert.id == cabin_request.alert_id).first()
+            if alert:
+                alert.status = "fulfilled"
+                alert.notified_at = datetime.utcnow()
+                logger.info(f"Marked alert {cabin_request.alert_id} as fulfilled")
+
         db.commit()
         db.refresh(booking)
 
@@ -1314,6 +1360,19 @@ async def cancel_booking(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Booking cannot be cancelled"
             )
+
+        # Check if departure has already passed
+        if booking.departure_time:
+            from datetime import timezone as tz
+            now_utc = datetime.now(tz.utc)
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=tz.utc)
+            if departure < now_utc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot cancel a booking after departure. The ferry has already departed."
+                )
 
         # Check 7-day cancellation restriction (unless booking has cancellation protection)
         # Cancellation protection is stored in booking extra_data field
@@ -1951,4 +2010,244 @@ async def get_cabin_upgrade_invoice(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate cabin upgrade invoice: {str(e)}"
+        )
+
+
+@router.get("/{booking_id}/eticket")
+async def get_booking_eticket(
+    booking_id: int,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download E-Ticket PDF with QR code for a booking.
+
+    Available for confirmed bookings. User must own the booking or be admin.
+    The E-Ticket includes a QR code for check-in at the port.
+    """
+    try:
+        import io
+        from app.services.eticket_service import eticket_service
+
+        # Get booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check user permission
+        if current_user:
+            if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this booking"
+                )
+        elif booking.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authentication required"
+            )
+
+        # Check booking status - must be confirmed
+        if booking.status != BookingStatusEnum.CONFIRMED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="E-Ticket only available for confirmed bookings"
+            )
+
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'booking_reference': booking.booking_reference,
+            'operator': booking.operator,
+            'departure_port': booking.departure_port,
+            'arrival_port': booking.arrival_port,
+            'departure_time': booking.departure_time.isoformat() if booking.departure_time else None,
+            'arrival_time': booking.arrival_time.isoformat() if booking.arrival_time else None,
+            'vessel_name': booking.vessel_name,
+            'is_round_trip': booking.is_round_trip,
+            'return_operator': booking.return_operator,
+            'return_departure_port': booking.return_departure_port,
+            'return_arrival_port': booking.return_arrival_port,
+            'return_departure_time': booking.return_departure_time.isoformat() if booking.return_departure_time else None,
+            'return_arrival_time': booking.return_arrival_time.isoformat() if booking.return_arrival_time else None,
+            'return_vessel_name': booking.return_vessel_name,
+            'contact_email': booking.contact_email,
+            'contact_phone': booking.contact_phone,
+            'contact_first_name': booking.contact_first_name,
+            'contact_last_name': booking.contact_last_name,
+            'total_passengers': booking.total_passengers,
+            'total_vehicles': booking.total_vehicles,
+            'status': booking.status.value if booking.status else 'CONFIRMED',
+        }
+
+        # Get passengers
+        passengers = []
+        for p in booking.passengers:
+            passengers.append({
+                'first_name': p.first_name,
+                'last_name': p.last_name,
+                'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                'date_of_birth': str(p.date_of_birth) if p.date_of_birth else None,
+                'nationality': p.nationality,
+            })
+
+        # Get vehicles
+        vehicles = []
+        for v in booking.vehicles:
+            vehicles.append({
+                'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                'make': v.make,
+                'model': v.model,
+                'license_plate': v.license_plate,
+            })
+
+        # Generate E-Ticket PDF
+        pdf_content = eticket_service.generate_eticket(
+            booking=booking_data,
+            passengers=passengers,
+            vehicles=vehicles
+        )
+
+        # Return as downloadable file
+        filename = f"eticket_{booking.booking_reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate E-Ticket: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate E-Ticket: {str(e)}"
+        )
+
+
+@router.get("/reference/{booking_reference}/eticket")
+async def get_booking_eticket_by_reference(
+    booking_reference: str,
+    email: Optional[str] = Query(None, description="Contact email for verification"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download E-Ticket PDF by booking reference.
+
+    For guest bookings, email verification is required.
+    """
+    try:
+        import io
+        from app.services.eticket_service import eticket_service
+
+        # Find booking by reference
+        booking = db.query(Booking).filter(
+            Booking.booking_reference == booking_reference.upper()
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # For guest bookings, verify email
+        if not booking.user_id:
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email verification required for guest bookings"
+                )
+            if email.lower() != booking.contact_email.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Email does not match booking"
+                )
+
+        # Check booking status
+        if booking.status != BookingStatusEnum.CONFIRMED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="E-Ticket only available for confirmed bookings"
+            )
+
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'booking_reference': booking.booking_reference,
+            'operator': booking.operator,
+            'departure_port': booking.departure_port,
+            'arrival_port': booking.arrival_port,
+            'departure_time': booking.departure_time.isoformat() if booking.departure_time else None,
+            'arrival_time': booking.arrival_time.isoformat() if booking.arrival_time else None,
+            'vessel_name': booking.vessel_name,
+            'is_round_trip': booking.is_round_trip,
+            'return_operator': booking.return_operator,
+            'return_departure_port': booking.return_departure_port,
+            'return_arrival_port': booking.return_arrival_port,
+            'return_departure_time': booking.return_departure_time.isoformat() if booking.return_departure_time else None,
+            'return_arrival_time': booking.return_arrival_time.isoformat() if booking.return_arrival_time else None,
+            'return_vessel_name': booking.return_vessel_name,
+            'contact_email': booking.contact_email,
+            'contact_phone': booking.contact_phone,
+            'contact_first_name': booking.contact_first_name,
+            'contact_last_name': booking.contact_last_name,
+            'total_passengers': booking.total_passengers,
+            'total_vehicles': booking.total_vehicles,
+            'status': booking.status.value if booking.status else 'CONFIRMED',
+        }
+
+        # Get passengers
+        passengers = []
+        for p in booking.passengers:
+            passengers.append({
+                'first_name': p.first_name,
+                'last_name': p.last_name,
+                'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                'date_of_birth': str(p.date_of_birth) if p.date_of_birth else None,
+                'nationality': p.nationality,
+            })
+
+        # Get vehicles
+        vehicles = []
+        for v in booking.vehicles:
+            vehicles.append({
+                'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                'make': v.make,
+                'model': v.model,
+                'license_plate': v.license_plate,
+            })
+
+        # Generate E-Ticket PDF
+        pdf_content = eticket_service.generate_eticket(
+            booking=booking_data,
+            passengers=passengers,
+            vehicles=vehicles
+        )
+
+        # Return as downloadable file
+        filename = f"eticket_{booking.booking_reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate E-Ticket: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate E-Ticket: {str(e)}"
         )

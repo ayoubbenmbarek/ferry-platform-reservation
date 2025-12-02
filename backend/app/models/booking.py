@@ -147,7 +147,8 @@ class Booking(Base):
     meals = relationship("BookingMeal", back_populates="booking", cascade="all, delete-orphan")
     modifications = relationship("BookingModification", back_populates="booking", cascade="all, delete-orphan")
     booking_cabins = relationship("BookingCabin", back_populates="booking", cascade="all, delete-orphan")
-    
+    reminders = relationship("BookingReminder", back_populates="booking", cascade="all, delete-orphan")
+
     def __repr__(self):
         return f"<Booking(id={self.id}, ref='{self.booking_reference}', status='{self.status.value}')>"
     

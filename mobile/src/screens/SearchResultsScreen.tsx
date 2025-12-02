@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,6 +17,9 @@ import { selectOutbound, selectReturn } from '../store/slices/searchSlice';
 import { setSelectedSchedule, setReturnSchedule } from '../store/slices/bookingSlice';
 import { RootStackParamList, FerrySchedule } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
+import AvailabilityBadge from '../components/AvailabilityBadge';
+import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
+import { AlertType } from '../services/alertService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'SearchResults'>;
@@ -50,6 +53,32 @@ export default function SearchResultsScreen() {
   };
 
   const [showReturn, setShowReturn] = React.useState(false);
+
+  // Alert modal state
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [selectedAlertFerry, setSelectedAlertFerry] = useState<FerrySchedule | null>(null);
+  const [selectedAlertType, setSelectedAlertType] = useState<AlertType>('passenger');
+  const [alertToastMessage, setAlertToastMessage] = useState<string | null>(null);
+
+  // Get search params from state
+  const {
+    departurePort,
+    arrivalPort,
+    departureDate,
+    returnDate,
+    vehicleSelections: selectedVehicles,
+  } = useAppSelector((state) => state.search);
+
+  const handleOpenAlertModal = (ferry: FerrySchedule, alertType: AlertType) => {
+    setSelectedAlertFerry(ferry);
+    setSelectedAlertType(alertType);
+    setShowAlertModal(true);
+  };
+
+  const handleAlertSuccess = (message: string) => {
+    setAlertToastMessage(message);
+    setTimeout(() => setAlertToastMessage(null), 5000);
+  };
 
   // Find cheapest ferry for Best Price highlighting
   const cheapestOutboundId = React.useMemo(() => {
@@ -186,42 +215,45 @@ export default function SearchResultsScreen() {
               </View>
             </View>
 
-            {/* Availability */}
+            {/* Availability Badges */}
             <View style={styles.availabilityRow}>
-              <View style={styles.availabilityBadge}>
-                <Ionicons
-                  name="people"
-                  size={14}
-                  color={schedule.available_capacity > 50 ? colors.success : colors.warning}
-                />
-                <Text
-                  style={[
-                    styles.availabilityText,
-                    { color: schedule.available_capacity > 50 ? colors.success : colors.warning },
-                  ]}
-                >
-                  {schedule.available_capacity > 100
-                    ? 'Good availability'
-                    : schedule.available_capacity > 50
-                    ? 'Limited seats'
-                    : 'Few seats left'}
-                </Text>
-              </View>
-              {schedule.amenities?.length > 0 && (
-                <View style={styles.amenitiesRow}>
-                  {schedule.amenities.slice(0, 3).map((amenity, index) => (
-                    <Chip
-                      key={index}
-                      compact
-                      style={styles.amenityChip}
-                      textStyle={styles.amenityChipText}
-                    >
-                      {amenity}
-                    </Chip>
-                  ))}
-                </View>
-              )}
+              <AvailabilityBadge
+                type="passenger"
+                count={schedule.available_capacity ?? 0}
+                needed={adults + children}
+                compact
+                onNotifyPress={() => handleOpenAlertModal(schedule, 'passenger')}
+              />
+              <AvailabilityBadge
+                type="vehicle"
+                count={schedule.available_vehicle_space ?? 0}
+                needed={selectedVehicles.length > 0 ? selectedVehicles.length : 1}
+                compact
+                onNotifyPress={() => handleOpenAlertModal(schedule, 'vehicle')}
+              />
+              <AvailabilityBadge
+                type="cabin"
+                count={schedule.available_cabins ?? 0}
+                compact
+                onNotifyPress={() => handleOpenAlertModal(schedule, 'cabin')}
+              />
             </View>
+
+            {/* Amenities */}
+            {schedule.amenities?.length > 0 && (
+              <View style={styles.amenitiesRow}>
+                {schedule.amenities.slice(0, 3).map((amenity, index) => (
+                  <Chip
+                    key={index}
+                    compact
+                    style={styles.amenityChip}
+                    textStyle={styles.amenityChipText}
+                  >
+                    {amenity}
+                  </Chip>
+                ))}
+              </View>
+            )}
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -307,6 +339,50 @@ export default function SearchResultsScreen() {
         renderItem={({ item }) => renderFerryCard(item, showReturn)}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+      />
+
+      {/* Toast Message */}
+      {alertToastMessage && (
+        <View style={styles.toastContainer}>
+          <View style={styles.toast}>
+            <Ionicons name="checkmark-circle" size={20} color="#059669" />
+            <Text style={styles.toastText}>{alertToastMessage}</Text>
+            <TouchableOpacity onPress={() => setAlertToastMessage(null)}>
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Availability Alert Modal */}
+      <AvailabilityAlertModal
+        visible={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        ferry={selectedAlertFerry ? {
+          operator: selectedAlertFerry.operator,
+          departure_time: selectedAlertFerry.departure_time,
+          arrival_time: selectedAlertFerry.arrival_time,
+          departure_port: selectedAlertFerry.departure_port,
+          arrival_port: selectedAlertFerry.arrival_port,
+          available_seats: selectedAlertFerry.available_capacity,
+          available_vehicle_space: selectedAlertFerry.available_vehicle_space,
+          available_cabins: selectedAlertFerry.available_cabins,
+        } : null}
+        alertType={selectedAlertType}
+        searchParams={{
+          departurePort,
+          arrivalPort,
+          departureDate,
+          returnDate,
+          isRoundTrip,
+          adults,
+          children,
+          infants,
+          vehicleType: selectedVehicles.length > 0 ? selectedVehicles[0].type : undefined,
+          vehicleLength: selectedVehicles.length > 0 ? selectedVehicles[0].length : undefined,
+        }}
+        isReturnJourney={showReturn}
+        onSuccess={handleAlertSuccess}
       />
     </SafeAreaView>
   );
@@ -536,5 +612,31 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     marginVertical: 0,
     marginHorizontal: 0,
+  },
+  toastContainer: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    left: spacing.md,
+    right: spacing.md,
+  },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  toastText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#065F46',
+    fontWeight: '500',
   },
 });

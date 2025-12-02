@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
-import { Text, Card, Button, ActivityIndicator, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform, Linking } from 'react-native';
+import { Text, Card, Button, ActivityIndicator, Divider, Checkbox } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,7 +11,10 @@ import { CardField, useConfirmPayment, CardFieldInput } from '@stripe/stripe-rea
 import { useAppSelector } from '../hooks/useAppDispatch';
 import { bookingService } from '../services/bookingService';
 import { ferryService } from '../services/ferryService';
-import { RootStackParamList, Booking, Cabin, Meal } from '../types';
+import { notificationService } from '../services/notificationService';
+import { cabinService } from '../services/cabinService';
+import { alertService } from '../services/alertService';
+import { RootStackParamList, Booking, Cabin, Meal, CabinUpgradePaymentParams } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { CANCELLATION_PROTECTION_PRICE } from '../constants/config';
 
@@ -29,7 +32,11 @@ const VEHICLE_PRICE = 50;
 export default function PaymentScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
-  const { bookingId, cabinSelections, returnCabinSelections, mealSelections, returnMealSelections } = route.params as any;
+  const { bookingId, cabinUpgrade, cabinSelections, returnCabinSelections, mealSelections, returnMealSelections } = route.params as any;
+
+  // Check if this is a cabin upgrade payment
+  const isCabinUpgrade = !!cabinUpgrade;
+  const cabinUpgradeData = cabinUpgrade as CabinUpgradePaymentParams | undefined;
 
   // Stripe hook for payment confirmation
   const { confirmPayment, loading: stripeLoading } = useConfirmPayment();
@@ -47,14 +54,19 @@ export default function PaymentScreen() {
   const [timeRemaining, setTimeRemaining] = useState<{ seconds: number; percentage: number }>({ seconds: 0, percentage: 100 });
   const [cardDetails, setCardDetails] = useState<CardFieldInput.Details | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
     loadData();
   }, [bookingId]);
 
-  // Countdown timer
+  // Countdown timer - only for new bookings (not cabin upgrades)
   useEffect(() => {
-    if (!booking) return;
+    // Skip timer for cabin upgrades - the booking is already confirmed
+    if (!booking || isCabinUpgrade) return;
+
+    // Skip timer for already confirmed bookings
+    if (booking.status === 'confirmed') return;
 
     const calculateTimeRemaining = () => {
       const now = new Date();
@@ -90,13 +102,13 @@ export default function PaymentScreen() {
         Alert.alert(
           'Booking Expired',
           'Your booking has expired. Please start a new search.',
-          [{ text: 'OK', onPress: () => navigation.navigate('MainTabs' as any) }]
+          [{ text: 'OK', onPress: () => navigation.navigate('Main' as any) }]
         );
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [booking, navigation]);
+  }, [booking, navigation, isCabinUpgrade]);
 
   // Format seconds to MM:SS for countdown
   const formatCountdown = (seconds: number) => {
@@ -166,7 +178,10 @@ export default function PaymentScreen() {
   const subtotal = outboundFare + returnFare + outboundVehicleCost + returnVehicleCost + cabinTotal + mealTotal + cancellationCost;
   const taxRate = 0.10; // 10% tax
   const taxAmount = subtotal * taxRate;
-  const totalAmount = subtotal + taxAmount;
+  const calculatedTotal = subtotal + taxAmount;
+
+  // Use booking's total_amount from backend if available, otherwise use calculated total
+  const totalAmount = booking?.total_amount && booking.total_amount > 0 ? booking.total_amount : calculatedTotal;
 
   const formatTime = (dateString: string) => {
     try {
@@ -197,11 +212,20 @@ export default function PaymentScreen() {
     setError(null);
 
     try {
-      // Use booking's total_amount from backend, or calculated totalAmount as fallback
-      const paymentAmount = booking.total_amount || totalAmount;
+      // Calculate payment amount based on payment type
+      let paymentAmount: number;
+      if (isCabinUpgrade && cabinUpgradeData) {
+        // For cabin upgrades, use the cabin upgrade total (with tax)
+        const cabinSubtotal = cabinUpgradeData.totalAmount;
+        const cabinTax = cabinSubtotal * 0.10; // 10% tax
+        paymentAmount = cabinSubtotal + cabinTax;
+      } else {
+        // For regular bookings, use booking's total_amount from backend, or calculated totalAmount as fallback
+        paymentAmount = booking.total_amount || totalAmount;
+      }
 
       // Create payment intent and get client secret
-      const paymentIntent = await bookingService.createPaymentIntent(bookingId, paymentAmount, 'EUR');
+      const paymentIntent = await bookingService.createPaymentIntent(bookingId, paymentAmount, 'EUR', isCabinUpgrade);
 
       if (!paymentIntent.client_secret) {
         throw new Error('Failed to get payment client secret');
@@ -230,9 +254,54 @@ export default function PaymentScreen() {
         const result = await bookingService.confirmPayment(bookingId, paymentIntent.payment_intent_id);
 
         if (result.success) {
-          navigation.replace('BookingConfirmation', {
-            bookingReference: booking.booking_reference,
-          });
+          if (isCabinUpgrade && cabinUpgradeData) {
+            // Handle cabin upgrade: add cabins to booking
+            // Backend handles: adding cabin, marking alert fulfilled, sending invoice email
+            try {
+              for (const selection of cabinUpgradeData.cabinSelections) {
+                await cabinService.addCabinToBooking(
+                  bookingId,
+                  selection.cabinId,
+                  selection.quantity,
+                  cabinUpgradeData.journeyType,
+                  cabinUpgradeData.alertId // Pass alertId - backend marks it as fulfilled
+                );
+              }
+
+              Alert.alert(
+                'Cabin Added!',
+                'Your cabin has been successfully added to your booking. A confirmation email with invoice has been sent.',
+                [
+                  {
+                    text: 'View Booking',
+                    onPress: () => navigation.replace('BookingDetails', { bookingId }),
+                  },
+                ]
+              );
+            } catch (cabinError: any) {
+              console.error('Failed to add cabin:', cabinError);
+              Alert.alert(
+                'Payment Successful',
+                'Payment was successful but there was an issue adding the cabin. Please contact support.',
+                [
+                  {
+                    text: 'View Booking',
+                    onPress: () => navigation.replace('BookingDetails', { bookingId }),
+                  },
+                ]
+              );
+            }
+          } else {
+            // Normal booking payment flow
+            // Send booking confirmation notification
+            await notificationService.sendBookingConfirmation(booking);
+            // Schedule departure reminders
+            await notificationService.scheduleDepartureReminders(booking);
+
+            navigation.replace('BookingConfirmation', {
+              bookingReference: booking.booking_reference,
+            });
+          }
         } else {
           throw new Error('Payment confirmation failed');
         }
@@ -273,6 +342,147 @@ export default function PaymentScreen() {
     );
   }
 
+  // Calculate cabin upgrade totals
+  const cabinUpgradeSubtotal = cabinUpgradeData?.totalAmount || 0;
+  const cabinUpgradeTax = cabinUpgradeSubtotal * 0.10;
+  const cabinUpgradeTotal = cabinUpgradeSubtotal + cabinUpgradeTax;
+
+  // Render cabin upgrade payment UI
+  if (isCabinUpgrade && cabinUpgradeData) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <ScrollView contentContainerStyle={styles.content}>
+          {/* Cabin Upgrade Header */}
+          <Card style={styles.section}>
+            <Card.Content>
+              <View style={styles.upgradeHeader}>
+                <View style={styles.upgradeIconContainer}>
+                  <Ionicons name="bed-outline" size={28} color={colors.primary} />
+                </View>
+                <View style={styles.upgradeHeaderText}>
+                  <Text style={styles.upgradeTitle}>Add Cabin to Booking</Text>
+                  <Text style={styles.upgradeSubtitle}>#{booking.booking_reference}</Text>
+                </View>
+              </View>
+
+              <View style={styles.journeyBadge}>
+                <Ionicons name="boat-outline" size={14} color={colors.primary} />
+                <Text style={styles.journeyBadgeText}>
+                  {cabinUpgradeData.journeyType === 'return' ? 'Return Journey' : 'Outbound Journey'}
+                </Text>
+              </View>
+
+              <Text style={styles.routeInfoText}>
+                {cabinUpgradeData.journeyType === 'return'
+                  ? `${booking.return_departure_port || booking.arrival_port} → ${booking.return_arrival_port || booking.departure_port}`
+                  : `${booking.departure_port} → ${booking.arrival_port}`}
+              </Text>
+            </Card.Content>
+          </Card>
+
+          {/* Selected Cabins */}
+          <Card style={styles.section}>
+            <Card.Content>
+              <Text style={styles.sectionTitle}>Selected Cabins</Text>
+
+              {cabinUpgradeData.cabinSelections.map((selection, index) => (
+                <View key={index} style={styles.cabinSelectionRow}>
+                  <View style={styles.cabinSelectionInfo}>
+                    <Ionicons name="bed-outline" size={20} color={colors.textSecondary} />
+                    <View>
+                      <Text style={styles.cabinSelectionName}>Cabin #{selection.cabinId}</Text>
+                      <Text style={styles.cabinSelectionQty}>{selection.quantity}x @ €{selection.unitPrice.toFixed(2)}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.cabinSelectionPrice}>
+                    €{(selection.quantity * selection.unitPrice).toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+            </Card.Content>
+          </Card>
+
+          {/* Price Summary */}
+          <Card style={styles.section}>
+            <Card.Content>
+              <Text style={styles.sectionTitle}>Price Summary</Text>
+
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Cabin(s)</Text>
+                <Text style={styles.priceValue}>€{cabinUpgradeSubtotal.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Tax (10%)</Text>
+                <Text style={styles.priceValue}>€{cabinUpgradeTax.toFixed(2)}</Text>
+              </View>
+
+              <Divider style={styles.totalDivider} />
+
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total</Text>
+                <Text style={styles.totalValue}>€{cabinUpgradeTotal.toFixed(2)}</Text>
+              </View>
+            </Card.Content>
+          </Card>
+
+          {/* Payment Card */}
+          <Card style={styles.section}>
+            <Card.Content>
+              <Text style={styles.sectionTitle}>Payment Details</Text>
+
+              <CardField
+                postalCodeEnabled={false}
+                placeholders={{ number: '4242 4242 4242 4242' }}
+                cardStyle={{
+                  backgroundColor: colors.background,
+                  textColor: colors.text,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  fontSize: 16,
+                  placeholderColor: colors.textSecondary,
+                }}
+                style={styles.cardFieldContainer}
+                onCardChange={(details) => setCardDetails(details)}
+              />
+            </Card.Content>
+          </Card>
+
+          {/* Terms */}
+          <View style={styles.termsContainer}>
+            <Checkbox
+              status={agreedToTerms ? 'checked' : 'unchecked'}
+              onPress={() => setAgreedToTerms(!agreedToTerms)}
+              color={colors.primary}
+              uncheckedColor={colors.textSecondary}
+            />
+            <TouchableOpacity onPress={() => Linking.openURL('https://example.com/terms')}>
+              <Text style={styles.termsText}>
+                I agree to the <Text style={styles.termsLink}>Terms & Conditions</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Pay Button */}
+          <Button
+            mode="contained"
+            onPress={handlePayment}
+            disabled={!agreedToTerms || !cardDetails?.complete || isProcessing || stripeLoading}
+            loading={isProcessing || stripeLoading}
+            style={styles.payButton}
+            labelStyle={styles.payButtonLabel}
+          >
+            {isProcessing ? 'Processing...' : `Pay €${cabinUpgradeTotal.toFixed(2)}`}
+          </Button>
+
+          <View style={{ height: spacing.xl }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Regular booking payment UI
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -537,7 +747,6 @@ export default function PaymentScreen() {
             <Text style={styles.sectionTitle}>Card Details</Text>
             <Text style={styles.cardHint}>Enter your card information below</Text>
 
-            <View style={styles.cardFieldContainer}>
               <CardField
                 postalCodeEnabled={false}
                 placeholders={{
@@ -552,12 +761,11 @@ export default function PaymentScreen() {
                   fontSize: 16,
                   placeholderColor: colors.textSecondary,
                 }}
-                style={styles.cardField}
+                style={styles.cardFieldContainer}
                 onCardChange={(details) => {
                   setCardDetails(details);
                 }}
               />
-            </View>
 
             {/* Card validation feedback */}
             {cardDetails && !cardDetails.complete && cardDetails.validNumber === 'Invalid' && (
@@ -619,14 +827,44 @@ export default function PaymentScreen() {
 
       {/* Pay Button */}
       <View style={styles.bottomBar}>
+        {/* Terms and Conditions Checkbox */}
+        <TouchableOpacity
+          style={styles.termsContainer}
+          onPress={() => setAgreedToTerms(!agreedToTerms)}
+          activeOpacity={0.7}
+        >
+          <Checkbox
+            status={agreedToTerms ? 'checked' : 'unchecked'}
+            onPress={() => setAgreedToTerms(!agreedToTerms)}
+            color={colors.primary}
+            uncheckedColor={colors.textSecondary}
+          />
+          <Text style={styles.termsText}>
+            I agree to the{' '}
+            <Text
+              style={styles.termsLink}
+              onPress={() => Linking.openURL('https://maritime-reservations.com/terms')}
+            >
+              Terms & Conditions
+            </Text>
+            {' '}and{' '}
+            <Text
+              style={styles.termsLink}
+              onPress={() => Linking.openURL('https://maritime-reservations.com/privacy')}
+            >
+              Privacy Policy
+            </Text>
+          </Text>
+        </TouchableOpacity>
+
         <Button
           mode="contained"
           onPress={handlePayment}
           loading={isProcessing || stripeLoading}
-          disabled={isProcessing || stripeLoading || !cardDetails?.complete}
+          disabled={isProcessing || stripeLoading || !cardDetails?.complete || !agreedToTerms}
           style={[
             styles.payButton,
-            (!cardDetails?.complete && !isProcessing) && styles.payButtonDisabled,
+            ((!cardDetails?.complete || !agreedToTerms) && !isProcessing) && styles.payButtonDisabled,
           ]}
           contentStyle={styles.payButtonContent}
           icon="lock"
@@ -961,10 +1199,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardFieldContainer: {
-    marginBottom: spacing.md,
-  },
-  cardField: {
-    width: '100%',
     height: 50,
     marginVertical: spacing.sm,
   },
@@ -987,5 +1221,111 @@ const styles = StyleSheet.create({
   acceptedCardsText: {
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingRight: spacing.md,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
+  },
+  // Cabin upgrade styles
+  upgradeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  upgradeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  upgradeHeaderText: {
+    flex: 1,
+  },
+  upgradeTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  upgradeSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  journeyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary + '10',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  journeyBadgeText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.primary,
+  },
+  routeInfoText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  cabinSelectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  cabinSelectionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  cabinSelectionName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  cabinSelectionQty: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  cabinSelectionPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  totalDivider: {
+    marginVertical: spacing.sm,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  payButtonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

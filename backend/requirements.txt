@@ -48,6 +48,10 @@ aiosmtplib>=3.0.1
 # PDF generation
 reportlab>=4.0.8
 
+# QR code generation (for E-Tickets)
+qrcode>=7.4.2
+pillow>=10.0.0
+
 # Logging
 structlog>=23.2.0
 

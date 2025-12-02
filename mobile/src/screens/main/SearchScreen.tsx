@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO, isBefore, startOfDay } from 'date-fns';
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import {
@@ -525,7 +525,15 @@ export default function SearchScreen() {
         <View style={styles.dateContainer}>
           <TouchableOpacity
             style={[styles.dateInput, !isRoundTrip && styles.dateInputFull]}
-            onPress={() => setShowDeparturePicker(true)}
+            onPress={() => {
+              // Sync temp date with current selection or today
+              if (departureDate) {
+                setTempDepartureDate(parseISO(departureDate));
+              } else {
+                setTempDepartureDate(new Date());
+              }
+              setShowDeparturePicker(true);
+            }}
           >
             <Ionicons name="calendar" size={20} color={colors.primary} />
             <View style={styles.dateInputContent}>
@@ -539,7 +547,17 @@ export default function SearchScreen() {
           {isRoundTrip && (
             <TouchableOpacity
               style={styles.dateInput}
-              onPress={() => setShowReturnPicker(true)}
+              onPress={() => {
+                // Sync temp date with current selection, or departure date, or today + 7 days
+                if (returnDate) {
+                  setTempReturnDate(parseISO(returnDate));
+                } else if (departureDate) {
+                  setTempReturnDate(addDays(parseISO(departureDate), 1));
+                } else {
+                  setTempReturnDate(addDays(new Date(), 7));
+                }
+                setShowReturnPicker(true);
+              }}
             >
               <Ionicons name="calendar-outline" size={20} color={colors.secondary} />
               <View style={styles.dateInputContent}>
@@ -577,7 +595,10 @@ export default function SearchScreen() {
                     value={showDeparturePicker ? tempDepartureDate : tempReturnDate}
                     mode="date"
                     display="spinner"
-                    minimumDate={showDeparturePicker ? new Date() : (tempDepartureDate || new Date())}
+                    minimumDate={showDeparturePicker
+                      ? startOfDay(new Date())
+                      : startOfDay(departureDate ? parseISO(departureDate) : new Date())
+                    }
                     textColor={colors.text}
                     themeVariant="light"
                     onChange={(event, date) => {
@@ -596,7 +617,13 @@ export default function SearchScreen() {
                   mode="contained"
                   onPress={() => {
                     if (showDeparturePicker) {
-                      dispatch(setDepartureDate(format(tempDepartureDate, 'yyyy-MM-dd')));
+                      const newDepartureDate = format(tempDepartureDate, 'yyyy-MM-dd');
+                      dispatch(setDepartureDate(newDepartureDate));
+                      // Reset return date if it's before the new departure date
+                      if (returnDate && isBefore(parseISO(returnDate), tempDepartureDate)) {
+                        dispatch(setReturnDate(newDepartureDate));
+                        setTempReturnDate(tempDepartureDate);
+                      }
                       setShowDeparturePicker(false);
                     } else {
                       dispatch(setReturnDate(format(tempReturnDate, 'yyyy-MM-dd')));
@@ -617,12 +644,18 @@ export default function SearchScreen() {
                 value={tempDepartureDate}
                 mode="date"
                 display="default"
-                minimumDate={new Date()}
+                minimumDate={startOfDay(new Date())}
                 onChange={(event, date) => {
                   setShowDeparturePicker(false);
                   if (date) {
                     setTempDepartureDate(date);
-                    dispatch(setDepartureDate(format(date, 'yyyy-MM-dd')));
+                    const newDepartureDate = format(date, 'yyyy-MM-dd');
+                    dispatch(setDepartureDate(newDepartureDate));
+                    // Reset return date if it's before the new departure date
+                    if (returnDate && isBefore(parseISO(returnDate), date)) {
+                      dispatch(setReturnDate(newDepartureDate));
+                      setTempReturnDate(date);
+                    }
                   }
                 }}
               />
@@ -632,7 +665,7 @@ export default function SearchScreen() {
                 value={tempReturnDate}
                 mode="date"
                 display="default"
-                minimumDate={tempDepartureDate || new Date()}
+                minimumDate={departureDate ? startOfDay(parseISO(departureDate)) : startOfDay(new Date())}
                 onChange={(event, date) => {
                   setShowReturnPicker(false);
                   if (date) {

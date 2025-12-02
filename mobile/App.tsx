@@ -12,6 +12,8 @@ import { store } from './src/store';
 import RootNavigator from './src/navigation/RootNavigator';
 import { lightTheme } from './src/constants/theme';
 import { STRIPE_PUBLISHABLE_KEY } from './src/constants/config';
+import { NotificationProvider } from './src/contexts/NotificationContext';
+import { NetworkProvider } from './src/contexts/NetworkContext';
 
 export default function App() {
   return (
@@ -24,8 +26,12 @@ export default function App() {
           <PaperProvider theme={lightTheme}>
             <SafeAreaProvider>
               <NavigationContainer>
-                <StatusBar style="auto" />
-                <RootNavigator />
+                <NetworkProvider>
+                  <NotificationProvider>
+                    <StatusBar style="auto" />
+                    <RootNavigator />
+                  </NotificationProvider>
+                </NetworkProvider>
               </NavigationContainer>
             </SafeAreaProvider>
           </PaperProvider>

@@ -18,7 +18,8 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
-import { login, googleLogin, appleLogin, clearError } from '../../store/slices/authSlice';
+import { login, googleLogin, appleLogin, biometricLogin, clearError } from '../../store/slices/authSlice';
+import { biometricService, BiometricType } from '../../services/biometricService';
 import { AuthStackParamList, RootStackParamList } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import { GOOGLE_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID } from '../../constants/config';
@@ -36,11 +37,26 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState<BiometricType>('none');
+  const [storedEmail, setStoredEmail] = useState<string | null>(null);
 
-  // Clear error when screen mounts
+  // Check biometric availability and clear error when screen mounts
   React.useEffect(() => {
     dispatch(clearError());
     setLocalError(null);
+
+    const checkBiometric = async () => {
+      const status = await biometricService.getStatus();
+      setBiometricAvailable(status.isAvailable && status.isEnabled);
+      setBiometricType(status.biometricType);
+
+      if (status.isEnabled) {
+        const email = await biometricService.getStoredEmail();
+        setStoredEmail(email);
+      }
+    };
+    checkBiometric();
   }, [dispatch]);
 
   // Google Auth - webClientId is used for Expo Go development
@@ -70,17 +86,52 @@ export default function LoginScreen() {
     }
   };
 
+  // Email validation helper
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) {
+    // Validate empty fields
+    if (!email.trim()) {
+      setLocalError('Please enter your email address');
       return;
     }
+
+    // Validate email format
+    if (!isValidEmail(email.trim())) {
+      setLocalError('Please enter a valid email address');
+      return;
+    }
+
+    if (!password) {
+      setLocalError('Please enter your password');
+      return;
+    }
+
     setLocalError(null);
     dispatch(clearError());
-    const result = await dispatch(login({ email, password }));
-    if (login.fulfilled.match(result)) {
-      navigateAfterAuth();
-    } else if (login.rejected.match(result)) {
-      setLocalError(result.payload as string);
+
+    try {
+      const result = await dispatch(login({ email: email.trim(), password }));
+      console.log('Login result:', {
+        type: result.type,
+        payload: result.payload,
+        meta: result.meta
+      });
+
+      if (login.fulfilled.match(result)) {
+        navigateAfterAuth();
+      } else if (login.rejected.match(result)) {
+        // Get error message from the rejected action
+        const errorMessage = result.payload as string || 'Login failed. Please try again.';
+        console.log('Setting login error:', errorMessage);
+        setLocalError(errorMessage);
+      }
+    } catch (error: any) {
+      console.error('Login catch error:', error);
+      setLocalError(error.message || 'An unexpected error occurred. Please try again.');
     }
   };
 
@@ -114,6 +165,35 @@ export default function LoginScreen() {
         console.error('Apple Sign In Error:', e);
       }
     }
+  };
+
+  const handleBiometricLogin = async () => {
+    setLocalError(null);
+    dispatch(clearError());
+    const result = await dispatch(biometricLogin());
+    if (biometricLogin.fulfilled.match(result)) {
+      navigateAfterAuth();
+    } else if (biometricLogin.rejected.match(result)) {
+      const error = result.payload as string;
+      if (error !== 'fallback' && error !== 'Authentication cancelled') {
+        setLocalError(error);
+      }
+    }
+  };
+
+  const getBiometricIcon = () => {
+    switch (biometricType) {
+      case 'face':
+        return Platform.OS === 'ios' ? 'scan' : 'happy';
+      case 'fingerprint':
+        return 'finger-print';
+      default:
+        return 'lock-closed';
+    }
+  };
+
+  const getBiometricLabel = () => {
+    return biometricService.getBiometricName(biometricType);
   };
 
   return (
@@ -155,6 +235,7 @@ export default function LoginScreen() {
           {/* Error Message */}
           {localError && (
             <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color={colors.error} style={{ marginRight: 8 }} />
               <Text style={styles.errorText}>{localError}</Text>
             </View>
           )}
@@ -215,6 +296,26 @@ export default function LoginScreen() {
             <Text style={styles.dividerText}>or continue with</Text>
             <Divider style={styles.divider} />
           </View>
+
+          {/* Biometric Login */}
+          {biometricAvailable && storedEmail && (
+            <View style={styles.biometricSection}>
+              <TouchableOpacity
+                style={styles.biometricButton}
+                onPress={handleBiometricLogin}
+                disabled={isLoading}
+              >
+                <View style={styles.biometricIconContainer}>
+                  <Ionicons name={getBiometricIcon() as any} size={32} color={colors.primary} />
+                </View>
+                <View style={styles.biometricTextContainer}>
+                  <Text style={styles.biometricTitle}>Sign in with {getBiometricLabel()}</Text>
+                  <Text style={styles.biometricEmail}>{storedEmail}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Social Login */}
           <View style={styles.socialButtons}>
@@ -286,14 +387,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FEE2E2',
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.error + '30',
   },
   errorText: {
+    flex: 1,
     color: colors.error,
-    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
   },
   form: {
     marginBottom: spacing.lg,
@@ -364,5 +471,39 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  biometricSection: {
+    marginBottom: spacing.lg,
+  },
+  biometricButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  biometricIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  biometricTextContainer: {
+    flex: 1,
+  },
+  biometricTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  biometricEmail: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });

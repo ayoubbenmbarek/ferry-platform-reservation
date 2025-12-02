@@ -203,6 +203,24 @@ export const bookingService = {
     }
   },
 
+  // Get E-Ticket PDF URL (for download)
+  getETicketUrl(bookingId: number): string {
+    // Return the full URL for the E-Ticket endpoint
+    return `/bookings/${bookingId}/eticket`;
+  },
+
+  // Download E-Ticket PDF
+  async downloadETicket(bookingId: number): Promise<ArrayBuffer> {
+    try {
+      const response = await api.get(`/bookings/${bookingId}/eticket`, {
+        responseType: 'arraybuffer',
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+
   // Apply promo code
   async applyPromoCode(
     bookingId: number,
@@ -219,14 +237,21 @@ export const bookingService = {
   },
 
   // Create payment intent
-  async createPaymentIntent(bookingId: number, amount: number, currency: string = 'EUR'): Promise<PaymentIntent> {
+  async createPaymentIntent(
+    bookingId: number,
+    amount: number,
+    currency: string = 'EUR',
+    isUpgrade: boolean = false
+  ): Promise<PaymentIntent> {
     try {
-      console.log('[PaymentService] Creating payment intent for booking:', bookingId, 'amount:', amount);
+      console.log('[PaymentService] Creating payment intent for booking:', bookingId, 'amount:', amount, 'isUpgrade:', isUpgrade);
       const response = await api.post<PaymentIntent>(`/payments/create-intent`, {
         booking_id: bookingId,
         amount: amount,
         currency: currency,
         payment_method: 'credit_card',
+        is_upgrade: isUpgrade,
+        metadata: isUpgrade ? { type: 'cabin_upgrade' } : undefined,
       });
       console.log('[PaymentService] Payment intent created:', response.data);
       return response.data;

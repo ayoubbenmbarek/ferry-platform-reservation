@@ -128,6 +128,30 @@ async def search_ferries(
                 logger.warning(f"⚠️ Found old cache format with vehicles={cached_response['search_params']['vehicles']}, converting to list")
                 cached_response["search_params"]["vehicles"] = []
 
+            # Filter out past departures from cached results (with 1 hour buffer)
+            from datetime import datetime, timedelta
+            now = datetime.utcnow()
+            min_departure_time = now + timedelta(hours=1)
+
+            if cached_response.get("results"):
+                filtered_cached = []
+                for result in cached_response["results"]:
+                    departure_time_str = result.get("departure_time")
+                    if departure_time_str:
+                        try:
+                            if "T" in departure_time_str:
+                                departure_time = datetime.fromisoformat(departure_time_str.replace("Z", "+00:00").replace("+00:00", ""))
+                            else:
+                                departure_time = datetime.strptime(departure_time_str, "%Y-%m-%d %H:%M:%S")
+                            if departure_time >= min_departure_time:
+                                filtered_cached.append(result)
+                        except (ValueError, TypeError):
+                            filtered_cached.append(result)
+                    else:
+                        filtered_cached.append(result)
+                cached_response["results"] = filtered_cached
+                cached_response["total_results"] = len(filtered_cached)
+
             # Add cache hit indicator
             cached_response["cached"] = True
             cached_response["cache_age_ms"] = (time.time() - start_time) * 1000
@@ -160,6 +184,35 @@ async def search_ferries(
         # Convert FerryResult objects to dictionaries for Pydantic validation
         results_dict = [result.to_dict() for result in results]
 
+        # Filter out departures that have already passed (with 1 hour buffer for check-in)
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        min_departure_time = now + timedelta(hours=1)
+
+        filtered_results = []
+        for result in results_dict:
+            departure_time_str = result.get("departure_time")
+            if departure_time_str:
+                try:
+                    # Parse departure time (handle both ISO format and datetime string)
+                    if "T" in departure_time_str:
+                        departure_time = datetime.fromisoformat(departure_time_str.replace("Z", "+00:00").replace("+00:00", ""))
+                    else:
+                        departure_time = datetime.strptime(departure_time_str, "%Y-%m-%d %H:%M:%S")
+
+                    # Only include future departures (with 1 hour buffer)
+                    if departure_time >= min_departure_time:
+                        filtered_results.append(result)
+                except (ValueError, TypeError) as e:
+                    # If parsing fails, include the result anyway
+                    logger.warning(f"Could not parse departure time '{departure_time_str}': {e}")
+                    filtered_results.append(result)
+            else:
+                # No departure time, include anyway
+                filtered_results.append(result)
+
+        results_dict = filtered_results
+
         # Build response
         # Serialize search_params dates for caching
         search_params_dict = search_params.dict()
@@ -170,7 +223,7 @@ async def search_ferries(
 
         response_dict = {
             "results": results_dict,
-            "total_results": len(results),
+            "total_results": len(results_dict),  # Use filtered count
             "search_params": search_params_dict,
             "operators_searched": operators_searched,
             "search_time_ms": search_time,

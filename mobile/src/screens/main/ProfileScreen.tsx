@@ -8,12 +8,15 @@ import {
 } from 'react-native';
 import { Text, Avatar, Divider, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { logout } from '../../store/slices/authSlice';
+import { selectActiveAlertCount, fetchUserAlerts } from '../../store/slices/alertSlice';
+import { useNotifications } from '../../contexts/NotificationContext';
+import { biometricService, BiometricStatus } from '../../services/biometricService';
 import { RootStackParamList } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import { APP_NAME } from '../../constants/config';
@@ -64,9 +67,63 @@ const MenuItem: React.FC<MenuItemProps> = ({
 export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp>();
   const dispatch = useAppDispatch();
-  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user, token } = useAppSelector((state) => state.auth);
+  const activeAlertCount = useAppSelector(selectActiveAlertCount);
+  const { settings, hasPermission } = useNotifications();
 
-  const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+  // Fetch alerts on mount when authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && user?.email) {
+      dispatch(fetchUserAlerts({ email: user.email }));
+    }
+  }, [isAuthenticated, user?.email, dispatch]);
+
+  const [biometricStatus, setBiometricStatus] = React.useState<BiometricStatus>({
+    isAvailable: false,
+    biometricType: 'none',
+    isEnrolled: false,
+    isEnabled: false,
+  });
+  const [isTogglingBiometric, setIsTogglingBiometric] = React.useState(false);
+
+  // Check biometric status on mount and when auth changes
+  React.useEffect(() => {
+    const checkBiometric = async () => {
+      const status = await biometricService.getStatus();
+      setBiometricStatus(status);
+    };
+    checkBiometric();
+  }, [isAuthenticated]);
+
+  const handleToggleBiometric = async (enabled: boolean) => {
+    if (!user || !token) return;
+
+    setIsTogglingBiometric(true);
+    try {
+      if (enabled) {
+        const success = await biometricService.enableBiometric(token, user.email);
+        if (success) {
+          setBiometricStatus((prev) => ({ ...prev, isEnabled: true }));
+          Alert.alert(
+            'Biometric Login Enabled',
+            `You can now sign in with ${biometricService.getBiometricName(biometricStatus.biometricType)}.`
+          );
+        } else {
+          Alert.alert('Setup Failed', 'Could not enable biometric login. Please try again.');
+        }
+      } else {
+        const success = await biometricService.disableBiometric();
+        if (success) {
+          setBiometricStatus((prev) => ({ ...prev, isEnabled: false }));
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling biometric:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setIsTogglingBiometric(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -77,7 +134,29 @@ export default function ProfileScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => dispatch(logout()),
+          onPress: async () => {
+            await dispatch(logout());
+            // Navigate to Home tab after logout
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: 'Main',
+                    state: {
+                      routes: [
+                        { name: 'Home' },
+                        { name: 'Search' },
+                        { name: 'Bookings' },
+                        { name: 'Profile' },
+                      ],
+                      index: 0, // Home tab
+                    },
+                  },
+                ],
+              })
+            );
+          },
         },
       ]
     );
@@ -157,6 +236,31 @@ export default function ProfileScreen() {
                 subtitle="Password, 2FA"
                 onPress={() => {}}
               />
+              {biometricStatus.isAvailable && (
+                <>
+                  <Divider style={styles.divider} />
+                  <MenuItem
+                    icon={biometricStatus.biometricType === 'face' ? 'scan-outline' : 'finger-print-outline'}
+                    title={biometricService.getBiometricName(biometricStatus.biometricType)}
+                    subtitle={biometricStatus.isEnabled ? 'Enabled for quick sign in' : 'Enable for quick sign in'}
+                    rightElement={
+                      <Switch
+                        value={biometricStatus.isEnabled}
+                        onValueChange={handleToggleBiometric}
+                        disabled={isTogglingBiometric}
+                        color={colors.primary}
+                      />
+                    }
+                  />
+                </>
+              )}
+              <Divider style={styles.divider} />
+              <MenuItem
+                icon="notifications-outline"
+                title="My Alerts"
+                subtitle={activeAlertCount > 0 ? `${activeAlertCount} active alert${activeAlertCount !== 1 ? 's' : ''}` : 'Availability notifications'}
+                onPress={() => navigation.navigate('MyAlerts')}
+              />
             </View>
           </>
         )}
@@ -166,15 +270,9 @@ export default function ProfileScreen() {
         <View style={styles.menuSection}>
           <MenuItem
             icon="notifications-outline"
-            title="Push Notifications"
-            subtitle="Trip reminders, deals"
-            rightElement={
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
-                color={colors.primary}
-              />
-            }
+            title="Notifications"
+            subtitle={hasPermission && settings.enabled ? 'On' : 'Off'}
+            onPress={() => navigation.navigate('NotificationSettings')}
           />
           <Divider style={styles.divider} />
           <MenuItem

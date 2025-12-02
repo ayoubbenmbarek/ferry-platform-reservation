@@ -64,7 +64,11 @@ class User(Base):
     # Marketing preferences
     marketing_emails = Column(Boolean, default=True)
     booking_notifications = Column(Boolean, default=True)
-    
+
+    # Push notification token (Expo push token)
+    push_token = Column(String(255), nullable=True)
+    push_token_updated_at = Column(DateTime(timezone=True), nullable=True)
+
     # Relationships
     bookings = relationship("Booking", back_populates="user")
     payments = relationship("Payment", back_populates="user")
@@ -92,4 +96,5 @@ class User(Base):
             "preferred_currency": self.preferred_currency,
             "created_at": self.created_at,
             "last_login": self.last_login,
+            "has_push_token": self.push_token is not None,
         } 

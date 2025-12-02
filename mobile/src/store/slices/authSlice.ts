@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authService } from '../../services/authService';
+import { biometricService } from '../../services/biometricService';
 import { User, AuthState } from '../../types';
-import { getToken } from '../../services/api';
+import { getToken, setToken } from '../../services/api';
 
 const initialState: AuthState = {
   user: null,
@@ -27,9 +28,17 @@ export const login = createAsyncThunk(
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
       const response = await authService.login(credentials);
+
+      // If biometric is enabled, update the stored token to keep it fresh
+      const biometricEnabled = await biometricService.isBiometricEnabled();
+      if (biometricEnabled && response.token) {
+        await biometricService.updateStoredToken(response.token);
+      }
+
       return response;
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      console.error('AuthSlice login error:', error.message);
+      return rejectWithValue(error.message || 'Login failed. Please try again.');
     }
   }
 );
@@ -79,9 +88,38 @@ export const appleLogin = createAsyncThunk(
   }
 );
 
+// Biometric login
+export const biometricLogin = createAsyncThunk(
+  'auth/biometricLogin',
+  async (_, { rejectWithValue }) => {
+    try {
+      const result = await biometricService.biometricLogin();
+      if (!result.success) {
+        return rejectWithValue(result.error || 'Biometric login failed');
+      }
+
+      // Set the token in API service
+      await setToken(result.token!);
+
+      // Validate token and get user data
+      const user = await authService.getCurrentUser();
+
+      return { token: result.token!, user };
+    } catch (error: any) {
+      // If token is invalid/expired, clear only the token (not the enabled flag)
+      // This allows Face ID to be restored after user logs in with password
+      await biometricService.clearStoredToken();
+      return rejectWithValue(error.message || 'Session expired. Please sign in with your password.');
+    }
+  }
+);
+
 // Logout
 export const logout = createAsyncThunk('auth/logout', async () => {
   await authService.logout();
+  // Note: We intentionally DO NOT clear biometric credentials on logout
+  // This allows users to sign back in using Face ID / Touch ID
+  // Biometric credentials are only cleared when user explicitly disables biometric in settings
 });
 
 // Update profile
@@ -195,6 +233,24 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(appleLogin.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Biometric login
+    builder
+      .addCase(biometricLogin.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(biometricLogin.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+      .addCase(biometricLogin.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

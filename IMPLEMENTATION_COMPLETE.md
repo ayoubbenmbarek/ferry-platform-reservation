@@ -186,12 +186,13 @@ todo search this route hsould go to that specific route, but i see the saved on 
 
 todo:saved on frontend dont work when want to remove it
 
-todo:and add day when send notification to be more clear is better  
-todo add saved routes to frontend
+todo:and add day when send notification to be more clear is better :done
+todo add saved routes to frontend, add page on menu
 
 todo:subscribe and get updates about price for your summer trip when launching, to user to follow prices
 
-todo: add clear message to encourage people to save () ex save and get alerted for price alert ...
+todo: add clear message to encourage people to save () ex save and get alerted for price alert ...done
+todo:document the alert fonctionnalities and do some tests especially for backend 
 
 todo:do we use it Code scanning: CodeQL Action v2 is now retired
 todo: why this is blank page http://localhost:8010/docs

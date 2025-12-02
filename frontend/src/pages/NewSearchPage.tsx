@@ -842,44 +842,26 @@ const NewSearchPage: React.FC = () => {
             onSuccess={handleAlertSuccess}
           />
 
-          {/* Search Summary Bar */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                <div className="flex items-center">
-                  <span className="font-semibold text-gray-700 mr-2">Route:</span>
-                  <span className="text-gray-900">
-                    {ports.find(p => p.code === searchParams.departurePort)?.name || searchParams.departurePort}
-                    {' → '}
-                    {ports.find(p => p.code === searchParams.arrivalPort)?.name || searchParams.arrivalPort}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <span className="font-semibold text-gray-700 mr-2">Date:</span>
-                  <span className="text-gray-900">
-                    {searchParams.departureDate ? new Date(searchParams.departureDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                  </span>
-                </div>
-                {isRoundTrip && searchParams.returnDate && (
-                  <div className="flex items-center">
-                    <span className="font-semibold text-gray-700 mr-2">Return:</span>
-                    <span className="text-gray-900">
-                      {new Date(searchParams.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center">
-                  <span className="font-semibold text-gray-700 mr-2">Passengers:</span>
-                  <span className="text-gray-900">
-                    {(searchParams.passengers?.adults || 0) + (searchParams.passengers?.children || 0) + (searchParams.passengers?.infants || 0)}
-                  </span>
-                </div>
-                {searchParams.vehicles && searchParams.vehicles.length > 0 && (
-                  <div className="flex items-center">
-                    <span className="font-semibold text-gray-700 mr-2">Vehicles:</span>
-                    <span className="text-gray-900">{searchParams.vehicles.length}</span>
-                  </div>
-                )}
+          {/* Header with Route Info, Save Button, and Edit */}
+          <div ref={resultsRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+            {/* Top row: Title and Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {isSelectingReturn ? t('search:selectReturnFerry') : t('search:selectOutboundFerry')}
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {ports.find(p => p.code === searchParams.departurePort)?.name || searchParams.departurePort}
+                  {' → '}
+                  {ports.find(p => p.code === searchParams.arrivalPort)?.name || searchParams.arrivalPort}
+                  {' • '}
+                  {searchParams.departureDate ? new Date(searchParams.departureDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''}
+                  {isRoundTrip && searchParams.returnDate && (
+                    <span> (Return: {new Date(searchParams.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})</span>
+                  )}
+                  {' • '}
+                  {(searchParams.passengers?.adults || 0) + (searchParams.passengers?.children || 0) + (searchParams.passengers?.infants || 0)} passenger{((searchParams.passengers?.adults || 0) + (searchParams.passengers?.children || 0) + (searchParams.passengers?.infants || 0)) > 1 ? 's' : ''}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 {searchParams.departurePort && searchParams.arrivalPort && (
@@ -887,25 +869,21 @@ const NewSearchPage: React.FC = () => {
                     departurePort={searchParams.departurePort}
                     arrivalPort={searchParams.arrivalPort}
                     price={searchResults[0]?.prices?.adult}
-                    variant="compact"
+                    searchDate={searchParams.departureDate}
                   />
                 )}
                 <button
                   onClick={() => navigate('/')}
-                  className="flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm"
+                  className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors"
                 >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  Edit Search
+                  Edit
                 </button>
               </div>
             </div>
           </div>
-
-          <h1 ref={resultsRef} className="text-3xl font-bold text-gray-900 mb-6">
-            {isSelectingReturn ? t('search:selectReturnFerry') : t('search:selectOutboundFerry')}
-          </h1>
 
           {/* Show selected outbound ferry when selecting return */}
           {isSelectingReturn && selectedFerry && (
@@ -927,7 +905,7 @@ const NewSearchPage: React.FC = () => {
 
           {/* Date Price Selector - Show for both outbound and return selection */}
           {searchParams.departurePort && searchParams.arrivalPort && !isSearching && !isSearchingReturn && (
-            <div className="mb-6 bg-white rounded-lg shadow-md p-6">
+            <div className="mb-6 bg-white rounded-lg shadow-md p-4 sm:p-6 mx-auto" style={{ maxWidth: '900px' }}>
               {isSelectingReturn && searchParams.returnDate ? (
                 <DatePriceSelector
                   key={`return-${searchParams.returnDeparturePort || searchParams.arrivalPort}-${searchParams.returnArrivalPort || searchParams.departurePort}-${searchParams.passengers?.adults || 1}`}

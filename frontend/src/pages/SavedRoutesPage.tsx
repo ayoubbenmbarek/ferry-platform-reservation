@@ -15,7 +15,7 @@ interface RouteStats {
 
 export default function SavedRoutesPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
   const [routes, setRoutes] = useState<PriceAlert[]>([]);
   const [stats, setStats] = useState<RouteStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);

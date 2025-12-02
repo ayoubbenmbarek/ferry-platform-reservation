@@ -168,13 +168,22 @@ export default function LoginScreen() {
   };
 
   const handleBiometricLogin = async () => {
+    console.log('[LoginScreen] Starting biometric login...');
     setLocalError(null);
     dispatch(clearError());
+
+    // Small delay to ensure the UI is stable before showing system biometric prompt
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     const result = await dispatch(biometricLogin());
+    console.log('[LoginScreen] Biometric login result:', { type: result.type, payload: result.payload, meta: result.meta });
+
     if (biometricLogin.fulfilled.match(result)) {
+      console.log('[LoginScreen] Biometric login succeeded, navigating...');
       navigateAfterAuth();
     } else if (biometricLogin.rejected.match(result)) {
       const error = result.payload as string;
+      console.log('[LoginScreen] Biometric login rejected:', error);
       if (error !== 'fallback' && error !== 'Authentication cancelled') {
         setLocalError(error);
       }

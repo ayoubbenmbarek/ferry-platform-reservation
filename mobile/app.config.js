@@ -15,7 +15,10 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.maritime.reservations"
+      bundleIdentifier: "com.maritime.reservations",
+      infoPlist: {
+        NSFaceIDUsageDescription: "Sign in quickly and securely using Face ID"
+      }
     },
     android: {
       adaptiveIcon: {

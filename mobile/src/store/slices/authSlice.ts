@@ -93,23 +93,37 @@ export const biometricLogin = createAsyncThunk(
   'auth/biometricLogin',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('[BiometricLogin] Starting biometric login...');
       const result = await biometricService.biometricLogin();
+      console.log('[BiometricLogin] Biometric service result:', { success: result.success, error: result.error, hasToken: !!result.token });
+
       if (!result.success) {
+        console.log('[BiometricLogin] Biometric auth failed:', result.error);
         return rejectWithValue(result.error || 'Biometric login failed');
       }
 
       // Set the token in API service
+      console.log('[BiometricLogin] Setting token in API service...');
       await setToken(result.token!);
 
       // Validate token and get user data
+      console.log('[BiometricLogin] Validating token and getting user data...');
       const user = await authService.getCurrentUser();
+      console.log('[BiometricLogin] Got user:', user?.email);
 
       return { token: result.token!, user };
     } catch (error: any) {
-      // If token is invalid/expired, clear only the token (not the enabled flag)
-      // This allows Face ID to be restored after user logs in with password
-      await biometricService.clearStoredToken();
-      return rejectWithValue(error.message || 'Session expired. Please sign in with your password.');
+      console.error('[BiometricLogin] Error:', error.message);
+
+      // Only clear the stored token if it's a 401 (token expired/invalid)
+      // Don't clear for other errors like network issues or code bugs
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('expired')) {
+        console.log('[BiometricLogin] Token appears expired, clearing stored token');
+        await biometricService.clearStoredToken();
+        return rejectWithValue('Session expired. Please sign in with your password.');
+      }
+
+      return rejectWithValue(error.message || 'Login failed. Please try again.');
     }
   }
 );

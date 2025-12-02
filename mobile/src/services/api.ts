@@ -29,6 +29,9 @@ export const saveToken = async (token: string): Promise<void> => {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
 };
 
+// Alias for saveToken (used by biometric login)
+export const setToken = saveToken;
+
 // Remove token from secure storage
 export const removeToken = async (): Promise<void> => {
   await SecureStore.deleteItemAsync(TOKEN_KEY);

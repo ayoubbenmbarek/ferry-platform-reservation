@@ -2,12 +2,12 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-// Secure storage keys
+// Secure storage keys - use different keys from api.ts to avoid conflicts
 const STORAGE_KEYS = {
   BIOMETRIC_ENABLED: 'biometric_enabled',
-  AUTH_TOKEN: 'auth_token',
-  USER_EMAIL: 'user_email',
-  REFRESH_TOKEN: 'refresh_token',
+  AUTH_TOKEN: 'biometric_auth_token',  // Different from api.ts 'auth_token'
+  USER_EMAIL: 'biometric_user_email',
+  REFRESH_TOKEN: 'biometric_refresh_token',  // Different from api.ts 'refresh_token'
 };
 
 export type BiometricType = 'face' | 'fingerprint' | 'iris' | 'none';
@@ -97,13 +97,16 @@ class BiometricService {
    */
   async authenticate(reason?: string): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log('[BiometricService] Starting authentication...');
       const isAvailable = await this.isAvailable();
       if (!isAvailable) {
+        console.log('[BiometricService] Biometric not available');
         return { success: false, error: 'Biometric authentication not available' };
       }
 
       const biometricType = await this.getBiometricType();
       const biometricName = this.getBiometricName(biometricType);
+      console.log('[BiometricService] Using:', biometricName);
 
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: reason || `Sign in with ${biometricName}`,
@@ -112,21 +115,28 @@ class BiometricService {
         fallbackLabel: 'Use Password',
       });
 
+      console.log('[BiometricService] Auth result:', { success: result.success, error: result.error, warning: result.warning });
+
       if (result.success) {
+        console.log('[BiometricService] Authentication successful');
         return { success: true };
       }
 
       // Handle different error types
       if (result.error === 'user_cancel') {
+        console.log('[BiometricService] User cancelled');
         return { success: false, error: 'Authentication cancelled' };
       }
       if (result.error === 'user_fallback') {
+        console.log('[BiometricService] User chose fallback (password)');
         return { success: false, error: 'fallback' };
       }
       if (result.error === 'lockout') {
+        console.log('[BiometricService] Lockout');
         return { success: false, error: 'Too many attempts. Please try again later.' };
       }
 
+      console.log('[BiometricService] Other error:', result.error);
       return { success: false, error: result.error || 'Authentication failed' };
     } catch (error: any) {
       console.error('Biometric authentication error:', error);
@@ -152,25 +162,49 @@ class BiometricService {
    */
   async enableBiometric(token: string, email: string, refreshToken?: string): Promise<boolean> {
     try {
+      console.log('[BiometricService] enableBiometric - starting with:', {
+        tokenLength: token?.length,
+        email,
+        hasRefreshToken: !!refreshToken
+      });
+
       // First authenticate to confirm identity
       const authResult = await this.authenticate('Confirm your identity to enable biometric login');
       if (!authResult.success) {
+        console.log('[BiometricService] enableBiometric - authentication failed');
         return false;
       }
 
       // Store credentials securely
-      await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      });
-      await SecureStore.setItemAsync(STORAGE_KEYS.USER_EMAIL, email, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      });
+      // Note: Removing keychainAccessible option for Expo Go compatibility
+      console.log('[BiometricService] enableBiometric - storing credentials...');
+      try {
+        await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
+        console.log('[BiometricService] enableBiometric - token stored successfully');
+      } catch (tokenError) {
+        console.error('[BiometricService] enableBiometric - failed to store token:', tokenError);
+        throw tokenError;
+      }
+
+      try {
+        await SecureStore.setItemAsync(STORAGE_KEYS.USER_EMAIL, email);
+        console.log('[BiometricService] enableBiometric - email stored successfully');
+      } catch (emailError) {
+        console.error('[BiometricService] enableBiometric - failed to store email:', emailError);
+        throw emailError;
+      }
+
       if (refreshToken) {
-        await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken, {
-          keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-        });
+        await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
       }
       await SecureStore.setItemAsync(STORAGE_KEYS.BIOMETRIC_ENABLED, 'true');
+
+      // Verify storage
+      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+      console.log('[BiometricService] enableBiometric - verified storage:', {
+        tokenStored: !!storedToken,
+        storedTokenLength: storedToken?.length
+      });
 
       return true;
     } catch (error) {
@@ -208,12 +242,14 @@ class BiometricService {
     try {
       // Check if biometric is enabled
       const isEnabled = await this.isBiometricEnabled();
+      console.log('[BiometricService] biometricLogin - isEnabled:', isEnabled);
       if (!isEnabled) {
         return { success: false, error: 'Biometric login not enabled' };
       }
 
       // Authenticate with biometrics
       const authResult = await this.authenticate();
+      console.log('[BiometricService] biometricLogin - authResult:', authResult);
       if (!authResult.success) {
         return { success: false, error: authResult.error };
       }
@@ -224,6 +260,13 @@ class BiometricService {
         SecureStore.getItemAsync(STORAGE_KEYS.USER_EMAIL),
         SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
       ]);
+
+      console.log('[BiometricService] biometricLogin - stored credentials:', {
+        hasToken: !!token,
+        tokenLength: token?.length,
+        email,
+        hasRefreshToken: !!refreshToken
+      });
 
       if (!token) {
         // Token not found (may have been cleared due to expiration)
@@ -255,18 +298,21 @@ class BiometricService {
   async updateStoredToken(token: string, refreshToken?: string): Promise<boolean> {
     try {
       const isEnabled = await this.isBiometricEnabled();
+      console.log('[BiometricService] updateStoredToken - isEnabled:', isEnabled, 'tokenLength:', token?.length);
       if (!isEnabled) {
         return false;
       }
 
-      await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      });
+      await SecureStore.setItemAsync(STORAGE_KEYS.AUTH_TOKEN, token);
+      console.log('[BiometricService] updateStoredToken - token updated');
       if (refreshToken) {
-        await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken, {
-          keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-        });
+        await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
       }
+
+      // Verify
+      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
+      console.log('[BiometricService] updateStoredToken - verified:', !!storedToken);
+
       return true;
     } catch (error) {
       console.error('Error updating stored token:', error);

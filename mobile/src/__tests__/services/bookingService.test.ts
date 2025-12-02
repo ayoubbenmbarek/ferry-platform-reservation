@@ -233,6 +233,8 @@ describe('bookingService', () => {
         amount: 385,
         currency: 'EUR',
         payment_method: 'credit_card',
+        is_upgrade: false,
+        metadata: undefined,
       });
       expect(result.payment_intent_id).toBe('pi_test_123456');
     });
@@ -248,6 +250,8 @@ describe('bookingService', () => {
         amount: 400,
         currency: 'USD',
         payment_method: 'credit_card',
+        is_upgrade: false,
+        metadata: undefined,
       });
     });
   });

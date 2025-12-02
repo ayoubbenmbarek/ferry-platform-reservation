@@ -53,6 +53,7 @@ export default function BookingDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isViewingCached, setIsViewingCached] = useState(false);
   const [alertToastMessage, setAlertToastMessage] = useState<string | null>(null);
+  const [isPriceSummaryExpanded, setIsPriceSummaryExpanded] = useState(false);
 
   const handleAlertCreated = (message: string) => {
     setAlertToastMessage(message);
@@ -560,116 +561,248 @@ export default function BookingDetailsScreen() {
           </Card>
         )}
 
-        {/* Price Summary */}
+        {/* Price Summary - Collapsible */}
         <Card style={styles.section}>
           <Card.Content>
-            <Text style={styles.sectionTitle}>
-              <Ionicons name="receipt-outline" size={18} color={colors.primary} /> Price Summary
-            </Text>
+            <TouchableOpacity
+              style={styles.priceSummaryHeader}
+              onPress={() => setIsPriceSummaryExpanded(!isPriceSummaryExpanded)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.priceSummaryTitleRow}>
+                <Ionicons name="receipt-outline" size={18} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Price Summary</Text>
+              </View>
+              <View style={styles.priceSummaryToggle}>
+                <Text style={styles.priceSummaryTotal}>
+                  €{(booking.total_amount ?? 0).toFixed(2)}
+                </Text>
+                <Ionicons
+                  name={isPriceSummaryExpanded ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
 
-            {/* Passengers breakdown */}
-            {booking.passengers && booking.passengers.length > 0 && (
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>
-                  Passengers ({booking.total_passengers})
-                </Text>
-                <Text style={styles.priceValue}>
-                  €{booking.passengers.reduce((sum, p) => sum + (p.final_price || p.base_price || 0), 0).toFixed(2)}
-                </Text>
+            {isPriceSummaryExpanded && (
+              <View style={styles.priceSummaryContent}>
+                {/* Calculate all costs for display */}
+                {(() => {
+                  // Calculate totals from stored data
+                  const passengerTotal = booking.passengers?.reduce((sum, p) => sum + (p.final_price || p.base_price || 0), 0) || 0;
+                  const vehicleTotal = booking.vehicles?.reduce((sum, v) => sum + (v.final_price || v.base_price || 0), 0) || 0;
+                  const cabinTotal = (booking.cabin_supplement || 0) + (booking.return_cabin_supplement || 0);
+                  const mealTotal = booking.meals?.reduce((sum, m) => sum + m.total_price, 0) || 0;
+
+                  // Calculate fare total (subtotal minus cabins and meals)
+                  const subtotal = booking.subtotal || 0;
+                  const fareTotal = Math.max(0, subtotal - cabinTotal - mealTotal);
+
+                  // If stored prices match, use them; otherwise compute from fare total
+                  const storedTotal = passengerTotal + vehicleTotal;
+                  const useStoredPrices = Math.abs(storedTotal - fareTotal) < 1;
+
+                  const getDisplayPrice = (storedPrice: number) => {
+                    if (useStoredPrices || storedTotal === 0) return storedPrice;
+                    return (storedPrice * fareTotal) / storedTotal;
+                  };
+
+                  const displayPassengerTotal = useStoredPrices ? passengerTotal : (fareTotal * passengerTotal / (storedTotal || 1));
+                  const displayVehicleTotal = useStoredPrices ? vehicleTotal : (fareTotal * vehicleTotal / (storedTotal || 1));
+
+                  return (
+                    <>
+                      {/* Passengers breakdown with individual details */}
+                      {booking.passengers && booking.passengers.length > 0 && (
+                        <View style={styles.priceCategoryContainer}>
+                          <View style={styles.priceCategoryHeader}>
+                            <Text style={styles.priceCategoryTitle}>
+                              Passengers ({booking.total_passengers})
+                            </Text>
+                            <Text style={styles.priceCategoryTotal}>
+                              €{displayPassengerTotal.toFixed(2)}
+                            </Text>
+                          </View>
+                          <View style={styles.priceCategoryItems}>
+                            {booking.passengers.map((p, idx) => {
+                              const storedPrice = p.final_price || p.base_price || 0;
+                              const displayPrice = useStoredPrices
+                                ? storedPrice
+                                : (storedTotal > 0 ? (storedPrice * fareTotal / storedTotal) : 0);
+                              return (
+                                <View key={idx} style={styles.priceItemRow}>
+                                  <Text style={styles.priceItemLabel}>
+                                    {p.first_name} {p.last_name} ({p.passenger_type})
+                                  </Text>
+                                  <Text style={styles.priceItemValue}>€{displayPrice.toFixed(2)}</Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Vehicles breakdown with individual details */}
+                      {booking.vehicles && booking.vehicles.length > 0 && (
+                        <View style={styles.priceCategoryContainer}>
+                          <View style={styles.priceCategoryHeader}>
+                            <Text style={styles.priceCategoryTitle}>
+                              Vehicles ({booking.total_vehicles})
+                            </Text>
+                            <Text style={styles.priceCategoryTotal}>
+                              €{displayVehicleTotal.toFixed(2)}
+                            </Text>
+                          </View>
+                          <View style={styles.priceCategoryItems}>
+                            {booking.vehicles.map((v, idx) => {
+                              const storedPrice = v.final_price || v.base_price || 0;
+                              const displayPrice = useStoredPrices
+                                ? storedPrice
+                                : (storedTotal > 0 ? (storedPrice * fareTotal / storedTotal) : 0);
+                              return (
+                                <View key={idx} style={styles.priceItemRow}>
+                                  <Text style={styles.priceItemLabel}>
+                                    {v.vehicle_type} ({v.license_plate})
+                                  </Text>
+                                  <Text style={styles.priceItemValue}>€{displayPrice.toFixed(2)}</Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {/* Cabin costs - cabin_supplement includes both original + upgrades */}
+                {(() => {
+                  // Calculate upgrade totals by journey type
+                  const outboundUpgrades = booking.booking_cabins
+                    ?.filter(c => c.journey_type === 'OUTBOUND')
+                    .reduce((sum, c) => sum + c.total_price, 0) || 0;
+                  const returnUpgrades = booking.booking_cabins
+                    ?.filter(c => c.journey_type === 'RETURN')
+                    .reduce((sum, c) => sum + c.total_price, 0) || 0;
+
+                  // Original cabin price = cabin_supplement - outbound upgrades
+                  const originalOutbound = Math.max(0, (booking.cabin_supplement || 0) - outboundUpgrades);
+                  const originalReturn = Math.max(0, (booking.return_cabin_supplement || 0) - returnUpgrades);
+
+                  return (
+                    <>
+                      {/* Original cabin (outbound) */}
+                      {originalOutbound > 0 && (
+                        <View style={styles.priceRow}>
+                          <Text style={styles.priceLabel}>Cabin (Outbound)</Text>
+                          <Text style={styles.priceValue}>€{originalOutbound.toFixed(2)}</Text>
+                        </View>
+                      )}
+
+                      {/* Original cabin (return) */}
+                      {originalReturn > 0 && (
+                        <View style={styles.priceRow}>
+                          <Text style={styles.priceLabel}>Cabin (Return)</Text>
+                          <Text style={styles.priceValue}>€{originalReturn.toFixed(2)}</Text>
+                        </View>
+                      )}
+
+                      {/* Cabin upgrades */}
+                      {outboundUpgrades > 0 && (
+                        <View style={styles.priceRow}>
+                          <Text style={styles.priceLabel}>Cabin Upgrade (Outbound)</Text>
+                          <Text style={styles.priceValue}>€{outboundUpgrades.toFixed(2)}</Text>
+                        </View>
+                      )}
+
+                      {returnUpgrades > 0 && (
+                        <View style={styles.priceRow}>
+                          <Text style={styles.priceLabel}>Cabin Upgrade (Return)</Text>
+                          <Text style={styles.priceValue}>€{returnUpgrades.toFixed(2)}</Text>
+                        </View>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {/* Meals breakdown with individual details */}
+                {(() => {
+                  const outboundMeals = booking.meals?.filter(m => m.journey_type === 'OUTBOUND') || [];
+                  const returnMeals = booking.meals?.filter(m => m.journey_type === 'RETURN') || [];
+                  const outboundMealTotal = outboundMeals.reduce((sum, m) => sum + m.total_price, 0);
+                  const returnMealTotal = returnMeals.reduce((sum, m) => sum + m.total_price, 0);
+                  const totalMeals = booking.meals?.length || 0;
+                  const totalMealAmount = outboundMealTotal + returnMealTotal;
+
+                  if (totalMeals === 0) return null;
+
+                  return (
+                    <View style={styles.priceCategoryContainer}>
+                      <View style={styles.priceCategoryHeader}>
+                        <Text style={styles.priceCategoryTitle}>
+                          Meals ({totalMeals})
+                        </Text>
+                        <Text style={styles.priceCategoryTotal}>
+                          €{totalMealAmount.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.priceCategoryItems}>
+                        {booking.meals?.map((m, idx) => (
+                          <View key={idx} style={styles.priceItemRow}>
+                            <Text style={styles.priceItemLabel}>
+                              {m.meal_name || 'Meal'} × {m.quantity} ({m.journey_type === 'OUTBOUND' ? 'Out' : 'Ret'})
+                            </Text>
+                            <Text style={styles.priceItemValue}>€{m.total_price.toFixed(2)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })()}
+
+                {/* Cancellation Protection */}
+                {booking.extra_data?.has_cancellation_protection && (
+                  <View style={styles.priceRow}>
+                    <View style={styles.protectionLabel}>
+                      <Ionicons name="shield-checkmark" size={14} color={colors.success} />
+                      <Text style={styles.priceLabel}>Cancellation Protection</Text>
+                    </View>
+                    <Text style={styles.priceValue}>€15.00</Text>
+                  </View>
+                )}
+
+                {/* Subtotal */}
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Subtotal</Text>
+                  <Text style={styles.priceValue}>€{booking.subtotal.toFixed(2)}</Text>
+                </View>
+
+                {/* Discount */}
+                {booking.discount_amount > 0 && (
+                  <View style={styles.priceRow}>
+                    <Text style={[styles.priceLabel, { color: colors.success }]}>Discount</Text>
+                    <Text style={[styles.priceValue, { color: colors.success }]}>
+                      -€{booking.discount_amount.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Tax */}
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Tax (10%)</Text>
+                  <Text style={styles.priceValue}>€{booking.tax_amount.toFixed(2)}</Text>
+                </View>
+
+                {/* Total */}
+                <View style={[styles.priceRow, styles.totalRow]}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>
+                    €{booking.total_amount.toFixed(2)} {booking.currency}
+                  </Text>
+                </View>
               </View>
             )}
-
-            {/* Vehicles breakdown */}
-            {booking.vehicles && booking.vehicles.length > 0 && (
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>
-                  Vehicles ({booking.total_vehicles})
-                </Text>
-                <Text style={styles.priceValue}>
-                  €{booking.vehicles.reduce((sum, v) => sum + (v.final_price || v.base_price || 0), 0).toFixed(2)}
-                </Text>
-              </View>
-            )}
-
-            {/* Cabin costs - cabin_supplement includes both original + upgrades */}
-            {(() => {
-              // Calculate upgrade totals by journey type
-              const outboundUpgrades = booking.booking_cabins
-                ?.filter(c => c.journey_type === 'OUTBOUND')
-                .reduce((sum, c) => sum + c.total_price, 0) || 0;
-              const returnUpgrades = booking.booking_cabins
-                ?.filter(c => c.journey_type === 'RETURN')
-                .reduce((sum, c) => sum + c.total_price, 0) || 0;
-
-              // Original cabin price = cabin_supplement - outbound upgrades
-              const originalOutbound = Math.max(0, (booking.cabin_supplement || 0) - outboundUpgrades);
-              const originalReturn = Math.max(0, (booking.return_cabin_supplement || 0) - returnUpgrades);
-
-              return (
-                <>
-                  {/* Original cabin (outbound) */}
-                  {originalOutbound > 0 && (
-                    <View style={styles.priceRow}>
-                      <Text style={styles.priceLabel}>Cabin (Outbound)</Text>
-                      <Text style={styles.priceValue}>€{originalOutbound.toFixed(2)}</Text>
-                    </View>
-                  )}
-
-                  {/* Original cabin (return) */}
-                  {originalReturn > 0 && (
-                    <View style={styles.priceRow}>
-                      <Text style={styles.priceLabel}>Cabin (Return)</Text>
-                      <Text style={styles.priceValue}>€{originalReturn.toFixed(2)}</Text>
-                    </View>
-                  )}
-
-                  {/* Cabin upgrades */}
-                  {outboundUpgrades > 0 && (
-                    <View style={styles.priceRow}>
-                      <Text style={styles.priceLabel}>Cabin Upgrade (Outbound)</Text>
-                      <Text style={styles.priceValue}>€{outboundUpgrades.toFixed(2)}</Text>
-                    </View>
-                  )}
-
-                  {returnUpgrades > 0 && (
-                    <View style={styles.priceRow}>
-                      <Text style={styles.priceLabel}>Cabin Upgrade (Return)</Text>
-                      <Text style={styles.priceValue}>€{returnUpgrades.toFixed(2)}</Text>
-                    </View>
-                  )}
-                </>
-              );
-            })()}
-
-            {/* Subtotal */}
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Subtotal</Text>
-              <Text style={styles.priceValue}>€{booking.subtotal.toFixed(2)}</Text>
-            </View>
-
-            {/* Discount */}
-            {booking.discount_amount > 0 && (
-              <View style={styles.priceRow}>
-                <Text style={[styles.priceLabel, { color: colors.success }]}>Discount</Text>
-                <Text style={[styles.priceValue, { color: colors.success }]}>
-                  -€{booking.discount_amount.toFixed(2)}
-                </Text>
-              </View>
-            )}
-
-            {/* Tax */}
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Tax (10%)</Text>
-              <Text style={styles.priceValue}>€{booking.tax_amount.toFixed(2)}</Text>
-            </View>
-
-            {/* Total */}
-            <View style={[styles.priceRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>
-                €{booking.total_amount.toFixed(2)} {booking.currency}
-              </Text>
-            </View>
           </Card.Content>
         </Card>
 
@@ -1030,6 +1163,80 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   // Price Summary styles
+  priceSummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceSummaryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  priceSummaryToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  priceSummaryTotal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  priceSummaryContent: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  protectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  // Price category styles for detailed breakdown
+  priceCategoryContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  priceCategoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  priceCategoryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  priceCategoryTotal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  priceCategoryItems: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.xs,
+  },
+  priceItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  priceItemLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  priceItemValue: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

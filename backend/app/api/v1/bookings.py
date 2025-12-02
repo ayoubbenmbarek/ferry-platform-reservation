@@ -563,6 +563,21 @@ async def create_booking(
                 }
                 pet_type_db = pet_type_map.get(passenger_data.pet_type, None)
 
+            # Calculate passenger price (include return journey if round trip)
+            if passenger_data.type == "adult":
+                passenger_base_price = base_adult_price
+                passenger_final_price = base_adult_price
+                if is_round_trip and hasattr(booking_data, 'return_ferry_prices') and booking_data.return_ferry_prices:
+                    passenger_final_price += booking_data.return_ferry_prices.get("adult", 0.0)
+            elif passenger_data.type == "child":
+                passenger_base_price = base_child_price
+                passenger_final_price = base_child_price
+                if is_round_trip and hasattr(booking_data, 'return_ferry_prices') and booking_data.return_ferry_prices:
+                    passenger_final_price += booking_data.return_ferry_prices.get("child", 0.0)
+            else:
+                passenger_base_price = 0.0
+                passenger_final_price = 0.0
+
             db_passenger = BookingPassenger(
                 booking_id=db_booking.id,
                 passenger_type=db_passenger_type,
@@ -571,10 +586,8 @@ async def create_booking(
                 date_of_birth=passenger_data.date_of_birth,
                 nationality=passenger_data.nationality,
                 passport_number=passenger_data.passport_number,
-                base_price=base_adult_price if passenger_data.type == "adult" else
-                          (base_child_price if passenger_data.type == "child" else 0.0),
-                final_price=base_adult_price if passenger_data.type == "adult" else
-                           (base_child_price if passenger_data.type == "child" else 0.0),
+                base_price=passenger_base_price,
+                final_price=passenger_final_price,
                 special_needs=passenger_data.special_needs,
                 # Pet information
                 has_pet=getattr(passenger_data, 'has_pet', False) or False,
@@ -600,6 +613,11 @@ async def create_booking(
                 }
                 db_vehicle_type = vehicle_type_map.get(vehicle_data.type, VehicleTypeEnum.CAR)
 
+                # Calculate vehicle price (include return journey if round trip)
+                vehicle_final_price = base_vehicle_price
+                if is_round_trip and hasattr(booking_data, 'return_ferry_prices') and booking_data.return_ferry_prices:
+                    vehicle_final_price += booking_data.return_ferry_prices.get("vehicle", 0.0)
+
                 db_vehicle = BookingVehicle(
                     booking_id=db_booking.id,
                     vehicle_type=db_vehicle_type,
@@ -615,7 +633,7 @@ async def create_booking(
                     has_roof_box=getattr(vehicle_data, 'has_roof_box', False),
                     has_bike_rack=getattr(vehicle_data, 'has_bike_rack', False),
                     base_price=base_vehicle_price,
-                    final_price=base_vehicle_price
+                    final_price=vehicle_final_price
                 )
                 db.add(db_vehicle)
 

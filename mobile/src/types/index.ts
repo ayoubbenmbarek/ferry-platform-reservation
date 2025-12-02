@@ -118,6 +118,22 @@ export interface Meal {
   category: string;
 }
 
+// Booking Meal type for meals associated with a booking
+export interface BookingMeal {
+  id: number;
+  booking_id: number;
+  meal_id: number;
+  meal_name?: string;
+  meal_type?: string;
+  journey_type: 'OUTBOUND' | 'RETURN';
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  dietary_type?: string;
+  special_requests?: string;
+  created_at: string;
+}
+
 // Booking Types
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'expired';
 
@@ -181,6 +197,7 @@ export interface Booking {
   };
   passengers?: Passenger[];
   vehicles?: Vehicle[];
+  meals?: BookingMeal[];  // Booked meals
   booking_cabins?: BookingCabin[];  // Upgraded cabins
   created_at: string;
   expires_at?: string;

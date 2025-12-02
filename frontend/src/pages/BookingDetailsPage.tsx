@@ -33,6 +33,7 @@ const BookingDetailsPage: React.FC = () => {
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
   const [isDownloadingETicket, setIsDownloadingETicket] = useState(false);
   const [cabinDetails, setCabinDetails] = useState<{ outbound?: any; return?: any }>({});
+  const [isPriceSummaryExpanded, setIsPriceSummaryExpanded] = useState(false);
 
   // Fetch cabin details when booking has cabin IDs
   useEffect(() => {
@@ -464,9 +465,6 @@ const BookingDetailsPage: React.FC = () => {
                         <p className="text-xs text-gray-500">Nationality: {p.nationality}</p>
                       )}
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">€{p.finalPrice?.toFixed(2) || '0.00'}</p>
-                    </div>
                   </div>
                   {p.specialNeeds && (
                     <p className="text-sm text-gray-600 mt-2">
@@ -516,9 +514,6 @@ const BookingDetailsPage: React.FC = () => {
                         <p className="text-xs text-gray-500 mt-1">
                           Dimensions: {((v.lengthCm || 0) / 100).toFixed(1)}m × {((v.widthCm || 0) / 100).toFixed(1)}m × {((v.heightCm || 0) / 100).toFixed(1)}m
                         </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">€{v.finalPrice?.toFixed(2) || '0.00'}</p>
                       </div>
                     </div>
                   </div>
@@ -752,57 +747,114 @@ const BookingDetailsPage: React.FC = () => {
             </div>
           )}
 
-          {/* Price Summary */}
+          {/* Price Summary - Collapsible */}
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Price Summary</h2>
-            <div className="space-y-3">
-              {/* Passengers Breakdown */}
-              {booking.passengers && booking.passengers.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    Passengers ({booking.totalPassengers})
-                  </p>
-                  <div className="space-y-1 text-sm">
-                    {booking.passengers.map((p: any, idx: number) => (
-                      <div key={idx} className="flex justify-between">
-                        <span className="text-gray-600">
-                          {p.firstName} {p.lastName} ({p.passengerType})
-                        </span>
-                        <span>€{(p.finalPrice || 0).toFixed(2)}</span>
-                      </div>
-                    ))}
-                    {booking.isRoundTrip && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        * Includes outbound + return journey
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+            <button
+              onClick={() => setIsPriceSummaryExpanded(!isPriceSummaryExpanded)}
+              className="w-full flex items-center justify-between text-left mb-3 py-2 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <h2 className="text-lg font-semibold flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Price Summary
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-blue-600">
+                  €{(booking.totalAmount || 0).toFixed(2)}
+                </span>
+                <svg
+                  className={`w-5 h-5 text-gray-500 transition-transform ${isPriceSummaryExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
 
-              {/* Vehicles Breakdown */}
-              {booking.vehicles && booking.vehicles.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    Vehicles ({booking.totalVehicles})
-                  </p>
-                  <div className="space-y-1 text-sm">
-                    {booking.vehicles.map((v: any, idx: number) => (
-                      <div key={idx} className="flex justify-between">
-                        <span className="text-gray-600">
-                          {v.vehicleType} ({v.licensePlate})
-                        </span>
-                        <span>€{(v.finalPrice || 0).toFixed(2)}</span>
+            {isPriceSummaryExpanded && (
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              {/* Calculate all costs for display */}
+              {(() => {
+                // Calculate totals from stored data
+                const passengerTotal = booking.passengers?.reduce((sum: number, p: any) => sum + (p.finalPrice || 0), 0) || 0;
+                const vehicleTotal = booking.vehicles?.reduce((sum: number, v: any) => sum + (v.finalPrice || 0), 0) || 0;
+                const cabinTotal = (booking.cabinSupplement || 0) + (booking.returnCabinSupplement || 0);
+                const mealTotal = booking.meals?.reduce((sum: number, m: any) => sum + (m.totalPrice || 0), 0) || 0;
+
+                // Calculate fare total (subtotal minus cabins and meals)
+                // This ensures the fare portion adds up correctly even if individual prices are wrong
+                const subtotal = booking.subtotal || 0;
+                const fareTotal = Math.max(0, subtotal - cabinTotal - mealTotal);
+
+                // If stored prices match, use them; otherwise compute from fare total
+                const storedTotal = passengerTotal + vehicleTotal;
+                const useStoredPrices = Math.abs(storedTotal - fareTotal) < 1; // Allow €1 tolerance for rounding
+
+                return (
+                  <>
+                    {/* Passengers Breakdown */}
+                    {booking.passengers && booking.passengers.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm font-medium text-gray-700">
+                            Passengers ({booking.totalPassengers})
+                          </p>
+                          <span className="text-sm font-medium">
+                            €{useStoredPrices ? passengerTotal.toFixed(2) : ((fareTotal * passengerTotal / (storedTotal || 1))).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-sm text-gray-500">
+                          {booking.passengers.map((p: any, idx: number) => {
+                            const displayPrice = useStoredPrices
+                              ? (p.finalPrice || 0)
+                              : ((p.finalPrice || 0) * fareTotal / (storedTotal || 1));
+                            return (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <span>
+                                  {p.firstName} {p.lastName} ({p.passengerType})
+                                </span>
+                                <span>€{displayPrice.toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    ))}
-                    {booking.isRoundTrip && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        * Includes outbound + return journey
-                      </p>
                     )}
-                  </div>
-                </div>
-              )}
+
+                    {/* Vehicles Breakdown */}
+                    {booking.vehicles && booking.vehicles.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm font-medium text-gray-700">
+                            Vehicles ({booking.totalVehicles})
+                          </p>
+                          <span className="text-sm font-medium">
+                            €{useStoredPrices ? vehicleTotal.toFixed(2) : ((fareTotal * vehicleTotal / (storedTotal || 1))).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-sm text-gray-500">
+                          {booking.vehicles.map((v: any, idx: number) => {
+                            const displayPrice = useStoredPrices
+                              ? (v.finalPrice || 0)
+                              : ((v.finalPrice || 0) * fareTotal / (storedTotal || 1));
+                            return (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <span>
+                                  {v.vehicleType} ({v.licensePlate})
+                                </span>
+                                <span>€{displayPrice.toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Cabin Costs - Show breakdown of original + upgrades */}
               {(() => {
@@ -906,6 +958,7 @@ const BookingDetailsPage: React.FC = () => {
                 })()}
               </div>
             </div>
+            )}
           </div>
 
           {/* Action Buttons */}

@@ -55,6 +55,7 @@ export default function PaymentScreen() {
   const [cardDetails, setCardDetails] = useState<CardFieldInput.Details | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [isPriceBreakdownExpanded, setIsPriceBreakdownExpanded] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -629,115 +630,136 @@ export default function PaymentScreen() {
           </Card>
         )}
 
-        {/* Detailed Price Breakdown */}
+        {/* Detailed Price Breakdown - Collapsible */}
         <Card style={styles.section}>
           <Card.Content>
-            <Text style={styles.sectionTitle}>Price Breakdown</Text>
+            <TouchableOpacity
+              style={styles.priceBreakdownHeader}
+              onPress={() => setIsPriceBreakdownExpanded(!isPriceBreakdownExpanded)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.priceBreakdownTitleRow}>
+                <Ionicons name="receipt-outline" size={18} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Price Breakdown</Text>
+              </View>
+              <View style={styles.priceBreakdownToggle}>
+                <Text style={styles.priceBreakdownTotal}>€{totalAmount.toFixed(2)}</Text>
+                <Ionicons
+                  name={isPriceBreakdownExpanded ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
 
-            {/* Outbound Fare */}
-            {selectedSchedule && (
-              <>
-                <Text style={styles.breakdownCategory}>Outbound Journey</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceLabel}>{adults} Adult{adults > 1 ? 's' : ''} × €{(selectedSchedule.base_price ?? 0).toFixed(0)}</Text>
-                  <Text style={styles.priceValue}>€{((selectedSchedule.base_price ?? 0) * adults).toFixed(2)}</Text>
-                </View>
-                {children > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>{children} Child{children > 1 ? 'ren' : ''} × €{((selectedSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER).toFixed(0)} (50%)</Text>
-                    <Text style={styles.priceValue}>€{((selectedSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER * children).toFixed(2)}</Text>
-                  </View>
-                )}
-                {infants > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>{infants} Infant{infants > 1 ? 's' : ''} (Free)</Text>
-                    <Text style={styles.priceValue}>€0.00</Text>
-                  </View>
-                )}
-                {vehicles > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>{vehicles} Vehicle{vehicles > 1 ? 's' : ''} × €{VEHICLE_PRICE}</Text>
-                    <Text style={styles.priceValue}>€{outboundVehicleCost.toFixed(2)}</Text>
-                  </View>
-                )}
-              </>
-            )}
-
-            {/* Return Fare */}
-            {returnSchedule && (
-              <>
-                <Text style={[styles.breakdownCategory, { marginTop: spacing.md }]}>Return Journey</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceLabel}>{adults} Adult{adults > 1 ? 's' : ''} × €{(returnSchedule.base_price ?? 0).toFixed(0)}</Text>
-                  <Text style={styles.priceValue}>€{((returnSchedule.base_price ?? 0) * adults).toFixed(2)}</Text>
-                </View>
-                {children > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>{children} Child{children > 1 ? 'ren' : ''} × €{((returnSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER).toFixed(0)} (50%)</Text>
-                    <Text style={styles.priceValue}>€{((returnSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER * children).toFixed(2)}</Text>
-                  </View>
-                )}
-                {infants > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>{infants} Infant{infants > 1 ? 's' : ''} (Free)</Text>
-                    <Text style={styles.priceValue}>€0.00</Text>
-                  </View>
-                )}
-                {vehicles > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>{vehicles} Vehicle{vehicles > 1 ? 's' : ''} × €{VEHICLE_PRICE}</Text>
-                    <Text style={styles.priceValue}>€{returnVehicleCost.toFixed(2)}</Text>
-                  </View>
-                )}
-              </>
-            )}
-
-            {/* Extras */}
-            {(cabinTotal > 0 || mealTotal > 0 || cancellationCost > 0) && (
-              <>
-                <Text style={[styles.breakdownCategory, { marginTop: spacing.md }]}>Extras</Text>
-                {cabinTotal > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Accommodation</Text>
-                    <Text style={styles.priceValue}>€{cabinTotal.toFixed(2)}</Text>
-                  </View>
-                )}
-                {mealTotal > 0 && (
-                  <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Meals</Text>
-                    <Text style={styles.priceValue}>€{mealTotal.toFixed(2)}</Text>
-                  </View>
-                )}
-                {cancellationCost > 0 && (
-                  <View style={styles.priceRow}>
-                    <View style={styles.protectionLabel}>
-                      <Ionicons name="shield-checkmark" size={16} color={colors.success} />
-                      <Text style={styles.priceLabel}>Cancellation Protection</Text>
+            {isPriceBreakdownExpanded && (
+              <View style={styles.priceBreakdownContent}>
+                {/* Outbound Fare */}
+                {selectedSchedule && (
+                  <>
+                    <Text style={styles.breakdownCategory}>Outbound Journey</Text>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.priceLabel}>{adults} Adult{adults > 1 ? 's' : ''} × €{(selectedSchedule.base_price ?? 0).toFixed(0)}</Text>
+                      <Text style={styles.priceValue}>€{((selectedSchedule.base_price ?? 0) * adults).toFixed(2)}</Text>
                     </View>
-                    <Text style={styles.priceValue}>€{cancellationCost.toFixed(2)}</Text>
-                  </View>
+                    {children > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>{children} Child{children > 1 ? 'ren' : ''} × €{((selectedSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER).toFixed(0)} (50%)</Text>
+                        <Text style={styles.priceValue}>€{((selectedSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER * children).toFixed(2)}</Text>
+                      </View>
+                    )}
+                    {infants > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>{infants} Infant{infants > 1 ? 's' : ''} (Free)</Text>
+                        <Text style={styles.priceValue}>€0.00</Text>
+                      </View>
+                    )}
+                    {vehicles > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>{vehicles} Vehicle{vehicles > 1 ? 's' : ''} × €{VEHICLE_PRICE}</Text>
+                        <Text style={styles.priceValue}>€{outboundVehicleCost.toFixed(2)}</Text>
+                      </View>
+                    )}
+                  </>
                 )}
-              </>
+
+                {/* Return Fare */}
+                {returnSchedule && (
+                  <>
+                    <Text style={[styles.breakdownCategory, { marginTop: spacing.md }]}>Return Journey</Text>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.priceLabel}>{adults} Adult{adults > 1 ? 's' : ''} × €{(returnSchedule.base_price ?? 0).toFixed(0)}</Text>
+                      <Text style={styles.priceValue}>€{((returnSchedule.base_price ?? 0) * adults).toFixed(2)}</Text>
+                    </View>
+                    {children > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>{children} Child{children > 1 ? 'ren' : ''} × €{((returnSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER).toFixed(0)} (50%)</Text>
+                        <Text style={styles.priceValue}>€{((returnSchedule.base_price ?? 0) * CHILD_PRICE_MULTIPLIER * children).toFixed(2)}</Text>
+                      </View>
+                    )}
+                    {infants > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>{infants} Infant{infants > 1 ? 's' : ''} (Free)</Text>
+                        <Text style={styles.priceValue}>€0.00</Text>
+                      </View>
+                    )}
+                    {vehicles > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>{vehicles} Vehicle{vehicles > 1 ? 's' : ''} × €{VEHICLE_PRICE}</Text>
+                        <Text style={styles.priceValue}>€{returnVehicleCost.toFixed(2)}</Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                {/* Extras */}
+                {(cabinTotal > 0 || mealTotal > 0 || cancellationCost > 0) && (
+                  <>
+                    <Text style={[styles.breakdownCategory, { marginTop: spacing.md }]}>Extras</Text>
+                    {cabinTotal > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>Accommodation</Text>
+                        <Text style={styles.priceValue}>€{cabinTotal.toFixed(2)}</Text>
+                      </View>
+                    )}
+                    {mealTotal > 0 && (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>Meals</Text>
+                        <Text style={styles.priceValue}>€{mealTotal.toFixed(2)}</Text>
+                      </View>
+                    )}
+                    {cancellationCost > 0 && (
+                      <View style={styles.priceRow}>
+                        <View style={styles.protectionLabel}>
+                          <Ionicons name="shield-checkmark" size={16} color={colors.success} />
+                          <Text style={styles.priceLabel}>Cancellation Protection</Text>
+                        </View>
+                        <Text style={styles.priceValue}>€{cancellationCost.toFixed(2)}</Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                <View style={styles.divider} />
+
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Subtotal</Text>
+                  <Text style={styles.priceValue}>€{subtotal.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Taxes & Fees (10%)</Text>
+                  <Text style={styles.priceValue}>€{taxAmount.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.priceRow}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>€{totalAmount.toFixed(2)}</Text>
+                </View>
+              </View>
             )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Subtotal</Text>
-              <Text style={styles.priceValue}>€{subtotal.toFixed(2)}</Text>
-            </View>
-
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Taxes & Fees (10%)</Text>
-              <Text style={styles.priceValue}>€{taxAmount.toFixed(2)}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.priceRow}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>€{totalAmount.toFixed(2)}</Text>
-            </View>
           </Card.Content>
         </Card>
 
@@ -1032,6 +1054,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
+  },
+  // Price breakdown collapsible styles
+  priceBreakdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceBreakdownTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  priceBreakdownToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  priceBreakdownTotal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  priceBreakdownContent: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   breakdownCategory: {
     fontSize: 13,

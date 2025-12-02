@@ -247,10 +247,23 @@ describe('BiometricService', () => {
       expect(result.error).toBe('Biometric login not enabled');
     });
 
-    it('should return error and disable when credentials not found', async () => {
+    it('should return session expired error when token not found', async () => {
       (SecureStore.getItemAsync as jest.Mock)
         .mockResolvedValueOnce('true') // biometric_enabled
         .mockResolvedValueOnce(null) // no token
+        .mockResolvedValueOnce(null) // no email
+        .mockResolvedValueOnce(null); // no refresh token
+
+      const result = await biometricService.biometricLogin();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Session expired. Please sign in with your password to restore Face ID.');
+    });
+
+    it('should return error and disable when email not found but token exists', async () => {
+      (SecureStore.getItemAsync as jest.Mock)
+        .mockResolvedValueOnce('true') // biometric_enabled
+        .mockResolvedValueOnce('valid-token') // token exists
         .mockResolvedValueOnce(null) // no email
         .mockResolvedValueOnce(null); // no refresh token
 

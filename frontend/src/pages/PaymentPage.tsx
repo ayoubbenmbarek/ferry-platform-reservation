@@ -55,6 +55,7 @@ const PaymentPage: React.FC = () => {
   const [bookingDetails, setBookingDetails] = useState<any>(null);
   // Store cabin details for display in summary
   const [cabinDetails, setCabinDetails] = useState<Record<number, { name: string; price: number }>>({});
+  const [isOrderSummaryExpanded, setIsOrderSummaryExpanded] = useState(false);
 
   // Use ref to prevent double initialization in React StrictMode
   const initializingRef = useRef(false);
@@ -550,11 +551,31 @@ const PaymentPage: React.FC = () => {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                {isCabinUpgrade ? t('payment:cabinUpgrade.summary', 'Cabin Upgrade Summary') : t('payment:orderSummary.title')}
-              </h2>
+              <button
+                onClick={() => setIsOrderSummaryExpanded(!isOrderSummaryExpanded)}
+                className="w-full flex items-center justify-between text-left mb-4 hover:bg-gray-50 rounded-lg transition-colors -mx-2 px-2 py-1"
+              >
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  {isCabinUpgrade ? t('payment:cabinUpgrade.summary', 'Cabin Upgrade Summary') : t('payment:orderSummary.title')}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-blue-600">€{bookingTotal.toFixed(2)}</span>
+                  <svg
+                    className={`w-5 h-5 text-gray-500 transition-transform ${isOrderSummaryExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
 
-              <div className="space-y-3 mb-4">
+              {isOrderSummaryExpanded && (
+              <div className="space-y-3 mb-4 border-t border-gray-100 pt-4">
                 {isCabinUpgrade && cabinUpgradeData ? (
                   <>
                     {/* Cabin Upgrade Summary */}
@@ -729,7 +750,6 @@ const PaymentPage: React.FC = () => {
                     </div>
                   </>
                 )}
-              </div>
 
               {(selectedFerry || bookingDetails) && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
@@ -769,6 +789,8 @@ const PaymentPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              )}
+              </div>
               )}
             </div>
           </div>

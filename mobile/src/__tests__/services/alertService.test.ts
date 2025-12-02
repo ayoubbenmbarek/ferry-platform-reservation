@@ -50,7 +50,7 @@ describe('alertService', () => {
       const result = await alertService.createAlert(alertData);
 
       // The service adds default values to the data
-      expect(mockedApi.post).toHaveBeenCalledWith('/availability-alerts/', {
+      expect(mockedApi.post).toHaveBeenCalledWith('/availability-alerts', {
         ...alertData,
         is_round_trip: false,
         num_adults: 2,
@@ -93,7 +93,7 @@ describe('alertService', () => {
       const result = await alertService.getAlerts();
 
       // URL is constructed without query params when none provided
-      expect(mockedApi.get).toHaveBeenCalledWith('/availability-alerts/');
+      expect(mockedApi.get).toHaveBeenCalledWith('/availability-alerts');
       expect(result).toHaveLength(2);
     });
 
@@ -105,7 +105,7 @@ describe('alertService', () => {
 
       // URL includes email query param
       expect(mockedApi.get).toHaveBeenCalledWith(
-        '/availability-alerts/?email=test%40example.com'
+        '/availability-alerts?email=test%40example.com'
       );
       expect(result).toHaveLength(1);
     });
@@ -117,7 +117,7 @@ describe('alertService', () => {
       const result = await alertService.getAlerts({ status: 'notified' });
 
       // URL includes status query param
-      expect(mockedApi.get).toHaveBeenCalledWith('/availability-alerts/?status=notified');
+      expect(mockedApi.get).toHaveBeenCalledWith('/availability-alerts?status=notified');
       expect(result[0].status).toBe('notified');
     });
   });

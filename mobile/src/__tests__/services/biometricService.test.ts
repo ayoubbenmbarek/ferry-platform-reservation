@@ -182,19 +182,16 @@ describe('BiometricService', () => {
 
       expect(result).toBe(true);
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'auth_token',
-        'test-token',
-        expect.any(Object)
+        'biometric_auth_token',
+        'test-token'
       );
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'user_email',
-        'test@example.com',
-        expect.any(Object)
+        'biometric_user_email',
+        'test@example.com'
       );
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'refresh_token',
-        'refresh-token',
-        expect.any(Object)
+        'biometric_refresh_token',
+        'refresh-token'
       );
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith('biometric_enabled', 'true');
     });
@@ -215,9 +212,9 @@ describe('BiometricService', () => {
       const result = await biometricService.disableBiometric();
 
       expect(result).toBe(true);
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('auth_token');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('user_email');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('refresh_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('biometric_auth_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('biometric_user_email');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('biometric_refresh_token');
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith('biometric_enabled', 'false');
     });
   });
@@ -282,9 +279,8 @@ describe('BiometricService', () => {
 
       expect(result).toBe(true);
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        'auth_token',
-        'new-token',
-        expect.any(Object)
+        'biometric_auth_token',
+        'new-token'
       );
     });
 
@@ -321,9 +317,9 @@ describe('BiometricService', () => {
     it('should clear all stored credentials', async () => {
       await biometricService.clearCredentials();
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('auth_token');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('user_email');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('refresh_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('biometric_auth_token');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('biometric_user_email');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('biometric_refresh_token');
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith('biometric_enabled', 'false');
     });
   });

@@ -40,6 +40,8 @@ import {
 import { resetBooking } from '../../store/slices/bookingSlice';
 import { RootStackParamList } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import VoiceSearchButton from '../../components/VoiceSearchButton';
+import { ParsedSearchQuery, getQuerySummary } from '../../utils/voiceSearchParser';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -86,9 +88,80 @@ export default function SearchScreen() {
   const [showReturnPicker, setShowReturnPicker] = useState(false);
   const [showPassengerPicker, setShowPassengerPicker] = useState(false);
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
+  const [voiceSearchFeedback, setVoiceSearchFeedback] = useState<string | null>(null);
 
   const [tempDepartureDate, setTempDepartureDate] = useState(new Date());
   const [tempReturnDate, setTempReturnDate] = useState(addDays(new Date(), 7));
+
+  // Handle voice search result
+  const handleVoiceSearchResult = (result: ParsedSearchQuery) => {
+    // Set departure port if detected
+    if (result.departurePort) {
+      // Try to find a matching port
+      const matchedDeparture = ports.find(
+        p => p.code.toLowerCase() === result.departurePort?.toLowerCase() ||
+             p.name.toLowerCase().includes(result.departurePort?.toLowerCase() || '')
+      );
+      if (matchedDeparture) {
+        dispatch(setDeparturePort(matchedDeparture.code));
+      }
+    }
+
+    // Set arrival port if detected
+    if (result.arrivalPort) {
+      const matchedArrival = ports.find(
+        p => p.code.toLowerCase() === result.arrivalPort?.toLowerCase() ||
+             p.name.toLowerCase().includes(result.arrivalPort?.toLowerCase() || '')
+      );
+      if (matchedArrival) {
+        dispatch(setArrivalPort(matchedArrival.code));
+      }
+    }
+
+    // Set departure date if detected
+    if (result.departureDate) {
+      dispatch(setDepartureDate(result.departureDate));
+      setTempDepartureDate(parseISO(result.departureDate));
+    }
+
+    // Set round trip and return date if detected
+    if (result.isRoundTrip) {
+      dispatch(setIsRoundTrip(true));
+      if (result.returnDate) {
+        dispatch(setReturnDate(result.returnDate));
+        setTempReturnDate(parseISO(result.returnDate));
+      }
+    }
+
+    // Set passengers
+    if (result.adults > 0) {
+      dispatch(setAdults(result.adults));
+    }
+    if (result.children > 0) {
+      dispatch(setChildren(result.children));
+    }
+    if (result.infants > 0) {
+      dispatch(setInfants(result.infants));
+    }
+
+    // Set vehicle if detected
+    if (result.hasVehicle) {
+      dispatch(setVehicles(1));
+    }
+
+    // Show feedback
+    const summary = getQuerySummary(result);
+    setVoiceSearchFeedback(summary);
+
+    // Clear feedback after 4 seconds
+    setTimeout(() => {
+      setVoiceSearchFeedback(null);
+    }, 4000);
+  };
+
+  const handleVoiceSearchError = (error: string) => {
+    console.error('Voice search error:', error);
+  };
 
   useEffect(() => {
     if (ports.length === 0) {
@@ -424,7 +497,22 @@ export default function SearchScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Search Ferries</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Search Ferries</Text>
+          <VoiceSearchButton
+            onResult={handleVoiceSearchResult}
+            onError={handleVoiceSearchError}
+            size="medium"
+          />
+        </View>
+
+        {/* Voice Search Feedback */}
+        {voiceSearchFeedback && (
+          <View style={styles.voiceFeedback}>
+            <Ionicons name="mic" size={16} color={colors.primary} />
+            <Text style={styles.voiceFeedbackText}>{voiceSearchFeedback}</Text>
+          </View>
+        )}
 
         {/* Ports Selection */}
         <View style={styles.portsContainer}>
@@ -733,11 +821,32 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.lg,
+  },
+  voiceFeedback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  voiceFeedbackText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
   },
   portsContainer: {
     backgroundColor: colors.surface,

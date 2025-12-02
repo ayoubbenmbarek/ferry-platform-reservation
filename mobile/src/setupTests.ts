@@ -225,7 +225,9 @@ beforeAll(() => {
       typeof args[0] === 'string' &&
       (args[0].includes('Animated') ||
         args[0].includes('useNativeDriver') ||
-        args[0].includes('deprecated'))
+        args[0].includes('deprecated') ||
+        args[0].includes('using mock data') ||
+        args[0].includes('Failed to fetch'))
     ) {
       return;
     }

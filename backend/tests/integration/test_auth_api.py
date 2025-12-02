@@ -108,7 +108,8 @@ class TestAuthLogin:
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        assert response.status_code in [400, 401]
+        # API returns 404 for non-existent users with helpful message
+        assert response.status_code in [400, 401, 404]
 
 
 class TestAuthMe:

@@ -408,7 +408,7 @@ export default function SaveRouteButton({
               />
               {showLabel && (
                 <Text style={[styles.buttonText, isSaved && styles.buttonTextSaved]}>
-                  {isSaved ? 'Saved' : 'Save Route'}
+                  {isSaved ? 'Tracking Price' : 'Save & Get Alerts'}
                 </Text>
               )}
             </>
@@ -512,7 +512,7 @@ export function SaveRouteFAB({
               color="#fff"
             />
             <Text style={styles.fabText}>
-              {isSaved ? 'Saved' : 'Save'}
+              {isSaved ? 'Tracking' : 'Save'}
             </Text>
           </View>
         )}
@@ -622,6 +622,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+  },
+  alertInfo: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+  },
+  alertInfoText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    textAlign: 'center',
   },
   routeDisplay: {
     backgroundColor: colors.background,

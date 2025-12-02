@@ -237,7 +237,16 @@ beforeAll(() => {
   console.error = (...args) => {
     if (
       typeof args[0] === 'string' &&
-      (args[0].includes('Warning:') || args[0].includes('act(...)'))
+      (args[0].includes('Warning:') ||
+        args[0].includes('act(...)') ||
+        args[0].includes('microphone permission') ||
+        args[0].includes('Error requesting') ||
+        args[0].includes('Error checking') ||
+        args[0].includes('Error starting recording') ||
+        args[0].includes('Error stopping recording') ||
+        args[0].includes('Error canceling recording') ||
+        args[0].includes('Error transcribing') ||
+        args[0].includes('Error cleaning up'))
     ) {
       return;
     }

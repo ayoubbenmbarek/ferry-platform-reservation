@@ -222,6 +222,7 @@ export interface CabinUpgradeParams {
 // Navigation Types
 export type RootStackParamList = {
   Main: undefined;
+  MainTabs: undefined;
   Auth: undefined;
   Search: undefined;
   SearchResults: { params: SearchParams };
@@ -233,6 +234,7 @@ export type RootStackParamList = {
   ETicket: { booking: Booking };
   MyBookings: undefined;
   MyAlerts: undefined;
+  SavedRoutes: undefined;
   AddCabin: CabinUpgradeParams;
   Profile: undefined;
   Settings: undefined;
@@ -253,9 +255,16 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
 };
 
+export type SearchScreenParams = {
+  prefillDeparture?: string;
+  prefillArrival?: string;
+  prefillDate?: string;
+  autoSearch?: boolean;
+};
+
 export type MainTabParamList = {
   Home: undefined;
-  Search: undefined;
+  Search: SearchScreenParams | undefined;
   Bookings: undefined;
   Profile: undefined;
 };

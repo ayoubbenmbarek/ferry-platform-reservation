@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { logout } from '../../store/slices/authSlice';
 import { selectActiveAlertCount, fetchUserAlerts } from '../../store/slices/alertSlice';
+import { selectSavedRoutesTotal, fetchSavedRoutes } from '../../store/slices/priceAlertSlice';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { biometricService, BiometricStatus } from '../../services/biometricService';
 import { RootStackParamList } from '../../types';
@@ -69,12 +70,14 @@ export default function ProfileScreen() {
   const dispatch = useAppDispatch();
   const { isAuthenticated, user, token } = useAppSelector((state) => state.auth);
   const activeAlertCount = useAppSelector(selectActiveAlertCount);
+  const savedRoutesCount = useAppSelector(selectSavedRoutesTotal);
   const { settings, hasPermission } = useNotifications();
 
-  // Fetch alerts on mount when authenticated
+  // Fetch alerts and saved routes on mount when authenticated
   React.useEffect(() => {
     if (isAuthenticated && user?.email) {
       dispatch(fetchUserAlerts({ email: user.email }));
+      dispatch(fetchSavedRoutes());
     }
   }, [isAuthenticated, user?.email, dispatch]);
 
@@ -260,6 +263,13 @@ export default function ProfileScreen() {
                 title="My Alerts"
                 subtitle={activeAlertCount > 0 ? `${activeAlertCount} active alert${activeAlertCount !== 1 ? 's' : ''}` : 'Availability notifications'}
                 onPress={() => navigation.navigate('MyAlerts')}
+              />
+              <Divider style={styles.divider} />
+              <MenuItem
+                icon="heart-outline"
+                title="Saved Routes"
+                subtitle={savedRoutesCount > 0 ? `${savedRoutesCount} saved route${savedRoutesCount !== 1 ? 's' : ''}` : 'Price drop notifications'}
+                onPress={() => navigation.navigate('SavedRoutes')}
               />
             </View>
           </>

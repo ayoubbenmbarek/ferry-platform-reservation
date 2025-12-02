@@ -17,6 +17,7 @@ import BookingDetailsScreen from '../screens/BookingDetailsScreen';
 import ETicketScreen from '../screens/ETicketScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import MyAlertsScreen from '../screens/MyAlertsScreen';
+import SavedRoutesScreen from '../screens/SavedRoutesScreen';
 import AddCabinScreen from '../screens/AddCabinScreen';
 import OfflineIndicator from '../components/OfflineIndicator';
 
@@ -137,6 +138,15 @@ export default function RootNavigator() {
         options={{
           headerShown: true,
           title: 'My Alerts',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="SavedRoutes"
+        component={SavedRoutesScreen}
+        options={{
+          headerShown: true,
+          title: 'Saved Routes',
           headerBackTitle: 'Back',
         }}
       />

@@ -231,5 +231,77 @@ class PushNotificationService:
         )
 
 
+    def send_price_alert(
+        self,
+        push_token: str,
+        departure_port: str,
+        arrival_port: str,
+        old_price: float,
+        new_price: float,
+        price_change_percent: float,
+        alert_id: Optional[int] = None,
+        best_date: Optional[str] = None,
+    ) -> bool:
+        """
+        Send price change alert push notification.
+
+        Args:
+            push_token: User's Expo push token
+            departure_port: Departure port name
+            arrival_port: Arrival port name
+            old_price: Previous price
+            new_price: Current price
+            price_change_percent: Percentage change
+            alert_id: Alert ID for navigation
+            best_date: Date with the best price (ISO format)
+
+        Returns:
+            bool: True if notification was sent
+        """
+        is_drop = new_price < old_price
+        change_emoji = "📉" if is_drop else "📈"
+        change_word = "dropped" if is_drop else "increased"
+
+        # Format best date for display
+        best_date_short = ""
+        if best_date:
+            from datetime import datetime
+            try:
+                best_date_obj = datetime.fromisoformat(best_date) if isinstance(best_date, str) else best_date
+                best_date_short = best_date_obj.strftime("%a, %b %d")  # e.g., "Wed, Dec 17"
+            except:
+                best_date_short = ""
+
+        if is_drop:
+            title = f"Price Drop Alert! {change_emoji}"
+            if best_date_short:
+                body = f"{departure_port} → {arrival_port}: €{new_price:.0f} on {best_date_short} ({abs(price_change_percent):.0f}% off). Book now!"
+            else:
+                body = f"{departure_port} → {arrival_port}: Price {change_word} by {abs(price_change_percent):.1f}% (€{old_price:.0f} → €{new_price:.0f}). Book now!"
+        else:
+            title = f"Price Increase Alert {change_emoji}"
+            body = f"{departure_port} → {arrival_port}: Price {change_word} by {price_change_percent:.1f}% (€{old_price:.0f} → €{new_price:.0f})"
+
+        data = {
+            "type": "price_alert",
+            "alert_id": alert_id,
+            "departure_port": departure_port,
+            "arrival_port": arrival_port,
+            "old_price": old_price,
+            "new_price": new_price,
+            "price_change_percent": price_change_percent,
+            "is_price_drop": is_drop,
+            "best_date": best_date,
+        }
+
+        return self.send_push_notification(
+            push_token=push_token,
+            title=title,
+            body=body,
+            data=data,
+            channel_id="price-alerts",
+        )
+
+
 # Singleton instance
 push_notification_service = PushNotificationService()

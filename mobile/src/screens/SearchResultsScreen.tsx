@@ -20,6 +20,7 @@ import { colors, spacing, borderRadius } from '../constants/theme';
 import AvailabilityBadge from '../components/AvailabilityBadge';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import { AlertType } from '../services/alertService';
+import SaveRouteButton from '../components/SaveRouteButton';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'SearchResults'>;
@@ -78,6 +79,21 @@ export default function SearchResultsScreen() {
   const handleAlertSuccess = (message: string) => {
     setAlertToastMessage(message);
     setTimeout(() => setAlertToastMessage(null), 5000);
+  };
+
+  const handleSaveRouteSuccess = () => {
+    setAlertToastMessage('Route saved! You\'ll be notified of price changes.');
+    setTimeout(() => setAlertToastMessage(null), 4000);
+  };
+
+  const handleRemoveRouteSuccess = () => {
+    setAlertToastMessage('Route removed from saved routes.');
+    setTimeout(() => setAlertToastMessage(null), 3000);
+  };
+
+  const handleSaveRouteError = (error: string) => {
+    setAlertToastMessage(error);
+    setTimeout(() => setAlertToastMessage(null), 4000);
   };
 
   // Find cheapest ferry for Best Price highlighting
@@ -324,12 +340,26 @@ export default function SearchResultsScreen() {
         </View>
       )}
 
-      {/* Results Count */}
+      {/* Results Header with Save Route */}
       <View style={styles.resultsHeader}>
-        <Text style={styles.resultsCount}>
-          {currentResults.length} {showReturn ? 'return' : 'outbound'} ferry
-          {currentResults.length !== 1 ? 's' : ''} found
-        </Text>
+        <View style={styles.resultsHeaderLeft}>
+          <Text style={styles.resultsCount}>
+            {currentResults.length} {showReturn ? 'return' : 'outbound'} ferry
+            {currentResults.length !== 1 ? 's' : ''} found
+          </Text>
+          <Text style={styles.routeText}>
+            {showReturn ? `${arrivalPort} → ${departurePort}` : `${departurePort} → ${arrivalPort}`}
+          </Text>
+        </View>
+        <SaveRouteButton
+          departurePort={departurePort}
+          arrivalPort={arrivalPort}
+          price={currentResults.length > 0 ? currentResults[0].base_price : undefined}
+          compact
+          onSaveSuccess={handleSaveRouteSuccess}
+          onRemoveSuccess={handleRemoveRouteSuccess}
+          onError={handleSaveRouteError}
+        />
       </View>
 
       {/* Results List */}
@@ -452,11 +482,22 @@ const styles = StyleSheet.create({
     color: colors.disabled,
   },
   resultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: spacing.md,
+  },
+  resultsHeaderLeft: {
+    flex: 1,
   },
   resultsCount: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  routeText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   listContent: {
     padding: spacing.md,

@@ -170,7 +170,9 @@ todo check existing alerts and try to add info for that alert to be activated an
 TODO:run tests in every commit,
 TODO:create 3 environment
 todo:deploy in self managed kube
+todo:Todo add send email if cabin available for user they don’t have cabin
 todo: add chatbot, that maybe connected to postgres with mcp to answer user question and connect to mcp ferryhopper too, and answer some support question.
+todo:see this but nothing received in mobile phone 
 todo:continue with sentry monitoring:done
 todo correct view booking detail url http://booking/445 onemail
 todo:Search filters by operator maybe too
@@ -178,6 +180,19 @@ todo:Mobile app         | 60%+ bookings are mobile
 todo: add cancellation policy, check screenshot for no refundable, no changes..for basic, add fee for cancellation garantee
 todo: add Pre-departure reminder emails:done
 todo:add sentry for mobile
+
+
+todo search this route hsould go to that specific route, but i see the saved on home page search route instead
+
+todo:saved on frontend dont work when want to remove it
+
+todo:and add day when send notification to be more clear is better  
+todo add saved routes to frontend
+
+todo:subscribe and get updates about price for your summer trip when launching, to user to follow prices
+
+todo: add clear message to encourage people to save () ex save and get alerted for price alert ...
+
 todo:do we use it Code scanning: CodeQL Action v2 is now retired
 todo: why this is blank page http://localhost:8010/docs
 todo:in search page that shows ferries price shown per adult, try to show all prices for all passenger in search page take in consideration passenger type and may put total in frontend and mobile:done
@@ -368,13 +383,15 @@ todo:i try sign in with inexstant user or not yet confirmed i see 403 forbidden 
 no message even if enter a non email address to login just show home page again and no warning
 todo:i can choose today ferry if it is in the past but today, example i book 22h for a trip that is scheduled 19h the same day it could be not possible, may could book the same day but should not be in the past that day
 todo when password in correct page reload to home page but no error shown just this in log  ERROR  AuthSlice login error: Incorrect password. Please try again.
-todo: i receive email on cabin available or passenger or vehicule, any alert i have set but do not receive push notification on mobile, i receive push notification for example for trip reminder before 2h and 24hours, could you add push notif for that availaibility if not yet?
-
+todo: i receive email on cabin available or passenger or vehicule, any alert i have set but do not receive push notification on mobile, i receive push notification for example for trip reminder before 2h and 24hours, could you add push notif for that availaibility if not yet?:done for 2hours alert
+todo:get notified when price drop or increase to for saved routes:how to save routes? and test it
+todo:test offline search and then connect to see queeued search
 todo: idont see cabin and vehicule logo(red,gree etc) in each search result, see only remaning passengers:done
 todo:on add cabin payment page after click agree, it stil grayed the button pay:done
 todo add cabin invoice to my booking and cabin availaibility alert made should be updated after booking the cabin? and add cabin to trip details
 todo:add calendar price routes search, and arrow to go forward in days and backward, to see prices and availaibility etc
-todo:add signup at the end if user book without registration, also add possibility to search its trip like on frontend by email and booking reference
+todo:add signup popup at the end if user book without registration, also add possibility to search its trip like on frontend by email and booking reference
+todo:add cabin in booking details if exist by default, i can see only the upgraded cabin
 
 Important note about cabin 
   alerts:

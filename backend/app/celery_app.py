@@ -20,6 +20,7 @@ celery_app = Celery(
         "app.tasks.booking_tasks",
         "app.tasks.availability_check_tasks",
         "app.tasks.reminder_tasks",
+        "app.tasks.price_alert_tasks",
     ]
 )
 
@@ -117,6 +118,23 @@ celery_app.conf.update(
             'schedule': 3600,  # 1 hour in seconds
             'options': {
                 'expires': 1800,  # Task expires after 30 minutes if not picked up
+            }
+        },
+        # Check price alerts for saved routes
+        # Runs every 4 hours to check for price changes
+        'check-price-alerts': {
+            'task': 'app.tasks.price_alert_tasks.check_price_alerts',
+            'schedule': 14400,  # 4 hours in seconds
+            'options': {
+                'expires': 3600,  # Task expires after 1 hour if not picked up
+            }
+        },
+        # Cleanup old price alerts daily
+        'cleanup-old-price-alerts': {
+            'task': 'app.tasks.price_alert_tasks.cleanup_old_price_alerts',
+            'schedule': 86400,  # 24 hours in seconds
+            'options': {
+                'expires': 7200,  # Task expires after 2 hours if not picked up
             }
         },
     },

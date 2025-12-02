@@ -18,6 +18,7 @@ import DatePriceSelector from '../components/DatePriceSelector';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
+import SaveRouteButton from '../components/SaveRouteButton';
 
 // Search Form Component
 interface SearchFormProps {
@@ -880,15 +881,25 @@ const NewSearchPage: React.FC = () => {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit Search
-              </button>
+              <div className="flex items-center gap-3">
+                {searchParams.departurePort && searchParams.arrivalPort && (
+                  <SaveRouteButton
+                    departurePort={searchParams.departurePort}
+                    arrivalPort={searchParams.arrivalPort}
+                    price={searchResults[0]?.prices?.adult}
+                    variant="compact"
+                  />
+                )}
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Search
+                </button>
+              </div>
             </div>
           </div>
 

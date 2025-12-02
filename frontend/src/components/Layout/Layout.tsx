@@ -151,6 +151,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         >
                           {t('nav.myBookings')}
                         </Link>
+                        <Link
+                          to="/saved-routes"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          {t('nav.savedRoutes', 'Saved Routes')}
+                        </Link>
                         {user?.isAdmin && (
                           <Link
                             to="/admin"

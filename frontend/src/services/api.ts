@@ -427,4 +427,148 @@ export const promoCodeAPI = {
   },
 };
 
+// Price Alert Types
+export interface PriceAlert {
+  id: number;
+  email: string;
+  departure_port: string;
+  arrival_port: string;
+  date_from?: string;
+  date_to?: string;
+  initial_price?: number;
+  current_price?: number;
+  lowest_price?: number;
+  highest_price?: number;
+  target_price?: number;
+  notify_on_drop: boolean;
+  notify_on_increase: boolean;
+  notify_any_change: boolean;
+  price_threshold_percent: number;
+  status: 'active' | 'triggered' | 'paused' | 'expired' | 'cancelled';
+  last_checked_at?: string;
+  last_notified_at?: string;
+  notification_count: number;
+  expires_at?: string;
+  created_at: string;
+  price_change_percent?: number;
+  price_change_amount?: number;
+}
+
+export interface PriceAlertListResponse {
+  routes: PriceAlert[];
+  total: number;
+  page: number;
+  per_page: number;
+  has_more: boolean;
+}
+
+export interface CreatePriceAlertData {
+  email?: string;
+  departure_port: string;
+  arrival_port: string;
+  date_from?: string;
+  date_to?: string;
+  target_price?: number;
+  notify_on_drop?: boolean;
+  notify_on_increase?: boolean;
+  notify_any_change?: boolean;
+  price_threshold_percent?: number;
+  initial_price?: number;
+  expiration_days?: number;
+}
+
+// Price Alert API
+export const priceAlertAPI = {
+  create: async (data: CreatePriceAlertData): Promise<PriceAlert> => {
+    const response = await api.post('/price-alerts', {
+      ...data,
+      notify_on_drop: data.notify_on_drop ?? true,
+      notify_on_increase: data.notify_on_increase ?? false,
+      notify_any_change: data.notify_any_change ?? false,
+      price_threshold_percent: data.price_threshold_percent ?? 5.0,
+    });
+    return response.data;
+  },
+
+  getAll: async (params?: {
+    email?: string;
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<PriceAlertListResponse> => {
+    const response = await api.get('/price-alerts', { params });
+    return response.data;
+  },
+
+  getMyRoutes: async (params?: {
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<PriceAlertListResponse> => {
+    const response = await api.get('/price-alerts/my-routes', { params });
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<PriceAlert> => {
+    const response = await api.get(`/price-alerts/${id}`);
+    return response.data;
+  },
+
+  update: async (
+    id: number,
+    data: Partial<{
+      notify_on_drop: boolean;
+      notify_on_increase: boolean;
+      notify_any_change: boolean;
+      price_threshold_percent: number;
+      target_price: number;
+      status: 'active' | 'paused' | 'cancelled';
+    }>,
+    email?: string
+  ): Promise<PriceAlert> => {
+    const params = email ? { email } : {};
+    const response = await api.patch(`/price-alerts/${id}`, data, { params });
+    return response.data;
+  },
+
+  delete: async (id: number, email?: string): Promise<void> => {
+    const params = email ? { email } : {};
+    await api.delete(`/price-alerts/${id}`, { params });
+  },
+
+  pause: async (id: number): Promise<PriceAlert> => {
+    const response = await api.post(`/price-alerts/${id}/pause`);
+    return response.data;
+  },
+
+  resume: async (id: number): Promise<PriceAlert> => {
+    const response = await api.post(`/price-alerts/${id}/resume`);
+    return response.data;
+  },
+
+  checkRouteSaved: async (
+    departurePort: string,
+    arrivalPort: string,
+    email?: string
+  ): Promise<{ is_saved: boolean; alert_id: number | null; status: string | null }> => {
+    const params = email ? { email } : {};
+    const response = await api.get(
+      `/price-alerts/check/${encodeURIComponent(departurePort)}/${encodeURIComponent(arrivalPort)}`,
+      { params }
+    );
+    return response.data;
+  },
+
+  getStats: async (): Promise<{
+    total_alerts: number;
+    active_alerts: number;
+    paused_alerts: number;
+    triggered_alerts: number;
+    routes_with_price_drops: number;
+  }> => {
+    const response = await api.get('/price-alerts/stats/summary');
+    return response.data;
+  },
+};
+
 export default api; 

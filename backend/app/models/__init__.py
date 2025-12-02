@@ -10,6 +10,7 @@ from .meal import Meal, BookingMeal, MealTypeEnum, DietaryTypeEnum, JourneyTypeE
 from .promo_code import PromoCode, PromoCodeUsage, PromoCodeTypeEnum
 from .booking_reminder import BookingReminder, ReminderTypeEnum
 from .availability_alert import AvailabilityAlert, AlertTypeEnum, AlertStatusEnum
+from .price_alert import PriceAlert, PriceAlertStatusEnum
 
 __all__ = [
     "User",
@@ -37,4 +38,6 @@ __all__ = [
     "AvailabilityAlert",
     "AlertTypeEnum",
     "AlertStatusEnum",
+    "PriceAlert",
+    "PriceAlertStatusEnum",
 ] 

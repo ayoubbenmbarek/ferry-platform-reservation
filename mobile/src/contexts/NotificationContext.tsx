@@ -128,8 +128,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         }
         break;
       case 'price_alert':
-        // Navigate to search with the route pre-filled
-        navigation.navigate('Main');
+        // Navigate to saved routes to see the price change
+        if (data.alert_id) {
+          navigation.navigate('SavedRoutes');
+        } else {
+          navigation.navigate('SavedRoutes');
+        }
         break;
       case 'promotion':
         // Navigate to home or specific promo

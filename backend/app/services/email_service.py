@@ -580,6 +580,153 @@ class EmailService:
             logger.error(f"Failed to send cabin upgrade confirmation: {str(e)}")
             return False
 
+    def send_price_alert(
+        self,
+        alert_data: Dict[str, Any],
+        to_email: str
+    ) -> bool:
+        """
+        Send price change alert notification email.
+
+        Args:
+            alert_data: Alert information including route, prices, change details
+            to_email: Recipient email address
+
+        Returns:
+            bool: True if email sent successfully
+        """
+        try:
+            is_drop = alert_data.get("is_price_drop", True)
+            old_price = alert_data.get("old_price", 0)
+            new_price = alert_data.get("new_price", 0)
+            price_change_percent = alert_data.get("price_change_percent", 0)
+            departure_port = alert_data.get("departure_port", "")
+            arrival_port = alert_data.get("arrival_port", "")
+            search_url = alert_data.get("search_url", "")
+            notification_reason = alert_data.get("notification_reason", "")
+            lowest_price = alert_data.get("lowest_price")
+            target_price = alert_data.get("target_price")
+            best_date = alert_data.get("best_date")  # Date with the best price
+            date_from = alert_data.get("date_from")
+            date_to = alert_data.get("date_to")
+
+            # Format best date for display
+            best_date_display = ""
+            if best_date:
+                from datetime import datetime
+                try:
+                    best_date_obj = datetime.fromisoformat(best_date) if isinstance(best_date, str) else best_date
+                    best_date_display = best_date_obj.strftime("%A, %B %d, %Y")  # e.g., "Friday, December 7, 2025"
+                except:
+                    best_date_display = str(best_date)
+
+            # Format date range for display
+            date_range_display = ""
+            if date_from and date_to:
+                try:
+                    from_obj = datetime.fromisoformat(date_from) if isinstance(date_from, str) else date_from
+                    to_obj = datetime.fromisoformat(date_to) if isinstance(date_to, str) else date_to
+                    date_range_display = f"{from_obj.strftime('%b %d')} - {to_obj.strftime('%b %d, %Y')}"
+                except:
+                    date_range_display = f"{date_from} - {date_to}"
+
+            if is_drop:
+                emoji = "📉"
+                color = "#22c55e"  # Green
+                change_text = f"dropped by {price_change_percent:.1f}%"
+                action_text = "Book now to lock in this great price!"
+            else:
+                emoji = "📈"
+                color = "#ef4444"  # Red
+                change_text = f"increased by {price_change_percent:.1f}%"
+                action_text = "Consider booking soon if prices continue to rise."
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }}
+                    .content {{ background: #f8fafc; padding: 30px; border-radius: 0 0 10px 10px; }}
+                    .price-box {{ background: white; padding: 25px; border-radius: 12px; margin: 20px 0; border: 2px solid {color}; text-align: center; }}
+                    .route {{ font-size: 20px; font-weight: bold; color: #1e293b; margin-bottom: 15px; }}
+                    .price-change {{ display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px 0; }}
+                    .old-price {{ font-size: 24px; color: #94a3b8; text-decoration: line-through; }}
+                    .new-price {{ font-size: 32px; font-weight: bold; color: {color}; }}
+                    .arrow {{ font-size: 24px; color: {color}; }}
+                    .change-badge {{ display: inline-block; background: {color}; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 14px; }}
+                    .cta-button {{ display: inline-block; background: {color}; color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0; }}
+                    .stats {{ display: flex; justify-content: space-around; margin: 20px 0; padding: 15px; background: #f1f5f9; border-radius: 8px; }}
+                    .stat {{ text-align: center; }}
+                    .stat-value {{ font-size: 18px; font-weight: bold; color: #0369a1; }}
+                    .stat-label {{ font-size: 12px; color: #64748b; }}
+                    .footer {{ text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; }}
+                    .footer a {{ color: #0369a1; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>{emoji} Price Alert</h1>
+                        <p>Price has {change_text}</p>
+                    </div>
+                    <div class="content">
+                        <div class="price-box">
+                            <div class="route">{departure_port} → {arrival_port}</div>
+                            {f'<div style="color: #64748b; font-size: 14px; margin-bottom: 10px;">📅 Tracking: {date_range_display}</div>' if date_range_display else ''}
+                            <div class="price-change">
+                                <span class="old-price">€{old_price:.0f}</span>
+                                <span class="arrow">→</span>
+                                <span class="new-price">€{new_price:.0f}</span>
+                            </div>
+                            <div class="change-badge">{emoji} {change_text.upper()}</div>
+                            {f'<div style="margin-top: 15px; padding: 12px; background: #ecfdf5; border-radius: 8px; border: 1px solid #86efac;"><span style="font-size: 14px; color: #166534;">🎯 <strong>Best price on:</strong> {best_date_display}</span></div>' if best_date_display else ''}
+                        </div>
+
+                        <p style="text-align: center; font-size: 16px;">{action_text}</p>
+
+                        <div style="text-align: center;">
+                            <a href="{search_url}" class="cta-button">Search Ferries Now</a>
+                        </div>
+
+                        {"<div class='stats'>" + f"<div class='stat'><div class='stat-value'>€{lowest_price:.0f}</div><div class='stat-label'>Lowest Price</div></div>" if lowest_price else ""}
+                        {"<div class='stat'><div class='stat-value'>€" + f"{target_price:.0f}</div><div class='stat-label'>Your Target</div></div></div>" if target_price else ("</div>" if lowest_price else "")}
+
+                        <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
+                            {notification_reason}
+                        </p>
+                    </div>
+                    <div class="footer">
+                        <p>You're receiving this because you saved this route for price alerts.</p>
+                        <p><a href="{search_url.split('?')[0].replace('/search', '/saved-routes')}">Manage your saved routes</a></p>
+                        <p>Maritime Booking System | support@maritime-booking.com</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            if is_drop:
+                if best_date_display:
+                    # Include the best date in subject for clarity
+                    short_date = best_date_display.split(",")[0] + "," + best_date_display.split(",")[1][:7]  # e.g., "Friday, Dec 7"
+                    subject = f"{emoji} Price Drop! {departure_port} → {arrival_port} €{new_price:.0f} on {short_date}"
+                else:
+                    subject = f"{emoji} Price Drop! {departure_port} → {arrival_port} now €{new_price:.0f}"
+            else:
+                subject = f"{emoji} Price Alert: {departure_port} → {arrival_port} now €{new_price:.0f}"
+
+            return self.send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content
+            )
+        except Exception as e:
+            logger.error(f"Failed to send price alert: {str(e)}")
+            return False
+
 
 # Singleton instance
 email_service = EmailService()

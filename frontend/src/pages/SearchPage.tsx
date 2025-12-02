@@ -5,6 +5,7 @@ import { AppDispatch, RootState } from '../store';
 import { searchFerries, selectFerry } from '../store/slices/ferrySlice';
 import DatePriceSelector from '../components/DatePriceSelector';
 import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
+import SaveRouteButton from '../components/SaveRouteButton';
 
 interface SearchForm {
   departurePort: string;
@@ -357,13 +358,24 @@ const SearchPage: React.FC = () => {
         {/* Results List */}
         {!isSearching && !searchError && searchResults.length > 0 && (
           <>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Available Ferries ({searchResults.length} found)
-              </h2>
-              <p className="text-gray-600">
-                {searchForm.departurePort} → {searchForm.arrivalPort} on {formatDate(searchForm.departureDate)}
-              </p>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Available Ferries ({searchResults.length} found)
+                </h2>
+                <p className="text-gray-600">
+                  {searchForm.departurePort} → {searchForm.arrivalPort} on {formatDate(searchForm.departureDate)}
+                </p>
+              </div>
+              <SaveRouteButton
+                departurePort={searchForm.departurePort}
+                arrivalPort={searchForm.arrivalPort}
+                price={searchResults[0]?.prices?.adult}
+                variant="compact"
+                onSaveSuccess={() => {
+                  // Could show a toast notification here
+                }}
+              />
             </div>
 
             <div className="space-y-4">

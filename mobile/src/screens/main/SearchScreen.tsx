@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Text, TextInput, Button, Switch, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -38,12 +38,13 @@ import {
   fetchRoutes,
 } from '../../store/slices/searchSlice';
 import { resetBooking } from '../../store/slices/bookingSlice';
-import { RootStackParamList } from '../../types';
+import { RootStackParamList, MainTabParamList } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import VoiceSearchButton from '../../components/VoiceSearchButton';
 import { ParsedSearchQuery, getQuerySummary } from '../../utils/voiceSearchParser';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type SearchRouteProp = RouteProp<MainTabParamList, 'Search'>;
 
 const vehicleTypes = [
   { value: 'car', label: 'Car', icon: '🚗', dimensions: '4.5m × 1.8m × 1.5m' },
@@ -60,6 +61,7 @@ const vehicleTypes = [
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<SearchRouteProp>();
   const dispatch = useAppDispatch();
   const {
     departurePort,
@@ -169,6 +171,53 @@ export default function SearchScreen() {
       dispatch(fetchRoutes());
     }
   }, [dispatch, ports.length]);
+
+  // Handle prefilled params from SavedRoutes navigation
+  useEffect(() => {
+    const params = route.params;
+    if (params?.prefillDeparture || params?.prefillArrival) {
+      // Set departure port - need to find matching port code
+      if (params.prefillDeparture) {
+        const matchedDeparture = ports.find(
+          p => p.code.toLowerCase() === params.prefillDeparture?.toLowerCase() ||
+               p.name.toLowerCase() === params.prefillDeparture?.toLowerCase()
+        );
+        if (matchedDeparture) {
+          dispatch(setDeparturePort(matchedDeparture.code));
+        } else {
+          // Try using the port name directly if no match (it might be the code)
+          dispatch(setDeparturePort(params.prefillDeparture.toUpperCase()));
+        }
+      }
+
+      // Set arrival port
+      if (params.prefillArrival) {
+        const matchedArrival = ports.find(
+          p => p.code.toLowerCase() === params.prefillArrival?.toLowerCase() ||
+               p.name.toLowerCase() === params.prefillArrival?.toLowerCase()
+        );
+        if (matchedArrival) {
+          dispatch(setArrivalPort(matchedArrival.code));
+        } else {
+          dispatch(setArrivalPort(params.prefillArrival.toUpperCase()));
+        }
+      }
+
+      // Set date if provided
+      if (params.prefillDate) {
+        dispatch(setDepartureDate(params.prefillDate));
+        setTempDepartureDate(parseISO(params.prefillDate));
+      } else {
+        // Default to tomorrow if no date provided
+        const tomorrow = addDays(new Date(), 1);
+        dispatch(setDepartureDate(format(tomorrow, 'yyyy-MM-dd')));
+        setTempDepartureDate(tomorrow);
+      }
+
+      // Clear the params after processing so they don't trigger again
+      navigation.setParams({ prefillDeparture: undefined, prefillArrival: undefined, prefillDate: undefined, autoSearch: undefined } as any);
+    }
+  }, [route.params, ports, dispatch, navigation]);
 
   const availableDestinations = departurePort && routes[departurePort]
     ? ports.filter(p => routes[departurePort].includes(p.code))

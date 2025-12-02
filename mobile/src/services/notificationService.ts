@@ -35,7 +35,6 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 // Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
     shouldShowBanner: true,
@@ -245,17 +244,37 @@ class NotificationService {
     const settings = await this.getSettings();
     const scheduledIds: string[] = [];
 
+    console.log('[NotificationService] scheduleDepartureReminders called', {
+      bookingId: booking.id,
+      departureTime: booking.departure_time,
+      settingsEnabled: settings.enabled,
+      reminder24hEnabled: settings.departureReminder24h,
+      reminder2hEnabled: settings.departureReminder2h,
+    });
+
     if (!settings.enabled) {
+      console.log('[NotificationService] Notifications disabled, skipping reminders');
       return scheduledIds;
     }
 
     const departureTime = parseISO(booking.departure_time);
     const now = new Date();
 
+    console.log('[NotificationService] Time check:', {
+      departureTime: departureTime.toISOString(),
+      now: now.toISOString(),
+    });
+
     // Schedule 24-hour reminder
     if (settings.departureReminder24h) {
       const reminder24h = subHours(departureTime, 24);
-      if (isBefore(now, reminder24h)) {
+      const shouldSchedule24h = isBefore(now, reminder24h);
+      console.log('[NotificationService] 24h reminder check:', {
+        reminder24hTime: reminder24h.toISOString(),
+        shouldSchedule: shouldSchedule24h,
+      });
+
+      if (shouldSchedule24h) {
         const id = await Notifications.scheduleNotificationAsync({
           content: {
             title: 'Departure Tomorrow! ⏰',
@@ -272,14 +291,23 @@ class NotificationService {
             date: reminder24h,
           },
         });
+        console.log('[NotificationService] 24h reminder scheduled with id:', id);
         scheduledIds.push(id);
+      } else {
+        console.log('[NotificationService] 24h reminder time has passed, not scheduling');
       }
     }
 
     // Schedule 2-hour reminder
     if (settings.departureReminder2h) {
       const reminder2h = subHours(departureTime, 2);
-      if (isBefore(now, reminder2h)) {
+      const shouldSchedule2h = isBefore(now, reminder2h);
+      console.log('[NotificationService] 2h reminder check:', {
+        reminder2hTime: reminder2h.toISOString(),
+        shouldSchedule: shouldSchedule2h,
+      });
+
+      if (shouldSchedule2h) {
         const id = await Notifications.scheduleNotificationAsync({
           content: {
             title: 'Departing Soon! 🚢',
@@ -296,9 +324,14 @@ class NotificationService {
             date: reminder2h,
           },
         });
+        console.log('[NotificationService] 2h reminder scheduled with id:', id);
         scheduledIds.push(id);
+      } else {
+        console.log('[NotificationService] 2h reminder time has passed, not scheduling');
       }
     }
+
+    console.log('[NotificationService] Total scheduled reminders:', scheduledIds.length);
 
     // Store scheduled reminder IDs for potential cancellation
     await this.storeScheduledReminders(booking.id, scheduledIds);

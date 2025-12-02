@@ -115,12 +115,18 @@ export const biometricLogin = createAsyncThunk(
     } catch (error: any) {
       console.error('[BiometricLogin] Error:', error.message);
 
-      // Only clear the stored token if it's a 401 (token expired/invalid)
-      // Don't clear for other errors like network issues or code bugs
-      if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('expired')) {
+      // Check for token expiration/validation errors
+      const isAuthError =
+        error.message?.includes('401') ||
+        error.message?.includes('Unauthorized') ||
+        error.message?.includes('expired') ||
+        error.message?.includes('Could not validate') ||
+        error.message?.includes('credentials');
+
+      if (isAuthError) {
         console.log('[BiometricLogin] Token appears expired, clearing stored token');
         await biometricService.clearStoredToken();
-        return rejectWithValue('Session expired. Please sign in with your password.');
+        return rejectWithValue('Session expired. Please sign in with your password to restore Face ID.');
       }
 
       return rejectWithValue(error.message || 'Login failed. Please try again.');

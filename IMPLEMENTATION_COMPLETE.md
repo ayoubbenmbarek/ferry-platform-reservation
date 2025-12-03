@@ -479,6 +479,174 @@ All done! Here's the summary:
   - 2h before departure → sends
   final reminder email
 
+---
+
+### Price Alert System (Save Routes) ✅
+
+#### Overview
+Users can save ferry routes and receive notifications when prices change significantly. This helps travelers find the best deals for their summer holidays or any planned trips.
+
+#### Features Implemented
+
+**Save Route Button**
+- Available on search results page (frontend and mobile)
+- Heart icon to save/unsave routes
+- Modal to select date range for tracking
+- Encouraging message: "We'll notify you when the price drops or increases by 5% or more"
+
+**Date Range Selection**
+- Users can track prices for specific travel dates (e.g., Dec 4-18)
+- Or track general route prices (any date)
+- Date picker with 12-month range
+
+**Notification Settings**
+- Notify on price **drop** >= 5%
+- Notify on price **increase** >= 5%
+- Only notifies on **NEW LOW** or **NEW HIGH** prices (not every fluctuation)
+- Minimum 1 hour between notifications (anti-spam)
+- Compares against initial price when route was saved
+
+**Saved Routes Management**
+- Dedicated "Saved Routes" page showing all tracked routes
+- View current price, initial price, and price change percentage
+- "Search Ferries" button prefills search with saved route details
+- Options to change tracking dates or remove route
+- Visual indicators for price drops (green) and increases (red)
+
+#### Backend Implementation
+
+**Database Model** (`backend/app/models/price_alert.py`)
+```python
+class PriceAlert:
+    id: int
+    email: str
+    departure_port: str
+    arrival_port: str
+    date_from: Optional[date]      # Start of tracking period
+    date_to: Optional[date]        # End of tracking period
+    initial_price: Optional[float] # Price when saved
+    current_price: Optional[float] # Latest checked price
+    lowest_price: Optional[float]  # Lowest price seen
+    highest_price: Optional[float] # Highest price seen
+    best_price_date: Optional[date]# Date with best price in range
+    notify_on_drop: bool           # Default: True
+    notify_on_increase: bool       # Default: True
+    price_threshold_percent: float # Default: 5.0
+    status: Enum                   # active, triggered, paused, expired, cancelled
+    last_checked_at: datetime
+    last_notified_at: datetime
+    notification_count: int
+```
+
+**API Endpoints** (`backend/app/api/v1/price_alerts.py`)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/price-alerts` | POST | Create new price alert |
+| `/price-alerts` | GET | List all alerts (with pagination) |
+| `/price-alerts/my-routes` | GET | Get authenticated user's saved routes |
+| `/price-alerts/{id}` | GET | Get specific alert |
+| `/price-alerts/{id}` | PATCH | Update alert settings |
+| `/price-alerts/{id}` | DELETE | Cancel/remove alert |
+| `/price-alerts/{id}/pause` | POST | Pause notifications |
+| `/price-alerts/{id}/resume` | POST | Resume notifications |
+| `/price-alerts/check/{from}/{to}` | GET | Check if route is saved |
+| `/price-alerts/stats/summary` | GET | Get alert statistics |
+
+**Celery Tasks** (`backend/app/tasks/price_alert_tasks.py`)
+- `check_price_alerts`: Runs every **4 hours**
+  - Fetches current prices from ferry API
+  - Compares against saved prices
+  - Sends notifications for significant changes
+  - Only notifies on NEW LOW or NEW HIGH prices
+- `cleanup_old_price_alerts`: Runs daily
+  - Expires alerts past their tracking date range
+
+**Notification Logic**
+```python
+# Only notify when:
+# 1. Price is a NEW LOW (lower than any previous price)
+# 2. AND change is >= threshold (5%) from initial price
+if is_new_low and price_change_percent <= -threshold:
+    send_notification()
+
+# Or when:
+# 1. Price is a NEW HIGH (higher than any previous price)
+# 2. AND change is >= threshold (5%) from initial price
+if is_new_high and price_change_percent >= threshold:
+    send_notification()
+```
+
+#### Email Notifications
+
+**Subject Line**: "📉 Price Drop! Marseille → Tunis €64 on Wed, Dec 17"
+
+**Email Content Includes**:
+- Route information (departure → arrival)
+- Date range being tracked
+- Old price vs new price with percentage change
+- Best price date highlighted
+- Direct link to search for the route
+
+#### Push Notifications (Mobile)
+
+**Title**: "Price Drop Alert! 📉"
+**Body**: "Marseille → Tunis: €64 on Wed, Dec 17 (47% off). Book now!"
+
+**Data payload** for navigation:
+```json
+{
+  "type": "price_alert",
+  "alert_id": 123,
+  "departure_port": "marseille",
+  "arrival_port": "tunis",
+  "best_date": "2025-12-17"
+}
+```
+
+#### Frontend Components
+
+**SaveRouteButton** (`frontend/src/components/SaveRouteButton.tsx`)
+- Three variants: `button`, `icon`, `compact`
+- Shows loading state while checking if route is saved
+- Modal for date selection with "Track specific dates" toggle
+- Options dropdown for saved routes: "Change Dates" or "Remove"
+
+**SavedRoutesPage** (`frontend/src/pages/SavedRoutesPage.tsx`)
+- Lists all saved routes with price tracking info
+- Stats summary (total routes, with price drops)
+- Search button navigates to prefilled search
+
+#### Mobile Components
+
+**SaveRouteButton** (`mobile/src/components/SaveRouteButton.tsx`)
+- Floating action button variant for search results
+- iOS-optimized date picker (compact display)
+- Android button-triggered date pickers
+- Alert dialog for saved route options
+
+**SavedRoutesScreen** (`mobile/src/screens/SavedRoutesScreen.tsx`)
+- Pull-to-refresh route list
+- Price change indicators
+- Navigate to search with prefilled params
+
+#### Configuration
+
+**Celery Beat Schedule** (`backend/app/celery_app.py`)
+```python
+'check-price-alerts': {
+    'task': 'app.tasks.price_alert_tasks.check_price_alerts',
+    'schedule': 14400,  # 4 hours in seconds
+}
+```
+
+**Default Alert Settings**
+- `notify_on_drop`: True
+- `notify_on_increase`: True
+- `price_threshold_percent`: 5.0
+- Alert expires when `date_to` passes
+
+---
+
 ### Booking Flow
 
 | Task | Description |

@@ -26,7 +26,7 @@ except ImportError:
 
 # Import API routes using importlib to avoid __init__.py conflicts
 import importlib
-auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = modifications = vehicles = availability_alerts = price_alerts = None
+auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = modifications = vehicles = availability_alerts = price_alerts = prices = None
 
 try:
     auth = importlib.import_module('app.api.v1.auth')
@@ -99,6 +99,11 @@ try:
     price_alerts = importlib.import_module('app.api.v1.price_alerts')
 except ImportError as e:
     print(f"Failed to import price_alerts module: {e}")
+
+try:
+    prices = importlib.import_module('app.api.v1.prices')
+except ImportError as e:
+    print(f"Failed to import prices module: {e}")
 
 try:
     health = importlib.import_module('app.api.v1.health')
@@ -407,6 +412,9 @@ if availability_alerts:
 
 if price_alerts:
     app.include_router(price_alerts.router, prefix="/api/v1/price-alerts", tags=["Price Alerts"])
+
+if prices:
+    app.include_router(prices.router, prefix="/api/v1/prices", tags=["Prices"])
 
 if health:
     app.include_router(health.router, prefix="/api/v1", tags=["Health"])

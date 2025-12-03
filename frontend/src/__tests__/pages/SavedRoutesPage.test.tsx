@@ -1,6 +1,7 @@
 /**
  * Tests for SavedRoutesPage logic.
  */
+export {};
 
 describe('SavedRoutesPage - Logic Tests', () => {
   const mockRoutes = [

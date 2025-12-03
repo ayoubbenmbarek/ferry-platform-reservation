@@ -192,7 +192,8 @@ todo add saved routes to frontend, add page on menu
 todo:subscribe and get updates about price for your summer trip when launching, to user to follow prices
 
 todo: add clear message to encourage people to save () ex save and get alerted for price alert ...done
-todo:document the alert fonctionnalities and do some tests especially for backend 
+todo:document the alert fonctionnalities and do some tests especially for backend:done
+todo complete profile functionnalities mobile
 
 todo:do we use it Code scanning: CodeQL Action v2 is now retired
 todo: why this is blank page http://localhost:8010/docs

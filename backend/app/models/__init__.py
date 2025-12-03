@@ -11,6 +11,14 @@ from .promo_code import PromoCode, PromoCodeUsage, PromoCodeTypeEnum
 from .booking_reminder import BookingReminder, ReminderTypeEnum
 from .availability_alert import AvailabilityAlert, AlertTypeEnum, AlertStatusEnum
 from .price_alert import PriceAlert, PriceAlertStatusEnum
+from .price_history import (
+    PriceHistory,
+    PricePrediction,
+    RouteStatistics,
+    FareCalendarCache,
+    PriceTrendEnum,
+    BookingRecommendationEnum,
+)
 
 __all__ = [
     "User",
@@ -40,4 +48,10 @@ __all__ = [
     "AlertStatusEnum",
     "PriceAlert",
     "PriceAlertStatusEnum",
+    "PriceHistory",
+    "PricePrediction",
+    "RouteStatistics",
+    "FareCalendarCache",
+    "PriceTrendEnum",
+    "BookingRecommendationEnum",
 ] 

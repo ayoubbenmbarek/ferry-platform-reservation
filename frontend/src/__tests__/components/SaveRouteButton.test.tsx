@@ -1,6 +1,7 @@
 /**
  * Tests for SaveRouteButton component logic.
  */
+export {};
 
 describe('SaveRouteButton - Logic Tests', () => {
   describe('Route Data Structure', () => {

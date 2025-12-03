@@ -21,6 +21,7 @@ celery_app = Celery(
         "app.tasks.availability_check_tasks",
         "app.tasks.reminder_tasks",
         "app.tasks.price_alert_tasks",
+        "app.tasks.price_tracking_tasks",
     ]
 )
 
@@ -132,6 +133,46 @@ celery_app.conf.update(
         # Cleanup old price alerts daily
         'cleanup-old-price-alerts': {
             'task': 'app.tasks.price_alert_tasks.cleanup_old_price_alerts',
+            'schedule': 86400,  # 24 hours in seconds
+            'options': {
+                'expires': 7200,  # Task expires after 2 hours if not picked up
+            }
+        },
+        # Price tracking: Record price snapshots every 6 hours
+        'record-price-snapshot': {
+            'task': 'app.tasks.price_tracking_tasks.record_price_snapshot',
+            'schedule': 21600,  # 6 hours in seconds
+            'options': {
+                'expires': 3600,  # Task expires after 1 hour if not picked up
+            }
+        },
+        # Price tracking: Generate predictions every 12 hours
+        'generate-price-predictions': {
+            'task': 'app.tasks.price_tracking_tasks.generate_predictions',
+            'schedule': 43200,  # 12 hours in seconds
+            'options': {
+                'expires': 7200,  # Task expires after 2 hours if not picked up
+            }
+        },
+        # Price tracking: Update route statistics every 12 hours
+        'update-route-statistics': {
+            'task': 'app.tasks.price_tracking_tasks.update_route_statistics',
+            'schedule': 43200,  # 12 hours in seconds
+            'options': {
+                'expires': 3600,  # Task expires after 1 hour if not picked up
+            }
+        },
+        # Price tracking: Update fare calendar cache every 4 hours
+        'update-fare-calendar-cache': {
+            'task': 'app.tasks.price_tracking_tasks.update_fare_calendar_cache',
+            'schedule': 14400,  # 4 hours in seconds
+            'options': {
+                'expires': 1800,  # Task expires after 30 minutes if not picked up
+            }
+        },
+        # Price tracking: Cleanup old price data daily
+        'cleanup-old-price-data': {
+            'task': 'app.tasks.price_tracking_tasks.cleanup_old_price_data',
             'schedule': 86400,  # 24 hours in seconds
             'options': {
                 'expires': 7200,  # Task expires after 2 hours if not picked up

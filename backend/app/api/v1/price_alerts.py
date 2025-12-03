@@ -8,10 +8,9 @@ from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 import logging
 
-from app.database import get_db
+from app.api.deps import get_db, get_optional_current_user, get_current_user
 from app.models.price_alert import PriceAlert, PriceAlertStatusEnum
 from app.models.user import User
-from app.api.deps import get_optional_current_user, get_current_user
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import date
 

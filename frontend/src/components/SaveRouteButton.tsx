@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { priceAlertAPI } from '../services/api';
 import { RootState } from '../store';
@@ -39,6 +39,9 @@ export default function SaveRouteButton({
   const [dateFrom, setDateFrom] = useState(searchDate || format(addDays(new Date(), 1), 'yyyy-MM-dd'));
   const [dateTo, setDateTo] = useState(searchDate ? format(addDays(new Date(searchDate), 14), 'yyyy-MM-dd') : format(addDays(new Date(), 15), 'yyyy-MM-dd'));
 
+  // Ref to prevent duplicate API calls in React 18 Strict Mode
+  const checkingRef = useRef(false);
+
   // Check if route is already saved
   useEffect(() => {
     const checkSaved = async () => {
@@ -46,6 +49,12 @@ export default function SaveRouteButton({
         setIsChecking(false);
         return;
       }
+
+      // Prevent duplicate calls in Strict Mode
+      if (checkingRef.current) {
+        return;
+      }
+      checkingRef.current = true;
 
       try {
         const result = await priceAlertAPI.checkRouteSaved(
@@ -60,6 +69,7 @@ export default function SaveRouteButton({
         setAlertId(null);
       } finally {
         setIsChecking(false);
+        checkingRef.current = false;
       }
     };
 

@@ -6,6 +6,7 @@ import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
+import OfflineIndicator from './components/OfflineIndicator';
 import { getCurrentUser } from './store/slices/authSlice';
 
 // Lazy load pages for better performance
@@ -74,6 +75,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="App min-h-screen bg-gray-50">
+        <OfflineIndicator showWhenOnline />
         <Suspense fallback={<LoadingSpinner />}>
           <Layout>
             <Suspense fallback={<LoadingSpinner />}>

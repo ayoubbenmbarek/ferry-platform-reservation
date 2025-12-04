@@ -50,6 +50,14 @@ export default function SaveRouteButton({
         return;
       }
 
+      // If not authenticated, don't check - route can't be saved
+      if (!isAuthenticated) {
+        setIsSaved(false);
+        setAlertId(null);
+        setIsChecking(false);
+        return;
+      }
+
       // Prevent duplicate calls in Strict Mode
       if (checkingRef.current) {
         return;
@@ -74,7 +82,7 @@ export default function SaveRouteButton({
     };
 
     checkSaved();
-  }, [departurePort, arrivalPort, user?.email]);
+  }, [departurePort, arrivalPort, user?.email, isAuthenticated]);
 
   // State for options dropdown when already saved
   const [showOptions, setShowOptions] = useState(false);

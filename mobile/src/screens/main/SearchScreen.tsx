@@ -41,6 +41,7 @@ import { resetBooking } from '../../store/slices/bookingSlice';
 import { RootStackParamList, MainTabParamList } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import VoiceSearchButton from '../../components/VoiceSearchButton';
+import SmartPricingPanel from '../../components/SmartPricingPanel';
 import { ParsedSearchQuery, getQuerySummary } from '../../utils/voiceSearchParser';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -834,6 +835,22 @@ export default function SearchScreen() {
           <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
+        {/* Smart Pricing Panel - Shows fare calendar and AI insights */}
+        {departurePort && arrivalPort && (
+          <View style={styles.smartPricingContainer}>
+            <SmartPricingPanel
+              departurePort={departurePort}
+              arrivalPort={arrivalPort}
+              departureDate={departureDate}
+              passengers={adults + children}
+              onDateSelect={(date, _price) => {
+                dispatch(setDepartureDate(date));
+                setTempDepartureDate(parseISO(date));
+              }}
+            />
+          </View>
+        )}
+
         {/* Error Message */}
         {searchError && (
           <View style={styles.errorContainer}>
@@ -1011,6 +1028,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     fontWeight: '500',
+  },
+  smartPricingContainer: {
+    marginBottom: spacing.lg,
   },
   errorContainer: {
     backgroundColor: '#FEE2E2',

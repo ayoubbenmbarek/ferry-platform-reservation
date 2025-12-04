@@ -72,7 +72,7 @@ class PriceHistoryPoint(BaseModel):
 class PriceHistoryResponse(BaseModel):
     """Price history for a route/date."""
     route_id: str
-    departure_date: str
+    departure_date: Optional[str] = None
     days_of_data: int
     history: List[PriceHistoryPoint]
     trend: str
@@ -248,8 +248,9 @@ def get_percentile_label(percentile: float) -> str:
 async def get_fare_calendar(
     departure_port: str = Query(..., description="Departure port code"),
     arrival_port: str = Query(..., description="Arrival port code"),
-    year: int = Query(..., ge=2024, le=2030, description="Year"),
-    month: int = Query(..., ge=1, le=12, description="Month"),
+    year: Optional[int] = Query(None, ge=2024, le=2030, description="Year"),
+    month: Optional[int] = Query(None, ge=1, le=12, description="Month"),
+    year_month: Optional[str] = Query(None, description="Year-month in YYYY-MM format (alternative to year/month)"),
     passengers: int = Query(1, ge=1, le=9, description="Number of passengers"),
     db: Session = Depends(get_db),
 ):
@@ -258,7 +259,23 @@ async def get_fare_calendar(
 
     Returns daily prices with availability and price level indicators.
     Uses cached data when available, otherwise generates from current prices.
+
+    Accepts either:
+    - year and month as separate parameters, OR
+    - year_month as "YYYY-MM" string
     """
+    # Parse year_month if provided, otherwise use year/month
+    if year_month:
+        try:
+            parts = year_month.split("-")
+            year = int(parts[0])
+            month = int(parts[1])
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=400, detail="Invalid year_month format. Use YYYY-MM")
+
+    if year is None or month is None:
+        raise HTTPException(status_code=400, detail="Either year/month or year_month is required")
+
     route_id = get_route_id(departure_port, arrival_port)
 
     # Base prices for different routes (mock data)
@@ -279,12 +296,15 @@ async def get_fare_calendar(
     days = []
     prices = []
 
+    # For development/demo purposes, generate prices even for past dates
+    # In production with real data, this would query actual ferry schedules
     for day in range(1, num_days + 1):
         departure_date = date(year, month, day)
         days_ahead = (departure_date - today).days
 
-        # Skip past dates
-        if days_ahead < 0:
+        # For demo: generate prices for reasonable date range (up to 1 year back for historical view)
+        # and up to 1 year ahead for booking
+        if days_ahead < -365 or days_ahead > 365:
             days.append(DayPrice(
                 date=departure_date.isoformat(),
                 day=day,
@@ -295,8 +315,8 @@ async def get_fare_calendar(
             ))
             continue
 
-        # Generate mock price
-        price = generate_mock_price(base_price, departure_date, days_ahead)
+        # Generate mock price (use absolute value for past dates to maintain price generation)
+        price = generate_mock_price(base_price, departure_date, abs(days_ahead) if days_ahead >= 0 else 30)
         price_for_passengers = price * passengers
         prices.append(price_for_passengers)
 
@@ -360,7 +380,7 @@ async def get_fare_calendar(
 async def get_price_history(
     departure_port: str = Query(...),
     arrival_port: str = Query(...),
-    departure_date: str = Query(..., description="Departure date (YYYY-MM-DD)"),
+    departure_date: Optional[str] = Query(None, description="Departure date (YYYY-MM-DD), defaults to 30 days from now"),
     days: int = Query(30, ge=7, le=90, description="Days of history"),
     db: Session = Depends(get_db),
 ):
@@ -368,9 +388,15 @@ async def get_price_history(
     Get price history for a specific route and departure date.
 
     Returns historical price data points for trend visualization.
+    If departure_date is not provided, defaults to 30 days from now.
     """
     route_id = get_route_id(departure_port, arrival_port)
-    target_date = date.fromisoformat(departure_date)
+
+    # Default to 30 days from now if no date specified
+    if departure_date:
+        target_date = date.fromisoformat(departure_date)
+    else:
+        target_date = date.today() + timedelta(days=30)
 
     # Base price for route
     base_prices = {
@@ -527,11 +553,12 @@ async def flexible_dates_search(
         check_date = selected_date + timedelta(days=offset)
         days_ahead = (check_date - today).days
 
-        if days_ahead < 0:
+        # For demo: allow dates within 1 year range
+        if days_ahead < -365 or days_ahead > 365:
             continue
 
-        # Generate price
-        price = generate_mock_price(base_price, check_date, days_ahead)
+        # Generate price (use abs for past dates)
+        price = generate_mock_price(base_price, check_date, abs(days_ahead) if days_ahead >= 0 else 30)
         total_price = price * passengers
 
         is_selected = offset == 0
@@ -548,6 +575,9 @@ async def flexible_dates_search(
         })
 
     # Sort by price and find cheapest
+    if not results:
+        raise HTTPException(status_code=404, detail="No available dates in this range")
+
     results.sort(key=lambda x: x["price"])
     cheapest_date = results[0]["date"].isoformat()
     cheapest_price = results[0]["price"]
@@ -579,7 +609,7 @@ async def flexible_dates_search(
     )
 
 
-@router.get("/insights", response_model=PriceInsightsResponse)
+@router.get("/insights")
 async def get_price_insights(
     departure_port: str = Query(...),
     arrival_port: str = Query(...),
@@ -589,7 +619,8 @@ async def get_price_insights(
     """
     Get comprehensive price insights for a route.
 
-    Returns statistics, trends, and recommendations.
+    Returns statistics, trends, and recommendations in a nested format
+    compatible with both web and mobile clients.
     """
     route_id = get_route_id(departure_port, arrival_port)
 
@@ -597,20 +628,57 @@ async def get_price_insights(
     service = PricePredictionService(db)
     insights = service.get_price_insights(route_id, current_price)
 
-    return PriceInsightsResponse(
-        route_id=route_id,
-        current_price=insights.current_price,
-        avg_price_30d=insights.avg_price_30d,
-        min_price_30d=insights.min_price_30d,
-        max_price_30d=insights.max_price_30d,
-        price_percentile=insights.price_percentile,
-        percentile_label=get_percentile_label(insights.price_percentile),
-        trend=insights.trend.value,
-        trend_description=insights.trend_description,
-        best_booking_window=insights.best_booking_window,
-        seasonal_insight=insights.seasonal_insight,
-        savings_opportunity=insights.savings_opportunity,
+    # Determine if it's a good deal based on percentile
+    is_good_deal = insights.price_percentile <= 30
+    deal_quality = (
+        "Great Deal" if insights.price_percentile <= 20
+        else "Good Price" if insights.price_percentile <= 40
+        else "Average" if insights.price_percentile <= 60
+        else "Above Average" if insights.price_percentile <= 80
+        else "Expensive"
     )
+
+    # Return nested structure for mobile compatibility
+    return {
+        "route_id": route_id,
+        "departure_port": departure_port,
+        "arrival_port": arrival_port,
+        # Flat fields (for web)
+        "current_price": insights.current_price,
+        "avg_price_30d": insights.avg_price_30d,
+        "min_price_30d": insights.min_price_30d,
+        "max_price_30d": insights.max_price_30d,
+        "price_percentile": insights.price_percentile,
+        "percentile_label": get_percentile_label(insights.price_percentile),
+        "trend": insights.trend.value,
+        "trend_description": insights.trend_description,
+        "best_booking_window": insights.best_booking_window,
+        "seasonal_insight": insights.seasonal_insight,
+        "savings_opportunity": insights.savings_opportunity,
+        # Nested fields (for mobile)
+        "statistics": {
+            "avg_price_30d": insights.avg_price_30d,
+            "min_price_30d": insights.min_price_30d,
+            "max_price_30d": insights.max_price_30d,
+            "price_volatility_30d": round((insights.max_price_30d - insights.min_price_30d) / insights.avg_price_30d * 100, 1) if insights.avg_price_30d else 0,
+            "avg_price_90d": insights.avg_price_30d,  # Using 30d as proxy
+            "all_time_low": insights.min_price_30d,
+            "all_time_high": insights.max_price_30d,
+        },
+        "patterns": {
+            "best_day_of_week": "Tuesday",
+            "worst_day_of_week": "Saturday",
+            "best_booking_window": insights.best_booking_window,
+            "weekday_vs_weekend": 0.12,  # 12% weekend premium
+        },
+        "current_status": {
+            "current_price": insights.current_price,
+            "percentile": insights.price_percentile,
+            "trend_7d": insights.trend.value,
+            "is_good_deal": is_good_deal,
+            "deal_quality": deal_quality,
+        },
+    }
 
 
 @router.get("/cheapest-in-month")

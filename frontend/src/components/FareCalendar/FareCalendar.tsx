@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isSameMonth, isBefore, isToday, parseISO } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isBefore, isToday } from 'date-fns';
 import { pricingAPI, FareCalendarData, FareCalendarDay } from '../../services/api';
 
 interface FareCalendarProps {
@@ -72,8 +72,8 @@ const FareCalendar: React.FC<FareCalendarProps> = ({
     onDateSelect?.(dateStr, day.price);
   };
 
-  const getPriceColor = (priceLevel: string): string => {
-    switch (priceLevel) {
+  const getPriceColor = (price_level: string): string => {
+    switch (price_level) {
       case 'cheap':
         return 'bg-green-100 text-green-800 hover:bg-green-200 border-green-300';
       case 'expensive':
@@ -141,19 +141,20 @@ const FareCalendar: React.FC<FareCalendarProps> = ({
         days.push(
           <button
             key={day}
+            type="button"
             onClick={() => handleDateClick(dayData)}
             className={`h-16 p-1 flex flex-col items-center justify-center transition-all border
-              ${getPriceColor(dayData.priceLevel)}
+              ${getPriceColor(dayData.price_level)}
               ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
               cursor-pointer
             `}
           >
             <div className="flex items-center gap-0.5">
               <span className="text-xs font-medium">{day}</span>
-              {getTrendIcon(dayData.trend)}
+              {dayData.trend && getTrendIcon(dayData.trend)}
             </div>
-            <span className="text-sm font-bold">{dayData.price}</span>
-            <span className="text-xs opacity-70">{dayData.ferries} ferries</span>
+            <span className="text-sm font-bold">{dayData.price}€</span>
+            <span className="text-xs opacity-70">{dayData.num_ferries} ferries</span>
           </button>
         );
       }
@@ -170,6 +171,7 @@ const FareCalendar: React.FC<FareCalendarProps> = ({
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
         <div className="flex items-center justify-between">
           <button
+            type="button"
             onClick={handlePrevMonth}
             disabled={isPrevDisabled}
             className={`p-2 rounded-full transition-colors ${
@@ -194,6 +196,7 @@ const FareCalendar: React.FC<FareCalendarProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={handleNextMonth}
             className="p-2 rounded-full text-white hover:bg-blue-500 transition-colors"
           >
@@ -242,6 +245,7 @@ const FareCalendar: React.FC<FareCalendarProps> = ({
           <div className="text-center py-8">
             <p className="text-red-500 text-sm">{error}</p>
             <button
+              type="button"
               onClick={fetchCalendarData}
               className="mt-2 text-blue-600 hover:underline text-sm"
             >
@@ -256,25 +260,25 @@ const FareCalendar: React.FC<FareCalendarProps> = ({
       </div>
 
       {/* Summary */}
-      {calendarData && !loading && !error && (
+      {calendarData && !loading && !error && calendarData.summary.min_price && (
         <div className="bg-gray-50 px-4 py-3 border-t">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-xs text-gray-500">Lowest</p>
               <p className="text-lg font-bold text-green-600">
-                {calendarData.summary.lowest_price}
+                {calendarData.summary.min_price}€
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Average</p>
               <p className="text-lg font-bold text-blue-600">
-                {calendarData.summary.average_price}
+                {calendarData.summary.avg_price}€
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Highest</p>
               <p className="text-lg font-bold text-red-600">
-                {calendarData.summary.highest_price}
+                {calendarData.summary.max_price}€
               </p>
             </div>
           </div>

@@ -67,30 +67,6 @@ const FlexibleDatesSearch: React.FC<FlexibleDatesSearchProps> = ({
     return 'text-gray-600';
   };
 
-  const getTrendBadge = (trend: string): JSX.Element | null => {
-    if (trend === 'falling') {
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-          <svg className="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-          Dropping
-        </span>
-      );
-    }
-    if (trend === 'rising') {
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-          <svg className="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-          </svg>
-          Rising
-        </span>
-      );
-    }
-    return null;
-  };
-
   if (!departureDate) {
     return (
       <div className={`bg-white rounded-lg shadow p-6 text-center ${className}`}>
@@ -119,7 +95,7 @@ const FlexibleDatesSearch: React.FC<FlexibleDatesSearchProps> = ({
     return (
       <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
         <p className="text-red-500">{error}</p>
-        <button onClick={fetchData} className="mt-2 text-blue-600 hover:underline">
+        <button type="button" onClick={fetchData} className="mt-2 text-blue-600 hover:underline">
           Try again
         </button>
       </div>
@@ -155,14 +131,14 @@ const FlexibleDatesSearch: React.FC<FlexibleDatesSearchProps> = ({
       </div>
 
       {/* Savings Banner */}
-      {searchResult && searchResult.potential_savings > 0 && (
+      {searchResult && searchResult.selected_price && searchResult.cheapest_price < searchResult.selected_price && (
         <div className="px-4 py-2 bg-green-50 border-b border-green-100">
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-sm text-green-700">
-              Save up to <span className="font-bold">{searchResult.potential_savings}</span> by choosing a different date!
+              Save up to <span className="font-bold">{(searchResult.selected_price - searchResult.cheapest_price).toFixed(2)}€</span> by choosing a different date!
             </p>
           </div>
         </div>
@@ -171,9 +147,10 @@ const FlexibleDatesSearch: React.FC<FlexibleDatesSearchProps> = ({
       {/* Options List */}
       {searchResult && (
         <div className="divide-y divide-gray-100">
-          {searchResult.options.map((option) => (
+          {searchResult.results.map((option) => (
             <button
               key={option.date}
+              type="button"
               onClick={() => handleDateSelect(option)}
               className={`w-full px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
                 selectedDate === option.date ? 'bg-blue-50' : ''
@@ -188,22 +165,25 @@ const FlexibleDatesSearch: React.FC<FlexibleDatesSearchProps> = ({
                         Cheapest
                       </span>
                     )}
-                    {getTrendBadge(option.trend)}
+                    {option.is_selected && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Selected
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {option.available_ferries} ferries available
+                    {option.num_ferries} ferries available
                   </p>
                 </div>
 
                 <div className="text-right">
                   <p className={`text-lg font-bold ${option.is_cheapest ? 'text-green-600' : 'text-gray-900'}`}>
-                    {option.price}
+                    {option.price}€
                   </p>
-                  {option.price_difference !== 0 && (
-                    <p className={`text-xs ${getPriceChangeColor(option.price_difference)}`}>
-                      {option.price_difference > 0 ? '+' : ''}
-                      {option.price_difference} ({option.price_difference_percent > 0 ? '+' : ''}
-                      {option.price_difference_percent.toFixed(0)}%)
+                  {option.savings_vs_selected !== 0 && (
+                    <p className={`text-xs ${getPriceChangeColor(-option.savings_vs_selected)}`}>
+                      {option.savings_vs_selected > 0 ? 'Save ' : '+'}
+                      {Math.abs(option.savings_vs_selected).toFixed(2)}€
                     </p>
                   )}
                 </div>
@@ -214,9 +194,9 @@ const FlexibleDatesSearch: React.FC<FlexibleDatesSearchProps> = ({
       )}
 
       {/* Footer with base info */}
-      {searchResult && (
+      {searchResult && searchResult.selected_price && (
         <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
-          Base price on {formatDate(searchResult.base_date)}: {searchResult.base_price}
+          Selected date price: {searchResult.selected_price}€ | Cheapest: {searchResult.cheapest_price}€
         </div>
       )}
     </div>

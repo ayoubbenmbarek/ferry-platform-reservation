@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { format, parseISO } from 'date-fns';
 import { pricingAPI, PricePrediction, RouteInsights } from '../../services/api';
 
 interface PriceInsightsProps {
@@ -159,7 +158,7 @@ const PriceInsights: React.FC<PriceInsightsProps> = ({
     return (
       <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
         <p className="text-red-500">{error}</p>
-        <button onClick={fetchData} className="mt-2 text-blue-600 hover:underline">
+        <button type="button" onClick={fetchData} className="mt-2 text-blue-600 hover:underline">
           Try again
         </button>
       </div>
@@ -171,6 +170,7 @@ const PriceInsights: React.FC<PriceInsightsProps> = ({
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         <button
+          type="button"
           onClick={() => setActiveTab('prediction')}
           className={`flex-1 px-4 py-3 text-sm font-medium ${
             activeTab === 'prediction'
@@ -181,6 +181,7 @@ const PriceInsights: React.FC<PriceInsightsProps> = ({
           AI Prediction
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('insights')}
           className={`flex-1 px-4 py-3 text-sm font-medium ${
             activeTab === 'insights'

@@ -574,53 +574,53 @@ export const priceAlertAPI = {
 // Fare Calendar Types
 export interface FareCalendarDay {
   day: number;
+  date: string;
   price: number | null;
+  lowest_price: number | null;
+  highest_price: number | null;
   available: boolean;
-  ferries: number;
-  trend: 'rising' | 'falling' | 'stable';
-  priceLevel: 'cheap' | 'normal' | 'expensive';
+  num_ferries: number;
+  trend: 'rising' | 'falling' | 'stable' | null;
+  is_cheapest: boolean;
+  is_weekend: boolean;
+  price_level: 'cheap' | 'normal' | 'expensive';
 }
 
 export interface FareCalendarData {
   route_id: string;
   departure_port: string;
   arrival_port: string;
-  year_month: string;
+  year: number;
+  month: number;
+  month_name: string;
   passengers: number;
   days: FareCalendarDay[];
   summary: {
-    lowest_price: number;
-    highest_price: number;
-    average_price: number;
-    cheapest_date: string;
-    most_expensive_date: string;
-    prices_available: number;
+    min_price: number | null;
+    max_price: number | null;
+    avg_price: number | null;
+    cheapest_date: string | null;
+    available_days: number;
   };
 }
 
 export interface PriceHistoryPoint {
   date: string;
-  lowest_price: number;
-  highest_price: number;
-  average_price: number;
-  num_ferries: number;
+  price: number;
+  lowest: number | null;
+  highest: number | null;
+  available: number | null;
 }
 
 export interface PriceHistoryData {
   route_id: string;
-  departure_port: string;
-  arrival_port: string;
-  period_days: number;
+  departure_date: string | null;
+  days_of_data: number;
   history: PriceHistoryPoint[];
-  statistics: {
-    current_price: number;
-    period_low: number;
-    period_high: number;
-    period_average: number;
-    price_change: number;
-    price_change_percent: number;
-    trend: 'rising' | 'falling' | 'stable';
-  };
+  trend: 'rising' | 'falling' | 'stable';
+  average_price: number;
+  min_price: number;
+  max_price: number;
 }
 
 export interface PricePrediction {
@@ -654,25 +654,24 @@ export interface PricePrediction {
 
 export interface FlexibleDateOption {
   date: string;
-  day_of_week: string;
+  day_name: string;
   price: number;
-  price_difference: number;
-  price_difference_percent: number;
+  savings_vs_selected: number;
   is_cheapest: boolean;
-  trend: 'rising' | 'falling' | 'stable';
-  available_ferries: number;
+  is_selected: boolean;
+  available: boolean;
+  num_ferries: number;
 }
 
 export interface FlexibleSearchResult {
   route_id: string;
-  departure_port: string;
-  arrival_port: string;
   base_date: string;
   flexibility_days: number;
-  base_price: number;
-  options: FlexibleDateOption[];
-  cheapest_option: FlexibleDateOption;
-  potential_savings: number;
+  passengers: number;
+  results: FlexibleDateOption[];
+  cheapest_date: string;
+  cheapest_price: number;
+  selected_price: number | null;
 }
 
 export interface RouteInsights {
@@ -765,8 +764,8 @@ export const pricingAPI = {
       params: {
         departure_port: params.departurePort,
         arrival_port: params.arrivalPort,
-        departure_date: params.departureDate,
-        flexibility_days: params.flexibilityDays || 3,
+        base_date: params.departureDate,
+        flexibility: params.flexibilityDays || 3,
         passengers: params.passengers || 1,
       },
     });

@@ -19,6 +19,7 @@ import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndi
 import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import SaveRouteButton from '../components/SaveRouteButton';
+import { SmartPricingPanel } from '../components/FareCalendar';
 
 // Search Form Component
 interface SearchFormProps {
@@ -281,6 +282,19 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                     </div>
                   </div>
                 </div>
+
+                {/* Smart Pricing Panel - Shows fare calendar and price insights */}
+                {form.departurePort && form.arrivalPort && (
+                  <div className="border-t pt-6">
+                    <SmartPricingPanel
+                      departurePort={form.departurePort}
+                      arrivalPort={form.arrivalPort}
+                      departureDate={form.departureDate}
+                      passengers={form.adults + form.children}
+                      onDateSelect={(date, _price) => setForm({ ...form, departureDate: date })}
+                    />
+                  </div>
+                )}
 
                 <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all">
                   {isEditMode ? `🔄 ${t('search:form.updateSearch')}` : `🔍 ${t('search:searchButton')}`}

@@ -11,6 +11,7 @@ import './i18n';
 import App from './App';
 import { store, persistor } from './store';
 import reportWebVitals from './reportWebVitals';
+import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 // Initialize Sentry (must be called before React renders)
 initSentry();
@@ -86,3 +87,24 @@ root.render(
 // to log results (for example: reportWebVitals(console.log))
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
+
+// Register service worker for PWA/offline support
+serviceWorkerRegistration.register({
+  onSuccess: () => {
+    console.log('PWA: App is ready for offline use');
+  },
+  onUpdate: (registration) => {
+    console.log('PWA: New version available');
+    // Optionally show a notification to the user
+    if (window.confirm('A new version is available! Click OK to refresh.')) {
+      registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+      window.location.reload();
+    }
+  },
+  onOffline: () => {
+    console.log('PWA: App is offline');
+  },
+  onOnline: () => {
+    console.log('PWA: App is back online');
+  },
+});

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -63,10 +62,10 @@ const PriceEvolutionChart: React.FC<PriceEvolutionChartProps> = ({
       const transformed = data.history.map((point) => ({
         date: point.date,
         dateFormatted: format(parseISO(point.date), 'MMM dd'),
-        lowest: point.lowest_price,
-        highest: point.highest_price,
-        average: point.average_price,
-        ferries: point.num_ferries,
+        lowest: point.lowest || point.price,
+        highest: point.highest || point.price,
+        average: point.price,
+        ferries: point.available || 0,
       }));
 
       setChartData(transformed);
@@ -118,23 +117,28 @@ const PriceEvolutionChart: React.FC<PriceEvolutionChartProps> = ({
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      // Find values by dataKey name since order in payload depends on render order
+      const lowestData = payload.find((p: any) => p.dataKey === 'lowest');
+      const averageData = payload.find((p: any) => p.dataKey === 'average');
+      const highestData = payload.find((p: any) => p.dataKey === 'highest' && p.name === 'Highest Price');
+
       return (
         <div className="bg-white shadow-lg rounded-lg p-3 border border-gray-200">
           <p className="text-sm font-medium text-gray-900 mb-2">{label}</p>
           <div className="space-y-1">
             <p className="text-sm">
               <span className="text-green-600 font-medium">Lowest:</span>{' '}
-              <span className="font-bold">{payload[0]?.value}</span>
+              <span className="font-bold">{lowestData?.value?.toFixed(2)}€</span>
             </p>
             {showRange && (
               <>
                 <p className="text-sm">
                   <span className="text-blue-600 font-medium">Average:</span>{' '}
-                  <span className="font-bold">{payload[1]?.value}</span>
+                  <span className="font-bold">{averageData?.value?.toFixed(2)}€</span>
                 </p>
                 <p className="text-sm">
                   <span className="text-red-600 font-medium">Highest:</span>{' '}
-                  <span className="font-bold">{payload[2]?.value}</span>
+                  <span className="font-bold">{highestData?.value?.toFixed(2)}€</span>
                 </p>
               </>
             )}
@@ -160,7 +164,7 @@ const PriceEvolutionChart: React.FC<PriceEvolutionChartProps> = ({
     return (
       <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
         <p className="text-red-500">{error}</p>
-        <button onClick={fetchData} className="mt-2 text-blue-600 hover:underline">
+        <button type="button" onClick={fetchData} className="mt-2 text-blue-600 hover:underline">
           Try again
         </button>
       </div>
@@ -179,6 +183,7 @@ const PriceEvolutionChart: React.FC<PriceEvolutionChartProps> = ({
             {[7, 14, 30, 60].map((period) => (
               <button
                 key={period}
+                type="button"
                 onClick={() => setSelectedPeriod(period)}
                 className={`px-3 py-1 text-sm transition-colors ${
                   selectedPeriod === period
@@ -265,30 +270,29 @@ const PriceEvolutionChart: React.FC<PriceEvolutionChartProps> = ({
         <div className="px-4 pb-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 uppercase">Current</p>
+              <p className="text-xs text-gray-500 uppercase">Average</p>
               <p className="text-xl font-bold text-gray-900">
-                {historyData.statistics.current_price}
+                {historyData.average_price}€
               </p>
             </div>
             <div className="bg-green-50 rounded-lg p-3 text-center">
               <p className="text-xs text-green-600 uppercase">Period Low</p>
               <p className="text-xl font-bold text-green-700">
-                {historyData.statistics.period_low}
+                {historyData.min_price}€
               </p>
             </div>
-            <div className="bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-blue-600 uppercase">Average</p>
-              <p className="text-xl font-bold text-blue-700">
-                {historyData.statistics.period_average}
+            <div className="bg-red-50 rounded-lg p-3 text-center">
+              <p className="text-xs text-red-600 uppercase">Period High</p>
+              <p className="text-xl font-bold text-red-700">
+                {historyData.max_price}€
               </p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500 uppercase">Change</p>
-              <div className={`flex items-center justify-center ${getTrendColor(historyData.statistics.trend)}`}>
-                {getTrendIcon(historyData.statistics.trend)}
-                <span className="text-xl font-bold ml-1">
-                  {historyData.statistics.price_change_percent > 0 ? '+' : ''}
-                  {historyData.statistics.price_change_percent.toFixed(1)}%
+              <p className="text-xs text-gray-500 uppercase">Trend</p>
+              <div className={`flex items-center justify-center ${getTrendColor(historyData.trend)}`}>
+                {getTrendIcon(historyData.trend)}
+                <span className="text-xl font-bold ml-1 capitalize">
+                  {historyData.trend}
                 </span>
               </div>
             </div>

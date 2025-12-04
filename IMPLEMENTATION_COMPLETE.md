@@ -185,9 +185,33 @@ todo:add sentry for mobile
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead
 
 todo:saved on frontend dont work when want to remove it
+todo missing message please login to save route in frontend
+todo:mobile show cheapset date dec 1 and there is no price ther shown in calendar and we are on dec 5 on calendar and no color for prices in calendar and cant see price trends nor flexible date in mobile
+todo:on price evolution graph i see lowest and highest inversed:done
 
 todo:and add day when send notification to be more clear is better :done
 todo add saved routes to frontend, add page on menu
+todo:test insight in mobile
+todo show insight in frontend
+todo:i have tracking routes form genoa to tunis as user ayoubenmbarek@gmail.com but even if i am not logged in i still see tracking  price
+
+todo test offline:
+Web (PWA):
+  1. Open the app in Chrome
+  2. Open DevTools → Application → Service Workers to see
+  registration
+  3. Use DevTools → Network → Offline checkbox to simulate
+  offline
+  4. The offline indicator banner should appear
+  5. On Chrome, you can install the app via the address bar
+  install button
+
+  Mobile:
+  1. Open the Search screen
+  2. Select departure and arrival ports
+  3. The Smart Pricing Panel should appear with Calendar and
+  AI Insights tabs
+  4. Tap dates in the calendar to update departure date
 
 todo:subscribe and get updates about price for your summer trip when launching, to user to follow prices
 

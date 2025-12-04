@@ -118,6 +118,7 @@ const SmartPricingPanel: React.FC<SmartPricingPanelProps> = ({
           {viewTabs.map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveView(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
                 activeView === tab.id

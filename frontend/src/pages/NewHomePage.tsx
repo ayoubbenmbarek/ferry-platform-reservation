@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip, startNewSearch, fetchPorts, fetchRoutes } from '../store/slices/ferrySlice';
 import { RootState, AppDispatch } from '../store';
 import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
+import { SmartPricingPanel } from '../components/FareCalendar';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
 
 const NewHomePage: React.FC = () => {
@@ -627,6 +628,19 @@ const NewHomePage: React.FC = () => {
                     </p>
                   )}
                 </div>
+
+                {/* Smart Pricing Panel - Shows when departure and arrival are selected */}
+                {form.departurePort && form.arrivalPort && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <SmartPricingPanel
+                      departurePort={form.departurePort}
+                      arrivalPort={form.arrivalPort}
+                      departureDate={form.departureDate}
+                      passengers={form.adults + form.children}
+                      onDateSelect={(date, _price) => setForm({ ...form, departureDate: date })}
+                    />
+                  </div>
+                )}
 
                 {/* Search Button */}
                 <button

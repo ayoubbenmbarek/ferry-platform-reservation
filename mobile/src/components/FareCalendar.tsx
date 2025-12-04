@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isBefore, isToday } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isBefore } from 'date-fns';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { pricingService, FareCalendarData, FareCalendarDay } from '../services/pricingService';
 
@@ -109,12 +109,11 @@ export default function FareCalendar({
   const renderCalendarDays = () => {
     const daysInMonth = getDaysInMonth(currentMonth);
     const firstDayOfMonth = getDay(startOfMonth(currentMonth));
-    const today = new Date();
 
     // Adjust for Monday start (0 = Monday, 6 = Sunday)
     const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
-    const days: JSX.Element[] = [];
+    const days: React.ReactElement[] = [];
 
     // Empty cells for days before the first day of the month
     for (let i = 0; i < adjustedFirstDay; i++) {
@@ -124,20 +123,20 @@ export default function FareCalendar({
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-      const isPast = isBefore(dayDate, today) && !isToday(dayDate);
       const dayData = calendarData?.days.find((d) => d.day === day);
       const dateStr = format(dayDate, 'yyyy-MM-dd');
       const isSelected = selectedDate === dateStr;
 
-      if (isPast || !dayData || !dayData.available || dayData.price === null) {
+      // Show as disabled if no data, not available, or no price
+      if (!dayData || !dayData.available || dayData.price === null) {
         days.push(
           <View key={day} style={[styles.dayCell, styles.dayCellDisabled]}>
             <Text style={styles.dayTextDisabled}>{day}</Text>
-            {dayData && !isPast && <Text style={styles.naText}>N/A</Text>}
+            {dayData && <Text style={styles.naText}>N/A</Text>}
           </View>
         );
       } else {
-        const priceColors = getPriceColors(dayData.priceLevel);
+        const priceColors = getPriceColors(dayData.price_level);
 
         days.push(
           <TouchableOpacity
@@ -154,10 +153,10 @@ export default function FareCalendar({
           >
             <View style={styles.dayHeader}>
               <Text style={[styles.dayText, { color: priceColors.text }]}>{day}</Text>
-              {renderTrendIcon(dayData.trend)}
+              {dayData.trend && renderTrendIcon(dayData.trend)}
             </View>
-            <Text style={[styles.priceText, { color: priceColors.text }]}>{dayData.price}</Text>
-            <Text style={styles.ferriesText}>{dayData.ferries} ferries</Text>
+            <Text style={[styles.priceText, { color: priceColors.text }]}>{dayData.price}€</Text>
+            <Text style={styles.ferriesText}>{dayData.num_ferries} ferries</Text>
           </TouchableOpacity>
         );
       }
@@ -237,24 +236,24 @@ export default function FareCalendar({
       </View>
 
       {/* Summary */}
-      {calendarData && !loading && !error && (
+      {calendarData && !loading && !error && calendarData.summary.min_price && (
         <View style={styles.summary}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Lowest</Text>
             <Text style={[styles.summaryValue, { color: '#16A34A' }]}>
-              {calendarData.summary.lowest_price}
+              {calendarData.summary.min_price}€
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Average</Text>
             <Text style={[styles.summaryValue, { color: '#2563EB' }]}>
-              {calendarData.summary.average_price}
+              {calendarData.summary.avg_price}€
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Highest</Text>
             <Text style={[styles.summaryValue, { color: '#DC2626' }]}>
-              {calendarData.summary.highest_price}
+              {calendarData.summary.max_price}€
             </Text>
           </View>
         </View>

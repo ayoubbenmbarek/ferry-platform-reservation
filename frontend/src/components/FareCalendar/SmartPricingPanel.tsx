@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FareCalendar from './FareCalendar';
 import PriceEvolutionChart from './PriceEvolutionChart';
 import PriceInsights from './PriceInsights';
@@ -27,6 +27,11 @@ const SmartPricingPanel: React.FC<SmartPricingPanelProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState<string | undefined>(departureDate);
   const [activeView, setActiveView] = useState<ViewMode>('calendar');
+
+  // Sync selectedDate when departureDate prop changes from parent
+  useEffect(() => {
+    setSelectedDate(departureDate);
+  }, [departureDate]);
 
   const handleDateSelect = (date: string, price: number) => {
     setSelectedDate(date);

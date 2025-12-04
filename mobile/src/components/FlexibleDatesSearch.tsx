@@ -83,6 +83,7 @@ export default function FlexibleDatesSearch({
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
           <Text style={styles.emptyText}>Select a departure date first</Text>
+          <Text style={styles.emptyHint}>Go to the Calendar tab and tap on a date</Text>
         </View>
       </View>
     );
@@ -391,6 +392,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.md,
     textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  emptyHint: {
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    fontSize: 12,
   },
   loadingContainer: {
     height: 200,

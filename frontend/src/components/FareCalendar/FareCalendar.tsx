@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isBefore, isToday } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isBefore, isToday, parseISO } from 'date-fns';
 import { pricingAPI, FareCalendarData, FareCalendarDay } from '../../services/api';
 
 interface FareCalendarProps {
@@ -19,10 +19,34 @@ const FareCalendar: React.FC<FareCalendarProps> = ({
   selectedDate,
   className = '',
 }) => {
-  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
+  // Initialize month based on selectedDate or current date
+  const getInitialMonth = () => {
+    if (selectedDate) {
+      try {
+        return startOfMonth(parseISO(selectedDate));
+      } catch {
+        return startOfMonth(new Date());
+      }
+    }
+    return startOfMonth(new Date());
+  };
+
+  const [currentMonth, setCurrentMonth] = useState(getInitialMonth);
   const [calendarData, setCalendarData] = useState<FareCalendarData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Update month when selectedDate changes from outside (e.g., from parent component)
+  useEffect(() => {
+    if (selectedDate) {
+      try {
+        const selectedMonth = startOfMonth(parseISO(selectedDate));
+        setCurrentMonth(selectedMonth);
+      } catch {
+        // Invalid date format, ignore
+      }
+    }
+  }, [selectedDate]);
 
   const fetchCalendarData = useCallback(async () => {
     if (!departurePort || !arrivalPort) return;

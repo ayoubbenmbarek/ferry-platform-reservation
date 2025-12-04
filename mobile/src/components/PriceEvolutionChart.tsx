@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
   Dimensions,
+  PanResponder,
+  GestureResponderEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
 import { colors, spacing, borderRadius } from '../constants/theme';
-import { pricingService, PriceHistoryData, PriceHistoryPoint } from '../services/pricingService';
+import { pricingService, PriceHistoryData } from '../services/pricingService';
 
 interface PriceEvolutionChartProps {
   departurePort: string;
@@ -30,6 +31,15 @@ export default function PriceEvolutionChart({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState(days);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const chartRef = useRef<View>(null);
+  const chartLayoutRef = useRef({ x: 0, width: 0 });
+  const historyDataRef = useRef<PriceHistoryData | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    historyDataRef.current = historyData;
+  }, [historyData]);
 
   const fetchData = useCallback(async () => {
     if (!departurePort || !arrivalPort) return;
@@ -78,65 +88,168 @@ export default function PriceEvolutionChart({
     }
   };
 
+  // Calculate index from touch position - uses ref to get current data
+  const getIndexFromTouch = (pageX: number): number | null => {
+    const data = historyDataRef.current;
+    if (!data || data.history.length === 0) return null;
+
+    const chartWidth = chartLayoutRef.current.width;
+    const chartX = chartLayoutRef.current.x;
+    const relativeX = pageX - chartX;
+
+    if (relativeX < 0 || relativeX > chartWidth || chartWidth === 0) return null;
+
+    const index = Math.round((relativeX / chartWidth) * (data.history.length - 1));
+    return Math.max(0, Math.min(data.history.length - 1, index));
+  };
+
+  // Store the handler in a ref so panResponder always has access to latest version
+  const handleTouchRef = useRef((pageX: number) => {
+    const index = getIndexFromTouch(pageX);
+    setSelectedIndex(index);
+  });
+
+  // Update the ref when dependencies change
+  useEffect(() => {
+    handleTouchRef.current = (pageX: number) => {
+      const index = getIndexFromTouch(pageX);
+      setSelectedIndex(index);
+    };
+  });
+
+  // Pan responder for touch interaction
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt: GestureResponderEvent) => {
+        handleTouchRef.current(evt.nativeEvent.pageX);
+      },
+      onPanResponderMove: (evt: GestureResponderEvent) => {
+        handleTouchRef.current(evt.nativeEvent.pageX);
+      },
+      onPanResponderRelease: () => {
+        // Keep selection visible for a moment, then hide
+        setTimeout(() => setSelectedIndex(null), 2000);
+      },
+    })
+  ).current;
+
   // Simple chart rendering
   const renderSimpleChart = () => {
     if (!historyData || historyData.history.length === 0) return null;
 
-    const screenWidth = Dimensions.get('window').width - spacing.md * 4;
+    const screenWidth = Dimensions.get('window').width - spacing.md * 4 - 40; // 40 for y-axis
     const chartHeight = 150;
     const prices = historyData.history.map((p) => p.price);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice || 1;
 
-    // Calculate points for the line
-    const points = historyData.history.map((point, index) => {
-      const x = (index / (historyData.history.length - 1)) * screenWidth;
-      const y = chartHeight - ((point.price - minPrice) / priceRange) * chartHeight;
-      return { x, y, price: point.price, date: point.date };
-    });
+    const selectedPoint = selectedIndex !== null ? historyData.history[selectedIndex] : null;
 
     return (
       <View style={styles.chartContainer}>
-        {/* Y-axis labels */}
-        <View style={styles.yAxisLabels}>
-          <Text style={styles.axisLabel}>{maxPrice.toFixed(0)}€</Text>
-          <Text style={styles.axisLabel}>{((maxPrice + minPrice) / 2).toFixed(0)}€</Text>
-          <Text style={styles.axisLabel}>{minPrice.toFixed(0)}€</Text>
-        </View>
+        {/* Tooltip */}
+        {selectedPoint && selectedIndex !== null && (
+          <View style={styles.tooltip}>
+            <Text style={styles.tooltipDate}>
+              {format(parseISO(selectedPoint.date), 'MMM dd, yyyy')}
+            </Text>
+            <View style={styles.tooltipRow}>
+              <View style={[styles.tooltipDot, { backgroundColor: '#22C55E' }]} />
+              <Text style={styles.tooltipLabel}>Lowest:</Text>
+              <Text style={styles.tooltipValue}>{selectedPoint.lowest || selectedPoint.price}€</Text>
+            </View>
+            <View style={styles.tooltipRow}>
+              <View style={[styles.tooltipDot, { backgroundColor: '#3B82F6' }]} />
+              <Text style={styles.tooltipLabel}>Average:</Text>
+              <Text style={styles.tooltipValue}>{selectedPoint.price}€</Text>
+            </View>
+            <View style={styles.tooltipRow}>
+              <View style={[styles.tooltipDot, { backgroundColor: '#EF4444' }]} />
+              <Text style={styles.tooltipLabel}>Highest:</Text>
+              <Text style={styles.tooltipValue}>{selectedPoint.highest || selectedPoint.price}€</Text>
+            </View>
+          </View>
+        )}
 
-        {/* Chart area */}
-        <View style={[styles.chartArea, { height: chartHeight }]}>
-          {/* Grid lines */}
-          <View style={[styles.gridLine, { top: 0 }]} />
-          <View style={[styles.gridLine, { top: chartHeight / 2 }]} />
-          <View style={[styles.gridLine, { top: chartHeight - 1 }]} />
+        {/* Instruction text when no selection */}
+        {selectedIndex === null && (
+          <Text style={styles.chartInstruction}>Touch and drag to see price details</Text>
+        )}
 
-          {/* Price bars */}
-          <View style={styles.barsContainer}>
-            {historyData.history.map((point, index) => {
-              const height = Math.max(4, ((point.price - minPrice) / priceRange) * chartHeight);
-              const isLowest = point.lowest && point.price === point.lowest;
-              const isHighest = point.highest && point.price === point.highest;
+        <View style={styles.chartRow}>
+          {/* Y-axis labels */}
+          <View style={styles.yAxisLabels}>
+            <Text style={styles.axisLabel}>{maxPrice.toFixed(0)}€</Text>
+            <Text style={styles.axisLabel}>{((maxPrice + minPrice) / 2).toFixed(0)}€</Text>
+            <Text style={styles.axisLabel}>{minPrice.toFixed(0)}€</Text>
+          </View>
 
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.bar,
-                    {
-                      height,
-                      backgroundColor: isLowest ? '#22C55E' : isHighest ? '#EF4444' : '#3B82F6',
-                    },
-                  ]}
-                />
-              );
-            })}
+          {/* Chart area with touch handling */}
+          <View
+            ref={chartRef}
+            style={[styles.chartArea, { height: chartHeight }]}
+            onLayout={(event) => {
+              const { width } = event.nativeEvent.layout;
+              chartRef.current?.measureInWindow((pageX) => {
+                chartLayoutRef.current = { x: pageX, width };
+              });
+            }}
+            {...panResponder.panHandlers}
+          >
+            {/* Grid lines */}
+            <View style={[styles.gridLine, { top: 0 }]} />
+            <View style={[styles.gridLine, { top: chartHeight / 2 }]} />
+            <View style={[styles.gridLine, { top: chartHeight - 1 }]} />
+
+            {/* Price bars */}
+            <View style={styles.barsContainer}>
+              {historyData.history.map((point, index) => {
+                const height = Math.max(4, ((point.price - minPrice) / priceRange) * chartHeight);
+                const isLowest = point.lowest && point.price === point.lowest;
+                const isHighest = point.highest && point.price === point.highest;
+                const isSelected = selectedIndex === index;
+
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.bar,
+                      {
+                        height,
+                        backgroundColor: isSelected
+                          ? '#1D4ED8'
+                          : isLowest
+                          ? '#22C55E'
+                          : isHighest
+                          ? '#EF4444'
+                          : '#3B82F6',
+                        opacity: selectedIndex !== null && !isSelected ? 0.4 : 1,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+
+            {/* Selection indicator line */}
+            {selectedIndex !== null && (
+              <View
+                style={[
+                  styles.selectionLine,
+                  {
+                    left: (selectedIndex / (historyData.history.length - 1)) * screenWidth,
+                  },
+                ]}
+              />
+            )}
           </View>
         </View>
 
         {/* X-axis labels */}
-        <View style={styles.xAxisLabels}>
+        <View style={styles.xAxisLabelsRow}>
           {historyData.history.length > 0 && (
             <>
               <Text style={styles.axisLabel}>
@@ -305,10 +418,61 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     padding: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  tooltip: {
+    backgroundColor: '#fff',
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  tooltipDate: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  tooltipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  tooltipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  tooltipLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginRight: 4,
+  },
+  tooltipValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  chartInstruction: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    fontStyle: 'italic',
+  },
+  chartRow: {
     flexDirection: 'row',
   },
   yAxisLabels: {
     width: 40,
+    height: 150,
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     paddingRight: spacing.xs,
@@ -339,6 +503,13 @@ const styles = StyleSheet.create({
     minWidth: 2,
     maxWidth: 8,
   },
+  selectionLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: '#1D4ED8',
+  },
   xAxisLabels: {
     position: 'absolute',
     bottom: -20,
@@ -347,6 +518,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.xs,
+  },
+  xAxisLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingLeft: 40,
+    paddingRight: spacing.xs,
+    marginTop: spacing.xs,
   },
   axisLabel: {
     fontSize: 10,

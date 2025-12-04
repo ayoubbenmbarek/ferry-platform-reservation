@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,11 @@ export default function SmartPricingPanel({
 }: SmartPricingPanelProps) {
   const [selectedDate, setSelectedDate] = useState<string | undefined>(departureDate);
   const [activeView, setActiveView] = useState<ViewMode>('calendar');
+
+  // Sync selectedDate when departureDate prop changes from parent
+  useEffect(() => {
+    setSelectedDate(departureDate);
+  }, [departureDate]);
 
   const handleDateSelect = (date: string, price: number) => {
     setSelectedDate(date);
@@ -178,10 +183,10 @@ export default function SmartPricingPanel({
       <View style={styles.footer}>
         <Ionicons name="information-circle" size={16} color="#1E40AF" />
         <Text style={styles.footerText}>
-          {activeView === 'calendar' && 'Tap on a date to see available ferries'}
+          {activeView === 'calendar' && (selectedDate ? `Selected: ${selectedDate}` : 'Tap on a date to see available ferries')}
           {activeView === 'chart' && 'See how prices have changed over time'}
           {activeView === 'insights' && 'AI analyzes patterns for smart advice'}
-          {activeView === 'flexible' && 'Explore nearby dates for best deals'}
+          {activeView === 'flexible' && (selectedDate ? `Comparing dates around ${selectedDate}` : 'Select a date in Calendar first')}
         </Text>
       </View>
     </View>

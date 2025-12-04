@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import FareCalendar from './FareCalendar';
 import PriceInsightsComponent from './PriceInsights';
+import PriceEvolutionChart from './PriceEvolutionChart';
+import FlexibleDatesSearch from './FlexibleDatesSearch';
 
 interface SmartPricingPanelProps {
   departurePort: string;
@@ -20,7 +22,7 @@ interface SmartPricingPanelProps {
   compact?: boolean;
 }
 
-type ViewMode = 'calendar' | 'insights';
+type ViewMode = 'calendar' | 'chart' | 'insights' | 'flexible';
 
 export default function SmartPricingPanel({
   departurePort,
@@ -75,34 +77,62 @@ export default function SmartPricingPanel({
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeView === 'calendar' && styles.tabActive]}
-          onPress={() => setActiveView('calendar')}
-        >
-          <Ionicons
-            name="calendar"
-            size={16}
-            color={activeView === 'calendar' ? colors.primary : colors.textSecondary}
-          />
-          <Text style={[styles.tabText, activeView === 'calendar' && styles.tabTextActive]}>
-            Calendar
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeView === 'insights' && styles.tabActive]}
-          onPress={() => setActiveView('insights')}
-        >
-          <Ionicons
-            name="bulb"
-            size={16}
-            color={activeView === 'insights' ? colors.primary : colors.textSecondary}
-          />
-          <Text style={[styles.tabText, activeView === 'insights' && styles.tabTextActive]}>
-            AI Insights
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer}>
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tab, activeView === 'calendar' && styles.tabActive]}
+            onPress={() => setActiveView('calendar')}
+          >
+            <Ionicons
+              name="calendar"
+              size={16}
+              color={activeView === 'calendar' ? colors.primary : colors.textSecondary}
+            />
+            <Text style={[styles.tabText, activeView === 'calendar' && styles.tabTextActive]}>
+              Calendar
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeView === 'chart' && styles.tabActive]}
+            onPress={() => setActiveView('chart')}
+          >
+            <Ionicons
+              name="trending-up"
+              size={16}
+              color={activeView === 'chart' ? colors.primary : colors.textSecondary}
+            />
+            <Text style={[styles.tabText, activeView === 'chart' && styles.tabTextActive]}>
+              Price Trend
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeView === 'insights' && styles.tabActive]}
+            onPress={() => setActiveView('insights')}
+          >
+            <Ionicons
+              name="bulb"
+              size={16}
+              color={activeView === 'insights' ? colors.primary : colors.textSecondary}
+            />
+            <Text style={[styles.tabText, activeView === 'insights' && styles.tabTextActive]}>
+              AI Insights
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeView === 'flexible' && styles.tabActive]}
+            onPress={() => setActiveView('flexible')}
+          >
+            <Ionicons
+              name="swap-horizontal"
+              size={16}
+              color={activeView === 'flexible' ? colors.primary : colors.textSecondary}
+            />
+            <Text style={[styles.tabText, activeView === 'flexible' && styles.tabTextActive]}>
+              Flexible
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -116,6 +146,14 @@ export default function SmartPricingPanel({
           />
         )}
 
+        {activeView === 'chart' && (
+          <PriceEvolutionChart
+            departurePort={departurePort}
+            arrivalPort={arrivalPort}
+            days={30}
+          />
+        )}
+
         {activeView === 'insights' && (
           <PriceInsightsComponent
             departurePort={departurePort}
@@ -124,15 +162,26 @@ export default function SmartPricingPanel({
             passengers={passengers}
           />
         )}
+
+        {activeView === 'flexible' && (
+          <FlexibleDatesSearch
+            departurePort={departurePort}
+            arrivalPort={arrivalPort}
+            departureDate={selectedDate}
+            passengers={passengers}
+            onDateSelect={handleDateSelect}
+          />
+        )}
       </ScrollView>
 
       {/* Footer tip */}
       <View style={styles.footer}>
         <Ionicons name="information-circle" size={16} color="#1E40AF" />
         <Text style={styles.footerText}>
-          {activeView === 'calendar'
-            ? 'Tap on a date to see available ferries'
-            : 'Our AI analyzes pricing patterns for smart advice'}
+          {activeView === 'calendar' && 'Tap on a date to see available ferries'}
+          {activeView === 'chart' && 'See how prices have changed over time'}
+          {activeView === 'insights' && 'AI analyzes patterns for smart advice'}
+          {activeView === 'flexible' && 'Explore nearby dates for best deals'}
         </Text>
       </View>
     </View>
@@ -188,19 +237,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
-  tabs: {
-    flexDirection: 'row',
+  tabsContainer: {
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  tabs: {
+    flexDirection: 'row',
+  },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   tabActive: {
     borderBottomWidth: 2,

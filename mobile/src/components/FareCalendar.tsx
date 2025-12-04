@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isBefore } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, isBefore, startOfDay } from 'date-fns';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { pricingService, FareCalendarData, FareCalendarDay } from '../services/pricingService';
 
@@ -72,13 +72,14 @@ export default function FareCalendar({
     setCurrentMonth(addMonths(currentMonth, 1));
   };
 
-  const handleDatePress = (day: FareCalendarDay) => {
+  const handleDatePress = (day: FareCalendarDay, dayDate: Date) => {
     if (!day.available || day.price === null) return;
 
-    const dateStr = format(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day.day),
-      'yyyy-MM-dd'
-    );
+    // Don't allow selecting past dates
+    const today = startOfDay(new Date());
+    if (isBefore(dayDate, today)) return;
+
+    const dateStr = format(dayDate, 'yyyy-MM-dd');
     onDateSelect?.(dateStr, day.price);
   };
 
@@ -121,18 +122,21 @@ export default function FareCalendar({
     }
 
     // Days of the month
+    const today = startOfDay(new Date());
+
     for (let day = 1; day <= daysInMonth; day++) {
       const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       const dayData = calendarData?.days.find((d) => d.day === day);
       const dateStr = format(dayDate, 'yyyy-MM-dd');
       const isSelected = selectedDate === dateStr;
+      const isPast = isBefore(dayDate, today);
 
-      // Show as disabled if no data, not available, or no price
-      if (!dayData || !dayData.available || dayData.price === null) {
+      // Show as disabled if no data, not available, no price, or past date
+      if (!dayData || !dayData.available || dayData.price === null || isPast) {
         days.push(
           <View key={day} style={[styles.dayCell, styles.dayCellDisabled]}>
             <Text style={styles.dayTextDisabled}>{day}</Text>
-            {dayData && <Text style={styles.naText}>N/A</Text>}
+            {dayData && !isPast && <Text style={styles.naText}>N/A</Text>}
           </View>
         );
       } else {
@@ -149,7 +153,7 @@ export default function FareCalendar({
                 borderWidth: isSelected ? 2 : 1,
               },
             ]}
-            onPress={() => handleDatePress(dayData)}
+            onPress={() => handleDatePress(dayData, dayDate)}
           >
             <View style={styles.dayHeader}>
               <Text style={[styles.dayText, { color: priceColors.text }]}>{day}</Text>

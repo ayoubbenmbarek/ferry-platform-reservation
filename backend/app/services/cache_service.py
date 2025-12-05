@@ -81,7 +81,8 @@ class CacheService:
         """
         # Sort params for consistent hashing
         sorted_params = json.dumps(params, sort_keys=True)
-        param_hash = hashlib.md5(sorted_params.encode()).hexdigest()
+        # MD5 is used for cache key generation, not security
+        param_hash = hashlib.md5(sorted_params.encode(), usedforsecurity=False).hexdigest()
         return f"{prefix}:{param_hash}"
 
     def get_ferry_search(self, search_params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -104,9 +105,11 @@ class CacheService:
 
             if cached_data:
                 logger.info(f"✅ Cache HIT for ferry search: {cache_key}")
+                logger.debug(f"   Cache params: {json.dumps(search_params, sort_keys=True)}")
                 return json.loads(cached_data)
 
             logger.info(f"❌ Cache MISS for ferry search: {cache_key}")
+            logger.debug(f"   Searched params: {json.dumps(search_params, sort_keys=True)}")
             return None
 
         except Exception as e:
@@ -169,6 +172,70 @@ class CacheService:
 
         except Exception as e:
             logger.error(f"Error invalidating cache: {str(e)}")
+            return False
+
+    def get_date_prices(self, search_params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Get cached date prices.
+
+        Args:
+            search_params: Search parameters (departure_port, arrival_port, center_date, etc.)
+
+        Returns:
+            Cached date prices or None if not found
+        """
+        if not self.is_available():
+            logger.warning("Redis not available, skipping cache lookup")
+            return None
+
+        try:
+            cache_key = self._generate_cache_key("date_prices", search_params)
+            cached_data = self.redis_client.get(cache_key)
+
+            if cached_data:
+                logger.info(f"✅ Cache HIT for date prices: {cache_key}")
+                return json.loads(cached_data)
+
+            logger.info(f"❌ Cache MISS for date prices: {cache_key}")
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting date prices from cache: {str(e)}")
+            return None
+
+    def set_date_prices(
+        self,
+        search_params: Dict[str, Any],
+        results: Dict[str, Any],
+        ttl: int = 900  # 15 minutes default (prices change less frequently)
+    ) -> bool:
+        """
+        Cache date prices results.
+
+        Args:
+            search_params: Search parameters
+            results: Date prices results to cache
+            ttl: Time to live in seconds (default 15 minutes)
+
+        Returns:
+            True if cached successfully
+        """
+        if not self.is_available():
+            logger.warning("Redis not available, skipping cache set")
+            return False
+
+        try:
+            cache_key = self._generate_cache_key("date_prices", search_params)
+            self.redis_client.setex(
+                cache_key,
+                ttl,
+                json.dumps(results, cls=DateTimeEncoder)
+            )
+            logger.info(f"✅ Cached date prices: {cache_key} (TTL: {ttl}s)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error setting date prices cache: {str(e)}")
             return False
 
     def get_availability(self, sailing_id: str) -> Optional[Dict[str, Any]]:

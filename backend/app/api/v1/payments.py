@@ -5,6 +5,7 @@ Payment API endpoints for handling Stripe payments.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime
 import stripe
 import os
 import logging
@@ -25,11 +26,11 @@ from app.schemas.payment import (
 from app.api.v1.auth import get_current_active_user
 from app.api.deps import get_optional_current_user
 from app.services.email_service import email_service
-from app.services.invoice_service import invoice_service
 from app.models.meal import BookingMeal
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (skip in testing mode)
+if os.environ.get("ENVIRONMENT") != "testing":
+    load_dotenv()
 
 router = APIRouter()
 
@@ -54,8 +55,14 @@ async def create_payment_intent(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
             )
 
+        # Check if this is a cabin upgrade payment
+        is_cabin_upgrade = (
+            payment_data.is_upgrade
+            or (payment_data.metadata is not None and payment_data.metadata.get('type') == 'cabin_upgrade')
+        )
+
         # Check if user has permission to pay for this booking
-        # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin
+        # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin, 4) Booking is pending (allows sharing payment links), 5) Cabin upgrade
         if current_user:
             if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
                 raise HTTPException(
@@ -64,25 +71,27 @@ async def create_payment_intent(
                 )
         elif booking.user_id:
             # Guest trying to pay for a registered user's booking
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This booking requires authentication",
-            )
+            # Allow if booking is still pending (enables sharing payment links) OR it's a cabin upgrade
+            if booking.status != BookingStatusEnum.PENDING and not is_cabin_upgrade:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This booking requires authentication",
+                )
 
-        # Check if booking is already paid
-        existing_payment = (
-            db.query(Payment)
-            .filter(
-                Payment.booking_id == payment_data.booking_id,
-                Payment.status == PaymentStatusEnum.COMPLETED,
+        if not is_cabin_upgrade:
+            existing_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.booking_id == payment_data.booking_id,
+                    Payment.status == PaymentStatusEnum.COMPLETED,
+                )
+                .first()
             )
-            .first()
-        )
-        if existing_payment:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Booking is already paid",
-            )
+            if existing_payment:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Booking is already paid",
+                )
 
         # Handle zero amount (100% discount)
         if payment_data.amount <= 0:
@@ -115,16 +124,27 @@ async def create_payment_intent(
         # Convert amount to cents for Stripe
         amount_cents = int(payment_data.amount * 100)
 
-        # Create Stripe payment intent
+        # Build Stripe metadata
+        stripe_metadata = {
+            "booking_id": payment_data.booking_id,
+            "user_id": current_user.id if current_user else "guest",
+            "booking_reference": booking.booking_reference,
+        }
+        # Add custom metadata (e.g., cabin upgrade info)
+        if payment_data.metadata:
+            stripe_metadata.update({
+                f"custom_{k}": str(v) for k, v in payment_data.metadata.items() if v is not None
+            })
+
+        # Create Stripe payment intent with all payment methods enabled
         intent = stripe.PaymentIntent.create(
             amount=amount_cents,
             currency=payment_data.currency.value.lower(),
-            metadata={
-                "booking_id": payment_data.booking_id,
-                "user_id": current_user.id if current_user else "guest",
-                "booking_reference": booking.booking_reference,
+            metadata=stripe_metadata,
+            automatic_payment_methods={
+                "enabled": True,
+                "allow_redirects": "always"  # Allow redirects for wallets
             },
-            automatic_payment_methods={"enabled": True},
         )
 
         # Create payment record in database
@@ -153,11 +173,15 @@ async def create_payment_intent(
         )
 
     except stripe.StripeError as e:
+        import logging
+        logging.error(f"Stripe error creating payment intent: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Stripe error: {str(e)}",
         )
     except Exception as e:
+        import logging
+        logging.error(f"Error creating payment intent: {str(e)}", exc_info=True)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -281,7 +305,13 @@ async def confirm_payment(
             receipt_url = getattr(charge, 'receipt_url', None)
 
         # Send payment confirmation email with invoice if payment succeeded
-        if intent.status == "succeeded" and booking:
+        # But NOT for cabin upgrades - those are handled separately in add-cabin endpoint
+        is_cabin_upgrade = intent.metadata.get('custom_type') == 'cabin_upgrade' if intent.metadata else False
+
+        if is_cabin_upgrade:
+            logger.info(f"Cabin upgrade payment confirmed for booking {booking.booking_reference if booking else 'unknown'} - skipping original invoice email")
+
+        if intent.status == "succeeded" and booking and not is_cabin_upgrade:
             try:
                 # Prepare booking data for email
                 booking_dict = {
@@ -328,74 +358,48 @@ async def confirm_payment(
                     "card_last_four": payment.card_last_four,
                 }
 
-                # Generate invoice PDF
-                try:
-                    # Get passengers
-                    passengers = []
-                    for p in booking.passengers:
-                        passengers.append({
-                            'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
-                            'first_name': p.first_name,
-                            'last_name': p.last_name,
-                            'final_price': float(p.final_price)
-                        })
+                # Prepare data for async invoice generation in Celery worker
+                # Get passengers
+                passengers = []
+                for p in booking.passengers:
+                    passengers.append({
+                        'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                        'first_name': p.first_name,
+                        'last_name': p.last_name,
+                        'final_price': float(p.final_price)
+                    })
 
-                    # Get vehicles
-                    vehicles = []
-                    for v in booking.vehicles:
-                        vehicles.append({
-                            'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
-                            'license_plate': v.license_plate,
-                            'final_price': float(v.final_price)
-                        })
+                # Get vehicles
+                vehicles = []
+                for v in booking.vehicles:
+                    vehicles.append({
+                        'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                        'license_plate': v.license_plate,
+                        'final_price': float(v.final_price)
+                    })
 
-                    # Get meals
-                    meals = []
-                    for m in booking.meals:
-                        meals.append({
-                            'meal_name': m.meal.name if m.meal else 'Meal',
-                            'quantity': m.quantity,
-                            'unit_price': float(m.unit_price),
-                            'total_price': float(m.total_price)
-                        })
+                # Get meals
+                meals = []
+                for m in booking.meals:
+                    meals.append({
+                        'meal_name': m.meal.name if m.meal else 'Meal',
+                        'quantity': m.quantity,
+                        'unit_price': float(m.unit_price),
+                        'total_price': float(m.total_price)
+                    })
 
-                    # Generate PDF
-                    pdf_content = invoice_service.generate_invoice(
-                        booking=booking_dict,
-                        payment=payment_dict,
-                        passengers=passengers,
-                        vehicles=vehicles,
-                        meals=meals
-                    )
-
-                    # Create attachment (store PDF as base64 for Celery serialization)
-                    import base64
-                    invoice_attachment = {
-                        'content': base64.b64encode(pdf_content).decode('utf-8'),
-                        'filename': f"invoice_{booking.booking_reference}.pdf",
-                        'content_type': 'application/pdf'
-                    }
-
-                    # Queue async email task with invoice attachment
-                    from app.tasks.email_tasks import send_payment_success_email_task
-                    send_payment_success_email_task.delay(
-                        booking_data=booking_dict,
-                        payment_data=payment_dict,
-                        to_email=booking.contact_email,
-                        attachments=[invoice_attachment]
-                    )
-                    logger.info(f"✅ Payment success email queued for {booking.contact_email}")
-
-                except Exception as invoice_error:
-                    logger.error(f"Failed to generate invoice for booking {booking.booking_reference}: {str(invoice_error)}", exc_info=True)
-                    # Still queue email without invoice
-                    from app.tasks.email_tasks import send_payment_success_email_task
-                    send_payment_success_email_task.delay(
-                        booking_data=booking_dict,
-                        payment_data=payment_dict,
-                        to_email=booking.contact_email
-                    )
-                    logger.info(f"✅ Payment success email queued (without invoice) for {booking.contact_email}")
+                # Queue async email task - PDF will be generated in Celery worker
+                from app.tasks.email_tasks import send_payment_success_email_task
+                send_payment_success_email_task.delay(
+                    booking_data=booking_dict,
+                    payment_data=payment_dict,
+                    to_email=booking.contact_email,
+                    passengers=passengers,
+                    vehicles=vehicles,
+                    meals=meals,
+                    generate_invoice=True  # Generate PDF asynchronously in worker
+                )
+                logger.info(f"✅ Payment success email queued for {booking.contact_email} (invoice will be generated asynchronously)")
 
             except Exception as e:
                 # Log email error but don't fail the payment confirmation
@@ -574,6 +578,42 @@ async def stripe_webhook(
                     booking.refund_amount = refund_amount
 
                 db.commit()
+
+                # Send refund confirmation email
+                if booking:
+                    try:
+                        from app.tasks.email_tasks import send_refund_confirmation_email_task
+
+                        # Prepare booking data for email (include refund info)
+                        # Note: Pass datetime objects for template .strftime() calls
+                        booking_dict = {
+                            'id': booking.id,
+                            'booking_reference': booking.booking_reference,
+                            'operator': booking.operator or 'Ferry Operator',
+                            'departure_port': booking.departure_port,
+                            'arrival_port': booking.arrival_port,
+                            'departure_time': booking.departure_time,  # Keep as datetime object
+                            'arrival_time': booking.arrival_time,  # Keep as datetime object
+                            'contact_email': booking.contact_email,
+                            'contact_first_name': booking.contact_first_name or '',
+                            'contact_last_name': booking.contact_last_name or '',
+                            'total_amount': float(booking.total_amount),
+                            'currency': booking.currency,
+                            # Refund information
+                            'refund_amount': float(refund_amount),
+                            'stripe_refund_id': charge_id,
+                            'refunded_at': datetime.utcnow(),  # Keep as datetime object
+                            'base_url': 'http://localhost:3001',
+                        }
+
+                        # Queue async email task
+                        send_refund_confirmation_email_task.delay(
+                            booking_data=booking_dict,
+                            to_email=booking.contact_email
+                        )
+                        logger.info(f"✅ Refund confirmation email queued for {booking.contact_email}")
+                    except Exception as email_error:
+                        logger.error(f"Failed to send refund confirmation email: {str(email_error)}", exc_info=True)
 
         return {"status": "success"}
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PassengerInfo, PassengerType, PetType, PASSENGER_AGE_LIMITS } from '../types/ferry';
 
 interface PassengerFormProps {
@@ -18,6 +19,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
   isExpanded = false,
   defaultType = PassengerType.ADULT,
 }) => {
+  const { t } = useTranslation(['booking', 'common']);
   const [expanded, setExpanded] = useState(isExpanded || !passenger);
   const [formData, setFormData] = useState<Partial<PassengerInfo>>(
     passenger || {
@@ -30,19 +32,36 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Sync internal expanded state with parent's isExpanded prop
+  // Track previous expanded state to detect collapse
+  const prevExpandedRef = React.useRef(expanded);
+
+  // Sync internal expanded state with parent's isExpanded prop and auto-save on collapse
   React.useEffect(() => {
+    // Check if form is being collapsed (was expanded, now not expanded)
+    const isCollapsing = prevExpandedRef.current && !isExpanded;
+
+    if (isCollapsing) {
+      // Auto-save if required fields are filled
+      if (formData.firstName?.trim() && formData.lastName?.trim() && formData.type) {
+        // Don't validate strictly on auto-save, just save the data
+        onSave(formData as PassengerInfo);
+      }
+    }
+
+    // Update expanded state
     setExpanded(isExpanded);
+    prevExpandedRef.current = isExpanded;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.firstName?.trim()) {
-      newErrors.firstName = 'First name is required';
+      newErrors.firstName = t('booking:passengerDetails.firstNameRequired');
     }
     if (!formData.lastName?.trim()) {
-      newErrors.lastName = 'Last name is required';
+      newErrors.lastName = t('booking:passengerDetails.lastNameRequired');
     }
 
     if (formData.dateOfBirth) {
@@ -80,14 +99,22 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
     }
   };
 
+  const handleCancel = () => {
+    // Auto-save before closing if required fields are filled
+    if (formData.firstName?.trim() && formData.lastName?.trim() && formData.type) {
+      onSave(formData as PassengerInfo);
+    }
+    setExpanded(false);
+  };
+
   const getPassengerTypeLabel = (type: PassengerType): string => {
     switch (type) {
       case PassengerType.ADULT:
-        return `Adult (${PASSENGER_AGE_LIMITS.ADULT_MIN_AGE}+ years)`;
+        return t('booking:passengerDetails.adultLabel', { min: PASSENGER_AGE_LIMITS.ADULT_MIN_AGE });
       case PassengerType.CHILD:
-        return `Child (${PASSENGER_AGE_LIMITS.INFANT_MAX_AGE + 1}-${PASSENGER_AGE_LIMITS.CHILD_MAX_AGE} years)`;
+        return t('booking:passengerDetails.childLabel', { min: PASSENGER_AGE_LIMITS.INFANT_MAX_AGE + 1, max: PASSENGER_AGE_LIMITS.CHILD_MAX_AGE });
       case PassengerType.INFANT:
-        return `Infant (0-${PASSENGER_AGE_LIMITS.INFANT_MAX_AGE} years)`;
+        return t('booking:passengerDetails.infantLabel', { max: PASSENGER_AGE_LIMITS.INFANT_MAX_AGE });
       default:
         return type;
     }
@@ -115,7 +142,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
             <span className="text-2xl">{getPassengerIcon(passenger.type)}</span>
             <div>
               <h4 className="font-medium text-gray-900">
-                Passenger {passengerNumber}: {passenger.firstName} {passenger.lastName}
+                {t('booking:passengerDetails.passenger')} {passengerNumber}: {passenger.firstName} {passenger.lastName}
               </h4>
               <p className="text-sm text-gray-600">{getPassengerTypeLabel(passenger.type)}</p>
             </div>
@@ -125,7 +152,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
               onClick={() => setExpanded(true)}
               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
             >
-              Edit
+              {t('common:edit')}
             </button>
             {onRemove && passengerNumber > 1 && (
               <button
@@ -144,11 +171,11 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
   // Expanded form view
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border-2 border-primary-300">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Passenger {passengerNumber}</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('booking:passengerDetails.passenger')} {passengerNumber}</h3>
 
       {/* Passenger Type */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Passenger Type</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">{t('booking:passengerDetails.passengerType')}</label>
         <div className="grid grid-cols-3 gap-3">
           {Object.values(PassengerType).map((type) => (
             <button
@@ -172,7 +199,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            First Name <span className="text-red-500">*</span>
+            {t('booking:passengerDetails.firstName')} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -188,7 +215,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Last Name <span className="text-red-500">*</span>
+            {t('booking:passengerDetails.lastName')} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -203,7 +230,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('booking:passengerDetails.dateOfBirth')}</label>
           <input
             type="date"
             value={formData.dateOfBirth || ''}
@@ -217,7 +244,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Nationality (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('booking:passengerDetails.nationality')}</label>
           <input
             type="text"
             value={formData.nationality || ''}
@@ -230,10 +257,10 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
 
       {/* Travel Documents (optional) */}
       <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Travel Documents (Optional)</h4>
+        <h4 className="text-sm font-medium text-gray-700 mb-3">{t('booking:passengerDetails.travelDocuments')}</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Passport Number</label>
+            <label className="block text-sm text-gray-700 mb-1">{t('booking:passengerDetails.passportNumber')}</label>
             <input
               type="text"
               value={formData.passportNumber || ''}
@@ -257,13 +284,13 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
 
       {/* Special Needs */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Special Needs (optional)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{t('booking:passengerDetails.specialNeeds')}</label>
         <textarea
           value={formData.specialNeeds || ''}
           onChange={(e) => setFormData({ ...formData, specialNeeds: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={2}
-          placeholder="Wheelchair access, dietary requirements, etc."
+          placeholder={t('booking:passengerDetails.specialNeedsPlaceholder')}
         />
       </div>
 
@@ -283,7 +310,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
             className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
           />
           <label htmlFor={`pet-toggle-${passengerNumber}`} className="ml-2 text-sm font-medium text-gray-700">
-            Traveling with a pet
+            {t('booking:passengerDetails.travelingWithPet')}
           </label>
         </div>
 
@@ -384,7 +411,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
         {passenger && (
           <button
             type="button"
-            onClick={() => setExpanded(false)}
+            onClick={handleCancel}
             className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium"
           >
             Cancel
@@ -395,7 +422,7 @@ export const PassengerForm: React.FC<PassengerFormProps> = ({
           onClick={handleSave}
           className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium"
         >
-          {passenger ? 'Save Changes' : 'Save Passenger'}
+          {passenger ? t('booking:passengerDetails.saveChanges') : t('booking:passengerDetails.savePassenger')}
         </button>
       </div>
     </div>

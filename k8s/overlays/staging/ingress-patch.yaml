@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: maritime-ingress-staging
+  namespace: maritime-reservations-staging
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+spec:
+  tls:
+    - hosts:
+        - staging.maritime-reservations.com
+        - api-staging.maritime-reservations.com
+      secretName: maritime-tls-secret-staging
+  rules:
+    - host: staging.maritime-reservations.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service-staging
+                port:
+                  number: 80
+    - host: api-staging.maritime-reservations.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service-staging
+                port:
+                  number: 8010

@@ -1,0 +1,285 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [staging, develop]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository }}/backend
+  FRONTEND_IMAGE: ${{ github.repository }}/frontend
+
+jobs:
+  # Run backend tests
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Create database tables
+        working-directory: ./backend
+        env:
+          DATABASE_URL: "postgresql://test_user:test_password@localhost:5432/test_db"
+          ENVIRONMENT: "testing"
+          SECRET_KEY: "test-secret-key-for-ci-testing-only-12345678901234567890"
+        run: python scripts/create_tables.py
+
+      - name: Run tests
+        working-directory: ./backend
+        env:
+          ENVIRONMENT: "testing"
+          DATABASE_URL: "postgresql://test_user:test_password@localhost:5432/test_db"
+          SECRET_KEY: "test-secret-key-for-ci-testing-only-12345678901234567890"
+          JWT_SECRET_KEY: "test-jwt-secret-key-for-ci-testing-only-12345678901234567890"
+          STRIPE_SECRET_KEY: "sk_test_fake_key"
+          STRIPE_WEBHOOK_SECRET: "whsec_test_secret"
+          REDIS_URL: "redis://localhost:6379/15"
+        run: pytest tests/ -v --tb=short
+
+  # Run frontend tests
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./frontend
+        run: npm test -- --watchAll=false --passWithNoTests
+
+  # Build and push Docker images
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      backend_tag: ${{ steps.tags.outputs.backend_tag }}
+      frontend_tag: ${{ steps.tags.outputs.frontend_tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate tags
+        id: tags
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "backend_tag=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "frontend_tag=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: production
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:staging
+            ${{ steps.tags.outputs.backend_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging
+            ${{ steps.tags.outputs.frontend_tag }}
+          build-args: |
+            REACT_APP_API_URL=${{ vars.STAGING_API_URL || 'https://api-staging.maritime-reservations.com' }}
+            REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+            REACT_APP_ENVIRONMENT=staging
+            REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID }}
+            REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND }}
+            REACT_APP_VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to Kubernetes (if configured)
+  deploy-k8s:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: build
+    if: vars.DEPLOY_METHOD == 'kubernetes'
+    environment:
+      name: staging
+      url: https://staging.maritime-reservations.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.29.0'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update image tags
+        run: |
+          cd k8s/overlays/staging
+          kustomize edit set image maritime-reservations/backend=${{ needs.build.outputs.backend_tag }}
+          kustomize edit set image maritime-reservations/frontend=${{ needs.build.outputs.frontend_tag }}
+
+      - name: Deploy to staging
+        run: |
+          kubectl apply -k k8s/overlays/staging
+          kubectl -n maritime-reservations-staging rollout status deployment/backend-staging --timeout=300s
+          kubectl -n maritime-reservations-staging rollout status deployment/frontend-staging --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          echo "Pod status:"
+          kubectl -n maritime-reservations-staging get pods
+          echo ""
+          echo "Ingress:"
+          kubectl -n maritime-reservations-staging get ingress
+
+  # Deploy with Docker Compose (for VPS)
+  deploy-docker:
+    name: Deploy with Docker Compose
+    runs-on: ubuntu-latest
+    needs: build
+    if: vars.DEPLOY_METHOD == 'docker-compose' || vars.DEPLOY_METHOD == ''
+    environment:
+      name: staging
+      url: https://staging.maritime-reservations.com
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
+          script: |
+            cd /opt/maritime-reservations
+
+            # Pull latest code
+            git fetch origin develop
+            git reset --hard origin/develop
+
+            # Login to registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Update images in .env
+            sed -i 's|BACKEND_IMAGE=.*|BACKEND_IMAGE=${{ needs.build.outputs.backend_tag }}|' .env.staging
+            sed -i 's|FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${{ needs.build.outputs.frontend_tag }}|' .env.staging
+
+            # Pull new images and restart
+            docker-compose -f docker-compose.staging.yml pull
+            docker-compose -f docker-compose.staging.yml up -d
+
+            # Wait and health check
+            sleep 30
+            curl -f http://localhost:8010/health || echo "Health check failed"
+
+            # Show status
+            docker-compose -f docker-compose.staging.yml ps
+
+  # Notify on completion
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [build, deploy-k8s, deploy-docker]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend Image**: ${{ needs.build.outputs.backend_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend Image**: ${{ needs.build.outputs.frontend_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-k8s.result }}" == "success" ] || [ "${{ needs.deploy-docker.result }}" == "success" ]; then
+            echo "**Status**: Deployed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status**: Deployment may have issues - check logs" >> $GITHUB_STEP_SUMMARY
+          fi

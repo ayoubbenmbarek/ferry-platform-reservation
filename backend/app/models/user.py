@@ -22,6 +22,10 @@ class User(Base):
     date_of_birth = Column(DateTime, nullable=True)
     nationality = Column(String(3), nullable=True)  # ISO country code
     passport_number = Column(String(50), nullable=True)
+
+    # OAuth fields
+    google_user_id = Column(String(255), nullable=True, unique=True, index=True)
+    apple_user_id = Column(String(255), nullable=True, unique=True, index=True)
     
     # Account status
     is_active = Column(Boolean, default=True)
@@ -60,10 +64,16 @@ class User(Base):
     # Marketing preferences
     marketing_emails = Column(Boolean, default=True)
     booking_notifications = Column(Boolean, default=True)
-    
+
+    # Push notification token (Expo push token)
+    push_token = Column(String(255), nullable=True)
+    push_token_updated_at = Column(DateTime(timezone=True), nullable=True)
+
     # Relationships
     bookings = relationship("Booking", back_populates="user")
     payments = relationship("Payment", back_populates="user")
+    availability_alerts = relationship("AvailabilityAlert", back_populates="user")
+    price_alerts = relationship("PriceAlert", back_populates="user")
     
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}')>"
@@ -87,4 +97,5 @@ class User(Base):
             "preferred_currency": self.preferred_currency,
             "created_at": self.created_at,
             "last_login": self.last_login,
+            "has_push_token": self.push_token is not None,
         } 

@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store';
 import { searchFerries, selectFerry } from '../store/slices/ferrySlice';
+import DatePriceSelector from '../components/DatePriceSelector';
+import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
+import SaveRouteButton from '../components/SaveRouteButton';
 
 interface SearchForm {
   departurePort: string;
@@ -28,9 +31,56 @@ const SearchPage: React.FC = () => {
     vehicles: 0,
   });
 
-  // Initialize form from navigation state if available
+  // Initialize form from URL query parameters or navigation state
   useEffect(() => {
-    if (location.state?.searchParams) {
+    // First, try to read from URL query parameters (from email links)
+    const urlParams = new URLSearchParams(location.search);
+    const fromUrl = urlParams.get('from');
+    const toUrl = urlParams.get('to');
+    const dateUrl = urlParams.get('date');
+
+    console.log('🔍 SearchPage URL params:', { fromUrl, toUrl, dateUrl, search: location.search });
+
+    if (fromUrl && toUrl && dateUrl) {
+      console.log('✅ URL params found, auto-searching...');
+      // URL parameters found - use these (from email notification link)
+      const urlSearchForm = {
+        departurePort: fromUrl.toUpperCase(),
+        arrivalPort: toUrl.toUpperCase(),
+        departureDate: dateUrl,
+        returnDate: urlParams.get('returnDate') || '',
+        passengers: parseInt(urlParams.get('adults') || '1'),
+        vehicles: 0,
+      };
+
+      setSearchForm(urlSearchForm);
+
+      // Build vehicles array if vehicle info is provided
+      const vehicleType = urlParams.get('vehicleType');
+      const vehicleLength = urlParams.get('vehicleLength');
+      const vehicles: any[] = vehicleType ? [{
+        id: 'url-vehicle-1',
+        type: vehicleType.toUpperCase(),
+        length: vehicleLength ? parseInt(vehicleLength) : 450,
+        width: 180,
+        height: 150,
+      }] : [];
+
+      // Auto-search with URL parameters
+      dispatch(searchFerries({
+        departurePort: urlSearchForm.departurePort,
+        arrivalPort: urlSearchForm.arrivalPort,
+        departureDate: urlSearchForm.departureDate,
+        returnDate: urlSearchForm.returnDate || undefined,
+        passengers: {
+          adults: parseInt(urlParams.get('adults') || '1'),
+          children: parseInt(urlParams.get('children') || '0'),
+          infants: parseInt(urlParams.get('infants') || '0'),
+        },
+        vehicles: vehicles,
+      }));
+    } else if (location.state?.searchParams) {
+      // Fallback to navigation state if no URL params
       const params = location.state.searchParams;
       setSearchForm(params);
       // Auto-search if params are provided
@@ -84,6 +134,14 @@ const SearchPage: React.FC = () => {
   const handleSelectFerry = (ferry: any) => {
     dispatch(selectFerry(ferry));
     navigate('/passengers');
+  };
+
+  const handleDateSelect = (newDate: string) => {
+    // Update the form with the new date
+    const updatedForm = { ...searchForm, departureDate: newDate };
+    setSearchForm(updatedForm);
+    // Trigger a new search with the updated date
+    handleSearch(null, updatedForm);
   };
 
   const formatDate = (dateString: string) => {
@@ -225,6 +283,19 @@ const SearchPage: React.FC = () => {
 
       {/* Search Results Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Date Price Selector - Show after search is performed */}
+        {searchForm.departurePort && searchForm.arrivalPort && searchForm.departureDate && !isSearching && (
+          <div className="mb-8 bg-white rounded-lg shadow-md p-6">
+            <DatePriceSelector
+              departurePort={searchForm.departurePort}
+              arrivalPort={searchForm.arrivalPort}
+              selectedDate={searchForm.departureDate}
+              adults={searchForm.passengers}
+              onDateSelect={handleDateSelect}
+            />
+          </div>
+        )}
+
         {/* Loading State */}
         {isSearching && (
           <div className="text-center py-12">
@@ -257,22 +328,54 @@ const SearchPage: React.FC = () => {
               />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No ferries found</h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-6">
               No ferries match your search criteria. Try adjusting your search parameters.
             </p>
+
+            {/* Availability Alert Button */}
+            <div className="mt-6">
+              <AvailabilityAlertButton
+                searchCriteria={{
+                  departurePort: searchForm.departurePort,
+                  arrivalPort: searchForm.arrivalPort,
+                  departureDate: searchForm.departureDate,
+                  isRoundTrip: !!searchForm.returnDate,
+                  returnDate: searchForm.returnDate || undefined,
+                  adults: searchForm.passengers,
+                  children: 0,
+                  infants: 0,
+                  vehicle: searchForm.vehicles > 0 ? { type: 'car', length: 450 } : undefined,
+                }}
+                alertType={searchForm.vehicles > 0 ? 'vehicle' : 'passenger'}
+              />
+              <p className="text-sm text-gray-500 mt-3">
+                Get notified when ferries become available for this route
+              </p>
+            </div>
           </div>
         )}
 
         {/* Results List */}
         {!isSearching && !searchError && searchResults.length > 0 && (
           <>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Available Ferries ({searchResults.length} found)
-              </h2>
-              <p className="text-gray-600">
-                {searchForm.departurePort} → {searchForm.arrivalPort} on {formatDate(searchForm.departureDate)}
-              </p>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Available Ferries ({searchResults.length} found)
+                </h2>
+                <p className="text-gray-600">
+                  {searchForm.departurePort} → {searchForm.arrivalPort} on {formatDate(searchForm.departureDate)}
+                </p>
+              </div>
+              <SaveRouteButton
+                departurePort={searchForm.departurePort}
+                arrivalPort={searchForm.arrivalPort}
+                price={searchResults[0]?.prices?.adult}
+                variant="compact"
+                onSaveSuccess={() => {
+                  // Could show a toast notification here
+                }}
+              />
             </div>
 
             <div className="space-y-4">
@@ -337,6 +440,16 @@ const SearchPage: React.FC = () => {
                           €{ferry.prices?.adult || '85'}
                         </p>
                         <p className="text-xs text-gray-500">per adult</p>
+                      </div>
+
+                      {/* Fare Policy Badge */}
+                      <div className="mb-3">
+                        <span className="inline-flex items-center text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200">
+                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          Basic fare • Non-refundable
+                        </span>
                       </div>
 
                       <button

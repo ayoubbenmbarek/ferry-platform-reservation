@@ -6,6 +6,7 @@ import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
+import OfflineIndicator from './components/OfflineIndicator';
 import { getCurrentUser } from './store/slices/authSlice';
 
 // Lazy load pages for better performance
@@ -16,12 +17,15 @@ const PaymentPage = React.lazy(() => import('./pages/PaymentPage'));
 const BookingConfirmationPage = React.lazy(() => import('./pages/BookingConfirmationPage'));
 const MyBookingsPage = React.lazy(() => import('./pages/MyBookingsPage'));
 const BookingDetailsPage = React.lazy(() => import('./pages/BookingDetailsPage'));
+const ModifyBookingPage = React.lazy(() => import('./pages/ModifyBookingPage'));
+const AddCabinPage = React.lazy(() => import('./pages/AddCabinPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const VerifyEmailPage = React.lazy(() => import('./pages/VerifyEmailPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
+const SavedRoutesPage = React.lazy(() => import('./pages/SavedRoutesPage'));
 const AboutPage = React.lazy(() => import('./pages/AboutPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const FindBookingPage = React.lazy(() => import('./pages/FindBookingPage'));
@@ -45,9 +49,33 @@ function App() {
     }
   }, [dispatch]); // Only run once on mount
 
+  // Handle chunk loading errors (outdated cache on mobile)
+  useEffect(() => {
+    const handleChunkError = (event: any) => {
+      const isChunkError = event.message?.includes('Loading chunk') ||
+                          event.message?.includes('ChunkLoadError') ||
+                          event.reason?.name === 'ChunkLoadError';
+
+      if (isChunkError) {
+        console.warn('Chunk loading failed - likely outdated cache. Reloading page...');
+        // Reload the page to get fresh chunks
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('error', handleChunkError);
+    window.addEventListener('unhandledrejection', handleChunkError);
+
+    return () => {
+      window.removeEventListener('error', handleChunkError);
+      window.removeEventListener('unhandledrejection', handleChunkError);
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <div className="App min-h-screen bg-gray-50">
+        <OfflineIndicator showWhenOnline />
         <Suspense fallback={<LoadingSpinner />}>
           <Layout>
             <Suspense fallback={<LoadingSpinner />}>
@@ -70,7 +98,9 @@ function App() {
               
               {/* Protected routes */}
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+              <Route path="/saved-routes" element={<ProtectedRoute><SavedRoutesPage /></ProtectedRoute>} />
               <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
+              <Route path="/modify-booking/:bookingId" element={<ProtectedRoute><ModifyBookingPage /></ProtectedRoute>} />
 
               {/* Admin routes */}
               <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
@@ -80,7 +110,10 @@ function App() {
 
               {/* Booking details - accessible to both authenticated users and guests */}
               <Route path="/booking/:id" element={<BookingDetailsPage />} />
-              
+
+              {/* Add cabin to existing booking */}
+              <Route path="/booking/:bookingId/add-cabin" element={<AddCabinPage />} />
+
               {/* 404 page */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

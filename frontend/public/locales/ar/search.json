@@ -7,10 +7,43 @@
     "departureDate": "Departure Date",
     "returnDate": "Return Date (Optional)",
     "passengers": "Passengers",
+    "cabins": "Cabins",
     "vehicles": "Vehicles",
     "searchButton": "Search Ferries",
     "oneWay": "One Way",
     "roundTrip": "Round Trip"
+  },
+  "cabins": {
+    "deck": "Deck Passage",
+    "one": "1 Cabin",
+    "two": "2 Cabins",
+    "three": "3 Cabins",
+    "description": "Select the number of cabins you need. Deck passage means no cabin."
+  },
+  "passengers": {
+    "adults": "بالغين",
+    "adultsDesc": "12+ سنة",
+    "children": "أطفال",
+    "childrenDesc": "2-11 سنة",
+    "infants": "رضع",
+    "infantsDesc": "أقل من سنتين"
+  },
+  "vehicles": {
+    "car": "سيارة",
+    "motorcycle": "دراجة نارية",
+    "van": "شاحنة صغيرة",
+    "camper": "عربة تخييم",
+    "carWithTrailer": "سيارة مع مقطورة",
+    "bicycle": "دراجة"
+  },
+  "vehicleTypes": {
+    "car": "سيارة",
+    "suv": "سيارة دفع رباعي",
+    "van": "شاحنة صغيرة",
+    "motorcycle": "دراجة نارية",
+    "camper": "عربة تخييم",
+    "caravan": "مقطورة سكنية",
+    "truck": "شاحنة"
   },
   "results": {
     "title": "Available Ferries",
@@ -23,6 +56,9 @@
     "price": "Price",
     "from": "from",
     "selectButton": "Select",
+    "total": "المجموع",
+    "perAdult": "للبالغ",
+    "bestPrice": "أفضل سعر",
     "seatsAvailable": "{{count}} seats available",
     "soldOut": "Sold Out"
   },
@@ -45,5 +81,39 @@
     "palermo": "Palermo",
     "tunis": "Tunis",
     "algiers": "Algiers"
+  },
+  "validation": {
+    "selectDeparturePort": "يرجى اختيار ميناء المغادرة",
+    "selectArrivalPort": "يرجى اختيار ميناء الوصول",
+    "selectDepartureDate": "يرجى اختيار تاريخ المغادرة",
+    "portsMustDiffer": "يجب أن يكون ميناء الوصول مختلفاً عن ميناء المغادرة",
+    "selectReturnDeparturePort": "يرجى اختيار ميناء مغادرة العودة",
+    "selectReturnArrivalPort": "يرجى اختيار ميناء وصول العودة",
+    "returnPortsMustDiffer": "يجب أن يكون ميناء وصول العودة مختلفاً",
+    "pastDateNotAllowed": "يرجى اختيار تاريخ اليوم أو في المستقبل. التواريخ الماضية غير متاحة للحجز."
+  },
+  "datePriceSelector": {
+    "title": "اختر تاريخاً مختلفاً",
+    "subtitle": "قارن الأسعار للتواريخ القريبة",
+    "priceNote": "الأسعار المعروضة تقريبية. سيتم عرض السعر النهائي بعد الاختيار.",
+    "unavailable": "غير متاح",
+    "selected": "محدد",
+    "scrollHint": "اسحب لرؤية المزيد من التواريخ"
+  },
+  "showingResultsFor": "عرض العبارات لـ {{date}}",
+  "selectFerryHint": "اختر عبارة من القائمة أدناه للمتابعة",
+  "availability": {
+    "noSeats": "لا توجد مقاعد",
+    "notEnoughSeats": "مقاعد غير كافية",
+    "seatsLeft": "{{count}} مقاعد متبقية",
+    "seats": "{{count}} مقاعد",
+    "noVehicleSpace": "لا توجد مساحة للمركبات",
+    "notEnoughSpace": "مساحة غير كافية",
+    "spacesLeft": "{{count}} أماكن متبقية",
+    "spaces": "{{count}} أماكن",
+    "noCabins": "لا توجد كبائن",
+    "cabinsLeft": "{{count}} كبائن متبقية",
+    "cabins": "{{count}} كبائن",
+    "notify": "أعلمني"
   }
 }

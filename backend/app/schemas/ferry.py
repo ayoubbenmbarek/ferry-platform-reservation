@@ -30,6 +30,10 @@ class VehicleType(str, Enum):
     CAMPER = "camper"
     CARAVAN = "caravan"
     TRUCK = "truck"
+    TRAILER = "trailer"
+    JETSKI = "jetski"
+    BOAT_TRAILER = "boat_trailer"
+    BICYCLE = "bicycle"
 
 
 class PassengerType(str, Enum):
@@ -50,6 +54,7 @@ class CabinType(str, Enum):
     """Cabin type enumeration."""
     INTERIOR = "interior"
     EXTERIOR = "exterior"
+    BALCONY = "balcony"
     SUITE = "suite"
     DECK = "deck"
 
@@ -64,6 +69,11 @@ class VehicleInfo(BaseModel):
     registration: Optional[str] = None
     make: Optional[str] = None
     model: Optional[str] = None
+    owner: Optional[str] = None
+    has_trailer: bool = False
+    has_caravan: bool = False
+    has_roof_box: bool = False
+    has_bike_rack: bool = False
 
 
 class PassengerInfo(BaseModel):
@@ -108,6 +118,7 @@ class FerrySearch(BaseModel):
     children: int = 0
     infants: int = 0
     vehicles: Optional[List[VehicleInfo]] = None
+    cabins: int = 0  # Number of cabins requested (0 = deck passage, 1-3 = cabin quantity)
     operators: Optional[List[str]] = None
     
     @field_validator('adults')
@@ -136,7 +147,16 @@ class FerrySearch(BaseModel):
         if v > 10:
             raise ValueError('Maximum 10 infant passengers allowed')
         return v
-    
+
+    @field_validator('cabins')
+    @classmethod
+    def validate_cabins(cls, v):
+        if v < 0:
+            raise ValueError('Number of cabins cannot be negative')
+        if v > 3:
+            raise ValueError('Maximum 3 cabins allowed')
+        return v
+
     @field_validator('departure_date')
     @classmethod
     def validate_departure_date(cls, v):

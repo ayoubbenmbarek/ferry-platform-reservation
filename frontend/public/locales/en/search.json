@@ -3,11 +3,16 @@
   "subtitle": "Search ferries across the Mediterranean",
   "searchButton": "Search Ferries",
   "form": {
+    "title": "⚓ Ferry to Tunisia",
+    "subtitle": "Book your Mediterranean crossing from Italy & France to Tunisia",
+    "editTitle": "✏️ Edit Your Search",
+    "editSubtitle": "Update your route and dates. Your passenger and vehicle details will be preserved.",
     "departurePort": "Departure Port",
     "arrivalPort": "Arrival Port",
-    "departureDate": "Departure Date",
+    "departureDate": "📅 Departure Date",
     "returnDate": "Return Date (Optional)",
     "passengers": "Passengers",
+    "cabins": "Cabins",
     "vehicles": "Vehicles",
     "adults": "Adults",
     "children": "Children",
@@ -19,14 +24,27 @@
     "removeVehicle": "Remove Vehicle",
     "vehicleType": "Vehicle Type",
     "vehicleLength": "Vehicle Length",
+    "vehicle": "Vehicle",
+    "noVehicles": "No vehicles added. Click \"Add Vehicle\" to travel with a vehicle.",
     "selectPort": "Select a port",
     "selectDate": "Select date",
-    "differentReturnRoute": "Different return route",
+    "differentReturnRoute": "Different return route (e.g., return from a different port)",
     "updateSearch": "Update Search",
     "selectDeparturePort": "Select departure port",
     "selectArrivalPort": "Select arrival port",
-    "from": "From",
-    "to": "To"
+    "selectReturnDeparturePort": "Select return departure port",
+    "selectReturnArrivalPort": "Select return arrival port",
+    "from": "🛳️ From",
+    "to": "🏁 To",
+    "returnFrom": "🔄 Return From",
+    "returnTo": "🏁 Return To"
+  },
+  "cabins": {
+    "deck": "Deck Passage",
+    "one": "1 Cabin",
+    "two": "2 Cabins",
+    "three": "3 Cabins",
+    "description": "Select the number of cabins you need. Deck passage means no cabin."
   },
   "passengers": {
     "adults": "Adults",
@@ -42,6 +60,18 @@
     "van": "Van",
     "camper": "Camper",
     "carWithTrailer": "Car with Trailer",
+    "bicycle": "Bicycle"
+  },
+  "vehicleTypes": {
+    "car": "Car",
+    "suv": "SUV / 4x4",
+    "van": "Van / Utility",
+    "motorcycle": "Motorcycle",
+    "camper": "Camper",
+    "caravan": "Caravan",
+    "truck": "Truck",
+    "jetski": "Jet Ski",
+    "boat": "Boat/Trailer",
     "bicycle": "Bicycle"
   },
   "results": {
@@ -60,6 +90,8 @@
     "perPerson": "per person",
     "select": "Select",
     "selectButton": "Select",
+    "total": "Total",
+    "bestPrice": "Best Price",
     "seatsAvailable": "{{count}} seat available",
     "seatsAvailable_plural": "{{count}} seats available",
     "soldOut": "Sold Out",
@@ -98,7 +130,8 @@
     "portsMustDiffer": "Arrival port must be different from departure port",
     "selectReturnDeparturePort": "Please select return departure port",
     "selectReturnArrivalPort": "Please select return arrival port",
-    "returnPortsMustDiffer": "Return arrival port must be different"
+    "returnPortsMustDiffer": "Return arrival port must be different",
+    "pastDateNotAllowed": "Please select a date that is today or in the future. Past dates are not available for booking."
   },
   "selectFerry": "Select Ferry",
   "selectOutboundFerry": "Select Outbound Ferry",
@@ -110,5 +143,29 @@
   "searchingFerries": "Searching all ferry operators...",
   "searchingReturn": "Searching return ferries...",
   "noReturnResults": "No return ferries found for your search",
-  "tryAdjusting": "Try adjusting your dates or route"
+  "tryAdjusting": "Try adjusting your dates or route",
+  "datePriceSelector": {
+    "title": "Select a different date",
+    "subtitle": "Compare prices for nearby dates",
+    "priceNote": "Prices shown are approximate. Final price will be displayed after selection.",
+    "unavailable": "N/A",
+    "selected": "Selected",
+    "scrollHint": "Swipe to see more dates"
+  },
+  "showingResultsFor": "Showing ferries for {{date}}",
+  "selectFerryHint": "Select a ferry from the list below to continue",
+  "availability": {
+    "noSeats": "No seats",
+    "notEnoughSeats": "Not enough seats",
+    "seatsLeft": "{{count}} seats left",
+    "seats": "{{count}} seats",
+    "noVehicleSpace": "No vehicle space",
+    "notEnoughSpace": "Not enough space",
+    "spacesLeft": "{{count}} spaces left",
+    "spaces": "{{count}} spaces",
+    "noCabins": "No cabins",
+    "cabinsLeft": "{{count}} cabins left",
+    "cabins": "{{count}} cabins",
+    "notify": "Notify"
+  }
 }

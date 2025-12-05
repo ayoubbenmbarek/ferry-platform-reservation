@@ -44,17 +44,17 @@ const uiSlice = {
   },
 };
 
-export const { 
-  toggleSidebar, 
-  setSidebarOpen, 
-  setTheme, 
-  setLanguage, 
-  setCurrency, 
-  addNotification, 
-  removeNotification 
+export const {
+  toggleSidebar,
+  setSidebarOpen,
+  setTheme,
+  setLanguage,
+  setCurrency,
+  addNotification,
+  removeNotification
 } = uiSlice.reducers || {};
 
-export default (state = initialState, action: any) => {
+const uiReducer = (state = initialState, action: any) => {
   switch (action.type) {
     case 'ui/toggleSidebar':
       return { ...state, sidebarOpen: !state.sidebarOpen };
@@ -73,4 +73,6 @@ export default (state = initialState, action: any) => {
     default:
       return state;
   }
-}; 
+};
+
+export default uiReducer; 

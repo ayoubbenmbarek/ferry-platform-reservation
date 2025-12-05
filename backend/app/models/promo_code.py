@@ -60,6 +60,40 @@ class PromoCode(Base):
     usages = relationship("PromoCodeUsage", back_populates="promo_code", cascade="all, delete-orphan")
     creator = relationship("User", foreign_keys=[created_by])
 
+    @property
+    def effective_status(self) -> str:
+        """
+        Compute the actual status based on all conditions.
+        Returns: 'active', 'expired', 'used_up', 'not_started', 'inactive'
+        """
+        from datetime import datetime, timezone
+
+        # If manually deactivated
+        if not self.is_active:
+            return 'inactive'
+
+        now = datetime.now(timezone.utc)
+
+        # Check if not yet valid
+        if self.valid_from and self.valid_from > now:
+            return 'not_started'
+
+        # Check if expired
+        if self.valid_until and self.valid_until < now:
+            return 'expired'
+
+        # Check if usage limit reached
+        if self.max_uses is not None and self.current_uses >= self.max_uses:
+            return 'used_up'
+
+        # All checks passed - truly active
+        return 'active'
+
+    @property
+    def is_effectively_active(self) -> bool:
+        """Check if promo code is actually usable right now."""
+        return self.effective_status == 'active'
+
     def __repr__(self):
         return f"<PromoCode(id={self.id}, code='{self.code}', type='{self.discount_type.value}')>"
 

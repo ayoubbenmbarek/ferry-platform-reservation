@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { SearchParams, FerryResult, VehicleInfo, PassengerInfo } from '../../types/ferry';
+import { SearchParams, FerryResult, VehicleInfo, PassengerInfo, Port, PORTS } from '../../types/ferry';
 import api, { ferryAPI } from '../../services/api';
 
 // ContactInfo type (using snake_case for backend compatibility)
@@ -35,6 +35,11 @@ const camelToSnake = (obj: any): any => {
 };
 
 interface FerryState {
+  // Ports and routes
+  ports: Port[];
+  routes: { [departure: string]: string[] };
+  isLoadingPorts: boolean;
+
   // Search state
   searchParams: Partial<SearchParams>;
   searchResults: FerryResult[];
@@ -48,6 +53,11 @@ interface FerryState {
   selectedCabin: string | null;
   selectedCabinId: number | null;
   selectedReturnCabinId: number | null;  // For return journey cabin
+  // Multi-cabin selection support
+  cabinSelections: { cabinId: number; quantity: number; price: number }[];
+  returnCabinSelections: { cabinId: number; quantity: number; price: number }[];
+  totalCabinPrice: number;
+  totalReturnCabinPrice: number;
   selectedMeals: any[];
   contactInfo: ContactInfo | null;
 
@@ -68,12 +78,20 @@ interface FerryState {
   promoDiscount: number | null;
   promoValidationMessage: string | null;
 
+  // Cancellation protection
+  hasCancellationProtection: boolean;
+
   // UI state
   isLoading: boolean;
   error: string | null;
 }
 
 const initialState: FerryState = {
+  // Ports and routes - start with static data as fallback
+  ports: PORTS,
+  routes: {},
+  isLoadingPorts: false,
+
   searchParams: {
     passengers: {
       adults: 1,
@@ -91,6 +109,11 @@ const initialState: FerryState = {
   selectedCabin: null,
   selectedCabinId: null,
   selectedReturnCabinId: null,
+  // Multi-cabin selection support
+  cabinSelections: [],
+  returnCabinSelections: [],
+  totalCabinPrice: 0,
+  totalReturnCabinPrice: 0,
   selectedMeals: [],
   contactInfo: null,
   passengers: [],
@@ -102,11 +125,64 @@ const initialState: FerryState = {
   promoCode: null,
   promoDiscount: null,
   promoValidationMessage: null,
+  hasCancellationProtection: false,
   isLoading: false,
   error: null,
 };
 
 // Async thunks
+export const fetchPorts = createAsyncThunk(
+  'ferry/fetchPorts',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await ferryAPI.getPorts();
+      // Transform API response to match Port type
+      return response.map((port: any) => ({
+        code: port.code.toLowerCase(),
+        name: port.name,
+        city: port.name,
+        country: port.country,
+        countryCode: port.country === 'Tunisia' ? 'TN' :
+                     port.country === 'Italy' ? 'IT' :
+                     port.country === 'France' ? 'FR' :
+                     port.country === 'Spain' ? 'ES' : 'XX'
+      }));
+    } catch (error: any) {
+      console.warn('Failed to fetch ports from API, using static data');
+      return rejectWithValue('Failed to fetch ports');
+    }
+  }
+);
+
+export const fetchRoutes = createAsyncThunk(
+  'ferry/fetchRoutes',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await ferryAPI.getRoutes();
+      // Transform API response to { departure: [arrivals] } format
+      const routes: { [departure: string]: string[] } = {};
+      // Response can be { routes: [...] } or just [...]
+      const routesList = (response as any).routes || response;
+      if (Array.isArray(routesList)) {
+        for (const route of routesList) {
+          const dep = route.departure_port.toLowerCase();
+          const arr = route.arrival_port.toLowerCase();
+          if (!routes[dep]) {
+            routes[dep] = [];
+          }
+          if (!routes[dep].includes(arr)) {
+            routes[dep].push(arr);
+          }
+        }
+      }
+      return routes;
+    } catch (error: any) {
+      console.warn('Failed to fetch routes from API');
+      return rejectWithValue('Failed to fetch routes');
+    }
+  }
+);
+
 export const searchFerries = createAsyncThunk(
   'ferry/searchFerries',
   async (searchParams: SearchParams, { rejectWithValue }) => {
@@ -128,6 +204,22 @@ export const searchFerries = createAsyncThunk(
       // Convert snake_case response to camelCase
       return snakeToCamel(response);
     } catch (error: any) {
+      // Handle validation errors with user-friendly messages
+      if (error.response?.data?.details) {
+        const details = error.response.data.details;
+        if (Array.isArray(details) && details.length > 0) {
+          const firstError = details[0];
+
+          // Extract user-friendly message
+          if (firstError.msg?.includes('Departure date cannot be in the past')) {
+            return rejectWithValue('Please select a date that is today or in the future. Past dates are not available for booking.');
+          }
+
+          // Return the validation message if available
+          return rejectWithValue(firstError.msg || firstError.ctx?.error || 'Invalid search parameters');
+        }
+      }
+
       return rejectWithValue(error.response?.data?.detail || error.message || 'Failed to search ferries');
     }
   }
@@ -145,11 +237,17 @@ export const createBooking = createAsyncThunk(
         vehicles,
         selectedCabinId,
         selectedReturnCabinId,
+        // Multi-cabin selection support
+        cabinSelections,
+        returnCabinSelections,
+        totalCabinPrice,
+        totalReturnCabinPrice,
         selectedMeals,
         contactInfo,
         isRoundTrip,
         searchParams,
-        promoCode
+        promoCode,
+        hasCancellationProtection
       } = state.ferry;
 
       if (!selectedFerry) {
@@ -206,7 +304,7 @@ export const createBooking = createAsyncThunk(
           petCarrierProvided: p.petCarrierProvided || false,
         })),
         vehicles: vehicles.length > 0 ? vehicles.map((v: VehicleInfo) => ({
-          type: v.type,
+          type: v.type.toLowerCase(),
           length: v.length,
           width: v.width,
           height: v.height,
@@ -214,11 +312,23 @@ export const createBooking = createAsyncThunk(
           registration: v.registration,
           make: v.make,
           model: v.model,
+          owner: v.owner,
+          has_trailer: v.hasTrailer || false,
+          has_caravan: v.hasCaravan || false,
+          has_roof_box: v.hasRoofBox || false,
+          has_bike_rack: v.hasBikeRack || false,
         })) : undefined,
+        // Legacy single cabin support (backward compatibility)
         cabinId: selectedCabinId,
         returnCabinId: selectedReturnCabinId,
+        // Multi-cabin selection data with prices
+        cabinSelections: cabinSelections && cabinSelections.length > 0 ? cabinSelections : undefined,
+        returnCabinSelections: returnCabinSelections && returnCabinSelections.length > 0 ? returnCabinSelections : undefined,
+        totalCabinPrice: totalCabinPrice || 0,
+        totalReturnCabinPrice: totalReturnCabinPrice || 0,
         meals: selectedMeals && selectedMeals.length > 0 ? selectedMeals : undefined,
         promoCode: promoCode || undefined,
+        hasCancellationProtection: hasCancellationProtection || false,
       });
 
       // Use axios directly to send snake_case data
@@ -237,6 +347,10 @@ const ferrySlice = createSlice({
     // Search params actions
     setSearchParams: (state, action: PayloadAction<Partial<SearchParams>>) => {
       state.searchParams = { ...state.searchParams, ...action.payload };
+      // Sync vehicles from searchParams to main state
+      if (action.payload.vehicles !== undefined) {
+        state.vehicles = action.payload.vehicles;
+      }
       // Clear old search results when params change
       state.searchResults = [];
       state.searchError = null;
@@ -279,6 +393,26 @@ const ferrySlice = createSlice({
       state.selectedReturnCabinId = action.payload;
     },
 
+    // Multi-cabin selection actions
+    setCabinSelections: (state, action: PayloadAction<{ selections: { cabinId: number; quantity: number; price: number }[]; totalPrice: number }>) => {
+      state.cabinSelections = action.payload.selections;
+      state.totalCabinPrice = action.payload.totalPrice;
+    },
+
+    setReturnCabinSelections: (state, action: PayloadAction<{ selections: { cabinId: number; quantity: number; price: number }[]; totalPrice: number }>) => {
+      state.returnCabinSelections = action.payload.selections;
+      state.totalReturnCabinPrice = action.payload.totalPrice;
+    },
+
+    clearCabinSelections: (state) => {
+      state.cabinSelections = [];
+      state.returnCabinSelections = [];
+      state.totalCabinPrice = 0;
+      state.totalReturnCabinPrice = 0;
+      state.selectedCabinId = null;
+      state.selectedReturnCabinId = null;
+    },
+
     setReturnFerry: (state, action: PayloadAction<FerryResult | null>) => {
       state.selectedReturnFerry = action.payload;
     },
@@ -304,6 +438,10 @@ const ferrySlice = createSlice({
       state.promoCode = null;
       state.promoDiscount = null;
       state.promoValidationMessage = null;
+    },
+
+    setCancellationProtection: (state, action: PayloadAction<boolean>) => {
+      state.hasCancellationProtection = action.payload;
     },
 
     setContactInfo: (state, action: PayloadAction<ContactInfo>) => {
@@ -369,6 +507,12 @@ const ferrySlice = createSlice({
       state.currentStep = 1;
       state.selectedFerry = null;
       state.selectedCabin = null;
+      state.selectedCabinId = null;
+      state.selectedReturnCabinId = null;
+      state.cabinSelections = [];
+      state.returnCabinSelections = [];
+      state.totalCabinPrice = 0;
+      state.totalReturnCabinPrice = 0;
       state.passengers = [];
       state.vehicles = [];
       state.searchResults = [];
@@ -376,6 +520,7 @@ const ferrySlice = createSlice({
       state.promoCode = null;
       state.promoDiscount = null;
       state.promoValidationMessage = null;
+      state.hasCancellationProtection = false;
     },
 
     clearError: (state) => {
@@ -403,6 +548,10 @@ const ferrySlice = createSlice({
       state.selectedCabin = null;
       state.selectedCabinId = null;
       state.selectedReturnCabinId = null;
+      state.cabinSelections = [];
+      state.returnCabinSelections = [];
+      state.totalCabinPrice = 0;
+      state.totalReturnCabinPrice = 0;
       state.selectedMeals = [];
       state.contactInfo = null;
       state.passengers = [];
@@ -412,6 +561,7 @@ const ferrySlice = createSlice({
       state.currentBooking = null;
       state.isCreatingBooking = false;
       state.bookingError = null;
+      state.hasCancellationProtection = false;
     },
 
     // Reset all ferry state (used on logout)
@@ -421,6 +571,22 @@ const ferrySlice = createSlice({
     builder
       // Listen for auth logout to clear ferry state
       .addCase('auth/logout', () => initialState)
+      // Fetch ports
+      .addCase(fetchPorts.pending, (state) => {
+        state.isLoadingPorts = true;
+      })
+      .addCase(fetchPorts.fulfilled, (state, action) => {
+        state.isLoadingPorts = false;
+        state.ports = action.payload;
+      })
+      .addCase(fetchPorts.rejected, (state) => {
+        state.isLoadingPorts = false;
+        // Keep static PORTS as fallback - already set in initialState
+      })
+      // Fetch routes
+      .addCase(fetchRoutes.fulfilled, (state, action) => {
+        state.routes = action.payload;
+      })
       // Search ferries
       .addCase(searchFerries.pending, (state) => {
         state.isSearching = true;
@@ -464,12 +630,16 @@ export const {
   selectCabin,
   setCabinId,
   setReturnCabinId,
+  setCabinSelections,
+  setReturnCabinSelections,
+  clearCabinSelections,
   setReturnFerry,
   setIsRoundTrip,
   setMeals,
   setPromoCode,
   setPromoDiscount,
   clearPromoCode,
+  setCancellationProtection,
   setContactInfo,
   addPassenger,
   updatePassenger,

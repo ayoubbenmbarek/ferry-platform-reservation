@@ -2,7 +2,7 @@
 Booking models for ferry reservations.
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, ForeignKey, Enum, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -41,6 +41,10 @@ class VehicleTypeEnum(enum.Enum):
     CAMPER = "CAMPER"
     CARAVAN = "CARAVAN"
     TRUCK = "TRUCK"
+    TRAILER = "TRAILER"
+    JETSKI = "JETSKI"
+    BOAT_TRAILER = "BOAT_TRAILER"
+    BICYCLE = "BICYCLE"
 
 
 class Booking(Base):
@@ -119,10 +123,18 @@ class Booking(Base):
     refund_amount = Column(Numeric(10, 2), nullable=True)
     refund_processed = Column(Boolean, default=False)
 
-    # Metadata
+    # Modification tracking
+    modification_count = Column(Integer, default=0)
+    fare_type = Column(String(50), default="flexible")  # flexible, semi-flexible, non-modifiable
+    last_modified_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)  # When pending booking expires
+
+    # Extra data (JSON field for additional booking data like cancellation protection)
+    extra_data = Column(JSON, nullable=True, default=dict)
 
     # Relationships
     user = relationship("User", back_populates="bookings")
@@ -133,7 +145,10 @@ class Booking(Base):
     vehicles = relationship("BookingVehicle", back_populates="booking", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="booking")
     meals = relationship("BookingMeal", back_populates="booking", cascade="all, delete-orphan")
-    
+    modifications = relationship("BookingModification", back_populates="booking", cascade="all, delete-orphan")
+    booking_cabins = relationship("BookingCabin", back_populates="booking", cascade="all, delete-orphan")
+    reminders = relationship("BookingReminder", back_populates="booking", cascade="all, delete-orphan")
+
     def __repr__(self):
         return f"<Booking(id={self.id}, ref='{self.booking_reference}', status='{self.status.value}')>"
     
@@ -201,13 +216,20 @@ class BookingVehicle(Base):
     vehicle_type = Column(Enum(VehicleTypeEnum), nullable=False)
     make = Column(String(50), nullable=True)
     model = Column(String(50), nullable=True)
+    owner = Column(String(100), nullable=True)
     license_plate = Column(String(20), nullable=False)
-    
+
     # Dimensions
     length_cm = Column(Integer, nullable=False)
     width_cm = Column(Integer, nullable=False)
     height_cm = Column(Integer, nullable=False)
     weight_kg = Column(Integer, nullable=True)
+
+    # Accessories
+    has_trailer = Column(Boolean, default=False)
+    has_caravan = Column(Boolean, default=False)
+    has_roof_box = Column(Boolean, default=False)
+    has_bike_rack = Column(Boolean, default=False)
     
     # Pricing
     base_price = Column(Numeric(10, 2), nullable=False)
@@ -228,3 +250,121 @@ class BookingVehicle(Base):
     
     def __repr__(self):
         return f"<BookingVehicle(id={self.id}, type='{self.vehicle_type.value}', plate='{self.license_plate}')>" 
+
+class BookingModification(Base):
+    """Booking modification history."""
+    
+    __tablename__ = "booking_modifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False)
+    
+    # Who made the modification
+    modified_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    modified_by_admin = Column(Boolean, default=False)
+    
+    # When
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # What changed (JSON field with before/after)
+    changes = Column(Text, nullable=False)  # Will store JSON
+    
+    # Financial impact
+    original_total = Column(Numeric(10, 2), nullable=False)
+    new_total = Column(Numeric(10, 2), nullable=False)
+    modification_fee = Column(Numeric(10, 2), default=0.00)
+    price_difference = Column(Numeric(10, 2), default=0.00)
+    total_charged = Column(Numeric(10, 2), nullable=False)
+    
+    # Payment
+    payment_status = Column(String(50), nullable=True)  # pending, paid, refunded
+    payment_intent_id = Column(String(255), nullable=True)
+    
+    # Status
+    status = Column(String(50), default="draft")  # draft, pending_payment, completed, failed
+    
+    # Operator confirmation
+    operator_confirmed = Column(Boolean, default=False)
+    operator_reference = Column(String(100), nullable=True)
+    
+    # Relationships
+    booking = relationship("Booking", back_populates="modifications")
+    modified_by = relationship("User", foreign_keys=[modified_by_user_id])
+    
+    def __repr__(self):
+        return f"<BookingModification(id={self.id}, booking_id={self.booking_id}, status='{self.status}')>"
+
+
+class JourneyTypeEnum(enum.Enum):
+    """Journey type enum for round trips."""
+    OUTBOUND = "OUTBOUND"
+    RETURN = "RETURN"
+
+
+class BookingCabin(Base):
+    """Cabin selections for a booking - supports multiple cabins per journey."""
+
+    __tablename__ = "booking_cabins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False)
+    cabin_id = Column(Integer, ForeignKey("cabins.id"), nullable=False)
+
+    # Journey type (outbound or return)
+    journey_type = Column(Enum(JourneyTypeEnum), default=JourneyTypeEnum.OUTBOUND)
+
+    # Quantity and pricing
+    quantity = Column(Integer, default=1)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    total_price = Column(Numeric(10, 2), nullable=False)
+
+    # Payment tracking
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True)  # Link to payment if paid separately
+    is_paid = Column(Boolean, default=False)
+
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    booking = relationship("Booking", back_populates="booking_cabins")
+    cabin = relationship("Cabin")
+    payment = relationship("Payment")
+
+    def __repr__(self):
+        return f"<BookingCabin(id={self.id}, booking_id={self.booking_id}, cabin_id={self.cabin_id}, qty={self.quantity})>"
+
+
+class ModificationQuote(Base):
+    """Temporary modification quotes that expire."""
+
+    __tablename__ = "modification_quotes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False)
+    
+    # Timing
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    
+    # Quote details
+    modifications = Column(Text, nullable=False)  # JSON of requested modifications
+    price_breakdown = Column(Text, nullable=False)  # JSON of price breakdown
+    
+    # Pricing
+    original_total = Column(Numeric(10, 2), nullable=False)
+    new_total = Column(Numeric(10, 2), nullable=False)
+    modification_fee = Column(Numeric(10, 2), default=0.00)
+    price_difference = Column(Numeric(10, 2), default=0.00)
+    total_to_pay = Column(Numeric(10, 2), nullable=False)
+    
+    # Availability
+    availability_confirmed = Column(Boolean, default=False)
+    
+    # Status
+    status = Column(String(50), default="pending")  # pending, accepted, expired, rejected
+    
+    # Relationship
+    booking = relationship("Booking")
+    
+    def __repr__(self):
+        return f"<ModificationQuote(id={self.id}, booking_id={self.booking_id}, total_to_pay={self.total_to_pay})>"

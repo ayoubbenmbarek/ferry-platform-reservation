@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { CardElement, useStripe, useElements, ExpressCheckoutElement } from '@stripe/react-stripe-js';
+import { useTranslation } from 'react-i18next';
 
 interface StripePaymentFormProps {
   clientSecret: string;
@@ -16,10 +17,70 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   onError,
   isConfirming = false,
 }) => {
+  const { t } = useTranslation(['payment']);
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Handle Express Checkout (Apple Pay, Google Pay, Link) confirmation
+  const handleExpressCheckoutConfirm = async (event: any) => {
+    setIsProcessing(true);
+    try {
+      // First check the current status of the payment intent
+      const { paymentIntent: existingIntent } = await stripe!.retrievePaymentIntent(clientSecret);
+
+      if (existingIntent) {
+        // If already succeeded, just call success callback
+        if (existingIntent.status === 'succeeded') {
+          console.log('Payment already succeeded, proceeding...');
+          onSuccess(existingIntent.id);
+          return;
+        }
+
+        // If canceled, show error
+        if (existingIntent.status === 'canceled') {
+          onError('This payment session has expired. Please refresh the page and try again.');
+          return;
+        }
+      }
+
+      const { error: confirmError } = await stripe!.confirmPayment({
+        elements: elements!,
+        clientSecret,
+        confirmParams: {
+          return_url: window.location.href, // Fallback, shouldn't be needed
+        },
+        redirect: 'if_required',
+      });
+
+      if (confirmError) {
+        // Handle payment_intent_unexpected_state error
+        if (confirmError.code === 'payment_intent_unexpected_state') {
+          const { paymentIntent: refreshedIntent } = await stripe!.retrievePaymentIntent(clientSecret);
+          if (refreshedIntent && refreshedIntent.status === 'succeeded') {
+            console.log('Payment was already successful');
+            onSuccess(refreshedIntent.id);
+            return;
+          }
+          onError('Payment session expired. Please refresh the page and try again.');
+        } else {
+          onError(confirmError.message || 'Payment failed');
+        }
+      } else {
+        // Payment succeeded - fetch the payment intent to get its ID
+        const { paymentIntent } = await stripe!.retrievePaymentIntent(clientSecret);
+        if (paymentIntent && paymentIntent.status === 'succeeded') {
+          onSuccess(paymentIntent.id);
+        }
+      }
+    } catch (err: any) {
+      onError(err.message || 'Payment processing failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle traditional card payment
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -35,6 +96,24 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
     setIsProcessing(true);
 
     try {
+      // First check the current status of the payment intent
+      const { paymentIntent: existingIntent } = await stripe.retrievePaymentIntent(clientSecret);
+
+      if (existingIntent) {
+        // If already succeeded, just call success callback
+        if (existingIntent.status === 'succeeded') {
+          console.log('Payment already succeeded, proceeding...');
+          onSuccess(existingIntent.id);
+          return;
+        }
+
+        // If canceled or requires action, show appropriate error
+        if (existingIntent.status === 'canceled') {
+          onError('This payment session has expired. Please refresh the page and try again.');
+          return;
+        }
+      }
+
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: cardElement,
@@ -42,7 +121,19 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
       });
 
       if (error) {
-        onError(error.message || 'Payment failed');
+        // Handle specific Stripe error codes
+        if (error.code === 'payment_intent_unexpected_state') {
+          // Payment may have already been processed
+          const { paymentIntent: refreshedIntent } = await stripe.retrievePaymentIntent(clientSecret);
+          if (refreshedIntent && refreshedIntent.status === 'succeeded') {
+            console.log('Payment was already successful');
+            onSuccess(refreshedIntent.id);
+            return;
+          }
+          onError('Payment session expired. Please refresh the page and try again.');
+        } else {
+          onError(error.message || 'Payment failed');
+        }
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
         onSuccess(paymentIntent.id);
       }
@@ -88,6 +179,35 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
         </div>
       )}
 
+      {/* Express Checkout (Apple Pay, Google Pay, Link) */}
+      <div className="mb-4">
+        <ExpressCheckoutElement
+          onConfirm={handleExpressCheckoutConfirm}
+          onReady={({ availablePaymentMethods }) => {
+            console.log('Express Checkout ready. Available methods:', availablePaymentMethods);
+            // availablePaymentMethods will show: { applePay: boolean, googlePay: boolean, link: boolean }
+          }}
+          options={{
+            buttonType: {
+              applePay: 'plain',
+              googlePay: 'plain',
+            },
+            wallets: {
+              applePay: 'auto',
+              googlePay: 'auto',
+            },
+          }}
+        />
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or pay with card</span>
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <CardElement options={cardElementOptions} />
@@ -120,7 +240,7 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
             />
           </svg>
-          Your payment information is secure and encrypted
+          {t('payment:timer.secureInfo')}
         </div>
       </form>
     </>

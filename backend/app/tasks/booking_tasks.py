@@ -5,7 +5,8 @@ These tasks handle ferry availability verification and operator booking confirma
 """
 import logging
 from typing import Dict, Any, Optional
-from celery import Task
+from datetime import datetime, timezone, timedelta
+from celery import Task, shared_task
 from app.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -222,3 +223,210 @@ def cancel_booking_with_operator_task(
     except Exception as e:
         logger.error(f"❌ Error canceling booking with operator: {str(e)}")
         raise
+
+
+@shared_task(
+    name="app.tasks.booking_tasks.expire_old_bookings",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=300  # 5 minutes
+)
+def expire_old_bookings_task(self):
+    """
+    Periodic task to expire pending bookings that haven't been paid.
+
+    This task:
+    1. Finds all PENDING bookings that have passed their expiration time
+    2. Updates their status to CANCELLED
+    3. Sends cancellation notification emails
+
+    Runs every minute to ensure timely expiration.
+    Previously ran as a cron job, migrated to Celery Beat for better monitoring.
+    """
+    from app.database import SessionLocal
+    from app.models.booking import Booking, BookingStatusEnum
+    from app.services.email_service import email_service
+
+    db = SessionLocal()
+
+    try:
+        logger.info("🔍 Starting booking expiration check...")
+
+        # Get current time
+        now = datetime.now(timezone.utc)
+
+        # Find all pending bookings that have expired
+        expired_bookings = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.PENDING,
+            Booking.expires_at != None,
+            Booking.expires_at < now
+        ).all()
+
+        if not expired_bookings:
+            logger.info("✅ No expired bookings found")
+            return {
+                'status': 'success',
+                'expired_count': 0,
+                'emails_sent': 0
+            }
+
+        expired_count = 0
+        emails_sent = 0
+
+        for booking in expired_bookings:
+            logger.info(f"⏰ Expiring booking {booking.booking_reference}")
+
+            # Update booking status
+            booking.status = BookingStatusEnum.CANCELLED
+            booking.cancellation_reason = "Booking expired - payment not received within 30 minutes"
+            booking.cancelled_at = now
+            expired_count += 1
+
+            # Send cancellation email asynchronously
+            try:
+                booking_data = {
+                    'booking_reference': booking.booking_reference,
+                    'departure_port': booking.departure_port,
+                    'arrival_port': booking.arrival_port,
+                    'operator': booking.operator,
+                    'vessel_name': booking.vessel_name,
+                    'departure_time': booking.departure_time.isoformat() if booking.departure_time else None,
+                    'arrival_time': booking.arrival_time.isoformat() if booking.arrival_time else None,
+                    'contact_first_name': booking.contact_first_name,
+                    'contact_last_name': booking.contact_last_name,
+                    'contact_email': booking.contact_email,
+                    'total_passengers': booking.total_passengers,
+                    'total_vehicles': booking.total_vehicles,
+                    'total_amount': float(booking.total_amount),
+                    'cancellation_reason': booking.cancellation_reason,
+                    'cancelled_at': booking.cancelled_at.isoformat() if booking.cancelled_at else None,
+                }
+
+                if email_service.send_cancellation_confirmation(
+                    booking_data=booking_data,
+                    to_email=booking.contact_email
+                ):
+                    emails_sent += 1
+                    logger.info(f"  ✅ Sent cancellation email to {booking.contact_email}")
+                else:
+                    logger.warning(f"  ⚠️ Failed to send email to {booking.contact_email}")
+
+            except Exception as email_error:
+                logger.error(f"  ❌ Email error for {booking.booking_reference}: {str(email_error)}")
+
+        # Commit all changes
+        db.commit()
+
+        logger.info(f"✅ Expired {expired_count} pending booking(s), sent {emails_sent} email(s)")
+
+        return {
+            'status': 'success',
+            'expired_count': expired_count,
+            'emails_sent': emails_sent,
+            'checked_at': now.isoformat()
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Error expiring bookings: {str(e)}")
+        # Retry the task
+        raise self.retry(exc=e)
+
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.tasks.booking_tasks.complete_past_bookings",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=300  # 5 minutes
+)
+def complete_past_bookings_task(self):
+    """
+    Periodic task to mark confirmed bookings as completed after departure.
+
+    This task:
+    1. Finds all CONFIRMED bookings where departure_time has passed
+    2. Updates their status to COMPLETED
+    3. Also handles round-trip bookings (waits for return journey to complete)
+
+    Runs every hour to update booking statuses.
+    """
+    from app.database import SessionLocal
+    from app.models.booking import Booking, BookingStatusEnum
+
+    db = SessionLocal()
+
+    try:
+        logger.info("🔍 Starting past bookings completion check...")
+
+        # Get current time with some buffer (2 hours after departure)
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(hours=2)
+
+        # Find confirmed bookings where:
+        # - For one-way: departure_time has passed
+        # - For round-trip: return_departure_time has passed (or departure_time if no return)
+        completed_count = 0
+
+        # One-way bookings: departure has passed
+        one_way_bookings = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.CONFIRMED,
+            Booking.is_round_trip == False,
+            Booking.departure_time != None,
+            Booking.departure_time < cutoff_time
+        ).all()
+
+        for booking in one_way_bookings:
+            logger.info(f"✅ Completing one-way booking {booking.booking_reference}")
+            booking.status = BookingStatusEnum.COMPLETED
+            booking.updated_at = now
+            completed_count += 1
+
+        # Round-trip bookings: return departure has passed
+        round_trip_bookings = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.CONFIRMED,
+            Booking.is_round_trip == True,
+            Booking.return_departure_time != None,
+            Booking.return_departure_time < cutoff_time
+        ).all()
+
+        for booking in round_trip_bookings:
+            logger.info(f"✅ Completing round-trip booking {booking.booking_reference}")
+            booking.status = BookingStatusEnum.COMPLETED
+            booking.updated_at = now
+            completed_count += 1
+
+        # Round-trip bookings without return time: use outbound departure
+        round_trip_no_return = db.query(Booking).filter(
+            Booking.status == BookingStatusEnum.CONFIRMED,
+            Booking.is_round_trip == True,
+            Booking.return_departure_time == None,
+            Booking.departure_time != None,
+            Booking.departure_time < cutoff_time
+        ).all()
+
+        for booking in round_trip_no_return:
+            logger.info(f"✅ Completing round-trip booking (no return time) {booking.booking_reference}")
+            booking.status = BookingStatusEnum.COMPLETED
+            booking.updated_at = now
+            completed_count += 1
+
+        db.commit()
+
+        logger.info(f"✅ Completed {completed_count} past booking(s)")
+
+        return {
+            'status': 'success',
+            'completed_count': completed_count,
+            'checked_at': now.isoformat()
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Error completing past bookings: {str(e)}")
+        raise self.retry(exc=e)
+
+    finally:
+        db.close()

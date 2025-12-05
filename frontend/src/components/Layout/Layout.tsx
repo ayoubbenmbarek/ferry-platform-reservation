@@ -65,7 +65,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <nav className="flex items-center space-x-4">
               <Link to="/" className="text-gray-700 hover:text-blue-600">{t('nav.home')}</Link>
-              <Link to="/search" className="text-gray-700 hover:text-blue-600">{t('nav.search')}</Link>
 
               {/* Language Switcher */}
               <div className="relative">
@@ -151,6 +150,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                           onClick={() => setShowUserMenu(false)}
                         >
                           {t('nav.myBookings')}
+                        </Link>
+                        <Link
+                          to="/saved-routes"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          {t('nav.savedRoutes', 'Saved Routes')}
                         </Link>
                         {user?.isAdmin && (
                           <Link

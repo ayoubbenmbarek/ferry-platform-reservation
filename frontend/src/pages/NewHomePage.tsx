@@ -2,17 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip, startNewSearch } from '../store/slices/ferrySlice';
+import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip, startNewSearch, fetchPorts, fetchRoutes } from '../store/slices/ferrySlice';
 import { RootState, AppDispatch } from '../store';
-import { PORTS } from '../types/ferry';
 import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
+import { SmartPricingPanel } from '../components/FareCalendar';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
 
 const NewHomePage: React.FC = () => {
   const { t } = useTranslation(['search', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { searchParams, isSearching, vehicles } = useSelector((state: RootState) => state.ferry);
+  const { searchParams, isSearching, vehicles, ports } = useSelector((state: RootState) => state.ferry);
+
+  // Fetch ports and routes on mount
+  useEffect(() => {
+    dispatch(fetchPorts());
+    dispatch(fetchRoutes());
+  }, [dispatch]);
 
   // Reset search state on mount to clear any stuck loading states
   useEffect(() => {
@@ -32,7 +38,10 @@ const NewHomePage: React.FC = () => {
     adults: searchParams.passengers?.adults || 1,
     children: searchParams.passengers?.children || 0,
     infants: searchParams.passengers?.infants || 0,
-    hasVehicle: (vehicles && vehicles.length > 0) || false,
+    // Support multiple vehicles of different types
+    vehiclesList: vehicles && vehicles.length > 0
+      ? vehicles.map(v => ({ id: v.id || crypto.randomUUID(), type: v.type || 'car' }))
+      : [] as { id: string; type: string }[],
   });
 
   // Update form when Redux state changes (e.g., coming back from search page)
@@ -49,30 +58,43 @@ const NewHomePage: React.FC = () => {
         adults: searchParams.passengers?.adults || 1,
         children: searchParams.passengers?.children || 0,
         infants: searchParams.passengers?.infants || 0,
-        hasVehicle: (vehicles && vehicles.length > 0) || false,
+        vehiclesList: vehicles && vehicles.length > 0
+          ? vehicles.map(v => ({ id: v.id || crypto.randomUUID(), type: v.type || 'car' }))
+          : [],
       });
     }
   }, [searchParams, vehicles]);
+
+  // Debug: Log when port values change in form state
+  useEffect(() => {
+    console.log('Form state updated - departurePort:', form.departurePort, 'arrivalPort:', form.arrivalPort);
+  }, [form.departurePort, form.arrivalPort]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
   // Handle voice search results
   const handleVoiceSearchResult = (result: ParsedSearchQuery) => {
+    console.log('Voice search result received:', result);
     setVoiceError(null);
 
     // Map parsed port names to port codes
     const findPortCode = (portName: string | null): string => {
-      if (!portName) return '';
+      if (!portName) {
+        console.log('Voice search: No port name provided');
+        return '';
+      }
       const normalizedName = portName.toLowerCase();
-      const port = PORTS.find(p =>
+      console.log(`Voice search: Looking for port "${portName}" (normalized: "${normalizedName}")`);
+
+      const port = ports.find(p =>
         p.code.toLowerCase() === normalizedName ||
         p.name.toLowerCase().includes(normalizedName) ||
         p.city.toLowerCase().includes(normalizedName)
       );
 
       if (!port) {
-        console.warn(`Voice search: Could not find port for "${portName}"`);
+        console.warn(`Voice search: Could not find port for "${portName}". Available ports:`, ports.map(p => p.code));
       } else {
         console.log(`Voice search: Mapped "${portName}" to ${port.code} (${port.name})`);
       }
@@ -80,19 +102,37 @@ const NewHomePage: React.FC = () => {
       return port?.code || '';
     };
 
+    const departurePortCode = findPortCode(result.departurePort);
+    const arrivalPortCode = findPortCode(result.arrivalPort);
+
+    console.log('Voice search: Mapped departure:', result.departurePort, '->', departurePortCode);
+    console.log('Voice search: Mapped arrival:', result.arrivalPort, '->', arrivalPortCode);
+
     const newForm = {
       ...form,
-      departurePort: findPortCode(result.departurePort) || form.departurePort,
-      arrivalPort: findPortCode(result.arrivalPort) || form.arrivalPort,
+      departurePort: departurePortCode || form.departurePort,
+      arrivalPort: arrivalPortCode || form.arrivalPort,
       departureDate: result.departureDate || form.departureDate,
       returnDate: result.returnDate || form.returnDate,
       adults: result.adults || form.adults,
       children: result.children || form.children,
       infants: result.infants || form.infants,
-      hasVehicle: result.hasVehicle || form.hasVehicle,
+      // Add a vehicle if voice search detected one
+      vehiclesList: result.hasVehicle && form.vehiclesList.length === 0
+        ? [{ id: crypto.randomUUID(), type: 'car' }]
+        : form.vehiclesList,
     };
 
+    console.log('Voice search: Setting form state with new values:', {
+      departurePort: newForm.departurePort,
+      arrivalPort: newForm.arrivalPort,
+      departureDate: newForm.departureDate,
+      returnDate: newForm.returnDate
+    });
+
     setForm(newForm);
+
+    console.log('Voice search: setForm called. Form should now be:', newForm.departurePort, '->', newForm.arrivalPort);
 
     // If round trip detected, set the return route
     if (result.isRoundTrip && !newForm.returnDate) {
@@ -100,8 +140,16 @@ const NewHomePage: React.FC = () => {
       if (newForm.departureDate) {
         const depDate = new Date(newForm.departureDate);
         depDate.setDate(depDate.getDate() + 7);
-        newForm.returnDate = depDate.toISOString().split('T')[0];
-        setForm(newForm);
+        const returnDate = depDate.toISOString().split('T')[0];
+
+        // Create a NEW object instead of mutating newForm to ensure React detects the change
+        const updatedForm = {
+          ...newForm,
+          returnDate: returnDate
+        };
+
+        console.log('Voice search: Adding default return date:', returnDate);
+        setForm(updatedForm);
       }
     }
   };
@@ -172,7 +220,17 @@ const NewHomePage: React.FC = () => {
         children: form.children,
         infants: form.infants,
       },
-      vehicles: [],
+      vehicles: form.vehiclesList.length > 0 ? form.vehiclesList.map(v => ({
+        id: v.id,
+        type: v.type as any,
+        // These will be filled in on the booking page
+        registration: '',
+        make: '',
+        model: '',
+        length: 500,
+        width: 200,
+        height: 200,
+      })) : [],
     }));
 
     // Set round trip flag
@@ -244,7 +302,7 @@ const NewHomePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🛳️ {t('search:form.from')}
+                      {t('search:form.from')}
                     </label>
                     <select
                       value={form.departurePort}
@@ -255,14 +313,14 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
                       <optgroup label="🇮🇹 Italy">
-                        {PORTS.filter(p => p.countryCode === 'IT').map(port => (
+                        {ports.filter(p => p.countryCode === 'IT').map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
                         ))}
                       </optgroup>
                       <optgroup label="🇫🇷 France">
-                        {PORTS.filter(p => p.countryCode === 'FR').map(port => (
+                        {ports.filter(p => p.countryCode === 'FR').map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -276,7 +334,7 @@ const NewHomePage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🏝️ {t('search:form.to')}
+                      {t('search:form.to')}
                     </label>
                     <select
                       value={form.arrivalPort}
@@ -287,7 +345,7 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
-                        {PORTS.filter(p => p.countryCode === 'TN').map(port => (
+                        {ports.filter(p => p.countryCode === 'TN').map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -304,7 +362,7 @@ const NewHomePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      📅 {t('search:form.departureDate')}
+                      {t('search:form.departureDate')}
                     </label>
                     <input
                       type="date"
@@ -322,13 +380,17 @@ const NewHomePage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      🔄 {t('search:form.returnDate')}
+                      {t('search:form.returnDate')}
                     </label>
                     <input
                       type="date"
                       value={form.returnDate}
                       onChange={(e) => setForm({ ...form, returnDate: e.target.value })}
-                      min={form.departureDate || new Date().toISOString().split('T')[0]}
+                      min={
+                        form.departureDate
+                          ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
+                          : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
+                      }
                       className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                         errors.returnDate ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -358,21 +420,21 @@ const NewHomePage: React.FC = () => {
                         className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                       />
                       <span className="text-sm font-medium text-gray-700">
-                        Different return route (e.g., return from a different port)
+                        {t('search:form.differentReturnRoute')}
                       </span>
                     </label>
 
                     {form.differentReturnRoute && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">🔄 Return From</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnFrom')}</label>
                           <select
                             value={form.returnDeparturePort}
                             onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">Select return departure port</option>
-                            {PORTS.map(port => (
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>
@@ -380,14 +442,14 @@ const NewHomePage: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">🏁 Return To</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnTo')}</label>
                           <select
                             value={form.returnArrivalPort}
                             onChange={(e) => setForm({ ...form, returnArrivalPort: e.target.value })}
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
-                            <option value="">Select return arrival port</option>
-                            {PORTS.map(port => (
+                            <option value="">{t('search:form.selectReturnArrivalPort')}</option>
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>
@@ -493,30 +555,107 @@ const NewHomePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Vehicle Toggle */}
+                {/* Vehicles Section - Multiple vehicles support */}
                 <div className="bg-blue-50 rounded-lg p-4">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.hasVehicle}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setForm({ ...form, hasVehicle: checked });
-                        // Clear vehicles from Redux when unchecked
-                        if (!checked) {
-                          dispatch(clearVehicles());
-                        }
-                      }}
-                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="ml-3 text-sm font-medium text-gray-900">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-gray-900">
                       🚗 {t('search:form.travelingWithVehicle')}
-                      <span className="block text-xs text-gray-600 mt-1">
-                        {t('search:form.vehicleDetailsLater', "You'll be able to add vehicle details in the next step")}
-                      </span>
                     </span>
-                  </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVehicle = { id: crypto.randomUUID(), type: 'car' };
+                        setForm({ ...form, vehiclesList: [...form.vehiclesList, newVehicle] });
+                      }}
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+                    >
+                      <span>+</span> {t('search:form.addVehicle', 'Add Vehicle')}
+                    </button>
+                  </div>
+
+                  {/* List of vehicles */}
+                  {form.vehiclesList.length > 0 ? (
+                    <div className="space-y-3">
+                      {form.vehiclesList.map((vehicle, index) => (
+                        <div key={vehicle.id} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-blue-200">
+                          <span className="text-sm font-medium text-gray-600 min-w-[80px]">
+                            {t('search:form.vehicle', 'Vehicle')} {index + 1}
+                          </span>
+                          <select
+                            value={vehicle.type}
+                            onChange={(e) => {
+                              const updatedList = form.vehiclesList.map(v =>
+                                v.id === vehicle.id ? { ...v, type: e.target.value } : v
+                              );
+                              setForm({ ...form, vehiclesList: updatedList });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm"
+                          >
+                            <option value="car">🚗 {t('search:vehicleTypes.car', 'Car')}</option>
+                            <option value="suv">🚙 {t('search:vehicleTypes.suv', 'SUV / 4x4')}</option>
+                            <option value="van">🚐 {t('search:vehicleTypes.van', 'Van')}</option>
+                            <option value="motorcycle">🏍️ {t('search:vehicleTypes.motorcycle', 'Motorcycle')}</option>
+                            <option value="camper">🚌 {t('search:vehicleTypes.camper', 'Camper')}</option>
+                            <option value="caravan">🏕️ {t('search:vehicleTypes.caravan', 'Caravan')}</option>
+                            <option value="truck">🚚 {t('search:vehicleTypes.truck', 'Truck')}</option>
+                            <option value="jetski">🚤 {t('search:vehicleTypes.jetski', 'Jet Ski')}</option>
+                            <option value="boat">⛵ {t('search:vehicleTypes.boat', 'Boat/Trailer')}</option>
+                            <option value="bicycle">🚲 {t('search:vehicleTypes.bicycle', 'Bicycle')}</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedList = form.vehiclesList.filter(v => v.id !== vehicle.id);
+                              setForm({ ...form, vehiclesList: updatedList });
+                              if (updatedList.length === 0) {
+                                dispatch(clearVehicles());
+                              }
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title={t('search:form.removeVehicle', 'Remove')}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-xs text-gray-600 mt-2">
+                        {t('search:form.vehicleDetailsLater', 'Full vehicle details will be requested in the next step')}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">
+                      {t('search:form.noVehicles', 'No vehicles added. Click "Add Vehicle" to travel with a vehicle.')}
+                    </p>
+                  )}
                 </div>
+
+                {/* Smart Pricing Panel for OUTBOUND - Shows when departure and arrival are selected */}
+                {form.departurePort && form.arrivalPort && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Outbound Trip Pricing</h3>
+                    <SmartPricingPanel
+                      departurePort={form.departurePort}
+                      arrivalPort={form.arrivalPort}
+                      departureDate={form.departureDate}
+                      passengers={form.adults + form.children}
+                      onDateSelect={(date, _price) => setForm({ ...form, departureDate: date })}
+                    />
+                  </div>
+                )}
+
+                {/* Smart Pricing Panel for RETURN trip */}
+                {form.returnDate && form.returnDate.length > 0 && form.departurePort && form.arrivalPort && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Return Trip Pricing</h3>
+                    <SmartPricingPanel
+                      departurePort={form.differentReturnRoute ? (form.returnDeparturePort || form.arrivalPort) : form.arrivalPort}
+                      arrivalPort={form.differentReturnRoute ? (form.returnArrivalPort || form.departurePort) : form.departurePort}
+                      departureDate={form.returnDate}
+                      passengers={form.adults + form.children}
+                      onDateSelect={(date, _price) => setForm({ ...form, returnDate: date })}
+                    />
+                  </div>
+                )}
 
                 {/* Search Button */}
                 <button

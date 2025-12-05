@@ -3,20 +3,30 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, addPassenger, updatePassenger, removePassenger } from '../store/slices/ferrySlice';
-import CabinSelector from '../components/CabinSelector';
+import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, setCancellationProtection, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle, clearCurrentBooking } from '../store/slices/ferrySlice';
+import CabinSelector, { CabinTypeSelection } from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
+import VehicleForm, { VehicleFormData } from '../components/VehicleFormEnhanced';
 import { PassengerInfo, PassengerType } from '../types/ferry';
 import { promoCodeAPI } from '../services/api';
+import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 
 const BookingPage: React.FC = () => {
   const { t } = useTranslation(['booking', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams, promoCode, promoDiscount, promoValidationMessage } = useSelector(
-    (state: RootState) => state.ferry
-  );
+  const {
+    selectedFerry, selectedReturnFerry, passengers, vehicles, isCreatingBooking, bookingError, isRoundTrip, searchParams,
+    promoCode, promoDiscount, promoValidationMessage,
+    // Get cabin/meal/protection state from Redux to persist across navigation
+    cabinSelections: reduxCabinSelections,
+    returnCabinSelections: reduxReturnCabinSelections,
+    totalCabinPrice: reduxTotalCabinPrice,
+    totalReturnCabinPrice: reduxTotalReturnCabinPrice,
+    selectedMeals: reduxSelectedMeals,
+    hasCancellationProtection: reduxHasCancellationProtection,
+  } = useSelector((state: RootState) => state.ferry);
   const { user } = useSelector((state: RootState) => state.auth);
 
   const [localContactInfo, setLocalContactInfo] = useState({
@@ -26,12 +36,26 @@ const BookingPage: React.FC = () => {
     phone: user?.phone || '',
   });
 
-  const [selectedCabinId, setSelectedCabinId] = useState<number | null>(null);
-  const [selectedReturnCabinId, setSelectedReturnCabinId] = useState<number | null>(null);
-  const [cabinPrice, setCabinPrice] = useState(0);
-  const [returnCabinPrice, setReturnCabinPrice] = useState(0);
-  const [selectedMeals, setSelectedMeals] = useState<any[]>([]);
-  const [mealsPrice, setMealsPrice] = useState(0);
+  // Initialize cabin state from Redux (persists across navigation)
+  const [selectedCabinId, setSelectedCabinId] = useState<number | null>(
+    reduxCabinSelections?.[0]?.cabinId || null
+  );
+  const [selectedReturnCabinId, setSelectedReturnCabinId] = useState<number | null>(
+    reduxReturnCabinSelections?.[0]?.cabinId || null
+  );
+  const [cabinPrice, setCabinPrice] = useState(reduxTotalCabinPrice || 0);
+  const [returnCabinPrice, setReturnCabinPrice] = useState(reduxTotalReturnCabinPrice || 0);
+  const [cabinQuantity, setCabinQuantity] = useState(
+    reduxCabinSelections?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0
+  );
+  const [returnCabinQuantity, setReturnCabinQuantity] = useState(
+    reduxReturnCabinSelections?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0
+  );
+  // Initialize meals from Redux
+  const [selectedMeals, setSelectedMeals] = useState<any[]>(reduxSelectedMeals || []);
+  const [mealsPrice, setMealsPrice] = useState(
+    reduxSelectedMeals?.reduce((sum: number, m: any) => sum + (m.price || 0) * (m.quantity || 1), 0) || 0
+  );
 
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +65,26 @@ const BookingPage: React.FC = () => {
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
 
+  // Cancellation protection insurance - initialize from Redux
+  const [hasCancellationProtection, setHasCancellationProtectionLocal] = useState(
+    reduxHasCancellationProtection || false
+  );
+  const CANCELLATION_PROTECTION_PRICE = 15.00; // €15 per booking
+
+  // Sync cancellation protection to Redux when changed
+  const handleCancellationProtectionChange = (value: boolean) => {
+    setHasCancellationProtectionLocal(value);
+    dispatch(setCancellationProtection(value));
+  };
+
   // Ref to prevent duplicate passenger initialization
   const passengersInitializedRef = React.useRef(false);
+
+  // Clear any existing booking when entering the booking details page
+  // This ensures that when user goes to payment, a new booking with updated details is created
+  useEffect(() => {
+    dispatch(clearCurrentBooking());
+  }, [dispatch]);
 
   useEffect(() => {
     // Redirect if no ferry selected
@@ -111,15 +153,46 @@ const BookingPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [selectedFerry, isCreatingBooking]);
 
-  const handleCabinSelect = (cabinId: number | null, price: number, journey?: 'outbound' | 'return') => {
+  const handleCabinSelect = (cabinId: number | null, price: number, quantity: number, journey?: 'outbound' | 'return') => {
+    // Price is already the total for all selected cabins (from CabinSelector)
+    // quantity is the total number of cabins selected
+    const totalPrice = price;
+
     if (journey === 'return') {
       setSelectedReturnCabinId(cabinId);
-      setReturnCabinPrice(price);
+      setReturnCabinPrice(totalPrice);
+      setReturnCabinQuantity(quantity);
       dispatch(setReturnCabinId(cabinId));
     } else {
       setSelectedCabinId(cabinId);
-      setCabinPrice(price);
+      setCabinPrice(totalPrice);
+      setCabinQuantity(quantity);
       dispatch(setCabinId(cabinId));
+    }
+
+    // Log for debugging
+    console.log(`Selected ${quantity} cabin(s). Total price: €${totalPrice}`);
+  };
+
+  // Handle multi-cabin selections with full details for Redux
+  const handleMultiCabinSelect = (selections: CabinTypeSelection[], journey: 'outbound' | 'return') => {
+    const totalPrice = selections.reduce((sum, sel) => sum + sel.totalPrice, 0);
+    const formattedSelections = selections.map(sel => ({
+      cabinId: sel.cabinId,
+      quantity: sel.quantity,
+      price: sel.totalPrice,
+    }));
+
+    if (journey === 'return') {
+      dispatch(setReturnCabinSelections({
+        selections: formattedSelections,
+        totalPrice,
+      }));
+    } else {
+      dispatch(setCabinSelections({
+        selections: formattedSelections,
+        totalPrice,
+      }));
     }
   };
 
@@ -196,6 +269,18 @@ const BookingPage: React.FC = () => {
     dispatch(removePassenger(passengerId));
   };
 
+  const handleSaveVehicle = (vehicle: VehicleFormData) => {
+    // Update existing vehicle
+    dispatch(updateVehicle({
+      id: vehicle.id,
+      data: vehicle as any
+    }));
+  };
+
+  const handleRemoveVehicle = (vehicleId: string) => {
+    dispatch(removeVehicle(vehicleId));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -267,12 +352,19 @@ const BookingPage: React.FC = () => {
   // Calculate total price (simplified - should come from backend)
   const adultPrice = selectedFerry.prices?.adult || 0;
   const childPrice = selectedFerry.prices?.child || 0;
+  const infantPrice = selectedFerry.prices?.infant || 0;
   const vehiclePrice = selectedFerry.prices?.vehicle || 0;
 
   // Return ferry prices (if round trip)
   const returnAdultPrice = selectedReturnFerry?.prices?.adult || 0;
   const returnChildPrice = selectedReturnFerry?.prices?.child || 0;
+  const returnInfantPrice = selectedReturnFerry?.prices?.infant || 0;
   const returnVehiclePrice = selectedReturnFerry?.prices?.vehicle || 0;
+
+  // Count passengers by type
+  const adultsCount = passengers.filter(p => p.type === 'adult').length;
+  const childrenCount = passengers.filter(p => p.type === 'child').length;
+  const infantsCount = passengers.filter(p => p.type === 'infant').length;
 
   // Calculate passenger total (including return journey if round trip)
   const passengersTotal = passengers.reduce((sum, p) => {
@@ -286,6 +378,11 @@ const BookingPage: React.FC = () => {
       const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnChildPrice : 0;
       return sum + outboundPrice + returnPrice;
     }
+    if (p.type === 'infant') {
+      const outboundPrice = infantPrice;
+      const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnInfantPrice : 0;
+      return sum + outboundPrice + returnPrice;
+    }
     return sum;
   }, 0);
 
@@ -295,18 +392,25 @@ const BookingPage: React.FC = () => {
   const vehiclesTotal = outboundVehiclesTotal + returnVehiclesTotal;
 
   const totalCabinPrice = cabinPrice + (isRoundTrip && selectedReturnFerry ? returnCabinPrice : 0);
-  const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice;
+  const cancellationProtectionTotal = hasCancellationProtection ? CANCELLATION_PROTECTION_PRICE : 0;
+  const subtotal = passengersTotal + vehiclesTotal + totalCabinPrice + mealsPrice + cancellationProtectionTotal;
   const discount = promoDiscount || 0;
   const discountedSubtotal = subtotal - discount;
   const tax = discountedSubtotal * 0.1; // 10% tax
   const total = discountedSubtotal + tax;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-5xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Booking Step Indicator */}
+      <BookingStepIndicator
+        currentStep={BookingStep.BOOKING_DETAILS}
+        onBack={() => navigate('/search')}
+      />
+
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Complete Your Booking</h1>
-          <p className="mt-2 text-gray-600">Review your details and confirm your reservation</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('booking:page.title')}</h1>
+          <p className="mt-2 text-gray-600">{t('booking:page.subtitle')}</p>
 
           {/* Round trip notice */}
           {isRoundTrip && (
@@ -316,11 +420,11 @@ const BookingPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <h3 className="text-sm font-medium text-blue-900">Round Trip Booking</h3>
+                  <h3 className="text-sm font-medium text-blue-900">{t('booking:page.roundTripNotice')}</h3>
                   <p className="mt-1 text-sm text-blue-700">
                     {selectedReturnFerry
-                      ? `You can select different cabins and meals for your outbound and return journeys using the tabs below.`
-                      : `Note: Return ferry was not selected. Cabin and meal selection will only apply to your outbound journey.`
+                      ? t('booking:page.roundTripWithReturn')
+                      : t('booking:page.roundTripNoReturn')
                     }
                   </p>
                 </div>
@@ -416,6 +520,29 @@ const BookingPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Vehicle Details */}
+            {totalVehicles > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-4">🚗 Vehicle Details</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Please provide complete information about your vehicle(s).
+                </p>
+
+                <div className="space-y-4">
+                  {vehicles.map((vehicle, index) => (
+                    <VehicleForm
+                      key={vehicle.id}
+                      vehicle={vehicle as VehicleFormData}
+                      vehicleNumber={index + 1}
+                      onSave={handleSaveVehicle}
+                      onRemove={vehicles.length > 1 ? handleRemoveVehicle : undefined}
+                      isExpanded={index === 0}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Contact Information */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
@@ -487,8 +614,13 @@ const BookingPage: React.FC = () => {
                 selectedCabinId={selectedCabinId}
                 selectedReturnCabinId={selectedReturnCabinId}
                 onCabinSelect={handleCabinSelect}
+                onMultiCabinSelect={handleMultiCabinSelect}
                 passengerCount={totalPassengers}
                 isRoundTrip={isRoundTrip && !!selectedReturnFerry}
+                ferryCabinAvailability={selectedFerry?.cabinTypes || (selectedFerry as any)?.cabin_types || []}
+                returnFerryCabinAvailability={selectedReturnFerry?.cabinTypes || (selectedReturnFerry as any)?.cabin_types || []}
+                initialOutboundSelections={reduxCabinSelections || []}
+                initialReturnSelections={reduxReturnCabinSelections || []}
               />
             </div>
 
@@ -553,6 +685,81 @@ const BookingPage: React.FC = () => {
               )}
             </div>
 
+            {/* Cancellation Protection */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold mb-2 flex items-center">
+                    <svg className="w-6 h-6 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Cancellation Protection
+                  </h2>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Protect your booking with our cancellation guarantee. Get a full refund if you need to cancel for any reason up to 24 hours before departure.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      100% refund
+                    </span>
+                    <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Cancel for any reason
+                    </span>
+                    <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Easy online process
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-4 text-right">
+                  <p className="text-2xl font-bold text-green-600">€{CANCELLATION_PROTECTION_PRICE.toFixed(2)}</p>
+                  <p className="text-xs text-gray-500">per booking</p>
+                </div>
+              </div>
+
+              <div
+                onClick={() => handleCancellationProtectionChange(!hasCancellationProtection)}
+                className={`mt-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  hasCancellationProtection
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 hover:border-green-300 hover:bg-green-50/50'
+                }`}
+              >
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasCancellationProtection}
+                    onChange={(e) => handleCancellationProtectionChange(e.target.checked)}
+                    className="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span className="ml-3 font-medium text-gray-900">
+                    {hasCancellationProtection ? '✓ Protection added' : 'Add Cancellation Protection'}
+                  </span>
+                </label>
+              </div>
+
+              {!hasCancellationProtection && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-800 flex items-start">
+                    <svg className="w-4 h-4 mr-1 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>
+                      <strong>Standard fare:</strong> This booking is non-refundable and cannot be modified once confirmed. Cancellations will not be eligible for a refund.
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Terms and Conditions */}
             <div className="bg-white rounded-lg shadow p-6">
               <label className="flex items-start">
@@ -586,7 +793,7 @@ const BookingPage: React.FC = () => {
           {/* Right Column - Booking Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-6 sticky top-4">
-              <h2 className="text-xl font-semibold mb-4">Booking Summary</h2>
+              <h2 className="text-xl font-semibold mb-4">{t('booking:page.bookingSummary')}</h2>
 
               {/* Ferry Details */}
               <div className="mb-4 pb-4 border-b border-gray-200">
@@ -651,10 +858,55 @@ const BookingPage: React.FC = () => {
                   <p className="text-sm font-medium text-gray-700 mb-2">
                     {totalVehicles} Vehicle{totalVehicles !== 1 ? 's' : ''}
                   </p>
-                  <div className="space-y-1 text-sm text-gray-600">
+                  <div className="space-y-2 text-sm text-gray-600">
                     {vehicles.map((v, i) => (
-                      <div key={i}>{v.type}</div>
+                      <div key={i} className="bg-gray-50 p-2 rounded">
+                        <div className="font-medium text-gray-900">{v.type}</div>
+                        {v.registration && (
+                          <div className="text-xs">Registration: {v.registration}</div>
+                        )}
+                        {v.owner && (
+                          <div className="text-xs">Owner: {v.owner}</div>
+                        )}
+                        {(v.make || v.model) && (
+                          <div className="text-xs">{v.make} {v.model}</div>
+                        )}
+                        {(v.length || v.width || v.height) && (
+                          <div className="text-xs">
+                            Dimensions: {v.length || 0}cm × {v.width || 0}cm × {v.height || 0}cm
+                          </div>
+                        )}
+                        {(v.hasTrailer || v.hasCaravan || v.hasRoofBox || v.hasBikeRack) && (
+                          <div className="text-xs text-blue-600">
+                            {v.hasTrailer && '🚚 Trailer '}
+                            {v.hasCaravan && '🏕️ Caravan '}
+                            {v.hasRoofBox && '📦 Roof Box '}
+                            {v.hasBikeRack && '🚴 Bike Rack'}
+                          </div>
+                        )}
+                      </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Cabins */}
+              {(cabinQuantity > 0 || returnCabinQuantity > 0) && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Cabins
+                  </p>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    {cabinQuantity > 0 && (
+                      <div className="flex justify-between">
+                        <span>Outbound: {cabinQuantity} cabin{cabinQuantity > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                    {returnCabinQuantity > 0 && (
+                      <div className="flex justify-between">
+                        <span>Return: {returnCabinQuantity} cabin{returnCabinQuantity > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -663,49 +915,108 @@ const BookingPage: React.FC = () => {
               <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
                 {isRoundTrip && selectedReturnFerry ? (
                   <>
-                    {/* Outbound Passengers */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.outbound', 'Outbound')})</span>
-                      <span>€{passengers.reduce((sum, p) => {
-                        if (p.type === 'adult') return sum + adultPrice;
-                        if (p.type === 'child') return sum + childPrice;
-                        return sum;
-                      }, 0).toFixed(2)}</span>
-                    </div>
-                    {/* Return Passengers */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')} ({t('booking:pricing.return', 'Return')})</span>
-                      <span>€{passengers.reduce((sum, p) => {
-                        if (p.type === 'adult') return sum + returnAdultPrice;
-                        if (p.type === 'child') return sum + returnChildPrice;
-                        return sum;
-                      }, 0).toFixed(2)}</span>
-                    </div>
+                    {/* Outbound Passengers - Detailed by type */}
+                    <div className="text-sm font-medium text-gray-700 mb-1">Outbound Journey:</div>
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{adultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * adultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{childPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * childPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{infantPrice.toFixed(2)}
+                        </span>
+                        <span>{infantPrice === 0 ? 'Free' : `€${(infantsCount * infantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
                     {totalVehicles > 0 && (
-                      <>
-                        {/* Outbound Vehicles */}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.outbound', 'Outbound')})</span>
-                          <span>€{outboundVehiclesTotal.toFixed(2)}</span>
-                        </div>
-                        {/* Return Vehicles */}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">{t('booking:summary.vehicles')} ({t('booking:pricing.return', 'Return')})</span>
-                          <span>€{returnVehiclesTotal.toFixed(2)}</span>
-                        </div>
-                      </>
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                        </span>
+                        <span>€{outboundVehiclesTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {/* Return Passengers - Detailed by type */}
+                    <div className="text-sm font-medium text-gray-700 mt-3 mb-1">Return Journey:</div>
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{returnAdultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * returnAdultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{returnChildPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * returnChildPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{returnInfantPrice.toFixed(2)}
+                        </span>
+                        <span>{returnInfantPrice === 0 ? 'Free' : `€${(infantsCount * returnInfantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
+                    {totalVehicles > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{returnVehiclePrice.toFixed(2)}
+                        </span>
+                        <span>€{returnVehiclesTotal.toFixed(2)}</span>
+                      </div>
                     )}
                   </>
                 ) : (
                   <>
-                    {/* One-way trip - combined pricing */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('booking:summary.passengers')}</span>
-                      <span>€{passengersTotal.toFixed(2)}</span>
-                    </div>
+                    {/* One-way trip - Detailed by passenger type */}
+                    {adultsCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {adultsCount} Adult{adultsCount > 1 ? 's' : ''} × €{adultPrice.toFixed(2)}
+                        </span>
+                        <span>€{(adultsCount * adultPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {childrenCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {childrenCount} Child{childrenCount > 1 ? 'ren' : ''} × €{childPrice.toFixed(2)}
+                        </span>
+                        <span>€{(childrenCount * childPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {infantsCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {infantsCount} Infant{infantsCount > 1 ? 's' : ''} × €{infantPrice.toFixed(2)}
+                        </span>
+                        <span>{infantPrice === 0 ? 'Free' : `€${(infantsCount * infantPrice).toFixed(2)}`}</span>
+                      </div>
+                    )}
                     {totalVehicles > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">{t('booking:summary.vehicles')}</span>
+                        <span className="text-gray-600">
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                        </span>
                         <span>€{vehiclesTotal.toFixed(2)}</span>
                       </div>
                     )}
@@ -713,13 +1024,18 @@ const BookingPage: React.FC = () => {
                 )}
                 {cabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{isRoundTrip && selectedReturnFerry ? 'Cabin (Outbound)' : 'Cabin'}</span>
+                    <span className="text-gray-600">
+                      {cabinQuantity} Cabin{cabinQuantity > 1 ? 's' : ''}
+                      {isRoundTrip && selectedReturnFerry ? ' (Outbound)' : ''}
+                    </span>
                     <span>€{cabinPrice.toFixed(2)}</span>
                   </div>
                 )}
                 {isRoundTrip && selectedReturnFerry && returnCabinPrice > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Cabin (Return)</span>
+                    <span className="text-gray-600">
+                      {returnCabinQuantity} Cabin{returnCabinQuantity > 1 ? 's' : ''} (Return)
+                    </span>
                     <span>€{returnCabinPrice.toFixed(2)}</span>
                   </div>
                 )}
@@ -736,6 +1052,17 @@ const BookingPage: React.FC = () => {
                       )}
                     </span>
                     <span>€{mealsPrice.toFixed(2)}</span>
+                  </div>
+                )}
+                {hasCancellationProtection && (
+                  <div className="flex justify-between text-sm text-green-700">
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Cancellation Protection
+                    </span>
+                    <span>€{CANCELLATION_PROTECTION_PRICE.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-medium pt-2 border-t border-gray-100">

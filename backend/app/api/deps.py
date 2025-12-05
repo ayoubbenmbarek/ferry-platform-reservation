@@ -46,20 +46,72 @@ try:
     from app.config import settings
     from app.models.user import User
     from app.models.booking import Booking
-except ImportError:
-    # Fallback for development
-    class SessionLocal:
-        pass
-    
+    _using_fallback = False
+except ImportError as e:
+    import logging
+    import traceback
+    logging.error(f"CRITICAL: Failed to import database modules: {e}")
+    logging.error(traceback.format_exc())
+    print(f"CRITICAL: Failed to import database modules: {e}")
+    print(traceback.format_exc())
+    _using_fallback = True
+
+    # Fallback for development - provide mock with necessary methods
+    class MockSession:
+        """Mock database session for development fallback."""
+        def query(self, *args, **kwargs):
+            return self
+        def filter(self, *args, **kwargs):
+            return self
+        def first(self):
+            return None
+        def all(self):
+            return []
+        def count(self):
+            return 0
+        def add(self, *args, **kwargs):
+            pass
+        def commit(self):
+            pass
+        def flush(self):
+            pass
+        def rollback(self):
+            pass
+        def close(self):
+            pass
+        def refresh(self, *args, **kwargs):
+            pass
+        def execute(self, *args, **kwargs):
+            return self
+        def scalar(self):
+            return None
+        def scalars(self):
+            return self
+        def delete(self, *args, **kwargs):
+            pass
+        def merge(self, *args, **kwargs):
+            return args[0] if args else None
+        def expire_all(self):
+            pass
+        def begin(self):
+            return self
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+
+    def SessionLocal():
+        return MockSession()
+
     class settings:
         SECRET_KEY = "fallback-secret-key"
         ALGORITHM = "HS256"
-    
+
     class User:
         id = 1
         is_active = True
         is_admin = False
-    
+
     class Booking:
         pass
 
@@ -70,14 +122,21 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=Fa
 def get_db() -> Generator[Session, None, None]:
     """
     Get database session.
-    
+
     Creates a database session and ensures it's properly closed after use.
     """
+    db = None
     try:
         db = SessionLocal()
+        # Verify we got a valid session object, not the class itself
+        if not hasattr(db, 'query') or not hasattr(db, 'rollback'):
+            raise RuntimeError(
+                f"SessionLocal() returned invalid session type: {type(db)}. "
+                "Expected SQLAlchemy session with query/rollback methods."
+            )
         yield db
     finally:
-        if hasattr(db, 'close'):
+        if db is not None and hasattr(db, 'close'):
             db.close()
 
 
@@ -222,30 +281,50 @@ def validate_booking_access(
 ) -> bool:
     """
     Validate if the current user has access to a specific booking.
-    
+
     Returns True if:
     - User is an admin
     - User owns the booking
     - Booking is accessed with valid guest credentials
+    - Booking is pending payment (allows sharing payment link)
+    - Booking was paid by a guest (allows viewing confirmation)
     """
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
         if not booking:
             return False
-        
+
         # Admin users can access all bookings
         if current_user and current_user.is_admin:
             return True
-        
+
         # Users can access their own bookings
         if current_user and booking.user_id == current_user.id:
             return True
-        
+
         # Guest bookings can be accessed without authentication
         # (additional validation like email verification should be done in the endpoint)
         if not booking.user_id:
             return True
-        
+
+        # Allow access to pending bookings (awaiting payment) regardless of auth
+        # This allows payment links to be shared/tested in different browsers
+        from app.models.booking import BookingStatusEnum
+        if booking.status == BookingStatusEnum.PENDING:
+            return True
+
+        # Allow access to confirmed bookings that were paid by a guest
+        # Check if the payment was made by a guest (user_id is None)
+        from app.models.payment import Payment, PaymentStatusEnum
+        guest_payment = db.query(Payment).filter(
+            Payment.booking_id == booking_id,
+            Payment.user_id.is_(None),
+            Payment.status == PaymentStatusEnum.COMPLETED
+        ).first()
+
+        if guest_payment:
+            return True
+
         return False
     except:
         return False

@@ -42,12 +42,14 @@ class MockFerryIntegration(BaseFerryIntegration):
             ("TUNIS", "CIVITAVECCHIA"): {"duration_hours": 22, "distance": 480},
             ("TUNIS", "PALERMO"): {"duration_hours": 11, "distance": 210},
             ("TUNIS", "NICE"): {"duration_hours": 19, "distance": 440},
+            ("TUNIS", "SALERNO"): {"duration_hours": 20, "distance": 450},
             # Reverse routes
             ("GENOA", "TUNIS"): {"duration_hours": 24, "distance": 520},
             ("MARSEILLE", "TUNIS"): {"duration_hours": 21, "distance": 465},
             ("CIVITAVECCHIA", "TUNIS"): {"duration_hours": 22, "distance": 480},
             ("PALERMO", "TUNIS"): {"duration_hours": 11, "distance": 210},
             ("NICE", "TUNIS"): {"duration_hours": 19, "distance": 440},
+            ("SALERNO", "TUNIS"): {"duration_hours": 20, "distance": 450},
         }
 
     async def search_ferries(self, search_request: SearchRequest) -> List[FerryResult]:
@@ -75,53 +77,83 @@ class MockFerryIntegration(BaseFerryIntegration):
 
             for i in range(num_sailings):
                 # Generate departure time (typically evening sailings)
-                departure_hour = random.choice([19, 20, 21, 22, 23])
+                # First sailing is always at 19:00 for consistent testing
+                if i == 0:
+                    departure_hour = 19
+                    departure_minute = 0
+                else:
+                    departure_hour = random.choice([20, 21, 22, 23])
+                    departure_minute = random.choice([0, 30])
                 departure_dt = datetime.combine(
                     search_request.departure_date,
                     datetime.min.time()
-                ).replace(hour=departure_hour, minute=random.choice([0, 30]))
+                ).replace(hour=departure_hour, minute=departure_minute)
 
                 # Calculate arrival time
                 arrival_dt = departure_dt + timedelta(hours=route_info["duration_hours"])
 
-                # Generate prices (vary by sailing)
-                base_price = random.randint(60, 120)
-                price_multiplier = 1 + (i * 0.15)  # Later sailings slightly cheaper
+                # Generate prices (deterministic based on route, date, and operator for consistency)
+                # This ensures price alerts can track real changes, not random fluctuations
+                route_hash = hash(f"{departure_port}{arrival_port}{self.operator_name}")
+                date_hash = hash(search_request.departure_date.isoformat())
+
+                # Base price between 60-120, deterministic per route+operator
+                base_price = 60 + (abs(route_hash) % 61)
+
+                # Add small daily variation (±10%) to simulate real price changes
+                daily_variation = 0.9 + (abs(date_hash) % 21) / 100  # 0.90 to 1.10
+                base_price = round(base_price * daily_variation)
+
+                price_multiplier = 1 + (i * 0.15)  # Later sailings slightly more expensive
 
                 prices = {
                     "adult": round(base_price * price_multiplier, 2),
                     "child": round(base_price * price_multiplier * 0.5, 2),
                     "infant": 0.0,
-                    "vehicle": round(random.randint(100, 180), 2)
+                    "vehicle": round(100 + (abs(route_hash) % 81), 2)  # 100-180, deterministic
                 }
 
-                # Generate cabin options
+                # Generate cabin options with deterministic prices
+                cabin_base = 20 + (abs(route_hash) % 16)  # 20-35 base for interior
                 cabin_types = [
                     {
                         "type": "interior",
                         "name": "Interior Cabin",
-                        "price": round(random.uniform(20, 35), 2),
-                        "available": random.randint(3, 15)
+                        "price": round(cabin_base, 2),
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 8
                     },
                     {
                         "type": "exterior",
                         "name": "Exterior Cabin",
-                        "price": round(random.uniform(35, 55), 2),
-                        "available": random.randint(2, 10)
+                        "price": round(cabin_base * 1.7, 2),  # ~35-60
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 5
+                    },
+                    {
+                        "type": "balcony",
+                        "name": "Balcony Cabin",
+                        "price": round(cabin_base * 2.5, 2),  # ~50-90
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 3
                     },
                     {
                         "type": "suite",
                         "name": "Suite",
-                        "price": round(random.uniform(80, 150), 2),
-                        "available": random.randint(1, 5)
+                        "price": round(cabin_base * 4, 2),  # ~80-140
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 2
                     },
                     {
                         "type": "deck",
                         "name": "Deck Seat",
                         "price": 0.0,
-                        "available": random.randint(20, 50)
+                        "available": 50
                     }
                 ]
+
+                # Set available spaces
+                # Normal availability for all routes
+                available_spaces = {
+                    "passengers": random.randint(50, 200),
+                    "vehicles": random.randint(20, 80)
+                }
 
                 # Create ferry result
                 ferry_result = FerryResult(
@@ -134,10 +166,7 @@ class MockFerryIntegration(BaseFerryIntegration):
                     vessel_name=random.choice(vessels),
                     prices=prices,
                     cabin_types=cabin_types,
-                    available_spaces={
-                        "passengers": random.randint(50, 200),
-                        "vehicles": random.randint(20, 80)
-                    }
+                    available_spaces=available_spaces
                 )
 
                 results.append(ferry_result)

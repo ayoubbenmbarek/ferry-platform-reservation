@@ -5,14 +5,36 @@ Cabin API endpoints for ferry accommodations.
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
+from datetime import datetime
+import logging
 
 from app.database import get_db
 from app.models.ferry import Cabin, CabinTypeEnum, BedTypeEnum
+from app.models.booking import Booking, BookingCabin, JourneyTypeEnum
+from app.models.availability_alert import AvailabilityAlert
 from app.schemas.cabin import CabinCreate, CabinUpdate, CabinResponse
-from app.api.deps import get_admin_user
+from app.api.deps import get_admin_user, get_optional_current_user
 from app.models.user import User
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class AddCabinRequest(BaseModel):
+    """Request to add cabin to booking."""
+    cabin_id: int
+    quantity: int = 1
+    journey_type: str = "outbound"  # "outbound" or "return"
+    alert_id: Optional[int] = None
+
+
+class AddCabinResponse(BaseModel):
+    """Response after adding cabin to booking."""
+    success: bool
+    message: str
+    booking_cabin_id: Optional[int] = None
+    total_price: float = 0
 
 
 @router.get("", response_model=List[CabinResponse])
@@ -209,3 +231,74 @@ async def delete_cabin(
     db.commit()
 
     return None
+
+
+@router.post("/booking/{booking_id}/add", response_model=AddCabinResponse)
+async def add_cabin_to_booking(
+    booking_id: int,
+    request: AddCabinRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user),
+):
+    """
+    Add a cabin to an existing booking and marks alert as fulfilled.
+    Email confirmation is handled by the existing bookings endpoint.
+    """
+    # Get booking
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found"
+        )
+
+    # Get cabin
+    cabin = db.query(Cabin).filter(Cabin.id == request.cabin_id).first()
+    if not cabin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cabin not found"
+        )
+
+    # Determine journey type
+    journey_type_enum = JourneyTypeEnum.RETURN if request.journey_type == "return" else JourneyTypeEnum.OUTBOUND
+
+    # Calculate price
+    unit_price = float(cabin.base_price)
+    total_price = unit_price * request.quantity
+
+    # Create booking cabin record
+    booking_cabin = BookingCabin(
+        booking_id=booking_id,
+        cabin_id=request.cabin_id,
+        journey_type=journey_type_enum,
+        quantity=request.quantity,
+        unit_price=unit_price,
+        total_price=total_price,
+        is_paid=True,  # Assume paid since this comes after payment
+        created_at=datetime.utcnow()
+    )
+    db.add(booking_cabin)
+
+    # Update booking total
+    booking.total_amount = float(booking.total_amount or 0) + total_price
+
+    # Mark alert as fulfilled if provided
+    if request.alert_id:
+        alert = db.query(AvailabilityAlert).filter(AvailabilityAlert.id == request.alert_id).first()
+        if alert:
+            alert.status = "fulfilled"
+            alert.notified_at = datetime.utcnow()
+            logger.info(f"Marked alert {request.alert_id} as fulfilled")
+
+    db.commit()
+    db.refresh(booking_cabin)
+
+    logger.info(f"Added cabin {request.cabin_id} to booking {booking_id} (alert: {request.alert_id})")
+
+    return AddCabinResponse(
+        success=True,
+        message="Cabin added to booking successfully",
+        booking_cabin_id=booking_cabin.id,
+        total_price=total_price
+    )

@@ -10,6 +10,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 60000, // 60 second timeout to handle slower network/server responses
 });
 
 // Request interceptor to add auth token
@@ -111,13 +112,28 @@ export interface Passenger {
 }
 
 export interface Vehicle {
-  type: 'car' | 'motorcycle' | 'camper' | 'truck';
-  make: string;
-  model: string;
+  id?: number;
+  type: 'car' | 'motorcycle' | 'camper' | 'truck' | 'suv' | 'van' | 'caravan';
+  make?: string;
+  model?: string;
+  owner?: string;
   registration?: string;
-  length: number;
-  width: number;
-  height: number;
+  licensePlate?: string;
+  license_plate?: string;
+  length?: number;
+  lengthCm?: number;
+  width?: number;
+  widthCm?: number;
+  height?: number;
+  heightCm?: number;
+  hasTrailer?: boolean;
+  has_trailer?: boolean;
+  hasCaravan?: boolean;
+  has_caravan?: boolean;
+  hasRoofBox?: boolean;
+  has_roof_box?: boolean;
+  hasBikeRack?: boolean;
+  has_bike_rack?: boolean;
 }
 
 export interface CabinSelection {
@@ -240,6 +256,7 @@ export const authAPI = {
 export const ferryAPI = {
   search: async (params: SearchParams): Promise<any> => {
     // Backend expects POST with body, not GET with query params
+    // Use longer timeout for search as it may query multiple operators
     const response: AxiosResponse<any> = await api.post('/ferries/search', {
       departure_port: params.departurePort,
       arrival_port: params.arrivalPort,
@@ -252,12 +269,19 @@ export const ferryAPI = {
       children: 0,
       infants: 0,
       operators: params.operator ? [params.operator] : undefined
+    }, {
+      timeout: 60000, // 60 second timeout for search (queries multiple operators)
     });
     return response.data;
   },
 
   getRoutes: async (): Promise<any[]> => {
     const response: AxiosResponse<any[]> = await api.get('/ferries/routes');
+    return response.data;
+  },
+
+  getPorts: async (): Promise<any[]> => {
+    const response: AxiosResponse<any[]> = await api.get('/ferries/ports');
     return response.data;
   },
 
@@ -397,6 +421,384 @@ export const promoCodeAPI = {
         booking_amount: params.booking_amount,
         email: params.email,
         operator: params.operator,
+      },
+    });
+    return response.data;
+  },
+};
+
+// Price Alert Types
+export interface PriceAlert {
+  id: number;
+  email: string;
+  departure_port: string;
+  arrival_port: string;
+  date_from?: string;
+  date_to?: string;
+  initial_price?: number;
+  current_price?: number;
+  lowest_price?: number;
+  highest_price?: number;
+  target_price?: number;
+  notify_on_drop: boolean;
+  notify_on_increase: boolean;
+  notify_any_change: boolean;
+  price_threshold_percent: number;
+  status: 'active' | 'triggered' | 'paused' | 'expired' | 'cancelled';
+  last_checked_at?: string;
+  last_notified_at?: string;
+  notification_count: number;
+  expires_at?: string;
+  created_at: string;
+  price_change_percent?: number;
+  price_change_amount?: number;
+}
+
+export interface PriceAlertListResponse {
+  routes: PriceAlert[];
+  total: number;
+  page: number;
+  per_page: number;
+  has_more: boolean;
+}
+
+export interface CreatePriceAlertData {
+  email?: string;
+  departure_port: string;
+  arrival_port: string;
+  date_from?: string;
+  date_to?: string;
+  target_price?: number;
+  notify_on_drop?: boolean;
+  notify_on_increase?: boolean;
+  notify_any_change?: boolean;
+  price_threshold_percent?: number;
+  initial_price?: number;
+  expiration_days?: number;
+}
+
+// Price Alert API
+export const priceAlertAPI = {
+  create: async (data: CreatePriceAlertData): Promise<PriceAlert> => {
+    const response = await api.post('/price-alerts', {
+      ...data,
+      notify_on_drop: data.notify_on_drop ?? true,
+      notify_on_increase: data.notify_on_increase ?? false,
+      notify_any_change: data.notify_any_change ?? false,
+      price_threshold_percent: data.price_threshold_percent ?? 5.0,
+    });
+    return response.data;
+  },
+
+  getAll: async (params?: {
+    email?: string;
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<PriceAlertListResponse> => {
+    const response = await api.get('/price-alerts', { params });
+    return response.data;
+  },
+
+  getMyRoutes: async (params?: {
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<PriceAlertListResponse> => {
+    const response = await api.get('/price-alerts/my-routes', { params });
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<PriceAlert> => {
+    const response = await api.get(`/price-alerts/${id}`);
+    return response.data;
+  },
+
+  update: async (
+    id: number,
+    data: Partial<{
+      notify_on_drop: boolean;
+      notify_on_increase: boolean;
+      notify_any_change: boolean;
+      price_threshold_percent: number;
+      target_price: number;
+      status: 'active' | 'paused' | 'cancelled';
+    }>,
+    email?: string
+  ): Promise<PriceAlert> => {
+    const params = email ? { email } : {};
+    const response = await api.patch(`/price-alerts/${id}`, data, { params });
+    return response.data;
+  },
+
+  delete: async (id: number, email?: string): Promise<void> => {
+    const params = email ? { email } : {};
+    await api.delete(`/price-alerts/${id}`, { params });
+  },
+
+  pause: async (id: number): Promise<PriceAlert> => {
+    const response = await api.post(`/price-alerts/${id}/pause`);
+    return response.data;
+  },
+
+  resume: async (id: number): Promise<PriceAlert> => {
+    const response = await api.post(`/price-alerts/${id}/resume`);
+    return response.data;
+  },
+
+  checkRouteSaved: async (
+    departurePort: string,
+    arrivalPort: string,
+    email?: string
+  ): Promise<{ is_saved: boolean; alert_id: number | null; status: string | null }> => {
+    const params = email ? { email } : {};
+    const response = await api.get(
+      `/price-alerts/check/${encodeURIComponent(departurePort)}/${encodeURIComponent(arrivalPort)}`,
+      { params }
+    );
+    return response.data;
+  },
+
+  getStats: async (): Promise<{
+    total_alerts: number;
+    active_alerts: number;
+    paused_alerts: number;
+    triggered_alerts: number;
+    routes_with_price_drops: number;
+  }> => {
+    const response = await api.get('/price-alerts/stats/summary');
+    return response.data;
+  },
+};
+
+// Fare Calendar Types
+export interface FareCalendarDay {
+  day: number;
+  date: string;
+  price: number | null;
+  lowest_price: number | null;
+  highest_price: number | null;
+  available: boolean;
+  num_ferries: number;
+  trend: 'rising' | 'falling' | 'stable' | null;
+  is_cheapest: boolean;
+  is_weekend: boolean;
+  price_level: 'cheap' | 'normal' | 'expensive';
+}
+
+export interface FareCalendarData {
+  route_id: string;
+  departure_port: string;
+  arrival_port: string;
+  year: number;
+  month: number;
+  month_name: string;
+  passengers: number;
+  days: FareCalendarDay[];
+  summary: {
+    min_price: number | null;
+    max_price: number | null;
+    avg_price: number | null;
+    cheapest_date: string | null;
+    available_days: number;
+  };
+}
+
+export interface PriceHistoryPoint {
+  date: string;
+  price: number;
+  lowest: number | null;
+  highest: number | null;
+  available: number | null;
+}
+
+export interface PriceHistoryData {
+  route_id: string;
+  departure_date: string | null;
+  days_of_data: number;
+  history: PriceHistoryPoint[];
+  trend: 'rising' | 'falling' | 'stable';
+  average_price: number;
+  min_price: number;
+  max_price: number;
+}
+
+export interface PricePrediction {
+  route_id: string;
+  departure_port: string;
+  arrival_port: string;
+  departure_date: string;
+  current_price: number;
+  predicted_price: number;
+  predicted_low: number;
+  predicted_high: number;
+  confidence: number;
+  trend: 'rising' | 'falling' | 'stable';
+  trend_strength: number;
+  recommendation: 'book_now' | 'wait' | 'neutral' | 'great_deal';
+  recommendation_reason: string;
+  potential_savings: number;
+  factors: {
+    seasonality: number;
+    days_to_departure: number;
+    trend_momentum: number;
+    day_of_week: number;
+    demand: number;
+  };
+  booking_window: {
+    optimal_days_before: number;
+    expected_savings: number;
+    risk_level: 'low' | 'medium' | 'high';
+  };
+}
+
+export interface FlexibleDateOption {
+  date: string;
+  day_name: string;
+  price: number;
+  savings_vs_selected: number;
+  is_cheapest: boolean;
+  is_selected: boolean;
+  available: boolean;
+  num_ferries: number;
+}
+
+export interface FlexibleSearchResult {
+  route_id: string;
+  base_date: string;
+  flexibility_days: number;
+  passengers: number;
+  results: FlexibleDateOption[];
+  cheapest_date: string;
+  cheapest_price: number;
+  selected_price: number | null;
+}
+
+export interface RouteInsights {
+  route_id: string;
+  departure_port: string;
+  arrival_port: string;
+  statistics: {
+    avg_price_30d: number;
+    min_price_30d: number;
+    max_price_30d: number;
+    price_volatility_30d: number;
+    avg_price_90d: number;
+    all_time_low: number;
+    all_time_high: number;
+  };
+  patterns: {
+    best_day_of_week: string;
+    worst_day_of_week: string;
+    best_booking_window: string;
+    weekday_vs_weekend: number;
+  };
+  current_status: {
+    current_price: number;
+    percentile: number;
+    trend_7d: 'rising' | 'falling' | 'stable';
+    is_good_deal: boolean;
+    deal_quality: string;
+  };
+}
+
+// Pricing API
+export const pricingAPI = {
+  getFareCalendar: async (params: {
+    departurePort: string;
+    arrivalPort: string;
+    yearMonth: string;
+    passengers?: number;
+  }): Promise<FareCalendarData> => {
+    const response = await api.get('/prices/calendar', {
+      params: {
+        departure_port: params.departurePort,
+        arrival_port: params.arrivalPort,
+        year_month: params.yearMonth,
+        passengers: params.passengers || 1,
+      },
+    });
+    return response.data;
+  },
+
+  getPriceHistory: async (params: {
+    departurePort: string;
+    arrivalPort: string;
+    days?: number;
+  }): Promise<PriceHistoryData> => {
+    const response = await api.get('/prices/history', {
+      params: {
+        departure_port: params.departurePort,
+        arrival_port: params.arrivalPort,
+        days: params.days || 30,
+      },
+    });
+    return response.data;
+  },
+
+  getPrediction: async (params: {
+    departurePort: string;
+    arrivalPort: string;
+    departureDate: string;
+    passengers?: number;
+  }): Promise<PricePrediction> => {
+    const response = await api.get('/prices/prediction', {
+      params: {
+        departure_port: params.departurePort,
+        arrival_port: params.arrivalPort,
+        departure_date: params.departureDate,
+        passengers: params.passengers || 1,
+      },
+    });
+    return response.data;
+  },
+
+  getFlexibleSearch: async (params: {
+    departurePort: string;
+    arrivalPort: string;
+    departureDate: string;
+    flexibilityDays?: number;
+    passengers?: number;
+  }): Promise<FlexibleSearchResult> => {
+    const response = await api.get('/prices/flexible-search', {
+      params: {
+        departure_port: params.departurePort,
+        arrival_port: params.arrivalPort,
+        base_date: params.departureDate,
+        flexibility: params.flexibilityDays || 3,
+        passengers: params.passengers || 1,
+      },
+    });
+    return response.data;
+  },
+
+  getRouteInsights: async (params: {
+    departurePort: string;
+    arrivalPort: string;
+  }): Promise<RouteInsights> => {
+    const response = await api.get('/prices/insights', {
+      params: {
+        departure_port: params.departurePort,
+        arrival_port: params.arrivalPort,
+      },
+    });
+    return response.data;
+  },
+
+  getCheapestInMonth: async (params: {
+    departurePort: string;
+    arrivalPort: string;
+    yearMonth: string;
+    passengers?: number;
+    topN?: number;
+  }): Promise<{ dates: FlexibleDateOption[] }> => {
+    const response = await api.get('/prices/cheapest-in-month', {
+      params: {
+        departure_port: params.departurePort,
+        arrival_port: params.arrivalPort,
+        year_month: params.yearMonth,
+        passengers: params.passengers || 1,
+        top_n: params.topN || 5,
       },
     });
     return response.data;

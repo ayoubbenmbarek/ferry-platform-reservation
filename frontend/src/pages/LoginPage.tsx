@@ -1,9 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { loginUser, clearError } from '../store/slices/authSlice';
+import { loginUser, clearError, setUser, setToken } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
+import axios from 'axios';
+
+// Declare global Google type
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
+// Helper function to convert snake_case to camelCase
+const snakeToCamel = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+
+  return Object.keys(obj).reduce((acc: any, key: string) => {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    acc[camelKey] = snakeToCamel(obj[key]);
+    return acc;
+  }, {});
+};
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation(['auth', 'common']);
@@ -11,6 +31,8 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, isLoading, error } = useSelector((state: RootState) => state.auth);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+  const googleInitializedRef = useRef(false);
 
   // Get the redirect path from query params or location state, default to home
   const searchParams = new URLSearchParams(location.search);
@@ -35,6 +57,74 @@ const LoginPage: React.FC = () => {
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, from]);
+
+  // Memoize Google response handler to avoid re-renders
+  const handleGoogleResponse = useCallback(async (response: any) => {
+    try {
+      // Send the Google credential to our backend
+      const result = await axios.post('/api/v1/auth/google', {
+        credential: response.credential
+      });
+
+      // Store token and user data (convert snake_case to camelCase)
+      const { access_token, user } = result.data;
+      dispatch(setToken(access_token));
+      dispatch(setUser(snakeToCamel(user)));
+
+      // Navigate to the original destination
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      console.error('Google login failed:', err);
+      dispatch(clearError());
+      // Show error message
+      alert(err.response?.data?.detail || 'Google login failed. Please try again.');
+    }
+  }, [dispatch, navigate, from]);
+
+  // Initialize Google Sign-In
+  useEffect(() => {
+    // Prevent duplicate initialization in React 18 Strict Mode
+    if (googleInitializedRef.current) {
+      return;
+    }
+
+    const initializeGoogleSignIn = () => {
+      if (window.google && googleButtonRef.current && !googleInitializedRef.current) {
+        googleInitializedRef.current = true;
+
+        window.google.accounts.id.initialize({
+          client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+          auto_select: false,
+        });
+
+        window.google.accounts.id.renderButton(
+          googleButtonRef.current,
+          {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'signin_with',
+            logo_alignment: 'left',
+          }
+        );
+      }
+    };
+
+    // Wait for Google script to load
+    if (window.google) {
+      initializeGoogleSignIn();
+    } else {
+      const checkGoogle = setInterval(() => {
+        if (window.google && !googleInitializedRef.current) {
+          clearInterval(checkGoogle);
+          initializeGoogleSignIn();
+        }
+      }, 100);
+
+      return () => clearInterval(checkGoogle);
+    }
+  }, [handleGoogleResponse]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Clear error when user starts typing
@@ -144,6 +234,23 @@ const LoginPage: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Divider */}
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-gray-50 text-gray-500">Or continue with</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Google Sign-In Button */}
+        <div className="mt-6">
+          <div ref={googleButtonRef} className="w-full"></div>
+        </div>
 
         {/* Test Credentials Info */}
         <div className="mt-4 p-4 bg-blue-50 rounded-md">

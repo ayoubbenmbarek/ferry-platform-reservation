@@ -247,21 +247,42 @@ const MyBookingsPage: React.FC = () => {
                         <p className="text-2xl font-bold text-blue-600">
                           {booking.currency} {booking.totalAmount.toFixed(2)}
                         </p>
-                        {booking.status === 'PENDING' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/booking/${booking.id}`);
-                            }}
-                            className="mt-2 bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 text-sm font-medium"
-                          >
-                            Complete Payment →
-                          </button>
-                        ) : (
-                          <button className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
-                            View Details →
-                          </button>
-                        )}
+                        <div className="mt-2 flex flex-col space-y-2">
+                          {booking.status === 'PENDING' ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/booking/${booking.id}`);
+                              }}
+                              className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 text-sm font-medium"
+                            >
+                              Complete Payment →
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/booking/${booking.id}`);
+                                }}
+                                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                              >
+                                View Details →
+                              </button>
+                              {booking.status === 'CONFIRMED' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/modify-booking/${booking.id}`);
+                                  }}
+                                  className="bg-blue-100 text-blue-700 px-4 py-2 rounded hover:bg-blue-200 text-sm font-medium"
+                                >
+                                  Modify Booking
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

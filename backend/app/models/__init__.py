@@ -8,6 +8,17 @@ from .ferry import Ferry, Route, Schedule, Cabin, CabinTypeEnum, BedTypeEnum
 from .payment import Payment, PaymentMethod
 from .meal import Meal, BookingMeal, MealTypeEnum, DietaryTypeEnum, JourneyTypeEnum
 from .promo_code import PromoCode, PromoCodeUsage, PromoCodeTypeEnum
+from .booking_reminder import BookingReminder, ReminderTypeEnum
+from .availability_alert import AvailabilityAlert, AlertTypeEnum, AlertStatusEnum
+from .price_alert import PriceAlert, PriceAlertStatusEnum
+from .price_history import (
+    PriceHistory,
+    PricePrediction,
+    RouteStatistics,
+    FareCalendarCache,
+    PriceTrendEnum,
+    BookingRecommendationEnum,
+)
 
 __all__ = [
     "User",
@@ -30,4 +41,17 @@ __all__ = [
     "PromoCode",
     "PromoCodeUsage",
     "PromoCodeTypeEnum",
+    "BookingReminder",
+    "ReminderTypeEnum",
+    "AvailabilityAlert",
+    "AlertTypeEnum",
+    "AlertStatusEnum",
+    "PriceAlert",
+    "PriceAlertStatusEnum",
+    "PriceHistory",
+    "PricePrediction",
+    "RouteStatistics",
+    "FareCalendarCache",
+    "PriceTrendEnum",
+    "BookingRecommendationEnum",
 ] 

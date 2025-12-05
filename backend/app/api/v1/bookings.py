@@ -6,7 +6,8 @@ import uuid
 import os
 import logging
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ try:
         get_common_params, validate_booking_access
     )
     from app.models.user import User
-    from app.models.booking import Booking, BookingPassenger, BookingVehicle, BookingStatusEnum, PassengerTypeEnum, VehicleTypeEnum
+    from app.models.booking import Booking, BookingPassenger, BookingVehicle, BookingStatusEnum, PassengerTypeEnum, VehicleTypeEnum, BookingCabin, JourneyTypeEnum
     from app.models.ferry import Schedule
     from app.schemas.booking import (
         BookingCreate, BookingResponse, BookingUpdate, BookingCancellation,
@@ -76,7 +77,6 @@ try:
     )
     from app.services.ferry_service import FerryService
     from app.services.ferry_integrations.base import FerryAPIError
-    from app.services.email_service import email_service
     from app.services.invoice_service import invoice_service
     from app.models.meal import BookingMeal
     from app.models.payment import Payment, PaymentStatusEnum
@@ -175,11 +175,15 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
         total_amount=db_booking.total_amount,
         currency=db_booking.currency,
         promo_code=db_booking.promo_code,
-        # Cabin information
+        # Cabin information (original selection during booking)
         cabin_id=db_booking.cabin_id,
         cabin_supplement=db_booking.cabin_supplement or 0.0,
+        cabin_name=db_booking.cabin.name if db_booking.cabin else None,
+        cabin_type=db_booking.cabin.cabin_type.value if db_booking.cabin and hasattr(db_booking.cabin.cabin_type, 'value') else (str(db_booking.cabin.cabin_type) if db_booking.cabin else None),
         return_cabin_id=db_booking.return_cabin_id,
         return_cabin_supplement=db_booking.return_cabin_supplement or 0.0,
+        return_cabin_name=db_booking.return_cabin.name if db_booking.return_cabin else None,
+        return_cabin_type=db_booking.return_cabin.cabin_type.value if db_booking.return_cabin and hasattr(db_booking.return_cabin.cabin_type, 'value') else (str(db_booking.return_cabin.cabin_type) if db_booking.return_cabin else None),
         # Special requirements
         special_requests=db_booking.special_requests,
         # Timestamps
@@ -215,10 +219,15 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
                 "vehicle_type": v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else v.vehicle_type,
                 "make": v.make,
                 "model": v.model,
+                "owner": v.owner,
                 "license_plate": v.license_plate,
                 "length_cm": v.length_cm,
                 "width_cm": v.width_cm,
                 "height_cm": v.height_cm,
+                "has_trailer": v.has_trailer or False,
+                "has_caravan": v.has_caravan or False,
+                "has_roof_box": v.has_roof_box or False,
+                "has_bike_rack": v.has_bike_rack or False,
                 "base_price": v.base_price,
                 "final_price": v.final_price
             }
@@ -252,7 +261,38 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
                 "created_at": m.created_at
             }
             for m in db_booking.meals
-        ] if hasattr(db_booking, 'meals') and db_booking.meals else []
+        ] if hasattr(db_booking, 'meals') and db_booking.meals else [],
+        booking_cabins=[
+            {
+                "id": bc.id,
+                "booking_id": bc.booking_id,
+                "cabin_id": bc.cabin_id,
+                "journey_type": bc.journey_type.value if hasattr(bc.journey_type, 'value') else str(bc.journey_type),
+                "quantity": bc.quantity,
+                "unit_price": float(bc.unit_price),
+                "total_price": float(bc.total_price),
+                "is_paid": bc.is_paid or False,
+                "created_at": bc.created_at,
+                # Include cabin details from relationship
+                "cabin_name": bc.cabin.name if bc.cabin else None,
+                "cabin_type": bc.cabin.cabin_type.value if bc.cabin and hasattr(bc.cabin.cabin_type, 'value') else (str(bc.cabin.cabin_type) if bc.cabin else None),
+                "cabin_capacity": bc.cabin.max_occupancy if bc.cabin else None,
+                # Build amenities list from boolean fields
+                "cabin_amenities": [
+                    a for a in [
+                        "Private Bathroom" if bc.cabin and bc.cabin.has_private_bathroom else None,
+                        "Window" if bc.cabin and bc.cabin.has_window else None,
+                        "Balcony" if bc.cabin and bc.cabin.has_balcony else None,
+                        "Air Conditioning" if bc.cabin and bc.cabin.has_air_conditioning else None,
+                        "TV" if bc.cabin and bc.cabin.has_tv else None,
+                        "Minibar" if bc.cabin and bc.cabin.has_minibar else None,
+                        "WiFi" if bc.cabin and bc.cabin.has_wifi else None,
+                        "Accessible" if bc.cabin and bc.cabin.is_accessible else None,
+                    ] if a is not None
+                ] if bc.cabin else None,
+            }
+            for bc in db_booking.booking_cabins
+        ] if hasattr(db_booking, 'booking_cabins') and db_booking.booking_cabins else []
     )
 
 
@@ -264,11 +304,44 @@ async def create_booking(
 ):
     """
     Create a new ferry booking.
-    
+
     Creates a booking with the specified ferry operator and returns
     the booking confirmation details.
     """
     try:
+        # Validate departure time is not in the past
+        if booking_data.departure_time:
+            now = datetime.utcnow()
+            # Add 1 hour buffer before departure for check-in
+            min_booking_time = now + timedelta(hours=1)
+
+            if booking_data.departure_time < now:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot book a ferry that has already departed"
+                )
+            elif booking_data.departure_time < min_booking_time:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Bookings must be made at least 1 hour before departure"
+                )
+
+        # Validate return departure time if round trip
+        if booking_data.is_round_trip and booking_data.return_departure_time:
+            now = datetime.utcnow()
+            min_booking_time = now + timedelta(hours=1)
+
+            if booking_data.return_departure_time < now:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot book a return ferry that has already departed"
+                )
+            elif booking_data.return_departure_time < min_booking_time:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Return bookings must be made at least 1 hour before departure"
+                )
+
         # Generate unique booking reference
         booking_reference = generate_booking_reference()
         
@@ -323,9 +396,22 @@ async def create_booking(
                 subtotal += return_vehicle_price * len(booking_data.vehicles)
         
         # Add cabin supplement if selected (outbound)
+        # Priority: multi-cabin selections with pre-calculated prices > legacy single cabin
         cabin_supplement = 0.0
         selected_cabin_id = None
-        if booking_data.cabin_id:
+
+        if hasattr(booking_data, 'total_cabin_price') and booking_data.total_cabin_price and booking_data.total_cabin_price > 0:
+            # Use pre-calculated multi-cabin total from frontend
+            cabin_supplement = float(booking_data.total_cabin_price)
+            subtotal += cabin_supplement
+            # Store first cabin ID for backward compatibility (if any selections)
+            if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
+                selected_cabin_id = booking_data.cabin_selections[0].cabin_id
+            elif booking_data.cabin_id:
+                selected_cabin_id = booking_data.cabin_id
+            logger.info(f"Using multi-cabin total price: €{cabin_supplement}")
+        elif booking_data.cabin_id:
+            # Legacy: single cabin lookup
             from app.models.ferry import Cabin
             cabin = db.query(Cabin).filter(Cabin.id == booking_data.cabin_id).first()
             if cabin:
@@ -334,9 +420,22 @@ async def create_booking(
                 selected_cabin_id = cabin.id
 
         # Add return cabin supplement if selected
+        # Priority: multi-cabin selections with pre-calculated prices > legacy single cabin
         return_cabin_supplement = 0.0
         selected_return_cabin_id = None
-        if hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
+
+        if hasattr(booking_data, 'total_return_cabin_price') and booking_data.total_return_cabin_price and booking_data.total_return_cabin_price > 0:
+            # Use pre-calculated multi-cabin total from frontend
+            return_cabin_supplement = float(booking_data.total_return_cabin_price)
+            subtotal += return_cabin_supplement
+            # Store first cabin ID for backward compatibility (if any selections)
+            if hasattr(booking_data, 'return_cabin_selections') and booking_data.return_cabin_selections:
+                selected_return_cabin_id = booking_data.return_cabin_selections[0].cabin_id
+            elif hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
+                selected_return_cabin_id = booking_data.return_cabin_id
+            logger.info(f"Using multi-cabin return total price: €{return_cabin_supplement}")
+        elif hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
+            # Legacy: single cabin lookup
             from app.models.ferry import Cabin
             return_cabin = db.query(Cabin).filter(Cabin.id == booking_data.return_cabin_id).first()
             if return_cabin:
@@ -380,13 +479,17 @@ async def create_booking(
                     detail=f"Promo code error: {validation.message}"
                 )
 
+        # Add cancellation protection if selected (€15)
+        CANCELLATION_PROTECTION_PRICE = 15.00
+        cancellation_protection_amount = CANCELLATION_PROTECTION_PRICE if getattr(booking_data, 'has_cancellation_protection', False) else 0.0
+        subtotal += cancellation_protection_amount
+
         # Calculate tax on discounted subtotal (10% for example)
         discounted_subtotal = subtotal - discount_amount
         tax_amount = discounted_subtotal * 0.10
         total_amount = discounted_subtotal + tax_amount
 
         # Calculate expiration time (30 minutes from now for pending bookings)
-        from datetime import datetime, timedelta
         expires_at = datetime.utcnow() + timedelta(minutes=30)
 
         # Create booking record
@@ -428,7 +531,10 @@ async def create_booking(
             return_cabin_supplement=return_cabin_supplement,
             special_requests=booking_data.special_requests,
             status=BookingStatusEnum.PENDING,
-            expires_at=expires_at  # Expires 30 minutes from creation
+            expires_at=expires_at,  # Expires 30 minutes from creation
+            extra_data={
+                "has_cancellation_protection": getattr(booking_data, 'has_cancellation_protection', False)
+            }
         )
         
         db.add(db_booking)
@@ -457,6 +563,21 @@ async def create_booking(
                 }
                 pet_type_db = pet_type_map.get(passenger_data.pet_type, None)
 
+            # Calculate passenger price (include return journey if round trip)
+            if passenger_data.type == "adult":
+                passenger_base_price = base_adult_price
+                passenger_final_price = base_adult_price
+                if is_round_trip and hasattr(booking_data, 'return_ferry_prices') and booking_data.return_ferry_prices:
+                    passenger_final_price += booking_data.return_ferry_prices.get("adult", 0.0)
+            elif passenger_data.type == "child":
+                passenger_base_price = base_child_price
+                passenger_final_price = base_child_price
+                if is_round_trip and hasattr(booking_data, 'return_ferry_prices') and booking_data.return_ferry_prices:
+                    passenger_final_price += booking_data.return_ferry_prices.get("child", 0.0)
+            else:
+                passenger_base_price = 0.0
+                passenger_final_price = 0.0
+
             db_passenger = BookingPassenger(
                 booking_id=db_booking.id,
                 passenger_type=db_passenger_type,
@@ -465,10 +586,8 @@ async def create_booking(
                 date_of_birth=passenger_data.date_of_birth,
                 nationality=passenger_data.nationality,
                 passport_number=passenger_data.passport_number,
-                base_price=base_adult_price if passenger_data.type == "adult" else
-                          (base_child_price if passenger_data.type == "child" else 0.0),
-                final_price=base_adult_price if passenger_data.type == "adult" else
-                           (base_child_price if passenger_data.type == "child" else 0.0),
+                base_price=passenger_base_price,
+                final_price=passenger_final_price,
                 special_needs=passenger_data.special_needs,
                 # Pet information
                 has_pet=getattr(passenger_data, 'has_pet', False) or False,
@@ -494,17 +613,27 @@ async def create_booking(
                 }
                 db_vehicle_type = vehicle_type_map.get(vehicle_data.type, VehicleTypeEnum.CAR)
 
+                # Calculate vehicle price (include return journey if round trip)
+                vehicle_final_price = base_vehicle_price
+                if is_round_trip and hasattr(booking_data, 'return_ferry_prices') and booking_data.return_ferry_prices:
+                    vehicle_final_price += booking_data.return_ferry_prices.get("vehicle", 0.0)
+
                 db_vehicle = BookingVehicle(
                     booking_id=db_booking.id,
                     vehicle_type=db_vehicle_type,
                     make=vehicle_data.make,
                     model=vehicle_data.model,
+                    owner=getattr(vehicle_data, 'owner', None),
                     license_plate=vehicle_data.registration or "TEMP",
                     length_cm=int(vehicle_data.length * 100),
                     width_cm=int(vehicle_data.width * 100),
                     height_cm=int(vehicle_data.height * 100),
+                    has_trailer=getattr(vehicle_data, 'has_trailer', False),
+                    has_caravan=getattr(vehicle_data, 'has_caravan', False),
+                    has_roof_box=getattr(vehicle_data, 'has_roof_box', False),
+                    has_bike_rack=getattr(vehicle_data, 'has_bike_rack', False),
                     base_price=base_vehicle_price,
-                    final_price=base_vehicle_price
+                    final_price=vehicle_final_price
                 )
                 db.add(db_vehicle)
 
@@ -652,13 +781,20 @@ async def create_booking(
             }
             booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
 
-            email_service.send_booking_confirmation(
-                booking_data=booking_dict,
-                to_email=db_booking.contact_email
-            )
+            # Send booking confirmation email asynchronously using Celery
+            try:
+                from app.tasks.email_tasks import send_booking_confirmation_email_task
+                send_booking_confirmation_email_task.delay(
+                    booking_data=booking_dict,
+                    to_email=db_booking.contact_email
+                )
+                logger.info(f"📧 Booking confirmation email task queued for {db_booking.contact_email}")
+            except Exception as email_error:
+                # Log email task error but don't fail the booking
+                logger.error(f"Failed to queue booking confirmation email: {str(email_error)}")
         except Exception as e:
             # Log email error but don't fail the booking
-            print(f"Failed to send booking confirmation email: {str(e)}")
+            logger.error(f"Failed to prepare booking confirmation email: {str(e)}")
 
         return booking_to_response(db_booking)
         
@@ -668,11 +804,32 @@ async def create_booking(
         db.rollback()
         import traceback
         error_traceback = traceback.format_exc()
-        print(f"Booking creation error: {str(e)}")
-        print(f"Traceback:\n{error_traceback}")
+        error_message = str(e)
+
+        logger.error(f"Booking creation error: {error_message}")
+        logger.error(f"Traceback:\n{error_traceback}")
+
+        # Provide user-friendly error messages based on error type
+        user_friendly_message = "Unable to create booking. Please try again."
+
+        # Check for common error patterns and provide helpful messages
+        if "foreign key constraint" in error_message.lower():
+            user_friendly_message = "Invalid sailing or cabin selection. Please go back and select a different option."
+        elif "not null constraint" in error_message.lower() or "missing" in error_message.lower():
+            user_friendly_message = "Missing required information. Please ensure all required fields are filled."
+        elif "duplicate" in error_message.lower():
+            user_friendly_message = "This booking already exists. Please check your bookings."
+        elif "connection" in error_message.lower() or "timeout" in error_message.lower():
+            user_friendly_message = "Connection error. Please check your internet connection and try again."
+        elif "invalid" in error_message.lower():
+            user_friendly_message = f"Invalid data provided. {error_message}"
+        else:
+            # Log the full error for debugging but show generic message to user
+            user_friendly_message = f"Unable to create booking. {error_message if len(error_message) < 100 else 'Please try again or contact support.'}"
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Booking creation failed: {str(e)}"
+            detail=user_friendly_message
         )
 
 
@@ -886,17 +1043,17 @@ async def update_booking(
         )
 
 
-@router.post("/{booking_id}/cancel")
-async def cancel_booking(
+@router.patch("/{booking_id}/quick-update")
+async def quick_update_booking(
     booking_id: int,
-    cancellation_data: BookingCancellation,
+    update_data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     """
-    Cancel a booking.
+    Quick update of passenger and vehicle details.
 
-    Cancels the booking with the ferry operator, refunds the payment via Stripe, and updates the status.
+    Allows updating passenger names and vehicle details without additional fees.
     """
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
@@ -913,12 +1070,348 @@ async def cancel_booking(
                 detail="Access denied"
             )
 
+        # Update passengers
+        passenger_updates = update_data.get('passenger_updates', [])
+        for passenger_update in passenger_updates:
+            passenger_id = passenger_update.get('passenger_id')
+            if passenger_id:
+                passenger = db.query(BookingPassenger).filter(
+                    BookingPassenger.id == passenger_id,
+                    BookingPassenger.booking_id == booking_id
+                ).first()
+
+                if passenger:
+                    if 'first_name' in passenger_update:
+                        passenger.first_name = passenger_update['first_name']
+                    if 'last_name' in passenger_update:
+                        passenger.last_name = passenger_update['last_name']
+
+        # Update vehicles
+        vehicle_updates = update_data.get('vehicle_updates', [])
+        for vehicle_update in vehicle_updates:
+            vehicle_id = vehicle_update.get('vehicle_id')
+            if vehicle_id:
+                vehicle = db.query(BookingVehicle).filter(
+                    BookingVehicle.id == vehicle_id,
+                    BookingVehicle.booking_id == booking_id
+                ).first()
+
+                if vehicle:
+                    if 'registration' in vehicle_update:
+                        vehicle.license_plate = vehicle_update['registration']
+                    if 'make' in vehicle_update:
+                        vehicle.make = vehicle_update['make']
+                    if 'model' in vehicle_update:
+                        vehicle.model = vehicle_update['model']
+                    if 'owner' in vehicle_update:
+                        vehicle.owner = vehicle_update['owner']
+                    if 'length' in vehicle_update:
+                        vehicle.length_cm = vehicle_update['length']
+                    if 'width' in vehicle_update:
+                        vehicle.width_cm = vehicle_update['width']
+                    if 'height' in vehicle_update:
+                        vehicle.height_cm = vehicle_update['height']
+                    if 'hasTrailer' in vehicle_update:
+                        vehicle.has_trailer = vehicle_update['hasTrailer']
+                    if 'hasCaravan' in vehicle_update:
+                        vehicle.has_caravan = vehicle_update['hasCaravan']
+                    if 'hasRoofBox' in vehicle_update:
+                        vehicle.has_roof_box = vehicle_update['hasRoofBox']
+                    if 'hasBikeRack' in vehicle_update:
+                        vehicle.has_bike_rack = vehicle_update['hasBikeRack']
+
+        booking.updated_at = datetime.utcnow()
+        db.commit()
+
+        return {"success": True, "message": "Booking updated successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to quick update booking {booking_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to update booking: {str(e)}"
+        )
+
+
+class AddCabinRequest(BaseModel):
+    """Request schema for adding a cabin to an existing booking."""
+    cabin_id: int
+    quantity: int = 1
+    journey_type: Optional[str] = "outbound"  # 'outbound' or 'return'
+    alert_id: Optional[int] = None  # Optional alert to mark as fulfilled
+
+
+@router.post("/{booking_id}/add-cabin", response_model=BookingResponse)
+async def add_cabin_to_booking(
+    booking_id: int,
+    cabin_request: AddCabinRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """
+    Add a cabin to an existing booking.
+
+    This allows users to upgrade their booking by adding a cabin after initial booking.
+    Cabins are tracked in the booking_cabins table to support multiple cabins per journey.
+    The cabin supplement will be added to the total and the booking will be updated.
+    """
+    try:
+        # Get the booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Verify booking status allows modifications
+        allowed_statuses = [BookingStatusEnum.PENDING, BookingStatusEnum.CONFIRMED]
+        if booking.status not in allowed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot add cabin to booking with status '{booking.status.value if hasattr(booking.status, 'value') else booking.status}'"
+            )
+
+        # Validate journey type for return cabins
+        if cabin_request.journey_type == 'return' and not booking.is_round_trip:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot add return cabin to one-way booking"
+            )
+
+        # Get the cabin
+        from app.models.ferry import Cabin
+        cabin = db.query(Cabin).filter(Cabin.id == cabin_request.cabin_id).first()
+        if not cabin:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cabin not found"
+            )
+
+        # Calculate cabin price
+        from decimal import Decimal
+        unit_price = Decimal(str(cabin.base_price))
+        total_price = unit_price * cabin_request.quantity
+
+        # Determine journey type enum
+        journey_type_enum = JourneyTypeEnum.RETURN if cabin_request.journey_type == 'return' else JourneyTypeEnum.OUTBOUND
+
+        # Create BookingCabin record
+        booking_cabin = BookingCabin(
+            booking_id=booking_id,
+            cabin_id=cabin_request.cabin_id,
+            journey_type=journey_type_enum,
+            quantity=cabin_request.quantity,
+            unit_price=unit_price,
+            total_price=total_price,
+            is_paid=False  # Will be marked as paid after payment confirmation
+        )
+        db.add(booking_cabin)
+        db.flush()  # Get the ID
+
+        # Update booking's cabin supplement totals
+        # Keep original cabin supplement and ADD the upgrade totals from bookingCabins
+        # Original cabin supplement = cabins selected during initial booking
+        # bookingCabins = cabin upgrades added after initial booking
+
+        # Calculate upgrade totals from bookingCabins (including the new one being added)
+        outbound_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.OUTBOUND
+        ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.OUTBOUND else 0)
+
+        return_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.RETURN
+        ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.RETURN else 0)
+
+        # Get original cabin costs (if any) - these are cabins from initial booking
+        # If cabin_supplement was not previously set from upgrades, it contains the original cabin cost
+        # We need to track original vs upgrade separately
+
+        # For now, add upgrade amount to existing supplement
+        # (This means cabin_supplement = original_cabin + all_upgrades)
+        original_outbound = float(booking.cabin_supplement or 0) - sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.OUTBOUND
+        )
+        original_return = float(booking.return_cabin_supplement or 0) - sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.RETURN
+        )
+
+        # Ensure originals are not negative (in case of data issues)
+        original_outbound = max(0, original_outbound)
+        original_return = max(0, original_return)
+
+        booking.cabin_supplement = Decimal(str(original_outbound + outbound_upgrades))
+        booking.return_cabin_supplement = Decimal(str(original_return + return_upgrades))
+
+        # Keep cabin_id for backward compatibility (store latest cabin)
+        if journey_type_enum == JourneyTypeEnum.RETURN:
+            booking.return_cabin_id = cabin_request.cabin_id
+        else:
+            booking.cabin_id = cabin_request.cabin_id
+
+        # Recalculate total amount
+        subtotal = Decimal(str(booking.subtotal or 0))
+        cabin_total = Decimal(str(booking.cabin_supplement or 0)) + Decimal(str(booking.return_cabin_supplement or 0))
+        discount = Decimal(str(booking.discount_amount or 0))
+        tax_rate = Decimal('0.10')
+        taxable_amount = subtotal + cabin_total - discount
+        tax_amount = taxable_amount * tax_rate
+        total_amount_new = taxable_amount + tax_amount
+
+        booking.tax_amount = tax_amount
+        booking.total_amount = total_amount_new
+        booking.updated_at = datetime.utcnow()
+
+        # Mark alert as fulfilled if provided
+        if cabin_request.alert_id:
+            from app.models.availability_alert import AvailabilityAlert
+            alert = db.query(AvailabilityAlert).filter(AvailabilityAlert.id == cabin_request.alert_id).first()
+            if alert:
+                alert.status = "fulfilled"
+                alert.notified_at = datetime.utcnow()
+                logger.info(f"Marked alert {cabin_request.alert_id} as fulfilled")
+
+        db.commit()
+        db.refresh(booking)
+
+        logger.info(f"Added cabin {cabin_request.cabin_id} x{cabin_request.quantity} to booking {booking.booking_reference} ({cabin_request.journey_type}) - BookingCabin ID: {booking_cabin.id}")
+
+        # Send cabin upgrade confirmation email
+        try:
+            from app.tasks.email_tasks import send_cabin_upgrade_confirmation_email_task
+
+            base_url = os.getenv('FRONTEND_URL', 'https://localhost:3001')
+
+            booking_dict = {
+                "booking_reference": booking.booking_reference,
+                "operator": booking.operator,
+                "departure_port": booking.departure_port,
+                "arrival_port": booking.arrival_port,
+                "departure_time": str(booking.departure_time) if booking.departure_time else None,
+                "return_departure_port": booking.return_departure_port,
+                "return_arrival_port": booking.return_arrival_port,
+                "return_departure_time": str(booking.return_departure_time) if booking.return_departure_time else None,
+                "contact_email": booking.contact_email,
+                "contact_first_name": booking.contact_first_name,
+                "contact_last_name": booking.contact_last_name,
+                "currency": booking.currency,
+            }
+
+            cabin_data = {
+                "cabin_name": cabin.name,
+                "cabin_type": cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type),
+                "quantity": cabin_request.quantity,
+                "unit_price": float(cabin.base_price),
+                "total_price": float(total_price),
+                "journey_type": cabin_request.journey_type,
+                "booking_url": f"{base_url}/booking/{booking.id}",
+                "booking_cabin_id": booking_cabin.id,
+            }
+
+            payment_dict = {
+                "amount": float(total_price),
+                "payment_method": "Credit Card",
+                "stripe_payment_intent_id": f"cabin_upgrade_{booking.booking_reference}_{booking_cabin.id}",
+            }
+
+            send_cabin_upgrade_confirmation_email_task.delay(
+                booking_data=booking_dict,
+                cabin_data=cabin_data,
+                payment_data=payment_dict,
+                to_email=booking.contact_email
+            )
+            logger.info(f"Queued cabin upgrade confirmation email for {booking.contact_email}")
+        except Exception as email_error:
+            logger.warning(f"Failed to queue cabin upgrade email: {str(email_error)}")
+
+        return booking_to_response(booking)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to add cabin to booking: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add cabin: {str(e)}"
+        )
+
+
+@router.post("/{booking_id}/cancel")
+async def cancel_booking(
+    booking_id: int,
+    cancellation_data: BookingCancellation,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """
+    Cancel a booking.
+
+    Cancels the booking with the ferry operator, refunds the payment via Stripe, and updates the status.
+    Allows both authenticated users and guest users to cancel their bookings.
+    """
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check access permissions (allows guests for bookings without user_id)
+        if not validate_booking_access(booking_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+
         # Check if booking can be cancelled
-        if booking.status in ["cancelled", "completed"]:
+        if booking.status in [BookingStatusEnum.CANCELLED, BookingStatusEnum.COMPLETED]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Booking cannot be cancelled"
             )
+
+        # Check if departure has already passed
+        if booking.departure_time:
+            from datetime import timezone as tz
+            now_utc = datetime.now(tz.utc)
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=tz.utc)
+            if departure < now_utc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot cancel a booking after departure. The ferry has already departed."
+                )
+
+        # Check 7-day cancellation restriction (unless booking has cancellation protection)
+        # Cancellation protection is stored in booking extra_data field
+        has_cancellation_protection = booking.extra_data.get("has_cancellation_protection", False) if booking.extra_data else False
+        logger.info(f"Booking {booking_id} cancellation check: extra_data={booking.extra_data}, has_protection={has_cancellation_protection}")
+
+        if not has_cancellation_protection and booking.departure_time:
+            from datetime import timedelta, timezone
+            # Make sure we compare timezone-aware datetimes
+            now_utc = datetime.now(timezone.utc)
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=timezone.utc)
+            days_until_departure = (departure - now_utc).days
+            logger.info(f"Days until departure: {days_until_departure}, departure={departure}, now={now_utc}")
+
+            if days_until_departure < 7:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cancellations are not allowed within 7 days of departure. Your trip departs in {days_until_departure} days. Consider purchasing cancellation protection for future bookings."
+                )
 
         # Cancel with ferry operator
         try:
@@ -938,54 +1431,65 @@ async def cancel_booking(
             # Log the error but continue with local cancellation
             pass
 
-        # Process refund if payment was made
+        # Process refunds for ALL completed payments (includes cabin upgrades paid separately)
         from app.models.payment import Payment, PaymentStatusEnum as PaymentStatus
         import stripe
 
-        payment = (
+        # Get ALL completed payments for this booking
+        payments = (
             db.query(Payment)
             .filter(
                 Payment.booking_id == booking_id,
                 Payment.status == PaymentStatus.COMPLETED
             )
-            .first()
+            .all()
         )
 
-        if payment and payment.stripe_charge_id:
-            try:
-                # Create refund in Stripe
-                refund = stripe.Refund.create(
-                    charge=payment.stripe_charge_id,
-                    reason="requested_by_customer",
-                    metadata={
-                        "booking_id": booking_id,
-                        "booking_reference": booking.booking_reference,
-                        "cancellation_reason": cancellation_data.reason
-                    }
-                )
+        total_refund_amount = 0.0
+        refunds_processed = 0
+        refund_errors = []
 
-                # Update payment status
-                payment.status = PaymentStatus.REFUNDED
-                payment.refund_amount = float(refund.amount) / 100  # Convert from cents
-                payment.stripe_refund_id = refund.id
+        for payment in payments:
+            if payment.stripe_charge_id:
+                try:
+                    # Create refund in Stripe
+                    refund = stripe.Refund.create(
+                        charge=payment.stripe_charge_id,
+                        reason="requested_by_customer",
+                        metadata={
+                            "booking_id": str(booking_id),
+                            "booking_reference": booking.booking_reference,
+                            "cancellation_reason": cancellation_data.reason or "Customer requested",
+                            "payment_type": "booking"
+                        }
+                    )
 
-                logger.info(f"Refund created for booking {booking_id}: {refund.id}")
+                    # Update payment status
+                    payment.status = PaymentStatus.REFUNDED
+                    payment.refund_amount = float(refund.amount) / 100  # Convert from cents
+                    payment.stripe_refund_id = refund.id
+                    total_refund_amount += payment.refund_amount
+                    refunds_processed += 1
 
-            except stripe.StripeError as e:
-                logger.error(f"Failed to create Stripe refund for booking {booking_id}: {str(e)}")
-                # Continue with cancellation even if refund fails
-                # Admin can manually process refund later
+                    logger.info(f"Refund created for booking {booking_id}, payment {payment.id}: {refund.id} (€{payment.refund_amount})")
+
+                except stripe.StripeError as e:
+                    error_msg = f"Payment {payment.id}: {str(e)}"
+                    refund_errors.append(error_msg)
+                    logger.error(f"Failed to create Stripe refund for booking {booking_id}, payment {payment.id}: {str(e)}")
+                    # Continue with other refunds even if one fails
+
+        if refund_errors:
+            logger.warning(f"Some refunds failed for booking {booking_id}: {refund_errors}")
 
         # Update booking status
         booking.status = BookingStatusEnum.CANCELLED
         booking.cancellation_reason = cancellation_data.reason
         booking.cancelled_at = datetime.utcnow()
         booking.updated_at = datetime.utcnow()
-        if payment:
-            booking.refund_amount = payment.refund_amount
-            # Mark refund as processed since we successfully created it in Stripe
-            if payment.stripe_refund_id:
-                booking.refund_processed = True
+        if total_refund_amount > 0:
+            booking.refund_amount = total_refund_amount
+            booking.refund_processed = refunds_processed > 0
 
         db.commit()
         db.refresh(booking)
@@ -1019,7 +1523,8 @@ async def cancel_booking(
                 "total_vehicles": booking.total_vehicles,
                 "cancellation_reason": cancellation_data.reason,
                 "cancelled_at": booking.cancelled_at.isoformat() if booking.cancelled_at else None,
-                "refund_amount": float(payment.refund_amount) if payment and payment.refund_amount else None,
+                "refund_amount": total_refund_amount if total_refund_amount > 0 else None,
+                "refunds_count": refunds_processed,
                 "base_url": os.getenv("BASE_URL", "http://localhost:3001")
             }
 
@@ -1037,8 +1542,9 @@ async def cancel_booking(
         return {
             "message": "Booking cancelled successfully",
             "booking_id": booking_id,
-            "refund_issued": payment is not None,
-            "refund_amount": payment.refund_amount if payment else None
+            "refunds_issued": refunds_processed,
+            "total_refund_amount": total_refund_amount if total_refund_amount > 0 else None,
+            "refund_errors": refund_errors if refund_errors else None
         }
 
     except HTTPException:
@@ -1260,7 +1766,28 @@ async def get_booking_invoice(
                 'total_price': float(m.total_price)
             })
 
-        # Prepare booking data
+        # Calculate original cabin costs (excluding upgrades from bookingCabins)
+        # bookingCabins contains cabin upgrades added AFTER the initial booking
+        # Sum up all cabin upgrades
+        outbound_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.OUTBOUND
+        )
+        return_upgrades = sum(
+            float(bc.total_price) for bc in booking.booking_cabins
+            if bc.journey_type == JourneyTypeEnum.RETURN
+        )
+
+        # Original cabin = total supplement - upgrades
+        original_cabin_supplement = max(0, float(booking.cabin_supplement or 0) - outbound_upgrades)
+        original_return_cabin_supplement = max(0, float(booking.return_cabin_supplement or 0) - return_upgrades)
+
+        # Calculate original total and tax (without upgrades)
+        total_upgrades = outbound_upgrades + return_upgrades
+        original_total = float(booking.total_amount or 0) - (total_upgrades * 1.10)  # Remove upgrades + their tax
+        original_tax = float(booking.tax_amount or 0) - (total_upgrades * 0.10)  # Remove upgrade tax
+
+        # Prepare booking data with ORIGINAL values (excluding cabin upgrades)
         booking_data = {
             'id': booking.id,
             'booking_reference': booking.booking_reference,
@@ -1279,11 +1806,14 @@ async def get_booking_invoice(
             'total_passengers': booking.total_passengers,
             'total_vehicles': booking.total_vehicles,
             'subtotal': float(booking.subtotal),
-            'tax_amount': float(booking.tax_amount) if booking.tax_amount else 0,
-            'total_amount': float(booking.total_amount),
+            'tax_amount': original_tax,
+            'total_amount': original_total,
             'currency': booking.currency,
-            'cabin_supplement': float(booking.cabin_supplement) if booking.cabin_supplement else 0,
-            'return_cabin_supplement': float(booking.return_cabin_supplement) if booking.return_cabin_supplement else 0,
+            # Use original cabin costs (excluding upgrades)
+            'cabin_supplement': original_cabin_supplement,
+            'return_cabin_supplement': original_return_cabin_supplement,
+            # Include extra_data for cancellation protection
+            'extra_data': booking.extra_data,
         }
 
         # Prepare payment data
@@ -1322,4 +1852,420 @@ async def get_booking_invoice(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate invoice: {str(e)}"
+        )
+
+
+@router.get("/{booking_id}/cabin-upgrade-invoice")
+async def get_cabin_upgrade_invoice(
+    booking_id: int,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download PDF invoice for all cabin upgrades.
+
+    Includes all cabins from the booking_cabins table for this booking.
+    User must own the booking or be admin.
+    """
+    try:
+        import io
+
+        # Get booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check user permission
+        if current_user:
+            if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this booking"
+                )
+        elif booking.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authentication required"
+            )
+
+        # Get all cabin upgrades from booking_cabins table
+        booking_cabins = db.query(BookingCabin).filter(
+            BookingCabin.booking_id == booking_id
+        ).all()
+
+        # Also check legacy cabin supplements
+        cabin_supplement = float(booking.cabin_supplement or 0)
+        return_cabin_supplement = float(booking.return_cabin_supplement or 0)
+
+        if not booking_cabins and cabin_supplement == 0 and return_cabin_supplement == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No cabin upgrade found for this booking"
+            )
+
+        # Get payment - must be completed to generate invoice
+        payment = db.query(Payment).filter(
+            Payment.booking_id == booking_id,
+            Payment.status == PaymentStatusEnum.COMPLETED
+        ).first()
+
+        if not payment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invoice only available for paid bookings"
+            )
+
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'booking_reference': booking.booking_reference,
+            'operator': booking.operator,
+            'departure_port': booking.departure_port,
+            'arrival_port': booking.arrival_port,
+            'departure_time': booking.departure_time,
+            'arrival_time': booking.arrival_time,
+            'vessel_name': booking.vessel_name,
+            'is_round_trip': booking.is_round_trip,
+            'return_departure_port': booking.return_departure_port,
+            'return_arrival_port': booking.return_arrival_port,
+            'return_departure_time': booking.return_departure_time,
+            'contact_email': booking.contact_email,
+            'contact_phone': booking.contact_phone,
+            'contact_first_name': booking.contact_first_name,
+            'contact_last_name': booking.contact_last_name,
+            'currency': booking.currency,
+        }
+
+        # Build list of all cabins with details
+        cabins_list = []
+        total_cabin_price = 0.0
+
+        for bc in booking_cabins:
+            cabin_info = {
+                'cabin_name': bc.cabin.name if bc.cabin else 'Cabin',
+                'cabin_type': bc.cabin.cabin_type.value if bc.cabin and hasattr(bc.cabin.cabin_type, 'value') else 'Standard',
+                'quantity': bc.quantity,
+                'unit_price': float(bc.unit_price),
+                'total_price': float(bc.total_price),
+                'journey_type': bc.journey_type.value if hasattr(bc.journey_type, 'value') else str(bc.journey_type),
+            }
+            cabins_list.append(cabin_info)
+            total_cabin_price += float(bc.total_price)
+
+        # If no booking_cabins but has legacy supplements, create legacy entry
+        if not cabins_list and (cabin_supplement > 0 or return_cabin_supplement > 0):
+            from app.models.ferry import Cabin
+            cabin_name = "Cabin"
+            cabin_type = "Standard"
+            if booking.cabin_id:
+                cabin = db.query(Cabin).filter(Cabin.id == booking.cabin_id).first()
+                if cabin:
+                    cabin_name = cabin.name
+                    cabin_type = cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type)
+
+            total_cabin_price = cabin_supplement + return_cabin_supplement
+            journey_type = 'outbound'
+            if cabin_supplement > 0 and return_cabin_supplement > 0:
+                journey_type = 'both'
+            elif return_cabin_supplement > 0:
+                journey_type = 'return'
+
+            cabins_list.append({
+                'cabin_name': cabin_name,
+                'cabin_type': cabin_type,
+                'quantity': 1,
+                'unit_price': total_cabin_price,
+                'total_price': total_cabin_price,
+                'journey_type': journey_type,
+            })
+
+        # cabin_data now includes all cabins
+        cabin_data = {
+            'cabins': cabins_list,
+            'total_price': total_cabin_price,
+            # Keep backward compatibility - use first cabin's info for single cabin display
+            'cabin_name': cabins_list[0]['cabin_name'] if cabins_list else 'Cabin',
+            'cabin_type': cabins_list[0]['cabin_type'] if cabins_list else 'Standard',
+            'quantity': sum(c['quantity'] for c in cabins_list),
+            'unit_price': cabins_list[0]['unit_price'] if len(cabins_list) == 1 else total_cabin_price,
+            'journey_type': 'both' if any(c['journey_type'] == 'RETURN' for c in cabins_list) and any(c['journey_type'] == 'OUTBOUND' for c in cabins_list) else (cabins_list[0]['journey_type'] if cabins_list else 'outbound'),
+        }
+
+        # Prepare payment data
+        payment_data = {
+            'payment_method': payment.payment_method.value if hasattr(payment.payment_method, 'value') else str(payment.payment_method),
+            'stripe_payment_intent_id': payment.stripe_payment_intent_id,
+            'stripe_charge_id': payment.stripe_charge_id,
+            'card_brand': payment.card_brand,
+            'card_last_four': payment.card_last_four,
+        }
+
+        # Generate PDF using cabin upgrade invoice generator
+        pdf_content = invoice_service.generate_cabin_upgrade_invoice(
+            booking=booking_data,
+            cabin_data=cabin_data,
+            payment=payment_data
+        )
+
+        # Return as downloadable file
+        filename = f"cabin_upgrade_invoice_{booking.booking_reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate cabin upgrade invoice: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate cabin upgrade invoice: {str(e)}"
+        )
+
+
+@router.get("/{booking_id}/eticket")
+async def get_booking_eticket(
+    booking_id: int,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download E-Ticket PDF with QR code for a booking.
+
+    Available for confirmed bookings. User must own the booking or be admin.
+    The E-Ticket includes a QR code for check-in at the port.
+    """
+    try:
+        import io
+        from app.services.eticket_service import eticket_service
+
+        # Get booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check user permission
+        if current_user:
+            if booking.user_id and booking.user_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this booking"
+                )
+        elif booking.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authentication required"
+            )
+
+        # Check booking status - must be confirmed
+        if booking.status != BookingStatusEnum.CONFIRMED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="E-Ticket only available for confirmed bookings"
+            )
+
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'booking_reference': booking.booking_reference,
+            'operator': booking.operator,
+            'departure_port': booking.departure_port,
+            'arrival_port': booking.arrival_port,
+            'departure_time': booking.departure_time.isoformat() if booking.departure_time else None,
+            'arrival_time': booking.arrival_time.isoformat() if booking.arrival_time else None,
+            'vessel_name': booking.vessel_name,
+            'is_round_trip': booking.is_round_trip,
+            'return_operator': booking.return_operator,
+            'return_departure_port': booking.return_departure_port,
+            'return_arrival_port': booking.return_arrival_port,
+            'return_departure_time': booking.return_departure_time.isoformat() if booking.return_departure_time else None,
+            'return_arrival_time': booking.return_arrival_time.isoformat() if booking.return_arrival_time else None,
+            'return_vessel_name': booking.return_vessel_name,
+            'contact_email': booking.contact_email,
+            'contact_phone': booking.contact_phone,
+            'contact_first_name': booking.contact_first_name,
+            'contact_last_name': booking.contact_last_name,
+            'total_passengers': booking.total_passengers,
+            'total_vehicles': booking.total_vehicles,
+            'status': booking.status.value if booking.status else 'CONFIRMED',
+        }
+
+        # Get passengers
+        passengers = []
+        for p in booking.passengers:
+            passengers.append({
+                'first_name': p.first_name,
+                'last_name': p.last_name,
+                'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                'date_of_birth': str(p.date_of_birth) if p.date_of_birth else None,
+                'nationality': p.nationality,
+            })
+
+        # Get vehicles
+        vehicles = []
+        for v in booking.vehicles:
+            vehicles.append({
+                'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                'make': v.make,
+                'model': v.model,
+                'license_plate': v.license_plate,
+            })
+
+        # Generate E-Ticket PDF
+        pdf_content = eticket_service.generate_eticket(
+            booking=booking_data,
+            passengers=passengers,
+            vehicles=vehicles
+        )
+
+        # Return as downloadable file
+        filename = f"eticket_{booking.booking_reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate E-Ticket: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate E-Ticket: {str(e)}"
+        )
+
+
+@router.get("/reference/{booking_reference}/eticket")
+async def get_booking_eticket_by_reference(
+    booking_reference: str,
+    email: Optional[str] = Query(None, description="Contact email for verification"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download E-Ticket PDF by booking reference.
+
+    For guest bookings, email verification is required.
+    """
+    try:
+        import io
+        from app.services.eticket_service import eticket_service
+
+        # Find booking by reference
+        booking = db.query(Booking).filter(
+            Booking.booking_reference == booking_reference.upper()
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # For guest bookings, verify email
+        if not booking.user_id:
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email verification required for guest bookings"
+                )
+            if email.lower() != booking.contact_email.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Email does not match booking"
+                )
+
+        # Check booking status
+        if booking.status != BookingStatusEnum.CONFIRMED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="E-Ticket only available for confirmed bookings"
+            )
+
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'booking_reference': booking.booking_reference,
+            'operator': booking.operator,
+            'departure_port': booking.departure_port,
+            'arrival_port': booking.arrival_port,
+            'departure_time': booking.departure_time.isoformat() if booking.departure_time else None,
+            'arrival_time': booking.arrival_time.isoformat() if booking.arrival_time else None,
+            'vessel_name': booking.vessel_name,
+            'is_round_trip': booking.is_round_trip,
+            'return_operator': booking.return_operator,
+            'return_departure_port': booking.return_departure_port,
+            'return_arrival_port': booking.return_arrival_port,
+            'return_departure_time': booking.return_departure_time.isoformat() if booking.return_departure_time else None,
+            'return_arrival_time': booking.return_arrival_time.isoformat() if booking.return_arrival_time else None,
+            'return_vessel_name': booking.return_vessel_name,
+            'contact_email': booking.contact_email,
+            'contact_phone': booking.contact_phone,
+            'contact_first_name': booking.contact_first_name,
+            'contact_last_name': booking.contact_last_name,
+            'total_passengers': booking.total_passengers,
+            'total_vehicles': booking.total_vehicles,
+            'status': booking.status.value if booking.status else 'CONFIRMED',
+        }
+
+        # Get passengers
+        passengers = []
+        for p in booking.passengers:
+            passengers.append({
+                'first_name': p.first_name,
+                'last_name': p.last_name,
+                'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                'date_of_birth': str(p.date_of_birth) if p.date_of_birth else None,
+                'nationality': p.nationality,
+            })
+
+        # Get vehicles
+        vehicles = []
+        for v in booking.vehicles:
+            vehicles.append({
+                'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                'make': v.make,
+                'model': v.model,
+                'license_plate': v.license_plate,
+            })
+
+        # Generate E-Ticket PDF
+        pdf_content = eticket_service.generate_eticket(
+            booking=booking_data,
+            passengers=passengers,
+            vehicles=vehicles
+        )
+
+        # Return as downloadable file
+        filename = f"eticket_{booking.booking_reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate E-Ticket: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate E-Ticket: {str(e)}"
         )

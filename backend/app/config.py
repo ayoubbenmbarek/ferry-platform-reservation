@@ -7,6 +7,14 @@ from pydantic_settings import BaseSettings
 from pydantic import field_validator
 import os
 import json
+from dotenv import load_dotenv
+
+# Load .env file with override to replace empty docker-compose environment variables
+# In development, prefer .env.development if it exists
+# IMPORTANT: Skip loading .env files in testing mode - tests control the environment via conftest.py
+if os.environ.get("ENVIRONMENT") != "testing":
+    env_file = '.env.development' if os.path.exists('.env.development') else '.env'
+    load_dotenv(dotenv_path=env_file, override=True)
 
 
 class Settings(BaseSettings):
@@ -51,7 +59,12 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = "sk_test_development_key"
     STRIPE_PUBLISHABLE_KEY: str = "pk_test_development_key"
     STRIPE_WEBHOOK_SECRET: str = "whsec_development_secret"
-    
+
+    # Google OAuth Configuration
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: Optional[str] = None
+
     # Ferry Operator APIs
     # CTN (Compagnie Tunisienne de Navigation)
     CTN_API_KEY: str = ""
@@ -80,7 +93,13 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
-    
+
+    # Sentry Configuration
+    SENTRY_DSN: Optional[str] = None
+    SENTRY_ENVIRONMENT: str = "development"
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+    SENTRY_PROFILES_SAMPLE_RATE: float = 0.1
+
     # Celery Configuration
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"

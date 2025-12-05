@@ -4,8 +4,10 @@ Authentication API endpoints for user registration, login, and token management.
 
 import os
 import secrets
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from dotenv import load_dotenv
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -20,6 +22,15 @@ from app.schemas.user import (
     UserCreate, UserResponse, UserUpdate, UserLogin, Token,
     PasswordChange, PasswordReset, PasswordResetConfirm
 )
+
+logger = logging.getLogger(__name__)
+
+# Load environment variables (override=True to override empty docker-compose env vars)
+# In development, prefer .env.development if it exists
+# Skip in testing mode - tests control environment via conftest.py
+if os.environ.get("ENVIRONMENT") != "testing":
+    env_file = '.env.development' if os.path.exists('.env.development') else '.env'
+    load_dotenv(dotenv_path=env_file, override=True)
 
 router = APIRouter()
 
@@ -263,12 +274,13 @@ async def login(
     Returns a JWT access token for authenticated requests.
     """
     try:
-        user = authenticate_user(db, form_data.username, form_data.password)
+        # First check if user exists
+        user = db.query(User).filter(User.email == form_data.username).first()
+
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password",
-                headers={"WWW-Authenticate": "Bearer"},
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No account found with this email address. Please check your email or create a new account."
             )
 
         if not user.is_active:
@@ -281,6 +293,14 @@ async def login(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Please verify your email before logging in. Check your inbox for the verification link."
+            )
+
+        # Now verify password
+        if not verify_password(form_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password. Please try again.",
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
         # Update last login
@@ -334,11 +354,13 @@ async def login_with_email(
     Alternative login endpoint that accepts JSON data instead of form data.
     """
     try:
-        user = authenticate_user(db, login_data.email, login_data.password)
+        # First check if user exists
+        user = db.query(User).filter(User.email == login_data.email).first()
+
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No account found with this email address. Please check your email or create a new account."
             )
 
         if not user.is_active:
@@ -351,6 +373,13 @@ async def login_with_email(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Please verify your email before logging in. Check your inbox for the verification link."
+            )
+
+        # Now verify password
+        if not verify_password(login_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password. Please try again."
             )
 
         # Update last login
@@ -782,6 +811,340 @@ async def link_booking_to_account(
         )
 
 
+@router.post("/google")
+async def google_login(
+    token_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Authenticate user with Google OAuth token.
+
+    Accepts a Google ID token from the frontend, verifies it,
+    and creates/logs in the user.
+    """
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests
+
+        # Get Google OAuth client ID from environment
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        logger.info(f"Google OAuth client ID: {google_client_id}")
+        if not google_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google OAuth is not configured on the server"
+            )
+
+        # Verify the Google token (accept both 'credential' and 'id_token' field names)
+        google_token = token_data.get("credential") or token_data.get("id_token")
+        if not google_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing Google token. Provide 'credential' or 'id_token' field."
+            )
+
+        try:
+            id_info = id_token.verify_oauth2_token(
+                google_token,
+                requests.Request(),
+                google_client_id
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid Google token: {str(e)}"
+            )
+
+        # Extract user information from Google
+        google_user_id = id_info.get("sub")
+        email = id_info.get("email")
+        email_verified = id_info.get("email_verified", False)
+        first_name = id_info.get("given_name", "")
+        last_name = id_info.get("family_name", "")
+        picture = id_info.get("picture")
+
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not provided by Google"
+            )
+
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+
+        if user:
+            # User exists - log them in
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is deactivated"
+                )
+
+            # Update last login
+            user.last_login = datetime.utcnow()
+
+            # Update Google user ID if not set
+            if not hasattr(user, 'google_user_id') or not user.google_user_id:
+                user.google_user_id = google_user_id
+
+            # If user wasn't verified, verify them now (Google verified the email)
+            if not user.is_verified and email_verified:
+                user.is_verified = True
+
+        else:
+            # Create new user account
+            user = User(
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                is_active=True,
+                is_verified=email_verified,  # Trust Google's email verification
+                hashed_password=get_password_hash(secrets.token_urlsafe(32)),  # Random password
+                google_user_id=google_user_id
+            )
+            db.add(user)
+            db.flush()  # Get user ID
+
+        # Auto-link any guest bookings with matching email
+        from app.models.booking import Booking
+        guest_bookings = db.query(Booking).filter(
+            Booking.contact_email == user.email,
+            Booking.user_id == None
+        ).all()
+
+        linked_count = 0
+        for booking in guest_bookings:
+            booking.user_id = user.id
+            linked_count += 1
+
+        if linked_count > 0:
+            logger.info(f"Auto-linked {linked_count} guest booking(s) to user {user.id} on Google login")
+
+        db.commit()
+        db.refresh(user)
+
+        # Create access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=access_token_expires
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": UserResponse.model_validate(user).dict(),
+            "is_new_user": linked_count == 0 and not user.last_login
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Google login failed: {str(e)}"
+        )
+
+
+@router.post("/apple")
+async def apple_login(
+    token_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Authenticate user with Apple Sign-In.
+
+    Accepts an Apple identity token from the mobile app, verifies it,
+    and creates/logs in the user.
+    """
+    import httpx
+    import json
+    import base64
+    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+    from cryptography.hazmat.backends import default_backend
+
+    try:
+        identity_token = token_data.get("identity_token")
+        if not identity_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing identity_token field"
+            )
+
+        # Apple's public keys endpoint
+        apple_keys_url = "https://appleid.apple.com/auth/keys"
+
+        # Fetch Apple's public keys
+        async with httpx.AsyncClient() as client:
+            response = await client.get(apple_keys_url)
+            apple_keys = response.json()
+
+        # Decode the JWT header to get the key ID (without verification)
+        try:
+            header_segment = identity_token.split('.')[0]
+            # Add padding if needed
+            padding = 4 - len(header_segment) % 4
+            if padding != 4:
+                header_segment += '=' * padding
+            header_data = base64.urlsafe_b64decode(header_segment)
+            unverified_header = json.loads(header_data)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Apple identity token format"
+            )
+
+        # Find the matching key
+        kid = unverified_header.get("kid")
+        matching_key = None
+        for key in apple_keys.get("keys", []):
+            if key.get("kid") == kid:
+                matching_key = key
+                break
+
+        if not matching_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unable to find matching Apple public key"
+            )
+
+        # Convert JWK to RSA public key
+        def decode_value(val):
+            decoded = base64.urlsafe_b64decode(val + '==')
+            return int.from_bytes(decoded, byteorder='big')
+
+        e = decode_value(matching_key['e'])
+        n = decode_value(matching_key['n'])
+        public_numbers = RSAPublicNumbers(e, n)
+        public_key = public_numbers.public_key(default_backend())
+
+        # Get Apple Bundle ID from environment (or use default for development)
+        apple_bundle_id = os.getenv("APPLE_BUNDLE_ID", "com.maritime.ferries")
+
+        # Verify the token using python-jose
+        try:
+            decoded = jwt.decode(
+                identity_token,
+                public_key,
+                algorithms=["RS256"],
+                audience=apple_bundle_id,
+                issuer="https://appleid.apple.com"
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Apple identity token has expired"
+            )
+        except JWTError as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid Apple identity token: {str(e)}"
+            )
+
+        # Extract user information from Apple token
+        apple_user_id = decoded.get("sub")  # Apple's unique user ID
+        email = decoded.get("email")
+        email_verified = decoded.get("email_verified", False)
+
+        # Apple only provides name on first sign-in, so get from request if available
+        first_name = token_data.get("first_name", "")
+        last_name = token_data.get("last_name", "")
+
+        if not apple_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Apple user ID not found in token"
+            )
+
+        # Check if user exists by Apple ID first, then by email
+        user = db.query(User).filter(User.apple_user_id == apple_user_id).first()
+
+        if not user and email:
+            # Check if user exists by email
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                # Link Apple ID to existing account
+                user.apple_user_id = apple_user_id
+
+        if user:
+            # User exists - log them in
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is deactivated"
+                )
+
+            # Update last login
+            user.last_login = datetime.now(timezone.utc)
+
+            # If user wasn't verified, verify them now (Apple verified the email)
+            if not user.is_verified and email_verified:
+                user.is_verified = True
+
+        else:
+            # Create new user account
+            # If no email provided by Apple (user chose to hide), generate a placeholder
+            if not email:
+                email = f"{apple_user_id}@privaterelay.appleid.com"
+
+            user = User(
+                email=email,
+                first_name=first_name or "Apple",
+                last_name=last_name or "User",
+                is_active=True,
+                is_verified=email_verified if email_verified else True,  # Trust Apple's verification
+                hashed_password=get_password_hash(secrets.token_urlsafe(32)),  # Random password
+                apple_user_id=apple_user_id
+            )
+            db.add(user)
+            db.flush()  # Get user ID
+
+        # Auto-link any guest bookings with matching email
+        from app.models.booking import Booking
+        guest_bookings = db.query(Booking).filter(
+            Booking.contact_email == user.email,
+            Booking.user_id == None
+        ).all()
+
+        linked_count = 0
+        for booking in guest_bookings:
+            booking.user_id = user.id
+            linked_count += 1
+
+        if linked_count > 0:
+            logger.info(f"Auto-linked {linked_count} guest booking(s) to user {user.id} on Apple login")
+
+        db.commit()
+        db.refresh(user)
+
+        # Create access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=access_token_expires
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": UserResponse.model_validate(user).model_dump(),
+            "is_new_user": linked_count == 0 and not user.last_login
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Apple login failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Apple login failed: {str(e)}"
+        )
+
+
 @router.post("/logout")
 async def logout(
     current_user: User = Depends(get_current_active_user)
@@ -791,4 +1154,75 @@ async def logout(
 
     Logs out the current user (client should discard the token).
     """
-    return {"message": "Successfully logged out"} 
+    return {"message": "Successfully logged out"}
+
+
+@router.post("/push-token")
+async def register_push_token(
+    token_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Register or update push notification token.
+
+    Stores the user's Expo push token for sending push notifications.
+    """
+    try:
+        push_token = token_data.get("push_token")
+        if not push_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="push_token is required"
+            )
+
+        # Validate Expo push token format
+        if not push_token.startswith("ExponentPushToken[") and not push_token.startswith("ExpoPushToken["):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid push token format"
+            )
+
+        current_user.push_token = push_token
+        current_user.push_token_updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+        logger.info(f"Push token registered for user {current_user.id}")
+        return {"message": "Push token registered successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Push token registration failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Push token registration failed: {str(e)}"
+        )
+
+
+@router.delete("/push-token")
+async def remove_push_token(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove push notification token.
+
+    Removes the user's push token (e.g., on logout or when notifications are disabled).
+    """
+    try:
+        current_user.push_token = None
+        current_user.push_token_updated_at = None
+        db.commit()
+
+        logger.info(f"Push token removed for user {current_user.id}")
+        return {"message": "Push token removed successfully"}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Push token removal failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Push token removal failed: {str(e)}"
+        ) 

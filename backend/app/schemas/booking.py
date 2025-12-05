@@ -68,13 +68,20 @@ class MealSelection(BaseModel):
     journey_type: Optional[str] = "outbound"  # Default to outbound - use string instead of enum for flexibility
 
 
+class CabinSelectionItem(BaseModel):
+    """Single cabin selection with quantity and price."""
+    cabin_id: int
+    quantity: int
+    price: float  # Total price for this cabin type
+
+
 class BookingCreate(BaseModel):
     """Booking creation schema."""
     sailing_id: str
     operator: str
     passengers: List[PassengerInfo]
     vehicles: Optional[List[VehicleInfo]] = None
-    cabin_id: Optional[int] = None  # Outbound cabin
+    cabin_id: Optional[int] = None  # Legacy: Outbound cabin (single)
     meals: Optional[List[MealSelection]] = None
     contact_info: ContactInfo
     special_requests: Optional[str] = None
@@ -95,7 +102,7 @@ class BookingCreate(BaseModel):
     return_operator: Optional[str] = None  # Can be different operator
     return_departure_port: Optional[str] = None  # Can be different route
     return_arrival_port: Optional[str] = None
-    return_cabin_id: Optional[int] = None  # Return cabin
+    return_cabin_id: Optional[int] = None  # Legacy: Return cabin (single)
     return_departure_time: Optional[datetime] = None
     return_arrival_time: Optional[datetime] = None
     return_vessel_name: Optional[str] = None
@@ -103,8 +110,17 @@ class BookingCreate(BaseModel):
     # Return ferry pricing (for accurate round trip total calculation)
     return_ferry_prices: Optional[Dict[str, float]] = None
 
+    # Multi-cabin selection support (new)
+    cabin_selections: Optional[List[CabinSelectionItem]] = None  # Outbound cabins with quantities
+    return_cabin_selections: Optional[List[CabinSelectionItem]] = None  # Return cabins with quantities
+    total_cabin_price: Optional[float] = 0  # Pre-calculated total for outbound cabins
+    total_return_cabin_price: Optional[float] = 0  # Pre-calculated total for return cabins
+
     # Promo code
     promo_code: Optional[str] = None
+
+    # Cancellation protection
+    has_cancellation_protection: Optional[bool] = False
 
     @field_validator('passengers')
     @classmethod
@@ -152,12 +168,40 @@ class BookingVehicleResponse(BaseModel):
     vehicle_type: str
     make: Optional[str] = None
     model: Optional[str] = None
+    owner: Optional[str] = None
     license_plate: str
     length_cm: int
     width_cm: int
     height_cm: int
     base_price: float
     final_price: float
+
+    # Accessories
+    has_trailer: bool = False
+    has_caravan: bool = False
+    has_roof_box: bool = False
+    has_bike_rack: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BookingCabinResponse(BaseModel):
+    """Booking cabin response schema for tracking multiple cabins."""
+    id: int
+    booking_id: int
+    cabin_id: int
+    journey_type: str  # 'OUTBOUND' or 'RETURN'
+    quantity: int
+    unit_price: float
+    total_price: float
+    is_paid: bool = False
+    created_at: datetime
+
+    # Cabin details (populated from relationship)
+    cabin_name: Optional[str] = None
+    cabin_type: Optional[str] = None
+    cabin_capacity: Optional[int] = None
+    cabin_amenities: Optional[List[str]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -209,11 +253,15 @@ class BookingResponse(BaseModel):
     # Promo code
     promo_code: Optional[str] = None
 
-    # Cabin information
+    # Cabin information (original selection during booking)
     cabin_id: Optional[int] = None
     cabin_supplement: float
+    cabin_name: Optional[str] = None
+    cabin_type: Optional[str] = None
     return_cabin_id: Optional[int] = None
     return_cabin_supplement: float = 0.00
+    return_cabin_name: Optional[str] = None
+    return_cabin_type: Optional[str] = None
 
     # Special requirements
     special_requests: Optional[str] = None
@@ -229,6 +277,7 @@ class BookingResponse(BaseModel):
     passengers: List[BookingPassengerResponse]
     vehicles: List[BookingVehicleResponse]
     meals: Optional[List[BookingMealResponse]] = []
+    booking_cabins: Optional[List[BookingCabinResponse]] = []  # All cabin selections
 
     model_config = ConfigDict(from_attributes=True)
 

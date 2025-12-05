@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { offlineService } from '../services/offlineService';
 
 interface OfflineIndicatorProps {
@@ -10,6 +10,18 @@ const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ showWhenOnline = fa
   const [pendingCount, setPendingCount] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = useCallback(async () => {
+    if (isSyncing) return;
+
+    setIsSyncing(true);
+    try {
+      await offlineService.syncPendingOperations();
+      setPendingCount(offlineService.getPendingOperationsCount());
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isSyncing]);
 
   useEffect(() => {
     // Subscribe to online/offline changes
@@ -25,25 +37,13 @@ const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ showWhenOnline = fa
     setPendingCount(offlineService.getPendingOperationsCount());
 
     return unsubscribe;
-  }, []);
+  }, [handleSync]);
 
   useEffect(() => {
     // Show indicator when offline or when there are pending operations
     const shouldShow = !isOnline || (showWhenOnline && pendingCount > 0);
     setIsVisible(shouldShow);
   }, [isOnline, showWhenOnline, pendingCount]);
-
-  const handleSync = async () => {
-    if (isSyncing) return;
-
-    setIsSyncing(true);
-    try {
-      await offlineService.syncPendingOperations();
-      setPendingCount(offlineService.getPendingOperationsCount());
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   if (!isVisible) {
     return null;

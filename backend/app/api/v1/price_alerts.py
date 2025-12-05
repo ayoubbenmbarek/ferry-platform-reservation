@@ -11,7 +11,7 @@ import logging
 from app.api.deps import get_db, get_optional_current_user, get_current_user
 from app.models.price_alert import PriceAlert, PriceAlertStatusEnum
 from app.models.user import User
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from datetime import date
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,13 @@ class PriceAlertCreate(BaseModel):
         if v < 0 or v > 100:
             raise ValueError('price_threshold_percent must be between 0 and 100')
         return v
+
+    @model_validator(mode='after')
+    def validate_ports_different(self):
+        if self.departure_port and self.arrival_port:
+            if self.departure_port.lower() == self.arrival_port.lower():
+                raise ValueError('Departure and arrival ports must be different')
+        return self
 
 
 class PriceAlertUpdate(BaseModel):

@@ -5,7 +5,7 @@ These tasks handle ferry availability verification and operator booking confirma
 """
 import logging
 from typing import Dict, Any, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from celery import Task, shared_task
 from app.celery_app import celery_app
 

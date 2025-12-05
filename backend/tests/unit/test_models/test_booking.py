@@ -3,7 +3,7 @@ Unit tests for Booking models.
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from app.models.booking import (
@@ -100,12 +100,13 @@ class TestBookingModel:
 
     def test_booking_expiration(self, db_session, sample_booking):
         """Test booking expiration field."""
-        expires = datetime.now() + timedelta(hours=1)
+        expires = datetime.now(timezone.utc) + timedelta(hours=1)
         sample_booking.expires_at = expires
         db_session.commit()
 
         assert sample_booking.expires_at is not None
-        assert sample_booking.expires_at == expires
+        # Compare without microseconds to avoid precision issues
+        assert sample_booking.expires_at.replace(microsecond=0) == expires.replace(microsecond=0)
 
     def test_booking_repr(self, sample_booking):
         """Test booking string representation."""

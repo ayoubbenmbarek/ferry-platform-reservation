@@ -3,7 +3,7 @@ Unit tests for Price Alert Celery tasks.
 """
 
 import pytest
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from decimal import Decimal
 from unittest.mock import patch, MagicMock, AsyncMock
 from sqlalchemy.orm import Session
@@ -171,11 +171,17 @@ class TestPriceAlertNotificationLogic:
 
     def test_anti_spam_prevents_rapid_notifications(self, db_session: Session, sample_price_alert: PriceAlert):
         """Test that anti-spam prevents notifications within 1 hour."""
-        # Set last_notified_at to 30 minutes ago
-        sample_price_alert.last_notified_at = datetime.utcnow() - timedelta(minutes=30)
+        # Set last_notified_at to 30 minutes ago (use timezone-aware datetime)
+        now = datetime.now(timezone.utc)
+        sample_price_alert.last_notified_at = now - timedelta(minutes=30)
         db_session.commit()
 
-        minutes_since_notification = (datetime.utcnow() - sample_price_alert.last_notified_at).total_seconds() / 60
+        # Make last_notified_at timezone-aware if it isn't already
+        last_notified = sample_price_alert.last_notified_at
+        if last_notified.tzinfo is None:
+            last_notified = last_notified.replace(tzinfo=timezone.utc)
+
+        minutes_since_notification = (now - last_notified).total_seconds() / 60
 
         # Even if price change warrants notification, anti-spam should block it
         anti_spam_blocks = minutes_since_notification < 60
@@ -184,11 +190,17 @@ class TestPriceAlertNotificationLogic:
 
     def test_anti_spam_allows_after_one_hour(self, db_session: Session, sample_price_alert: PriceAlert):
         """Test that notifications are allowed after 1 hour."""
-        # Set last_notified_at to 90 minutes ago
-        sample_price_alert.last_notified_at = datetime.utcnow() - timedelta(minutes=90)
+        # Set last_notified_at to 90 minutes ago (use timezone-aware datetime)
+        now = datetime.now(timezone.utc)
+        sample_price_alert.last_notified_at = now - timedelta(minutes=90)
         db_session.commit()
 
-        minutes_since_notification = (datetime.utcnow() - sample_price_alert.last_notified_at).total_seconds() / 60
+        # Make last_notified_at timezone-aware if it isn't already
+        last_notified = sample_price_alert.last_notified_at
+        if last_notified.tzinfo is None:
+            last_notified = last_notified.replace(tzinfo=timezone.utc)
+
+        minutes_since_notification = (now - last_notified).total_seconds() / 60
 
         anti_spam_blocks = minutes_since_notification < 60
 

@@ -629,15 +629,30 @@ const NewHomePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Smart Pricing Panel - Shows when departure and arrival are selected */}
+                {/* Smart Pricing Panel for OUTBOUND - Shows when departure and arrival are selected */}
                 {form.departurePort && form.arrivalPort && (
                   <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Outbound Trip Pricing</h3>
                     <SmartPricingPanel
                       departurePort={form.departurePort}
                       arrivalPort={form.arrivalPort}
                       departureDate={form.departureDate}
                       passengers={form.adults + form.children}
                       onDateSelect={(date, _price) => setForm({ ...form, departureDate: date })}
+                    />
+                  </div>
+                )}
+
+                {/* Smart Pricing Panel for RETURN trip */}
+                {form.returnDate && form.returnDate.length > 0 && form.departurePort && form.arrivalPort && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Return Trip Pricing</h3>
+                    <SmartPricingPanel
+                      departurePort={form.differentReturnRoute ? (form.returnDeparturePort || form.arrivalPort) : form.arrivalPort}
+                      arrivalPort={form.differentReturnRoute ? (form.returnArrivalPort || form.departurePort) : form.departurePort}
+                      departureDate={form.returnDate}
+                      passengers={form.adults + form.children}
+                      onDateSelect={(date, _price) => setForm({ ...form, returnDate: date })}
                     />
                   </div>
                 )}

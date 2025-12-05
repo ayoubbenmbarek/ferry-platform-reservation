@@ -835,9 +835,10 @@ export default function SearchScreen() {
           <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Smart Pricing Panel - Shows fare calendar and AI insights */}
+        {/* Smart Pricing Panel - Shows fare calendar and AI insights for OUTBOUND */}
         {departurePort && arrivalPort && (
           <View style={styles.smartPricingContainer}>
+            <Text style={styles.tripTypeLabel}>Outbound Trip Pricing</Text>
             <SmartPricingPanel
               departurePort={departurePort}
               arrivalPort={arrivalPort}
@@ -846,6 +847,23 @@ export default function SearchScreen() {
               onDateSelect={(date, _price) => {
                 dispatch(setDepartureDate(date));
                 setTempDepartureDate(parseISO(date));
+              }}
+            />
+          </View>
+        )}
+
+        {/* Smart Pricing Panel for RETURN trip */}
+        {isRoundTrip && departurePort && arrivalPort && returnDate && (
+          <View style={styles.smartPricingContainer}>
+            <Text style={styles.tripTypeLabel}>Return Trip Pricing</Text>
+            <SmartPricingPanel
+              departurePort={sameReturnRoute ? arrivalPort : (returnDeparturePort || arrivalPort)}
+              arrivalPort={sameReturnRoute ? departurePort : (returnArrivalPort || departurePort)}
+              departureDate={returnDate}
+              passengers={adults + children}
+              onDateSelect={(date, _price) => {
+                dispatch(setReturnDate(date));
+                setTempReturnDate(parseISO(date));
               }}
             />
           </View>
@@ -1031,6 +1049,14 @@ const styles = StyleSheet.create({
   },
   smartPricingContainer: {
     marginBottom: spacing.lg,
+  },
+  tripTypeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   errorContainer: {
     backgroundColor: '#FEE2E2',

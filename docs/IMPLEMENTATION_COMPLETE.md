@@ -730,6 +730,99 @@ if is_new_high and price_change_percent >= threshold:
 
 ## 📝 Notes
 
+### Smart Pricing Panel ✅
+
+#### Overview
+The Smart Pricing Panel provides users with intelligent pricing tools to find the best deals for their ferry trips. Available on both frontend and mobile platforms.
+
+#### Features Implemented
+
+**Fare Calendar**
+- Interactive calendar showing prices for each day
+- Color-coded pricing: Green (cheap), Blue (normal), Red (expensive)
+- Month navigation with disabled past months
+- Shows cheapest date in the month
+- Price trends with rising/falling indicators
+- Updates departure date on date selection
+
+**Price Evolution Chart**
+- 30-day price history visualization
+- Interactive touch/hover to see specific date prices
+- Trend detection: rising, falling, stable
+- Min/max price range display
+- Touch-responsive on mobile with PanResponder
+
+**AI Insights**
+- Deal quality assessment (Excellent, Good, Average, Above Average, Expensive)
+- Price percentile calculation
+- Booking recommendations (Book Now, Book Soon, Wait, Book When Ready)
+- Best day of week to book
+- Savings potential calculation
+- Price volatility analysis
+
+**Flexible Dates Search**
+- Shows prices for dates around selected date (±3 days)
+- Highlights cheapest alternative
+- One-click date selection to switch to better price
+- Shows price difference from selected date
+
+**Return Trip Pricing**
+- Separate Smart Pricing Panel for return trips
+- Supports different return routes
+- Syncs with main search form
+
+#### Technical Implementation
+
+**Frontend Components** (`frontend/src/components/`)
+- `SmartPricingPanel.tsx` - Main container with tabbed interface
+- `FareCalendar.tsx` - Calendar grid with price display
+- `PriceEvolutionChart.tsx` - SVG-based price chart
+- `PriceInsights.tsx` - AI-powered insights display
+- `FlexibleDatesSearch.tsx` - Date alternatives grid
+
+**Mobile Components** (`mobile/src/components/`)
+- `SmartPricingPanel.tsx` - React Native tabbed panel
+- `FareCalendar.tsx` - Native calendar with gestures
+- `PriceEvolutionChart.tsx` - Touch-interactive chart with PanResponder
+- `PriceInsights.tsx` - Native insights cards
+- `FlexibleDatesSearch.tsx` - Native date alternatives
+
+**Backend Endpoints** (`backend/app/api/v1/fare_calendar.py`)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/fare-calendar/{from}/{to}` | GET | Get calendar prices for month |
+| `/fare-calendar/{from}/{to}/history` | GET | Get 30-day price history |
+| `/fare-calendar/{from}/{to}/insights` | GET | Get AI price insights |
+| `/fare-calendar/{from}/{to}/flexible` | GET | Get flexible date prices |
+
+**Caching Strategy**
+- Calendar data cached with 5-minute TTL
+- Price history cached with 15-minute TTL
+- Insights cached with 30-minute TTL
+
+#### Mobile-Specific Features
+
+**Touch Interaction**
+- PanResponder for chart touch handling
+- useRef pattern to avoid stale closures
+- 2-second tooltip display after touch release
+
+**Calendar Sync**
+- useEffect hooks for prop synchronization
+- Calendar auto-navigates when departure date changes
+- Past dates disabled and not clickable
+
+#### Tests
+
+**Mobile Tests** (`mobile/src/__tests__/components/`)
+- `SmartPricingPanel.test.tsx` - View modes, tab switching, state management
+- `FareCalendar.test.tsx` - Date navigation, price colors, grid calculations
+- `PriceEvolutionChart.test.tsx` - Chart math, touch interactions, trend detection
+- `PriceInsights.test.tsx` - Deal quality, recommendations, formatting
+- `FlexibleDatesSearch.test.tsx` - Date generation, price comparison
+
+---
+
 ### Calendar vs Ferry List Price Sync
 - **Known Behavior**: Calendar may show different price than ferry list
 - **Causes**: Cache timing, operator availability, dynamic pricing

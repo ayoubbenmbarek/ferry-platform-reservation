@@ -105,8 +105,12 @@ class TestBookingModel:
         db_session.commit()
 
         assert sample_booking.expires_at is not None
-        # Compare without microseconds to avoid precision issues
-        assert sample_booking.expires_at.replace(microsecond=0) == expires.replace(microsecond=0)
+        # Compare without microseconds and timezone to avoid precision/storage issues
+        # SQLite doesn't preserve timezone info, so we compare naive datetimes
+        stored_expires = sample_booking.expires_at
+        if stored_expires.tzinfo is None:
+            stored_expires = stored_expires.replace(tzinfo=timezone.utc)
+        assert stored_expires.replace(microsecond=0) == expires.replace(microsecond=0)
 
     def test_booking_repr(self, sample_booking):
         """Test booking string representation."""

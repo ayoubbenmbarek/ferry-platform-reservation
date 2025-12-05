@@ -20,7 +20,7 @@ const PaymentPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { bookingId: existingBookingId } = useParams<{ bookingId: string }>();
   const [searchParams] = useSearchParams();
-  const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip } = useSelector((state: RootState) => state.ferry);
+  const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip, totalCabinPrice, totalReturnCabinPrice, selectedMeals, hasCancellationProtection, promoDiscount } = useSelector((state: RootState) => state.ferry);
 
   // Check for cabin upgrade payment
   const paymentType = searchParams.get('type');
@@ -55,6 +55,7 @@ const PaymentPage: React.FC = () => {
   const [bookingDetails, setBookingDetails] = useState<any>(null);
   // Store cabin details for display in summary
   const [cabinDetails, setCabinDetails] = useState<Record<number, { name: string; price: number }>>({});
+  const [isOrderSummaryExpanded, setIsOrderSummaryExpanded] = useState(false);
 
   // Use ref to prevent double initialization in React StrictMode
   const initializingRef = useRef(false);
@@ -84,6 +85,7 @@ const PaymentPage: React.FC = () => {
         const returnPrice = (isRoundTrip && selectedReturnFerry) ? returnChildPrice : 0;
         return sum + outboundPrice + returnPrice;
       }
+      // Infants are usually free
       return sum;
     }, 0);
 
@@ -92,9 +94,25 @@ const PaymentPage: React.FC = () => {
     const returnVehiclesTotal = (isRoundTrip && selectedReturnFerry) ? (vehicles.length * returnVehiclePrice) : 0;
     const vehiclesTotal = outboundVehiclesTotal + returnVehiclesTotal;
 
-    const total = passengersTotal + vehiclesTotal;
-    const tax = total * 0.1;
-    return total + tax;
+    // Calculate cabin total (from Redux state)
+    const cabinsTotal = (totalCabinPrice || 0) + (totalReturnCabinPrice || 0);
+
+    // Calculate meals total (from Redux state)
+    const mealsTotal = selectedMeals?.reduce((sum: number, meal: any) => sum + (meal.price || 0) * (meal.quantity || 1), 0) || 0;
+
+    // Cancellation protection
+    const CANCELLATION_PROTECTION_PRICE = 15.00;
+    const cancellationProtectionTotal = hasCancellationProtection ? CANCELLATION_PROTECTION_PRICE : 0;
+
+    // Subtotal before discount
+    const subtotal = passengersTotal + vehiclesTotal + cabinsTotal + mealsTotal + cancellationProtectionTotal;
+
+    // Apply promo discount
+    const discount = promoDiscount || 0;
+    const discountedSubtotal = subtotal - discount;
+
+    // No tax in final calculation (removed as per BookingPage pattern)
+    return Math.max(0, discountedSubtotal);
   };
 
   const initializePayment = useCallback(async () => {
@@ -241,6 +259,15 @@ const PaymentPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingBookingId, currentBooking, dispatch]);
+
+  // Reset initialization refs when there's no currentBooking (user modified booking details)
+  useEffect(() => {
+    if (!currentBooking && !existingBookingId) {
+      // Reset refs so a new booking will be created
+      initializingRef.current = false;
+      initializedRef.current = false;
+    }
+  }, [currentBooking, existingBookingId]);
 
   useEffect(() => {
     // If paying for existing booking, skip ferry/passenger checks
@@ -488,7 +515,15 @@ const PaymentPage: React.FC = () => {
 
               {/* Stripe Payment Form */}
               {paymentMethod === 'card' && clientSecret && stripePromise && (
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    clientSecret,
+                    appearance: {
+                      theme: 'stripe',
+                    },
+                  }}
+                >
                   <StripePaymentForm
                     clientSecret={clientSecret}
                     amount={bookingTotal}
@@ -516,11 +551,31 @@ const PaymentPage: React.FC = () => {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                {isCabinUpgrade ? t('payment:cabinUpgrade.summary', 'Cabin Upgrade Summary') : t('payment:orderSummary.title')}
-              </h2>
+              <button
+                onClick={() => setIsOrderSummaryExpanded(!isOrderSummaryExpanded)}
+                className="w-full flex items-center justify-between text-left mb-4 hover:bg-gray-50 rounded-lg transition-colors -mx-2 px-2 py-1"
+              >
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  {isCabinUpgrade ? t('payment:cabinUpgrade.summary', 'Cabin Upgrade Summary') : t('payment:orderSummary.title')}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-blue-600">€{bookingTotal.toFixed(2)}</span>
+                  <svg
+                    className={`w-5 h-5 text-gray-500 transition-transform ${isOrderSummaryExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
 
-              <div className="space-y-3 mb-4">
+              {isOrderSummaryExpanded && (
+              <div className="space-y-3 mb-4 border-t border-gray-100 pt-4">
                 {isCabinUpgrade && cabinUpgradeData ? (
                   <>
                     {/* Cabin Upgrade Summary */}
@@ -584,37 +639,76 @@ const PaymentPage: React.FC = () => {
                   </>
                 ) : bookingDetails ? (
                   <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">€{((bookingDetails.subtotal || 0)).toFixed(2)}</span>
+                    {/* Show itemized breakdown */}
+                    <div className="space-y-2 text-sm">
+                      {/* Base fare (passengers + vehicles) */}
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">
+                          {bookingDetails.totalPassengers || bookingDetails.total_passengers || 1} Passenger(s)
+                          {(bookingDetails.totalVehicles || bookingDetails.total_vehicles || 0) > 0 &&
+                            ` + ${bookingDetails.totalVehicles || bookingDetails.total_vehicles} Vehicle(s)`}
+                        </span>
+                        <span className="font-medium">
+                          €{(
+                            (bookingDetails.subtotal || 0) -
+                            (bookingDetails.cabinSupplement || bookingDetails.cabin_supplement || 0) -
+                            (bookingDetails.returnCabinSupplement || bookingDetails.return_cabin_supplement || 0) -
+                            (bookingDetails.meals?.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0) || 0) -
+                            (bookingDetails.hasCancellationProtection || bookingDetails.has_cancellation_protection ? 15 : 0)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* Cabin supplement */}
+                      {((bookingDetails.cabinSupplement || bookingDetails.cabin_supplement || 0) +
+                        (bookingDetails.returnCabinSupplement || bookingDetails.return_cabin_supplement || 0)) > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Cabin(s)</span>
+                          <span className="font-medium">
+                            €{((bookingDetails.cabinSupplement || bookingDetails.cabin_supplement || 0) +
+                               (bookingDetails.returnCabinSupplement || bookingDetails.return_cabin_supplement || 0)).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Meals */}
+                      {bookingDetails.meals && bookingDetails.meals.length > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Meals ({bookingDetails.meals.length})</span>
+                          <span className="font-medium">€{bookingDetails.meals.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0).toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Cancellation Protection */}
+                      {(bookingDetails.hasCancellationProtection || bookingDetails.has_cancellation_protection) && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Cancellation Protection</span>
+                          <span className="font-medium">€15.00</span>
+                        </div>
+                      )}
+
+                      {/* Subtotal line */}
+                      <div className="flex justify-between border-t border-gray-100 pt-2">
+                        <span className="text-gray-700 font-medium">Subtotal</span>
+                        <span className="font-medium">€{(bookingDetails.subtotal || 0).toFixed(2)}</span>
+                      </div>
+
+                      {/* Promo discount */}
+                      {(bookingDetails.discountAmount || bookingDetails.discount_amount) > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Promo Discount {bookingDetails.promoCode || bookingDetails.promo_code ? `(${bookingDetails.promoCode || bookingDetails.promo_code})` : ''}</span>
+                          <span>-€{(bookingDetails.discountAmount || bookingDetails.discount_amount).toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* Tax */}
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Tax (10%)</span>
+                        <span className="font-medium">€{(bookingDetails.taxAmount || bookingDetails.tax_amount || 0).toFixed(2)}</span>
+                      </div>
                     </div>
 
-                    {(bookingDetails.cabinSupplement || bookingDetails.cabin_supplement) > 0 && (
-                      <div className="flex justify-between text-sm text-gray-500 pl-4">
-                        <span>• Cabin Supplement</span>
-                        <span>€{(bookingDetails.cabinSupplement || bookingDetails.cabin_supplement).toFixed(2)}</span>
-                      </div>
-                    )}
-
-                    {bookingDetails.meals && bookingDetails.meals.length > 0 && (
-                      <div className="flex justify-between text-sm text-gray-500 pl-4">
-                        <span>• Meals ({bookingDetails.meals.length})</span>
-                        <span>€{bookingDetails.meals.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0).toFixed(2)}</span>
-                      </div>
-                    )}
-
-                    {(bookingDetails.discountAmount || bookingDetails.discount_amount) > 0 && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Promo Discount {bookingDetails.promoCode || bookingDetails.promo_code ? `(${bookingDetails.promoCode || bookingDetails.promo_code})` : ''}</span>
-                        <span>-€{(bookingDetails.discountAmount || bookingDetails.discount_amount).toFixed(2)}</span>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax (10%)</span>
-                      <span className="font-medium">€{(bookingDetails.taxAmount || bookingDetails.tax_amount || 0).toFixed(2)}</span>
-                    </div>
-
+                    {/* Total */}
                     <div className="border-t border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between">
                         <span className="text-lg font-bold">{t('payment:orderSummary.total')}</span>
@@ -656,7 +750,6 @@ const PaymentPage: React.FC = () => {
                     </div>
                   </>
                 )}
-              </div>
 
               {(selectedFerry || bookingDetails) && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
@@ -696,6 +789,8 @@ const PaymentPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              )}
+              </div>
               )}
             </div>
           </div>

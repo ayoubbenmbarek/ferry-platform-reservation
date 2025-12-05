@@ -27,10 +27,13 @@ const BookingDetailsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
+  const [isDownloadingETicket, setIsDownloadingETicket] = useState(false);
   const [cabinDetails, setCabinDetails] = useState<{ outbound?: any; return?: any }>({});
+  const [isPriceSummaryExpanded, setIsPriceSummaryExpanded] = useState(false);
 
   // Fetch cabin details when booking has cabin IDs
   useEffect(() => {
@@ -158,11 +161,12 @@ const BookingDetailsPage: React.FC = () => {
 
   const handleCancelBooking = async () => {
     if (!cancelReason.trim()) {
-      alert('Please provide a reason for cancellation');
+      setCancelError('Please provide a reason for cancellation');
       return;
     }
 
     setIsCancelling(true);
+    setCancelError(null);
     try {
       await bookingAPI.cancel(parseInt(id!), cancelReason);
       // Refresh booking data
@@ -170,10 +174,9 @@ const BookingDetailsPage: React.FC = () => {
       setBooking(snakeToCamel(response));
       setShowCancelModal(false);
       setCancelReason('');
-      // Show success message
-      setError(null);
+      setCancelError(null);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to cancel booking');
+      setCancelError(err.response?.data?.message || err.response?.data?.detail || 'Failed to cancel booking');
     } finally {
       setIsCancelling(false);
     }
@@ -228,6 +231,46 @@ const BookingDetailsPage: React.FC = () => {
     } finally {
       setIsDownloadingInvoice(false);
     }
+  };
+
+  const handleDownloadETicket = async () => {
+    if (!id) return;
+
+    setIsDownloadingETicket(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/v1/bookings/${id}/eticket`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to download E-Ticket');
+      }
+
+      // Get the blob and create download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `eticket_${booking.bookingReference}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert(err.message || 'Failed to download E-Ticket');
+    } finally {
+      setIsDownloadingETicket(false);
+    }
+  };
+
+  const canDownloadETicket = () => {
+    if (!booking) return false;
+    const status = booking.status.toLowerCase();
+    return status === 'confirmed';
   };
 
   // Check if booking has cabin upgrades (cabins added AFTER initial booking via add-cabin endpoint)
@@ -422,9 +465,6 @@ const BookingDetailsPage: React.FC = () => {
                         <p className="text-xs text-gray-500">Nationality: {p.nationality}</p>
                       )}
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">€{p.finalPrice?.toFixed(2) || '0.00'}</p>
-                    </div>
                   </div>
                   {p.specialNeeds && (
                     <p className="text-sm text-gray-600 mt-2">
@@ -474,9 +514,6 @@ const BookingDetailsPage: React.FC = () => {
                         <p className="text-xs text-gray-500 mt-1">
                           Dimensions: {((v.lengthCm || 0) / 100).toFixed(1)}m × {((v.widthCm || 0) / 100).toFixed(1)}m × {((v.heightCm || 0) / 100).toFixed(1)}m
                         </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">€{v.finalPrice?.toFixed(2) || '0.00'}</p>
                       </div>
                     </div>
                   </div>
@@ -710,57 +747,114 @@ const BookingDetailsPage: React.FC = () => {
             </div>
           )}
 
-          {/* Price Summary */}
+          {/* Price Summary - Collapsible */}
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Price Summary</h2>
-            <div className="space-y-3">
-              {/* Passengers Breakdown */}
-              {booking.passengers && booking.passengers.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    Passengers ({booking.totalPassengers})
-                  </p>
-                  <div className="space-y-1 text-sm">
-                    {booking.passengers.map((p: any, idx: number) => (
-                      <div key={idx} className="flex justify-between">
-                        <span className="text-gray-600">
-                          {p.firstName} {p.lastName} ({p.passengerType})
-                        </span>
-                        <span>€{(p.finalPrice || 0).toFixed(2)}</span>
-                      </div>
-                    ))}
-                    {booking.isRoundTrip && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        * Includes outbound + return journey
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+            <button
+              onClick={() => setIsPriceSummaryExpanded(!isPriceSummaryExpanded)}
+              className="w-full flex items-center justify-between text-left mb-3 py-2 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <h2 className="text-lg font-semibold flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Price Summary
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-blue-600">
+                  €{(booking.totalAmount || 0).toFixed(2)}
+                </span>
+                <svg
+                  className={`w-5 h-5 text-gray-500 transition-transform ${isPriceSummaryExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
 
-              {/* Vehicles Breakdown */}
-              {booking.vehicles && booking.vehicles.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    Vehicles ({booking.totalVehicles})
-                  </p>
-                  <div className="space-y-1 text-sm">
-                    {booking.vehicles.map((v: any, idx: number) => (
-                      <div key={idx} className="flex justify-between">
-                        <span className="text-gray-600">
-                          {v.vehicleType} ({v.licensePlate})
-                        </span>
-                        <span>€{(v.finalPrice || 0).toFixed(2)}</span>
+            {isPriceSummaryExpanded && (
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              {/* Calculate all costs for display */}
+              {(() => {
+                // Calculate totals from stored data
+                const passengerTotal = booking.passengers?.reduce((sum: number, p: any) => sum + (p.finalPrice || 0), 0) || 0;
+                const vehicleTotal = booking.vehicles?.reduce((sum: number, v: any) => sum + (v.finalPrice || 0), 0) || 0;
+                const cabinTotal = (booking.cabinSupplement || 0) + (booking.returnCabinSupplement || 0);
+                const mealTotal = booking.meals?.reduce((sum: number, m: any) => sum + (m.totalPrice || 0), 0) || 0;
+
+                // Calculate fare total (subtotal minus cabins and meals)
+                // This ensures the fare portion adds up correctly even if individual prices are wrong
+                const subtotal = booking.subtotal || 0;
+                const fareTotal = Math.max(0, subtotal - cabinTotal - mealTotal);
+
+                // If stored prices match, use them; otherwise compute from fare total
+                const storedTotal = passengerTotal + vehicleTotal;
+                const useStoredPrices = Math.abs(storedTotal - fareTotal) < 1; // Allow €1 tolerance for rounding
+
+                return (
+                  <>
+                    {/* Passengers Breakdown */}
+                    {booking.passengers && booking.passengers.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm font-medium text-gray-700">
+                            Passengers ({booking.totalPassengers})
+                          </p>
+                          <span className="text-sm font-medium">
+                            €{useStoredPrices ? passengerTotal.toFixed(2) : ((fareTotal * passengerTotal / (storedTotal || 1))).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-sm text-gray-500">
+                          {booking.passengers.map((p: any, idx: number) => {
+                            const displayPrice = useStoredPrices
+                              ? (p.finalPrice || 0)
+                              : ((p.finalPrice || 0) * fareTotal / (storedTotal || 1));
+                            return (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <span>
+                                  {p.firstName} {p.lastName} ({p.passengerType})
+                                </span>
+                                <span>€{displayPrice.toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    ))}
-                    {booking.isRoundTrip && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        * Includes outbound + return journey
-                      </p>
                     )}
-                  </div>
-                </div>
-              )}
+
+                    {/* Vehicles Breakdown */}
+                    {booking.vehicles && booking.vehicles.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm font-medium text-gray-700">
+                            Vehicles ({booking.totalVehicles})
+                          </p>
+                          <span className="text-sm font-medium">
+                            €{useStoredPrices ? vehicleTotal.toFixed(2) : ((fareTotal * vehicleTotal / (storedTotal || 1))).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-sm text-gray-500">
+                          {booking.vehicles.map((v: any, idx: number) => {
+                            const displayPrice = useStoredPrices
+                              ? (v.finalPrice || 0)
+                              : ((v.finalPrice || 0) * fareTotal / (storedTotal || 1));
+                            return (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <span>
+                                  {v.vehicleType} ({v.licensePlate})
+                                </span>
+                                <span>€{displayPrice.toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Cabin Costs - Show breakdown of original + upgrades */}
               {(() => {
@@ -864,6 +958,7 @@ const BookingDetailsPage: React.FC = () => {
                 })()}
               </div>
             </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -882,6 +977,37 @@ const BookingDetailsPage: React.FC = () => {
                     Payment due by {new Date(booking.expiresAt).toLocaleDateString()} at {new Date(booking.expiresAt).toLocaleTimeString()}
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Download E-Ticket for Confirmed Bookings */}
+            {canDownloadETicket() && (
+              <div className="mb-4">
+                <button
+                  onClick={handleDownloadETicket}
+                  disabled={isDownloadingETicket}
+                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isDownloadingETicket ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                      </svg>
+                      Download E-Ticket (PDF)
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 text-center mt-1">
+                  Present this at check-in with valid ID
+                </p>
               </div>
             )}
 
@@ -964,6 +1090,12 @@ const BookingDetailsPage: React.FC = () => {
               Are you sure you want to cancel this booking? This action cannot be undone.
             </p>
 
+            {cancelError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-700">{cancelError}</p>
+              </div>
+            )}
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Reason for Cancellation
@@ -983,6 +1115,7 @@ const BookingDetailsPage: React.FC = () => {
                 onClick={() => {
                   setShowCancelModal(false);
                   setCancelReason('');
+                  setCancelError(null);
                 }}
                 disabled={isCancelling}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"

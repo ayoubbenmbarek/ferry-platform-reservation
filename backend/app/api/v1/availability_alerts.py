@@ -145,11 +145,11 @@ async def create_availability_alert(
         departure_date = datetime.fromisoformat(alert_data.departure_date).date()
         return_date = datetime.fromisoformat(alert_data.return_date).date() if alert_data.return_date else None
 
-        # Validate departure date is in the future
-        if departure_date <= datetime.now(timezone.utc).date():
+        # Validate departure date is not in the past (allow today's ferries)
+        if departure_date < datetime.now(timezone.utc).date():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Departure date must be in the future"
+                detail="Departure date cannot be in the past"
             )
 
         # Validate return date if round trip

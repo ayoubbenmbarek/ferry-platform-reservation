@@ -12,8 +12,10 @@ from sqlalchemy import and_, or_
 
 from app.database import SessionLocal
 from app.models.availability_alert import AvailabilityAlert, AlertStatusEnum
+from app.models.user import User
 from app.services.ferry_service import FerryService
 from app.services.email_service import email_service
+from app.services.push_notification_service import push_notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -256,8 +258,26 @@ def check_availability_alerts_task(self):
 
 
 def _send_availability_notification(alert: AvailabilityAlert, db):
-    """Send email notification when availability is found."""
+    """Send email and push notification when availability is found."""
     try:
+        # Send push notification if user has a push token
+        if alert.user_id:
+            user = db.query(User).filter(User.id == alert.user_id).first()
+            if user and user.push_token:
+                try:
+                    push_notification_service.send_availability_alert(
+                        push_token=user.push_token,
+                        alert_type=alert.alert_type,
+                        departure_port=alert.departure_port.title(),
+                        arrival_port=alert.arrival_port.title(),
+                        departure_date=alert.departure_date.strftime("%B %d, %Y"),
+                        alert_id=alert.id,
+                        booking_id=alert.booking_id,
+                    )
+                    logger.info(f"📱 Push notification sent for alert {alert.id}")
+                except Exception as e:
+                    logger.error(f"Failed to send push notification for alert {alert.id}: {e}")
+                    # Continue with email even if push fails
         # Build complete search URL with all parameters
         # Use FRONTEND_URL env var, or BASE_URL, or default to localhost with HTTPS
         base_url = os.getenv('FRONTEND_URL', os.getenv('BASE_URL', 'https://localhost:3001'))

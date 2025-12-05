@@ -119,6 +119,9 @@ class BookingCreate(BaseModel):
     # Promo code
     promo_code: Optional[str] = None
 
+    # Cancellation protection
+    has_cancellation_protection: Optional[bool] = False
+
     @field_validator('passengers')
     @classmethod
     def validate_passengers(cls, v):
@@ -250,11 +253,15 @@ class BookingResponse(BaseModel):
     # Promo code
     promo_code: Optional[str] = None
 
-    # Cabin information
+    # Cabin information (original selection during booking)
     cabin_id: Optional[int] = None
     cabin_supplement: float
+    cabin_name: Optional[str] = None
+    cabin_type: Optional[str] = None
     return_cabin_id: Optional[int] = None
     return_cabin_supplement: float = 0.00
+    return_cabin_name: Optional[str] = None
+    return_cabin_type: Optional[str] = None
 
     # Special requirements
     special_requests: Optional[str] = None

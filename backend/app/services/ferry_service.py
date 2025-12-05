@@ -386,6 +386,121 @@ class FerryService:
         """Get list of available operator codes."""
         return list(self.integrations.keys())
 
+    async def check_operator_health(self) -> Dict[str, bool]:
+        """
+        Check health status of all ferry operator APIs.
+
+        Returns:
+            Dictionary mapping operator names to health status (True = healthy)
+        """
+        health_status = {}
+
+        for operator_name, integration in self.integrations.items():
+            try:
+                is_healthy = await self._check_operator_health(operator_name, integration)
+                health_status[operator_name] = is_healthy
+            except Exception as e:
+                logger.warning(f"Health check failed for {operator_name}: {e}")
+                health_status[operator_name] = False
+
+        return health_status
+
+    async def compare_prices(
+        self,
+        departure_port: str,
+        arrival_port: str,
+        departure_date: date,
+        adults: int = 1,
+        children: int = 0,
+        infants: int = 0
+    ) -> List[Dict]:
+        """
+        Compare prices across all operators for a specific route.
+
+        Returns:
+            List of price comparisons from each operator
+        """
+        results = await self.search_ferries(
+            departure_port=departure_port,
+            arrival_port=arrival_port,
+            departure_date=departure_date,
+            adults=adults,
+            children=children,
+            infants=infants
+        )
+
+        # Group results by operator and find lowest price per operator
+        operator_prices = {}
+        for result in results:
+            operator = result.operator
+            price = result.prices.get('adult', 0) * adults + \
+                    result.prices.get('child', 0) * children
+
+            if operator not in operator_prices or price < operator_prices[operator]['price']:
+                operator_prices[operator] = {
+                    'operator': operator,
+                    'price': price,
+                    'sailing_id': result.sailing_id,
+                    'departure_time': result.departure_time.isoformat() if result.departure_time else None,
+                    'vessel': result.vessel_name
+                }
+
+        return list(operator_prices.values())
+
+    async def get_cheapest_option(
+        self,
+        departure_port: str,
+        arrival_port: str,
+        departure_date: date,
+        adults: int = 1,
+        children: int = 0,
+        infants: int = 0
+    ) -> Optional[Dict]:
+        """
+        Get the cheapest ferry option across all operators.
+
+        Returns:
+            Cheapest option details or None if no results
+        """
+        comparisons = await self.compare_prices(
+            departure_port=departure_port,
+            arrival_port=arrival_port,
+            departure_date=departure_date,
+            adults=adults,
+            children=children,
+            infants=infants
+        )
+
+        if not comparisons:
+            return None
+
+        return min(comparisons, key=lambda x: x['price'])
+
+    def get_supported_routes(self) -> Dict[str, List[Dict[str, str]]]:
+        """
+        Get supported routes from all integrations.
+
+        Returns:
+            Dictionary mapping operator names to list of routes
+        """
+        all_routes = {}
+
+        for operator_key, integration in self.integrations.items():
+            operator_name = integration.operator_name if hasattr(integration, 'operator_name') else operator_key.upper()
+            routes = []
+
+            # Get routes from mock integration
+            if hasattr(integration, 'routes'):
+                for (departure, arrival) in integration.routes.keys():
+                    routes.append({
+                        "departure": departure,
+                        "arrival": arrival
+                    })
+
+            all_routes[operator_name] = routes
+
+        return all_routes
+
 
 # Global ferry service instance
 _ferry_service: Optional[FerryService] = None

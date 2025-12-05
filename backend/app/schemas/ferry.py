@@ -30,6 +30,10 @@ class VehicleType(str, Enum):
     CAMPER = "camper"
     CARAVAN = "caravan"
     TRUCK = "truck"
+    TRAILER = "trailer"
+    JETSKI = "jetski"
+    BOAT_TRAILER = "boat_trailer"
+    BICYCLE = "bicycle"
 
 
 class PassengerType(str, Enum):

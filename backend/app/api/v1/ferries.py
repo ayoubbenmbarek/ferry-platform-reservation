@@ -128,6 +128,30 @@ async def search_ferries(
                 logger.warning(f"⚠️ Found old cache format with vehicles={cached_response['search_params']['vehicles']}, converting to list")
                 cached_response["search_params"]["vehicles"] = []
 
+            # Filter out past departures from cached results (with 1 hour buffer)
+            from datetime import datetime, timedelta
+            now = datetime.utcnow()
+            min_departure_time = now + timedelta(hours=1)
+
+            if cached_response.get("results"):
+                filtered_cached = []
+                for result in cached_response["results"]:
+                    departure_time_str = result.get("departure_time")
+                    if departure_time_str:
+                        try:
+                            if "T" in departure_time_str:
+                                departure_time = datetime.fromisoformat(departure_time_str.replace("Z", "+00:00").replace("+00:00", ""))
+                            else:
+                                departure_time = datetime.strptime(departure_time_str, "%Y-%m-%d %H:%M:%S")
+                            if departure_time >= min_departure_time:
+                                filtered_cached.append(result)
+                        except (ValueError, TypeError):
+                            filtered_cached.append(result)
+                    else:
+                        filtered_cached.append(result)
+                cached_response["results"] = filtered_cached
+                cached_response["total_results"] = len(filtered_cached)
+
             # Add cache hit indicator
             cached_response["cached"] = True
             cached_response["cache_age_ms"] = (time.time() - start_time) * 1000
@@ -160,6 +184,35 @@ async def search_ferries(
         # Convert FerryResult objects to dictionaries for Pydantic validation
         results_dict = [result.to_dict() for result in results]
 
+        # Filter out departures that have already passed (with 1 hour buffer for check-in)
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        min_departure_time = now + timedelta(hours=1)
+
+        filtered_results = []
+        for result in results_dict:
+            departure_time_str = result.get("departure_time")
+            if departure_time_str:
+                try:
+                    # Parse departure time (handle both ISO format and datetime string)
+                    if "T" in departure_time_str:
+                        departure_time = datetime.fromisoformat(departure_time_str.replace("Z", "+00:00").replace("+00:00", ""))
+                    else:
+                        departure_time = datetime.strptime(departure_time_str, "%Y-%m-%d %H:%M:%S")
+
+                    # Only include future departures (with 1 hour buffer)
+                    if departure_time >= min_departure_time:
+                        filtered_results.append(result)
+                except (ValueError, TypeError) as e:
+                    # If parsing fails, include the result anyway
+                    logger.warning(f"Could not parse departure time '{departure_time_str}': {e}")
+                    filtered_results.append(result)
+            else:
+                # No departure time, include anyway
+                filtered_results.append(result)
+
+        results_dict = filtered_results
+
         # Build response
         # Serialize search_params dates for caching
         search_params_dict = search_params.dict()
@@ -170,7 +223,7 @@ async def search_ferries(
 
         response_dict = {
             "results": results_dict,
-            "total_results": len(results),
+            "total_results": len(results_dict),  # Use filtered count
             "search_params": search_params_dict,
             "operators_searched": operators_searched,
             "search_time_ms": search_time,
@@ -203,25 +256,25 @@ async def get_routes(
 ):
     """
     Get available ferry routes.
-    
+
     Returns a list of all available ferry routes, optionally filtered
     by departure port, arrival port, or operator.
     """
     try:
         supported_routes = ferry_service.get_supported_routes()
-        
+
         # Filter routes based on query parameters
         filtered_routes = []
         for op, routes in supported_routes.items():
             if operator and op != operator:
                 continue
-            
+
             for route in routes:
                 if departure_port and route["departure"] != departure_port:
                     continue
                 if arrival_port and route["arrival"] != arrival_port:
                     continue
-                
+
                 filtered_routes.append({
                     "departure_port": route["departure"],
                     "arrival_port": route["arrival"],
@@ -230,9 +283,9 @@ async def get_routes(
                     "operator": op,
                     "seasonal": False
                 })
-        
+
         return RouteResponse(routes=filtered_routes)
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -271,6 +324,68 @@ async def get_operators():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get operators: {str(e)}"
+        )
+
+
+@router.get("/ports")
+async def get_ports():
+    """
+    Get list of available ports.
+
+    Returns information about all ports available for ferry travel.
+    """
+    try:
+        supported_routes = ferry_service.get_supported_routes()
+
+        # Collect unique ports from all routes
+        ports_set = set()
+        for operator, routes in supported_routes.items():
+            for route in routes:
+                ports_set.add(route["departure"])
+                ports_set.add(route["arrival"])
+
+        # Port information mapping
+        port_info = {
+            "TUN": {"code": "TUN", "name": "Tunis", "country": "Tunisia"},
+            "TUNIS": {"code": "TUNIS", "name": "Tunis", "country": "Tunisia"},
+            "MRS": {"code": "MRS", "name": "Marseille", "country": "France"},
+            "MARSEILLE": {"code": "MARSEILLE", "name": "Marseille", "country": "France"},
+            "GEN": {"code": "GEN", "name": "Genoa", "country": "Italy"},
+            "GENOA": {"code": "GENOA", "name": "Genoa", "country": "Italy"},
+            "CIV": {"code": "CIV", "name": "Civitavecchia", "country": "Italy"},
+            "CIVITAVECCHIA": {"code": "CIVITAVECCHIA", "name": "Civitavecchia", "country": "Italy"},
+            "PAL": {"code": "PAL", "name": "Palermo", "country": "Italy"},
+            "PALERMO": {"code": "PALERMO", "name": "Palermo", "country": "Italy"},
+            "NAP": {"code": "NAP", "name": "Naples", "country": "Italy"},
+            "NAPLES": {"code": "NAPLES", "name": "Naples", "country": "Italy"},
+            "LIV": {"code": "LIV", "name": "Livorno", "country": "Italy"},
+            "LIVORNO": {"code": "LIVORNO", "name": "Livorno", "country": "Italy"},
+            "SAL": {"code": "SAL", "name": "Salerno", "country": "Italy"},
+            "SALERNO": {"code": "SALERNO", "name": "Salerno", "country": "Italy"},
+            "ALG": {"code": "ALG", "name": "Algiers", "country": "Algeria"},
+            "BAR": {"code": "BAR", "name": "Barcelona", "country": "Spain"},
+            "BARCELONA": {"code": "BARCELONA", "name": "Barcelona", "country": "Spain"},
+            "NICE": {"code": "NICE", "name": "Nice", "country": "France"},
+        }
+
+        ports = []
+        for port_code in sorted(ports_set):
+            if port_code in port_info:
+                ports.append(port_info[port_code])
+            else:
+                # Default for unknown ports
+                ports.append({
+                    "code": port_code,
+                    "name": port_code.title(),
+                    "country": "Unknown"
+                })
+
+        return ports
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get ports: {str(e)}"
         )
 
 

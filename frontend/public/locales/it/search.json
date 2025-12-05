@@ -93,7 +93,9 @@
     "skipReturn": "Salta per Ora",
     "backToSearch": "Torna alla Ricerca",
     "perAdult": "per adulto",
-    "select": "Seleziona"
+    "select": "Seleziona",
+    "total": "Totale",
+    "bestPrice": "Miglior Prezzo"
   },
   "filters": {
     "title": "Filtri",

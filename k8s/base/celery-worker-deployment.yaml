@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: maritime-reservations
+  labels:
+    app: celery-worker
+    app.kubernetes.io/name: maritime-reservations
+    app.kubernetes.io/component: celery-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: celery-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+        app.kubernetes.io/name: maritime-reservations
+        app.kubernetes.io/component: celery-worker
+    spec:
+      serviceAccountName: maritime-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: celery-worker
+          image: maritime-reservations/backend:latest
+          imagePullPolicy: Always
+          command: ["celery"]
+          args:
+            - "-A"
+            - "app.celery_app"
+            - "worker"
+            - "--loglevel=info"
+            - "--concurrency=4"
+          envFrom:
+            - configMapRef:
+                name: maritime-config
+            - secretRef:
+                name: maritime-secrets
+          env:
+            - name: REDIS_URL
+              value: "redis://redis-service:6379/0"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - "-A"
+                - "app.celery_app"
+                - "inspect"
+                - "ping"
+                - "-d"
+                - "celery@$HOSTNAME"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: celery-worker
+                topologyKey: kubernetes.io/hostname

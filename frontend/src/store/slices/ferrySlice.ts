@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { SearchParams, FerryResult, VehicleInfo, PassengerInfo } from '../../types/ferry';
+import { SearchParams, FerryResult, VehicleInfo, PassengerInfo, Port, PORTS } from '../../types/ferry';
 import api, { ferryAPI } from '../../services/api';
 
 // ContactInfo type (using snake_case for backend compatibility)
@@ -35,6 +35,11 @@ const camelToSnake = (obj: any): any => {
 };
 
 interface FerryState {
+  // Ports and routes
+  ports: Port[];
+  routes: { [departure: string]: string[] };
+  isLoadingPorts: boolean;
+
   // Search state
   searchParams: Partial<SearchParams>;
   searchResults: FerryResult[];
@@ -73,12 +78,20 @@ interface FerryState {
   promoDiscount: number | null;
   promoValidationMessage: string | null;
 
+  // Cancellation protection
+  hasCancellationProtection: boolean;
+
   // UI state
   isLoading: boolean;
   error: string | null;
 }
 
 const initialState: FerryState = {
+  // Ports and routes - start with static data as fallback
+  ports: PORTS,
+  routes: {},
+  isLoadingPorts: false,
+
   searchParams: {
     passengers: {
       adults: 1,
@@ -112,11 +125,64 @@ const initialState: FerryState = {
   promoCode: null,
   promoDiscount: null,
   promoValidationMessage: null,
+  hasCancellationProtection: false,
   isLoading: false,
   error: null,
 };
 
 // Async thunks
+export const fetchPorts = createAsyncThunk(
+  'ferry/fetchPorts',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await ferryAPI.getPorts();
+      // Transform API response to match Port type
+      return response.map((port: any) => ({
+        code: port.code.toLowerCase(),
+        name: port.name,
+        city: port.name,
+        country: port.country,
+        countryCode: port.country === 'Tunisia' ? 'TN' :
+                     port.country === 'Italy' ? 'IT' :
+                     port.country === 'France' ? 'FR' :
+                     port.country === 'Spain' ? 'ES' : 'XX'
+      }));
+    } catch (error: any) {
+      console.warn('Failed to fetch ports from API, using static data');
+      return rejectWithValue('Failed to fetch ports');
+    }
+  }
+);
+
+export const fetchRoutes = createAsyncThunk(
+  'ferry/fetchRoutes',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await ferryAPI.getRoutes();
+      // Transform API response to { departure: [arrivals] } format
+      const routes: { [departure: string]: string[] } = {};
+      // Response can be { routes: [...] } or just [...]
+      const routesList = (response as any).routes || response;
+      if (Array.isArray(routesList)) {
+        for (const route of routesList) {
+          const dep = route.departure_port.toLowerCase();
+          const arr = route.arrival_port.toLowerCase();
+          if (!routes[dep]) {
+            routes[dep] = [];
+          }
+          if (!routes[dep].includes(arr)) {
+            routes[dep].push(arr);
+          }
+        }
+      }
+      return routes;
+    } catch (error: any) {
+      console.warn('Failed to fetch routes from API');
+      return rejectWithValue('Failed to fetch routes');
+    }
+  }
+);
+
 export const searchFerries = createAsyncThunk(
   'ferry/searchFerries',
   async (searchParams: SearchParams, { rejectWithValue }) => {
@@ -180,7 +246,8 @@ export const createBooking = createAsyncThunk(
         contactInfo,
         isRoundTrip,
         searchParams,
-        promoCode
+        promoCode,
+        hasCancellationProtection
       } = state.ferry;
 
       if (!selectedFerry) {
@@ -261,6 +328,7 @@ export const createBooking = createAsyncThunk(
         totalReturnCabinPrice: totalReturnCabinPrice || 0,
         meals: selectedMeals && selectedMeals.length > 0 ? selectedMeals : undefined,
         promoCode: promoCode || undefined,
+        hasCancellationProtection: hasCancellationProtection || false,
       });
 
       // Use axios directly to send snake_case data
@@ -372,6 +440,10 @@ const ferrySlice = createSlice({
       state.promoValidationMessage = null;
     },
 
+    setCancellationProtection: (state, action: PayloadAction<boolean>) => {
+      state.hasCancellationProtection = action.payload;
+    },
+
     setContactInfo: (state, action: PayloadAction<ContactInfo>) => {
       state.contactInfo = action.payload;
     },
@@ -448,6 +520,7 @@ const ferrySlice = createSlice({
       state.promoCode = null;
       state.promoDiscount = null;
       state.promoValidationMessage = null;
+      state.hasCancellationProtection = false;
     },
 
     clearError: (state) => {
@@ -488,6 +561,7 @@ const ferrySlice = createSlice({
       state.currentBooking = null;
       state.isCreatingBooking = false;
       state.bookingError = null;
+      state.hasCancellationProtection = false;
     },
 
     // Reset all ferry state (used on logout)
@@ -497,6 +571,22 @@ const ferrySlice = createSlice({
     builder
       // Listen for auth logout to clear ferry state
       .addCase('auth/logout', () => initialState)
+      // Fetch ports
+      .addCase(fetchPorts.pending, (state) => {
+        state.isLoadingPorts = true;
+      })
+      .addCase(fetchPorts.fulfilled, (state, action) => {
+        state.isLoadingPorts = false;
+        state.ports = action.payload;
+      })
+      .addCase(fetchPorts.rejected, (state) => {
+        state.isLoadingPorts = false;
+        // Keep static PORTS as fallback - already set in initialState
+      })
+      // Fetch routes
+      .addCase(fetchRoutes.fulfilled, (state, action) => {
+        state.routes = action.payload;
+      })
       // Search ferries
       .addCase(searchFerries.pending, (state) => {
         state.isSearching = true;
@@ -549,6 +639,7 @@ export const {
   setPromoCode,
   setPromoDiscount,
   clearPromoCode,
+  setCancellationProtection,
   setContactInfo,
   addPassenger,
   updatePassenger,

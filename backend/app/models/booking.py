@@ -2,7 +2,7 @@
 Booking models for ferry reservations.
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, ForeignKey, Enum, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -41,6 +41,10 @@ class VehicleTypeEnum(enum.Enum):
     CAMPER = "CAMPER"
     CARAVAN = "CARAVAN"
     TRUCK = "TRUCK"
+    TRAILER = "TRAILER"
+    JETSKI = "JETSKI"
+    BOAT_TRAILER = "BOAT_TRAILER"
+    BICYCLE = "BICYCLE"
 
 
 class Booking(Base):
@@ -124,10 +128,13 @@ class Booking(Base):
     fare_type = Column(String(50), default="flexible")  # flexible, semi-flexible, non-modifiable
     last_modified_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Metadata
+    # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)  # When pending booking expires
+
+    # Extra data (JSON field for additional booking data like cancellation protection)
+    extra_data = Column(JSON, nullable=True, default=dict)
 
     # Relationships
     user = relationship("User", back_populates="bookings")
@@ -140,7 +147,8 @@ class Booking(Base):
     meals = relationship("BookingMeal", back_populates="booking", cascade="all, delete-orphan")
     modifications = relationship("BookingModification", back_populates="booking", cascade="all, delete-orphan")
     booking_cabins = relationship("BookingCabin", back_populates="booking", cascade="all, delete-orphan")
-    
+    reminders = relationship("BookingReminder", back_populates="booking", cascade="all, delete-orphan")
+
     def __repr__(self):
         return f"<Booking(id={self.id}, ref='{self.booking_reference}', status='{self.status.value}')>"
     

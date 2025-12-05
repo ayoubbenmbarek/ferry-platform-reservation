@@ -26,7 +26,7 @@ except ImportError:
 
 # Import API routes using importlib to avoid __init__.py conflicts
 import importlib
-auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = modifications = vehicles = availability_alerts = None
+auth = users = ferries = bookings = payments = cabins = meals = admin = promo_codes = voice_search = webhooks = modifications = vehicles = availability_alerts = price_alerts = prices = None
 
 try:
     auth = importlib.import_module('app.api.v1.auth')
@@ -96,6 +96,16 @@ except ImportError as e:
     print(f"Failed to import availability_alerts module: {e}")
 
 try:
+    price_alerts = importlib.import_module('app.api.v1.price_alerts')
+except ImportError as e:
+    print(f"Failed to import price_alerts module: {e}")
+
+try:
+    prices = importlib.import_module('app.api.v1.prices')
+except ImportError as e:
+    print(f"Failed to import prices module: {e}")
+
+try:
     health = importlib.import_module('app.api.v1.health')
 except ImportError as e:
     health = None
@@ -135,13 +145,23 @@ except ImportError:
     logger.warning("Rate limiting not available")
 
 # Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS_LIST,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
+# In development, allow all origins for mobile app testing
+if settings.DEBUG:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.ALLOWED_ORIGINS_LIST,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 # Add trusted host middleware for production
 if not settings.DEBUG:
@@ -151,14 +171,44 @@ if not settings.DEBUG:
     )
 
 
-# Request timing middleware
+# Security headers and request timing middleware
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    """Add processing time to response headers."""
+async def add_security_headers(request: Request, call_next):
+    """Add security headers and processing time to response."""
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
+
+    # Processing time header
     response.headers["X-Process-Time"] = str(process_time)
+
+    # Security headers (OWASP recommendations)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+
+    # HSTS header for production (forces HTTPS)
+    if not settings.DEBUG:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
+    # Content Security Policy
+    # Adjust as needed for your frontend requirements
+    csp_directives = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: https:",
+        "connect-src 'self' https://api.stripe.com https://*.sentry.io",
+        "frame-src https://js.stripe.com https://hooks.stripe.com",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ]
+    response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+
     return response
 
 
@@ -212,6 +262,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle general exceptions."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
+
+    # Send to Sentry
+    try:
+        from app.monitoring import capture_exception
+        capture_exception(exc, path=str(request.url), method=request.method)
+    except ImportError:
+        pass
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -231,6 +289,28 @@ async def health_check():
         "version": settings.VERSION,
         "timestamp": time.time()
     }
+
+
+# Sentry test endpoint (only in debug mode)
+if settings.DEBUG:
+    @app.get("/api/v1/test-sentry")
+    async def test_sentry():
+        """Test Sentry error tracking."""
+        import uuid
+        error_id = str(uuid.uuid4())[:8]
+
+        try:
+            from app.monitoring import capture_message
+            capture_message(f"Test message from backend [{error_id}]", level="info")
+            raise ValueError(f"Test error for Sentry [{error_id}]")
+        except ValueError as e:
+            from app.monitoring import capture_exception
+            capture_exception(e, test=True, source="test_endpoint", error_id=error_id)
+            return {
+                "status": "sent",
+                "message": f"Test error [{error_id}] sent to Sentry. Check your dashboard.",
+                "sentry_enabled": sentry_enabled
+            }
 
 
 # Test email endpoint
@@ -330,6 +410,12 @@ if vehicles:
 if availability_alerts:
     app.include_router(availability_alerts.router, prefix="/api/v1/availability-alerts", tags=["Availability Alerts"])
 
+if price_alerts:
+    app.include_router(price_alerts.router, prefix="/api/v1/price-alerts", tags=["Price Alerts"])
+
+if prices:
+    app.include_router(prices.router, prefix="/api/v1/prices", tags=["Prices"])
+
 if health:
     app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 
@@ -359,10 +445,14 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    # Use HOST env var; default to 127.0.0.1 for security (use 0.0.0.0 in Docker)
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8010"))
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=8000,
+        host=host,
+        port=port,
         reload=settings.DEBUG,
         log_level="info"
     ) 

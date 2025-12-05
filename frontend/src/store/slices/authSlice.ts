@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authAPI } from '../../services/api';
+import { setUserContext, addBreadcrumb } from '../../sentry';
 
 export interface User {
   id: number;
@@ -148,6 +149,9 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.error = null;
       localStorage.removeItem('token');
+      // Clear Sentry user context
+      setUserContext(null);
+      addBreadcrumb('User logged out', 'auth', 'info');
       // Note: Ferry state will be cleared via extraReducers listening to this action
     },
     clearError: (state) => {
@@ -180,6 +184,11 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.user = (action.payload as any).user || null;
         state.error = null;
+        // Set Sentry user context
+        if (state.user) {
+          setUserContext({ id: state.user.id, email: state.user.email });
+          addBreadcrumb('User logged in', 'auth', 'info', { userId: state.user.id });
+        }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
@@ -213,6 +222,10 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.isAuthenticated = true;
         state.error = null;
+        // Set Sentry user context
+        if (state.user) {
+          setUserContext({ id: state.user.id, email: state.user.email });
+        }
       })
       .addCase(getCurrentUser.rejected, (state, action) => {
         state.isLoading = false;

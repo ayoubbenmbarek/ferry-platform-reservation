@@ -183,10 +183,18 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
       <div className="mb-4">
         <ExpressCheckoutElement
           onConfirm={handleExpressCheckoutConfirm}
+          onReady={({ availablePaymentMethods }) => {
+            console.log('Express Checkout ready. Available methods:', availablePaymentMethods);
+            // availablePaymentMethods will show: { applePay: boolean, googlePay: boolean, link: boolean }
+          }}
           options={{
             buttonType: {
               applePay: 'plain',
               googlePay: 'plain',
+            },
+            wallets: {
+              applePay: 'auto',
+              googlePay: 'auto',
             },
           }}
         />

@@ -13,11 +13,13 @@ import {
   setCurrentStep,
 } from '../store/slices/ferrySlice';
 import { ferryAPI } from '../services/api';
-import { FerryResult, SearchParams, PORTS } from '../types/ferry';
+import { FerryResult, SearchParams } from '../types/ferry';
 import DatePriceSelector from '../components/DatePriceSelector';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
 import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
+import SaveRouteButton from '../components/SaveRouteButton';
+import { SmartPricingPanel } from '../components/FareCalendar';
 
 // Search Form Component
 interface SearchFormProps {
@@ -29,6 +31,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
   const { t } = useTranslation(['search', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const existingParams = useSelector((state: RootState) => state.ferry.searchParams);
+  const ports = useSelector((state: RootState) => state.ferry.ports);
 
   const [form, setForm] = useState({
     departurePort: existingParams.departurePort || '',
@@ -120,7 +123,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departurePort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
-                      {PORTS.filter(p => p.countryCode !== 'TN').map(port => (
+                      {ports.filter(p => p.countryCode !== 'TN').map(port => (
                         <option key={port.code} value={port.code}>{port.name}</option>
                       ))}
                     </select>
@@ -134,7 +137,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.arrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      {PORTS.filter(p => p.countryCode === 'TN').map(port => (
+                      {ports.filter(p => p.countryCode === 'TN').map(port => (
                         <option key={port.code} value={port.code}>{port.name}</option>
                       ))}
                     </select>
@@ -224,7 +227,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnDeparturePort')}</option>
-                            {PORTS.map(port => (
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>
@@ -239,7 +242,7 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            {PORTS.map(port => (
+                            {ports.map(port => (
                               <option key={port.code} value={port.code}>{port.name}</option>
                             ))}
                           </select>
@@ -280,6 +283,34 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                   </div>
                 </div>
 
+                {/* Smart Pricing Panel - Shows fare calendar and price insights for OUTBOUND */}
+                {form.departurePort && form.arrivalPort && (
+                  <div className="border-t pt-6">
+                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Outbound Trip Pricing</h3>
+                    <SmartPricingPanel
+                      departurePort={form.departurePort}
+                      arrivalPort={form.arrivalPort}
+                      departureDate={form.departureDate}
+                      passengers={form.adults + form.children}
+                      onDateSelect={(date, _price) => setForm({ ...form, departureDate: date })}
+                    />
+                  </div>
+                )}
+
+                {/* Smart Pricing Panel for RETURN trip */}
+                {form.returnDate && form.returnDate.length > 0 && form.departurePort && form.arrivalPort && (
+                  <div className="border-t pt-6">
+                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Return Trip Pricing</h3>
+                    <SmartPricingPanel
+                      departurePort={form.differentReturnRoute ? (form.returnDeparturePort || form.arrivalPort) : form.arrivalPort}
+                      arrivalPort={form.differentReturnRoute ? (form.returnArrivalPort || form.departurePort) : form.departurePort}
+                      departureDate={form.returnDate}
+                      passengers={form.adults + form.children}
+                      onDateSelect={(date, _price) => setForm({ ...form, returnDate: date })}
+                    />
+                  </div>
+                )}
+
                 <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all">
                   {isEditMode ? `🔄 ${t('search:form.updateSearch')}` : `🔍 ${t('search:searchButton')}`}
                 </button>
@@ -306,6 +337,7 @@ const NewSearchPage: React.FC = () => {
     passengers,
     selectedFerry,
     isRoundTrip,
+    ports,
   } = useSelector((state: RootState) => state.ferry);
 
   // Check if we have valid search params from Redux
@@ -459,39 +491,52 @@ const NewSearchPage: React.FC = () => {
   const [recommendedFerryId, setRecommendedFerryId] = useState<string | null>(null);
   const [recommendedReturnFerryId, setRecommendedReturnFerryId] = useState<string | null>(null);
 
+  // Helper function to calculate total price for a ferry based on passenger counts
+  const calculateTotalPrice = (ferry: any) => {
+    const adults = searchParams?.passengers?.adults || 1;
+    const children = searchParams?.passengers?.children || 0;
+    const infants = searchParams?.passengers?.infants || 0;
+    const adultPrice = ferry.prices?.adult || Object.values(ferry.prices)[0] || 0;
+    const childPrice = ferry.prices?.child || ferry.prices?.children || adultPrice * 0.5;
+    const infantPrice = ferry.prices?.infant || ferry.prices?.infants || 0;
+    return (adults * adultPrice) + (children * childPrice) + (infants * infantPrice);
+  };
+
   // Debug: Log when search results change and find cheapest to highlight
   useEffect(() => {
     console.log('🔄 Outbound results updated:', searchResults.length, 'ferries');
     if (searchResults.length > 0) {
       console.log('First ferry price:', searchResults[0].prices);
 
-      // Find and highlight the cheapest ferry
+      // Find and highlight the cheapest ferry based on total price
       const cheapestFerry = searchResults.reduce((min, ferry) => {
-        const minPrice = min.prices?.adult || 999999;
-        const currentPrice = ferry.prices?.adult || 999999;
-        return currentPrice < minPrice ? ferry : min;
+        const minTotal = calculateTotalPrice(min);
+        const currentTotal = calculateTotalPrice(ferry);
+        return currentTotal < minTotal ? ferry : min;
       }, searchResults[0]);
 
-      console.log('💡 Recommending cheapest outbound ferry:', cheapestFerry.operator, '€' + cheapestFerry.prices?.adult);
+      console.log('💡 Recommending cheapest outbound ferry:', cheapestFerry.operator, '€' + calculateTotalPrice(cheapestFerry).toFixed(2));
       setRecommendedFerryId(cheapestFerry.sailingId);
     }
-  }, [searchResults]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchResults, searchParams?.passengers]);
 
   // Find cheapest return ferry to highlight
   useEffect(() => {
     console.log('🔄 Return results updated:', returnFerryResults.length, 'ferries');
     if (returnFerryResults.length > 0) {
-      // Find and highlight the cheapest return ferry
+      // Find and highlight the cheapest return ferry based on total price
       const cheapestFerry = returnFerryResults.reduce((min, ferry) => {
-        const minPrice = min.prices?.adult || 999999;
-        const currentPrice = ferry.prices?.adult || 999999;
-        return currentPrice < minPrice ? ferry : min;
+        const minTotal = calculateTotalPrice(min);
+        const currentTotal = calculateTotalPrice(ferry);
+        return currentTotal < minTotal ? ferry : min;
       }, returnFerryResults[0]);
 
-      console.log('💡 Recommending cheapest return ferry:', cheapestFerry.operator, '€' + cheapestFerry.prices?.adult);
+      console.log('💡 Recommending cheapest return ferry:', cheapestFerry.operator, '€' + calculateTotalPrice(cheapestFerry).toFixed(2));
       setRecommendedReturnFerryId(cheapestFerry.sailingId);
     }
-  }, [returnFerryResults]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnFerryResults, searchParams?.passengers]);
 
   // Reset to ferry selection step when mounting the page
   useEffect(() => {
@@ -826,60 +871,48 @@ const NewSearchPage: React.FC = () => {
             onSuccess={handleAlertSuccess}
           />
 
-          {/* Search Summary Bar */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                <div className="flex items-center">
-                  <span className="font-semibold text-gray-700 mr-2">Route:</span>
-                  <span className="text-gray-900">
-                    {PORTS.find(p => p.code === searchParams.departurePort)?.name || searchParams.departurePort}
-                    {' → '}
-                    {PORTS.find(p => p.code === searchParams.arrivalPort)?.name || searchParams.arrivalPort}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <span className="font-semibold text-gray-700 mr-2">Date:</span>
-                  <span className="text-gray-900">
-                    {searchParams.departureDate ? new Date(searchParams.departureDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                  </span>
-                </div>
-                {isRoundTrip && searchParams.returnDate && (
-                  <div className="flex items-center">
-                    <span className="font-semibold text-gray-700 mr-2">Return:</span>
-                    <span className="text-gray-900">
-                      {new Date(searchParams.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center">
-                  <span className="font-semibold text-gray-700 mr-2">Passengers:</span>
-                  <span className="text-gray-900">
-                    {(searchParams.passengers?.adults || 0) + (searchParams.passengers?.children || 0) + (searchParams.passengers?.infants || 0)}
-                  </span>
-                </div>
-                {searchParams.vehicles && searchParams.vehicles.length > 0 && (
-                  <div className="flex items-center">
-                    <span className="font-semibold text-gray-700 mr-2">Vehicles:</span>
-                    <span className="text-gray-900">{searchParams.vehicles.length}</span>
-                  </div>
-                )}
+          {/* Header with Route Info, Save Button, and Edit */}
+          <div ref={resultsRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+            {/* Top row: Title and Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {isSelectingReturn ? t('search:selectReturnFerry') : t('search:selectOutboundFerry')}
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {ports.find(p => p.code === searchParams.departurePort)?.name || searchParams.departurePort}
+                  {' → '}
+                  {ports.find(p => p.code === searchParams.arrivalPort)?.name || searchParams.arrivalPort}
+                  {' • '}
+                  {searchParams.departureDate ? new Date(searchParams.departureDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''}
+                  {isRoundTrip && searchParams.returnDate && (
+                    <span> (Return: {new Date(searchParams.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})</span>
+                  )}
+                  {' • '}
+                  {(searchParams.passengers?.adults || 0) + (searchParams.passengers?.children || 0) + (searchParams.passengers?.infants || 0)} passenger{((searchParams.passengers?.adults || 0) + (searchParams.passengers?.children || 0) + (searchParams.passengers?.infants || 0)) > 1 ? 's' : ''}
+                </p>
               </div>
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit Search
-              </button>
+              <div className="flex items-center gap-3">
+                {searchParams.departurePort && searchParams.arrivalPort && (
+                  <SaveRouteButton
+                    departurePort={searchParams.departurePort}
+                    arrivalPort={searchParams.arrivalPort}
+                    price={searchResults[0]?.prices?.adult}
+                    searchDate={searchParams.departureDate}
+                  />
+                )}
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit
+                </button>
+              </div>
             </div>
           </div>
-
-          <h1 ref={resultsRef} className="text-3xl font-bold text-gray-900 mb-6">
-            {isSelectingReturn ? t('search:selectReturnFerry') : t('search:selectOutboundFerry')}
-          </h1>
 
           {/* Show selected outbound ferry when selecting return */}
           {isSelectingReturn && selectedFerry && (
@@ -901,7 +934,7 @@ const NewSearchPage: React.FC = () => {
 
           {/* Date Price Selector - Show for both outbound and return selection */}
           {searchParams.departurePort && searchParams.arrivalPort && !isSearching && !isSearchingReturn && (
-            <div className="mb-6 bg-white rounded-lg shadow-md p-6">
+            <div className="mb-6 bg-white rounded-lg shadow-md p-4 sm:p-6 mx-auto" style={{ maxWidth: '900px' }}>
               {isSelectingReturn && searchParams.returnDate ? (
                 <DatePriceSelector
                   key={`return-${searchParams.returnDeparturePort || searchParams.arrivalPort}-${searchParams.returnArrivalPort || searchParams.departurePort}-${searchParams.passengers?.adults || 1}`}
@@ -1018,8 +1051,8 @@ const NewSearchPage: React.FC = () => {
                         </div>
                         <div className="text-gray-600 text-sm">{ferry.vesselName}</div>
                         {isRecommended && (
-                          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                            <span>⭐</span> Best Price
+                          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse">
+                            <span>⭐</span> {t('search:results.bestPrice', 'Best Price')}
                           </div>
                         )}
                       </div>
@@ -1186,11 +1219,57 @@ const NewSearchPage: React.FC = () => {
                     </div>
 
                     <div className="mt-4 md:mt-0 md:ml-6 md:text-right">
-                      <p className="text-gray-600 text-sm mb-1">{t('search:results.from')}</p>
-                      <p className="text-3xl font-bold text-blue-600 mb-2">
-                        €{(ferry.prices?.adult || Object.values(ferry.prices)[0] || 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-500 mb-2">{t('search:results.perAdult')}</p>
+                      {(() => {
+                        const adults = searchParams?.passengers?.adults || 1;
+                        const children = searchParams?.passengers?.children || 0;
+                        const infants = searchParams?.passengers?.infants || 0;
+                        const adultPrice = ferry.prices?.adult || Object.values(ferry.prices)[0] || 0;
+                        const childPrice = ferry.prices?.child || ferry.prices?.children || adultPrice * 0.5;
+                        const infantPrice = ferry.prices?.infant || ferry.prices?.infants || 0;
+                        const totalPrice = (adults * adultPrice) + (children * childPrice) + (infants * infantPrice);
+                        const hasMultiplePassengerTypes = children > 0 || infants > 0 || adults > 1;
+
+                        return (
+                          <>
+                            {hasMultiplePassengerTypes ? (
+                              <div className="space-y-1 mb-2">
+                                {adults > 0 && (
+                                  <div className="flex justify-end items-center gap-2 text-sm">
+                                    <span className="text-gray-600">{adults}x {t('search:passengers.adults')}</span>
+                                    <span className="text-gray-800 font-medium">€{(adults * adultPrice).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {children > 0 && (
+                                  <div className="flex justify-end items-center gap-2 text-sm">
+                                    <span className="text-gray-600">{children}x {t('search:passengers.children')}</span>
+                                    <span className="text-gray-800 font-medium">€{(children * childPrice).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {infants > 0 && (
+                                  <div className="flex justify-end items-center gap-2 text-sm">
+                                    <span className="text-gray-600">{infants}x {t('search:passengers.infants')}</span>
+                                    <span className="text-gray-800 font-medium">€{(infants * infantPrice).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                <div className="border-t border-gray-200 pt-1 mt-1">
+                                  <div className="flex justify-end items-center gap-2">
+                                    <span className="text-gray-700 font-medium">{t('search:results.total', 'Total')}</span>
+                                    <span className="text-2xl font-bold text-blue-600">€{totalPrice.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-gray-600 text-sm mb-1">{t('search:results.from')}</p>
+                                <p className="text-3xl font-bold text-blue-600 mb-2">
+                                  €{adultPrice.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-gray-500 mb-2">{t('search:results.perAdult')}</p>
+                              </>
+                            )}
+                          </>
+                        );
+                      })()}
                       {(() => {
                         // Check if there are enough passenger seats
                         const passengerSpaces = ferry.availableSpaces?.passengers || (ferry as any).available_spaces?.passengers || 0;

@@ -24,6 +24,8 @@
     "removeVehicle": "Retirer le Véhicule",
     "vehicleType": "Type de Véhicule",
     "vehicleLength": "Longueur du Véhicule",
+    "vehicle": "Véhicule",
+    "noVehicles": "Aucun véhicule ajouté. Cliquez sur \"Ajouter un Véhicule\" pour voyager avec un véhicule.",
     "selectPort": "Sélectionner un port",
     "selectDate": "Sélectionner une date",
     "differentReturnRoute": "Itinéraire de retour différent (par ex., retour depuis un port différent)",
@@ -67,7 +69,10 @@
     "motorcycle": "Moto",
     "camper": "Camping-car",
     "caravan": "Caravane",
-    "truck": "Camion"
+    "truck": "Camion",
+    "jetski": "Jet Ski",
+    "boat": "Bateau/Remorque",
+    "bicycle": "Vélo"
   },
   "results": {
     "title": "Ferries Disponibles",
@@ -85,6 +90,8 @@
     "perPerson": "par personne",
     "select": "Sélectionner",
     "selectButton": "Sélectionner",
+    "total": "Total",
+    "bestPrice": "Meilleur Prix",
     "seatsAvailable": "{{count}} place disponible",
     "seatsAvailable_plural": "{{count}} places disponibles",
     "soldOut": "Complet",

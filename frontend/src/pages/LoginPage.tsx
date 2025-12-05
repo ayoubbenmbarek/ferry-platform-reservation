@@ -32,6 +32,7 @@ const LoginPage: React.FC = () => {
   const location = useLocation();
   const { isAuthenticated, isLoading, error } = useSelector((state: RootState) => state.auth);
   const googleButtonRef = useRef<HTMLDivElement>(null);
+  const googleInitializedRef = useRef(false);
 
   // Get the redirect path from query params or location state, default to home
   const searchParams = new URLSearchParams(location.search);
@@ -82,8 +83,15 @@ const LoginPage: React.FC = () => {
 
   // Initialize Google Sign-In
   useEffect(() => {
+    // Prevent duplicate initialization in React 18 Strict Mode
+    if (googleInitializedRef.current) {
+      return;
+    }
+
     const initializeGoogleSignIn = () => {
-      if (window.google && googleButtonRef.current) {
+      if (window.google && googleButtonRef.current && !googleInitializedRef.current) {
+        googleInitializedRef.current = true;
+
         window.google.accounts.id.initialize({
           client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
           callback: handleGoogleResponse,
@@ -108,7 +116,7 @@ const LoginPage: React.FC = () => {
       initializeGoogleSignIn();
     } else {
       const checkGoogle = setInterval(() => {
-        if (window.google) {
+        if (window.google && !googleInitializedRef.current) {
           clearInterval(checkGoogle);
           initializeGoogleSignIn();
         }

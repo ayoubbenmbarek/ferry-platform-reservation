@@ -92,120 +92,61 @@ class MockFerryIntegration(BaseFerryIntegration):
                 # Calculate arrival time
                 arrival_dt = departure_dt + timedelta(hours=route_info["duration_hours"])
 
-                # Generate prices (vary by sailing)
-                base_price = random.randint(60, 120)
-                price_multiplier = 1 + (i * 0.15)  # Later sailings slightly cheaper
+                # Generate prices (deterministic based on route, date, and operator for consistency)
+                # This ensures price alerts can track real changes, not random fluctuations
+                route_hash = hash(f"{departure_port}{arrival_port}{self.operator_name}")
+                date_hash = hash(search_request.departure_date.isoformat())
+
+                # Base price between 60-120, deterministic per route+operator
+                base_price = 60 + (abs(route_hash) % 61)
+
+                # Add small daily variation (±10%) to simulate real price changes
+                daily_variation = 0.9 + (abs(date_hash) % 21) / 100  # 0.90 to 1.10
+                base_price = round(base_price * daily_variation)
+
+                price_multiplier = 1 + (i * 0.15)  # Later sailings slightly more expensive
 
                 prices = {
                     "adult": round(base_price * price_multiplier, 2),
                     "child": round(base_price * price_multiplier * 0.5, 2),
                     "infant": 0.0,
-                    "vehicle": round(random.randint(100, 180), 2)
+                    "vehicle": round(100 + (abs(route_hash) % 81), 2)  # 100-180, deterministic
                 }
 
-                # Generate cabin options
-                # For PALERMO-TUNIS route (short crossing), no cabins available - deck seats only
-                if route_key == ("PALERMO", "TUNIS"):
-                    cabin_types = [
-                        {
-                            "type": "interior",
-                            "name": "Interior Cabin",
-                            "price": round(random.uniform(20, 35), 2),
-                            "available": 0  # No cabins available
-                        },
-                        {
-                            "type": "exterior",
-                            "name": "Exterior Cabin",
-                            "price": round(random.uniform(35, 55), 2),
-                            "available": 0  # No cabins available
-                        },
-                        {
-                            "type": "balcony",
-                            "name": "Balcony Cabin",
-                            "price": round(random.uniform(60, 90), 2),
-                            "available": 0  # No cabins available
-                        },
-                        {
-                            "type": "suite",
-                            "name": "Suite",
-                            "price": round(random.uniform(80, 150), 2),
-                            "available": 0  # No cabins available
-                        },
-                        {
-                            "type": "deck",
-                            "name": "Deck Seat",
-                            "price": 0.0,
-                            "available": random.randint(50, 100)  # Plenty of deck seats
-                        }
-                    ]
-                elif self.operator_name == "Corsica Lines":
-                    # Corsica Lines: Cabins NOW AVAILABLE (to trigger notification)
-                    cabin_types = [
-                        {
-                            "type": "interior",
-                            "name": "Interior Cabin",
-                            "price": round(random.uniform(20, 35), 2),
-                            "available": random.randint(3, 15)  # NOW AVAILABLE!
-                        },
-                        {
-                            "type": "exterior",
-                            "name": "Exterior Cabin",
-                            "price": round(random.uniform(35, 55), 2),
-                            "available": random.randint(2, 10)  # NOW AVAILABLE!
-                        },
-                        {
-                            "type": "balcony",
-                            "name": "Balcony Cabin",
-                            "price": round(random.uniform(60, 90), 2),
-                            "available": random.randint(1, 8)  # NOW AVAILABLE!
-                        },
-                        {
-                            "type": "suite",
-                            "name": "Suite",
-                            "price": round(random.uniform(80, 150), 2),
-                            "available": random.randint(1, 5)  # NOW AVAILABLE!
-                        },
-                        {
-                            "type": "deck",
-                            "name": "Deck Seat",
-                            "price": 0.0,
-                            "available": random.randint(20, 50)
-                        }
-                    ]
-                else:
-                    # Normal routes have cabins available
-                    cabin_types = [
-                        {
-                            "type": "interior",
-                            "name": "Interior Cabin",
-                            "price": round(random.uniform(20, 35), 2),
-                            "available": random.randint(3, 15)
-                        },
-                        {
-                            "type": "exterior",
-                            "name": "Exterior Cabin",
-                            "price": round(random.uniform(35, 55), 2),
-                            "available": random.randint(2, 10)
-                        },
-                        {
-                            "type": "balcony",
-                            "name": "Balcony Cabin",
-                            "price": round(random.uniform(60, 90), 2),
-                            "available": random.randint(1, 8)
-                        },
-                        {
-                            "type": "suite",
-                            "name": "Suite",
-                            "price": round(random.uniform(80, 150), 2),
-                            "available": random.randint(1, 5)
-                        },
-                        {
-                            "type": "deck",
-                            "name": "Deck Seat",
-                            "price": 0.0,
-                            "available": random.randint(20, 50)
-                        }
-                    ]
+                # Generate cabin options with deterministic prices
+                cabin_base = 20 + (abs(route_hash) % 16)  # 20-35 base for interior
+                cabin_types = [
+                    {
+                        "type": "interior",
+                        "name": "Interior Cabin",
+                        "price": round(cabin_base, 2),
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 8
+                    },
+                    {
+                        "type": "exterior",
+                        "name": "Exterior Cabin",
+                        "price": round(cabin_base * 1.7, 2),  # ~35-60
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 5
+                    },
+                    {
+                        "type": "balcony",
+                        "name": "Balcony Cabin",
+                        "price": round(cabin_base * 2.5, 2),  # ~50-90
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 3
+                    },
+                    {
+                        "type": "suite",
+                        "name": "Suite",
+                        "price": round(cabin_base * 4, 2),  # ~80-140
+                        "available": 0 if route_key == ("PALERMO", "TUNIS") else 2
+                    },
+                    {
+                        "type": "deck",
+                        "name": "Deck Seat",
+                        "price": 0.0,
+                        "available": 50
+                    }
+                ]
 
                 # Set available spaces
                 # Normal availability for all routes

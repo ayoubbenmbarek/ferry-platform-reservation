@@ -824,7 +824,7 @@ async def send_welcome_email(email: str, first_name: str, verification_token: st
 
 ---
 
-## 💡 Suggested Additional Features
+ nwvcgfb## 💡 Suggested Additional Features
 
 ### User Experience
 - [ ] **Saved Passenger Profiles** - Quick booking with saved travelers
@@ -861,7 +861,7 @@ TODO:choose meals:done
 TODO all remaining previous steps like refund, cancel bookin etc etc;done
 TODO:real api integration
 TODO:Devops best practice
-TODO: add apple pay
+TODO: add apple paywqXDXDFXDFXDXDWS              GYFFGTYHSDUIDVGHQJHWBwbhjbh  n  n  
 
 Everything is now documented and ready to implement! 🚀
 

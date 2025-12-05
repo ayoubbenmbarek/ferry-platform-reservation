@@ -344,6 +344,18 @@ class InvoiceService:
                     f"{currency} {meal_total:.2f}"
                 ])
 
+        # Cancellation Protection
+        extra_data = booking.get('extra_data', {}) or {}
+        has_cancellation_protection = extra_data.get('has_cancellation_protection', False)
+        if has_cancellation_protection:
+            protection_price = 15.00  # Fixed price for cancellation protection
+            pricing_data.append([
+                'Cancellation Protection',
+                '1',
+                f"{currency} {protection_price:.2f}",
+                f"{currency} {protection_price:.2f}"
+            ])
+
         # Tax
         tax_amount = float(booking.get('tax_amount', 0))
         if tax_amount > 0:

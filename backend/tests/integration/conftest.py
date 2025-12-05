@@ -30,20 +30,22 @@ from app.api.v1.auth import create_access_token, get_password_hash
 # Check if we're using Docker database (set in root conftest.py)
 USE_DOCKER_DB = os.environ.get("TEST_USE_DOCKER", "").lower() in ("true", "1", "yes")
 
-# Create our own test engine with the correct DATABASE_URL from environment
-# (set by root conftest.py before any imports)
-if USE_DOCKER_DB:
-    # PostgreSQL for Docker
-    TEST_ENGINE = create_engine(
-        os.environ["DATABASE_URL"],
-        pool_pre_ping=True,
-    )
-else:
+# Get DATABASE_URL from environment (set by root conftest.py before any imports)
+_test_db_url = os.environ.get("DATABASE_URL", "sqlite:///:memory:")
+
+# Create engine based on actual database URL (more reliable than USE_DOCKER_DB flag)
+if _test_db_url.startswith("sqlite"):
     # SQLite for fast isolated tests
     TEST_ENGINE = create_engine(
-        os.environ["DATABASE_URL"],
+        _test_db_url,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+    )
+else:
+    # PostgreSQL for Docker/CI
+    TEST_ENGINE = create_engine(
+        _test_db_url,
+        pool_pre_ping=True,
     )
 
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=TEST_ENGINE)
@@ -200,8 +202,8 @@ def test_booking(db_session: Session, test_user: User) -> Booking:
         operator="CTN",
         departure_port="Tunis",
         arrival_port="Marseille",
-        departure_time=datetime.utcnow() + timedelta(days=7),
-        arrival_time=datetime.utcnow() + timedelta(days=7, hours=20),
+        departure_time=datetime.utcnow() + timedelta(days=14),
+        arrival_time=datetime.utcnow() + timedelta(days=14, hours=20),
         vessel_name="Test Vessel",
         booking_reference="MR-INTTEST001",
         contact_email="testuser@example.com",

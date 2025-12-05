@@ -69,6 +69,7 @@ class PaymentCreate(BaseModel):
     billing_address: Optional[BillingAddress] = None
     save_payment_method: bool = False
     metadata: Optional[Dict[str, Any]] = None  # For cabin upgrade info, etc.
+    is_upgrade: bool = False  # For cabin upgrades on already-paid bookings
 
     @field_validator('amount')
     @classmethod

@@ -92,12 +92,22 @@ from app.models.availability_alert import AvailabilityAlert
 from app.models.meal import Meal, BookingMeal
 
 
-# Test database engine using in-memory SQLite
-TEST_ENGINE = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+# Test database engine - conditionally configure based on database type
+_test_db_url = os.environ.get("DATABASE_URL", "sqlite:///:memory:")
+
+if _test_db_url.startswith("sqlite"):
+    # SQLite needs check_same_thread=False for FastAPI compatibility
+    TEST_ENGINE = create_engine(
+        _test_db_url,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+else:
+    # PostgreSQL doesn't need (and doesn't support) check_same_thread
+    TEST_ENGINE = create_engine(
+        _test_db_url,
+        pool_pre_ping=True,
+    )
 
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=TEST_ENGINE)
 

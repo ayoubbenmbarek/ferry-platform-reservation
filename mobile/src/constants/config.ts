@@ -26,7 +26,7 @@ const getDevApiUrl = () => {
   }
 
   // Fallback for different platforms
-  if (Platform.OS === 'android') {
+  if (Platform?.OS === 'android') {
     // Android emulator uses 10.0.2.2 to access host machine
     console.log('[Config] Using Android emulator URL: 10.0.2.2');
     return 'http://10.0.2.2:8010/api/v1';
@@ -69,7 +69,7 @@ const getChatbotUrl = () => {
 
   // Fallback for different platforms in dev
   if (__DEV__) {
-    if (Platform.OS === 'android') {
+    if (Platform?.OS === 'android') {
       return 'http://10.0.2.2:3100';
     }
     return 'http://localhost:3100';

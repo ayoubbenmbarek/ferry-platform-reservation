@@ -50,16 +50,19 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Auto-clear arrival port if it matches departure port (for both main and return routes)
+  // We intentionally only trigger when departure port changes, not when arrival port changes
   useEffect(() => {
     if (form.arrivalPort && form.arrivalPort === form.departurePort) {
       setForm(prev => ({ ...prev, arrivalPort: '' }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.departurePort]);
 
   useEffect(() => {
     if (form.returnArrivalPort && form.returnArrivalPort === form.returnDeparturePort) {
       setForm(prev => ({ ...prev, returnArrivalPort: '' }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.returnDeparturePort]);
 
   const validate = (): boolean => {

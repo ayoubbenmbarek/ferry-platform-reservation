@@ -71,10 +71,12 @@ const NewHomePage: React.FC = () => {
   }, [form.departurePort, form.arrivalPort]);
 
   // Auto-clear return arrival port if it matches return departure port
+  // We intentionally only trigger when departure port changes, not when arrival port changes
   useEffect(() => {
     if (form.returnArrivalPort && form.returnArrivalPort === form.returnDeparturePort) {
       setForm(prev => ({ ...prev, returnArrivalPort: '' }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.returnDeparturePort]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});

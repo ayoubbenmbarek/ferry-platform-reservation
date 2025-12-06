@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Modal,
 } from 'react-native';
 import { Text, TextInput, Card, Button, Switch, Divider, Chip } from 'react-native-paper';
@@ -33,6 +32,7 @@ import { ferryService } from '../services/ferryService';
 import { RootStackParamList, Passenger, PassengerType, Cabin, Meal, Vehicle, VehicleType } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { CANCELLATION_PROTECTION_PRICE } from '../constants/config';
+import RunningBear from '../components/RunningBear';
 
 // Vehicle type display info
 const VEHICLE_TYPE_INFO: Record<string, { icon: string; label: string }> = {
@@ -705,10 +705,7 @@ export default function BookingScreen() {
             )}
 
             {isLoadingCabins ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Loading cabins...</Text>
-              </View>
+              <RunningBear message="Loading cabins" fullScreen={false} />
             ) : cabins.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="bed-outline" size={48} color={colors.textSecondary} />
@@ -872,10 +869,7 @@ export default function BookingScreen() {
             )}
 
             {isLoadingMeals ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Loading meals...</Text>
-              </View>
+              <RunningBear message="Loading meals" fullScreen={false} />
             ) : meals.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="restaurant-outline" size={48} color={colors.textSecondary} />

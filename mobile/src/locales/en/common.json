@@ -1,0 +1,85 @@
+{
+  "appName": "Maritime Reservations",
+  "nav": {
+    "home": "Home",
+    "search": "Search",
+    "myBookings": "My Bookings",
+    "findBooking": "Find My Booking",
+    "login": "Login",
+    "register": "Sign Up",
+    "logout": "Logout",
+    "profile": "Profile & Settings",
+    "admin": "Admin",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "footer": {
+    "copyright": "© 2024 Maritime Reservations. All rights reserved.",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "help": "Help Center"
+  },
+  "language": {
+    "select": "Select Language",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "EUR",
+    "usd": "USD",
+    "gbp": "GBP"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "selectDate": "Select Date",
+    "selectTime": "Select Time",
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "invalidPhone": "Invalid phone number"
+  },
+  "date": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday"
+  },
+  "features": {
+    "compareOperators": "Compare prices • Multiple operators • Easy booking",
+    "whyBookTitle": "Why Book With Us?",
+    "whyBookSubtitle": "The easiest way to book ferry crossings to Tunisia",
+    "bestPricesTitle": "Best Prices",
+    "bestPricesDesc": "Compare prices from CTN, GNV, Corsica Lines, and Danel Casanova in one search",
+    "instantConfirmationTitle": "Instant Confirmation",
+    "instantConfirmationDesc": "Get your booking confirmed immediately with e-tickets sent to your email",
+    "securePaymentTitle": "Secure Payment",
+    "securePaymentDesc": "Your payment information is encrypted and secure with Stripe",
+    "popularRoutesTitle": "Popular Routes",
+    "popularRoutesSubtitle": "Most searched ferry routes to Tunisia",
+    "viewSchedules": "View Schedules",
+    "from": "from"
+  },
+  "bookingStatus": {
+    "all": "All",
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "paid": "Paid",
+    "filterByStatus": "Filter by status"
+  }
+}

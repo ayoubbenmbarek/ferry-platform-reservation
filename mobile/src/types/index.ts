@@ -7,6 +7,8 @@ export interface User {
   phone?: string;
   is_admin: boolean;
   is_verified: boolean;
+  preferred_language?: string;
+  preferred_currency?: string;
   created_at: string;
 }
 
@@ -239,6 +241,12 @@ export type RootStackParamList = {
   Profile: undefined;
   Settings: undefined;
   NotificationSettings: undefined;
+  PersonalInfo: undefined;
+  ChangePassword: undefined;
+  LanguageSettings: undefined;
+  CurrencySettings: undefined;
+  PaymentMethods: undefined;
+  Contact: undefined;
 };
 
 // Cabin Upgrade Payment Params

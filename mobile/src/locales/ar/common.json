@@ -1,0 +1,61 @@
+{
+  "appName": "الحجوزات البحرية",
+  "nav": {
+    "home": "الرئيسية",
+    "search": "بحث",
+    "myBookings": "حجوزاتي",
+    "findBooking": "البحث عن حجز",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج",
+    "profile": "الملف الشخصي والإعدادات",
+    "admin": "لوحة الإدارة",
+    "about": "من نحن",
+    "contact": "اتصل بنا"
+  },
+  "footer": {
+    "copyright": "© 2024 الحجوزات البحرية. جميع الحقوق محفوظة.",
+    "terms": "شروط الخدمة",
+    "privacy": "سياسة الخصوصية",
+    "help": "مركز المساعدة"
+  },
+  "language": {
+    "select": "اختر اللغة",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "يورو",
+    "usd": "دولار",
+    "gbp": "جنيه"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ",
+    "success": "نجح",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "submit": "إرسال",
+    "close": "إغلاق",
+    "yes": "نعم",
+    "no": "لا",
+    "selectDate": "اختر التاريخ",
+    "selectTime": "اختر الوقت",
+    "required": "هذا الحقل مطلوب",
+    "invalidEmail": "عنوان البريد الإلكتروني غير صحيح",
+    "invalidPhone": "رقم الهاتف غير صحيح"
+  },
+  "date": {
+    "today": "اليوم",
+    "tomorrow": "غداً",
+    "yesterday": "أمس"
+  }
+}

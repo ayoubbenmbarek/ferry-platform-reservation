@@ -7,7 +7,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator, Divider, SegmentedButtons } from 'react-native-paper';
+import { Text, Card, Chip, Divider, SegmentedButtons } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,6 +25,7 @@ import {
 import { AvailabilityAlert, AlertStatus, AlertType } from '../services/alertService';
 import { RootStackParamList } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
+import RunningBear from '../components/RunningBear';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -337,10 +338,7 @@ export default function MyAlertsScreen() {
       </View>
 
       {isLoading && alerts.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your alerts...</Text>
-        </View>
+        <RunningBear message="Loading your alerts" fullScreen={false} />
       ) : filteredAlerts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="notifications-off-outline" size={80} color={colors.textSecondary} />

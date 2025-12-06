@@ -7,7 +7,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator, Menu, Divider } from 'react-native-paper';
+import { Text, Card, Chip, Menu, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -28,6 +28,7 @@ import {
   fetchPriceAlertStats,
 } from '../store/slices/priceAlertSlice';
 import { PriceAlert } from '../services/priceAlertService';
+import LoadingScreen from '../components/LoadingScreen';
 import { RootStackParamList } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
 
@@ -325,14 +326,7 @@ export default function SavedRoutesScreen() {
   );
 
   if (isLoading && savedRoutes.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading saved routes...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Loading saved routes" />;
   }
 
   return (

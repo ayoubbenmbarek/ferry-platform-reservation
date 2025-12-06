@@ -8,7 +8,7 @@ import {
   Share,
   TouchableOpacity,
 } from 'react-native';
-import { Text, Card, Button, Chip, Divider, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Button, Chip, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,6 +26,7 @@ import { RootStackParamList, Booking, BookingStatus } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { CANCELLATION_RESTRICTION_DAYS, API_BASE_URL } from '../constants/config';
 import CabinAlertForBooking from '../components/CabinAlertForBooking';
+import LoadingScreen from '../components/LoadingScreen';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'BookingDetails'>;
@@ -281,14 +282,7 @@ export default function BookingDetailsScreen() {
   };
 
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading booking...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Loading booking" />;
   }
 
   if (!booking || error) {

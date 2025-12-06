@@ -5,7 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +21,7 @@ import AvailabilityBadge from '../components/AvailabilityBadge';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import { AlertType } from '../services/alertService';
 import SaveRouteButton from '../components/SaveRouteButton';
+import LoadingScreen from '../components/LoadingScreen';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'SearchResults'>;
@@ -277,14 +278,7 @@ export default function SearchResultsScreen() {
   };
 
   if (isSearching) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Searching for ferries...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Searching for ferries" />;
   }
 
   const currentResults = showReturn ? returnResults : outboundResults;

@@ -37,7 +37,6 @@ export const login = createAsyncThunk(
 
       return response;
     } catch (error: any) {
-      console.error('AuthSlice login error:', error.message);
       return rejectWithValue(error.message || 'Login failed. Please try again.');
     }
   }

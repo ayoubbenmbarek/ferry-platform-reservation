@@ -1,6 +1,8 @@
 import React, { Suspense, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
+import { RootState } from './store';
 
 import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
@@ -41,6 +43,8 @@ const AdminPromoCodes = React.lazy(() => import('./pages/AdminPromoCodes'));
 
 function App() {
   const dispatch = useDispatch();
+  const { i18n } = useTranslation();
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // Validate stored token on app initialization
   useEffect(() => {
@@ -50,6 +54,13 @@ function App() {
       dispatch(getCurrentUser());
     }
   }, [dispatch]); // Only run once on mount
+
+  // Apply user's preferred language when user data loads
+  useEffect(() => {
+    if (user?.preferredLanguage && user.preferredLanguage !== i18n.language) {
+      i18n.changeLanguage(user.preferredLanguage);
+    }
+  }, [user?.preferredLanguage, i18n]);
 
   // Handle chunk loading errors (outdated cache on mobile)
   useEffect(() => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform, Linking } from 'react-native';
-import { Text, Card, Button, ActivityIndicator, Divider, Checkbox } from 'react-native-paper';
+import { Text, Card, Button, Divider, Checkbox } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,6 +17,7 @@ import { alertService } from '../services/alertService';
 import { RootStackParamList, Booking, Cabin, Meal, CabinUpgradePaymentParams } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
 import { CANCELLATION_PROTECTION_PRICE } from '../constants/config';
+import LoadingScreen from '../components/LoadingScreen';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'Payment'>;
@@ -318,14 +319,7 @@ export default function PaymentScreen() {
   };
 
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading booking details...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Loading booking details" />;
   }
 
   if (!booking) {

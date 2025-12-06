@@ -4,7 +4,7 @@ Payment API endpoints for handling Stripe payments.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import stripe
 import os
@@ -16,12 +16,15 @@ logger = logging.getLogger(__name__)
 from app.database import get_db
 from app.models.user import User
 from app.models.booking import Booking, BookingStatusEnum
-from app.models.payment import Payment, PaymentStatusEnum, PaymentMethodEnum
+from app.models.payment import Payment, PaymentMethod as PaymentMethodModel, PaymentStatusEnum, PaymentMethodEnum
 from app.schemas.payment import (
     PaymentCreate,
     PaymentResponse,
     PaymentIntent,
     PaymentConfirmation,
+    PaymentMethodCreate,
+    PaymentMethodResponse,
+    PaymentMethodUpdate,
 )
 from app.api.v1.auth import get_current_active_user
 from app.api.deps import get_optional_current_user
@@ -645,3 +648,265 @@ async def stripe_webhook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Webhook error: {str(e)}",
         )
+
+
+# ==================== Saved Payment Methods Endpoints ====================
+
+@router.get("/saved-methods", response_model=List[PaymentMethodResponse])
+async def get_saved_payment_methods(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all saved payment methods for the current user.
+    """
+    methods = (
+        db.query(PaymentMethodModel)
+        .filter(
+            PaymentMethodModel.user_id == current_user.id,
+            PaymentMethodModel.is_active == True,
+        )
+        .order_by(PaymentMethodModel.is_default.desc(), PaymentMethodModel.created_at.desc())
+        .all()
+    )
+    return methods
+
+
+@router.post("/saved-methods", response_model=PaymentMethodResponse)
+async def add_saved_payment_method(
+    method_data: PaymentMethodCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Add a new saved payment method (card) for the user.
+    Requires a Stripe payment method ID from the frontend.
+    """
+    try:
+        # Verify the Stripe payment method exists and get card details
+        if method_data.stripe_payment_method_id:
+            stripe_pm = stripe.PaymentMethod.retrieve(method_data.stripe_payment_method_id)
+
+            # Attach the payment method to the customer (create customer if needed)
+            # First check if user has a Stripe customer ID
+            stripe_customer_id = getattr(current_user, 'stripe_customer_id', None)
+
+            if not stripe_customer_id:
+                # Create a new Stripe customer
+                customer = stripe.Customer.create(
+                    email=current_user.email,
+                    name=f"{current_user.first_name} {current_user.last_name}",
+                    metadata={"user_id": current_user.id},
+                )
+                stripe_customer_id = customer.id
+                # Note: You may want to save this to the user model
+
+            # Attach payment method to customer
+            stripe.PaymentMethod.attach(
+                method_data.stripe_payment_method_id,
+                customer=stripe_customer_id,
+            )
+
+            card = stripe_pm.card
+            card_last_four = card.last4 if card else None
+            card_brand = card.brand if card else None
+            card_exp_month = card.exp_month if card else None
+            card_exp_year = card.exp_year if card else None
+        else:
+            card_last_four = None
+            card_brand = None
+            card_exp_month = None
+            card_exp_year = None
+
+        # If this is set as default, remove default from other methods
+        if method_data.is_default:
+            db.query(PaymentMethodModel).filter(
+                PaymentMethodModel.user_id == current_user.id,
+                PaymentMethodModel.is_default == True,
+            ).update({"is_default": False})
+
+        # Create the payment method record
+        payment_method = PaymentMethodModel(
+            user_id=current_user.id,
+            method_type=PaymentMethodEnum[method_data.method_type.name],
+            is_default=method_data.is_default,
+            stripe_payment_method_id=method_data.stripe_payment_method_id,
+            card_last_four=card_last_four,
+            card_brand=card_brand,
+            card_exp_month=card_exp_month,
+            card_exp_year=card_exp_year,
+            billing_name=method_data.billing_address.name if method_data.billing_address else None,
+            billing_address_line1=method_data.billing_address.address_line1 if method_data.billing_address else None,
+            billing_address_line2=method_data.billing_address.address_line2 if method_data.billing_address else None,
+            billing_city=method_data.billing_address.city if method_data.billing_address else None,
+            billing_state=method_data.billing_address.state if method_data.billing_address else None,
+            billing_postal_code=method_data.billing_address.postal_code if method_data.billing_address else None,
+            billing_country=method_data.billing_address.country if method_data.billing_address else None,
+            is_active=True,
+        )
+
+        db.add(payment_method)
+        db.commit()
+        db.refresh(payment_method)
+
+        return payment_method
+
+    except stripe.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Stripe error: {str(e)}",
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error adding payment method: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add payment method: {str(e)}",
+        )
+
+
+@router.patch("/saved-methods/{method_id}", response_model=PaymentMethodResponse)
+async def update_saved_payment_method(
+    method_id: int,
+    update_data: PaymentMethodUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update a saved payment method (set as default, update billing address).
+    """
+    # Find the payment method
+    payment_method = (
+        db.query(PaymentMethodModel)
+        .filter(
+            PaymentMethodModel.id == method_id,
+            PaymentMethodModel.user_id == current_user.id,
+            PaymentMethodModel.is_active == True,
+        )
+        .first()
+    )
+
+    if not payment_method:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment method not found",
+        )
+
+    # Update default status
+    if update_data.is_default is True:
+        # Remove default from other methods first
+        db.query(PaymentMethodModel).filter(
+            PaymentMethodModel.user_id == current_user.id,
+            PaymentMethodModel.is_default == True,
+            PaymentMethodModel.id != method_id,
+        ).update({"is_default": False})
+        payment_method.is_default = True
+    elif update_data.is_default is False:
+        payment_method.is_default = False
+
+    # Update billing address if provided
+    if update_data.billing_address:
+        payment_method.billing_name = update_data.billing_address.name
+        payment_method.billing_address_line1 = update_data.billing_address.address_line1
+        payment_method.billing_address_line2 = update_data.billing_address.address_line2
+        payment_method.billing_city = update_data.billing_address.city
+        payment_method.billing_state = update_data.billing_address.state
+        payment_method.billing_postal_code = update_data.billing_address.postal_code
+        payment_method.billing_country = update_data.billing_address.country
+
+    db.commit()
+    db.refresh(payment_method)
+
+    return payment_method
+
+
+@router.delete("/saved-methods/{method_id}")
+async def delete_saved_payment_method(
+    method_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete (deactivate) a saved payment method.
+    """
+    # Find the payment method
+    payment_method = (
+        db.query(PaymentMethodModel)
+        .filter(
+            PaymentMethodModel.id == method_id,
+            PaymentMethodModel.user_id == current_user.id,
+            PaymentMethodModel.is_active == True,
+        )
+        .first()
+    )
+
+    if not payment_method:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment method not found",
+        )
+
+    try:
+        # Detach from Stripe if it has a Stripe payment method ID
+        if payment_method.stripe_payment_method_id:
+            try:
+                stripe.PaymentMethod.detach(payment_method.stripe_payment_method_id)
+            except stripe.StripeError as e:
+                # Log but don't fail - the method may already be detached
+                logger.warning(f"Could not detach Stripe payment method: {str(e)}")
+
+        # Soft delete (deactivate)
+        payment_method.is_active = False
+        payment_method.is_default = False
+
+        db.commit()
+
+        return {"message": "Payment method deleted successfully"}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete payment method: {str(e)}",
+        )
+
+
+@router.post("/saved-methods/{method_id}/set-default", response_model=PaymentMethodResponse)
+async def set_default_payment_method(
+    method_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Set a payment method as the default.
+    """
+    # Find the payment method
+    payment_method = (
+        db.query(PaymentMethodModel)
+        .filter(
+            PaymentMethodModel.id == method_id,
+            PaymentMethodModel.user_id == current_user.id,
+            PaymentMethodModel.is_active == True,
+        )
+        .first()
+    )
+
+    if not payment_method:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment method not found",
+        )
+
+    # Remove default from all other methods
+    db.query(PaymentMethodModel).filter(
+        PaymentMethodModel.user_id == current_user.id,
+        PaymentMethodModel.is_default == True,
+    ).update({"is_default": False})
+
+    # Set this one as default
+    payment_method.is_default = True
+
+    db.commit()
+    db.refresh(payment_method)
+
+    return payment_method

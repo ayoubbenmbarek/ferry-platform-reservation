@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { Text, Card, Chip, Button, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Chip, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,6 +20,7 @@ import { Booking, BookingStatus } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import { useNetwork } from '../../contexts/NetworkContext';
 import { offlineService } from '../../services/offlineService';
+import LoadingScreen from '../../components/LoadingScreen';
 
 // Booking expiration time in minutes
 const BOOKING_EXPIRATION_MINUTES = 30;
@@ -345,14 +346,7 @@ export default function BookingsScreen() {
 
   // Loading
   if (isLoadingBookings && displayedBookings.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your bookings...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Loading your bookings" />;
   }
 
   // Empty state

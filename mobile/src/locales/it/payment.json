@@ -1,0 +1,102 @@
+{
+  "title": "Pagamento",
+  "subtitle": "Pagamento sicuro per la tua prenotazione del traghetto",
+  "bookingReference": "Riferimento Prenotazione",
+  "paymentMethod": {
+    "title": "Metodo di Pagamento",
+    "selectMethod": "Seleziona metodo di pagamento",
+    "creditCard": "Carta di Credito/Debito",
+    "paypal": "PayPal",
+    "bankTransfer": "Bonifico Bancario"
+  },
+  "cardDetails": {
+    "title": "Dettagli Carta",
+    "cardNumber": "Numero Carta",
+    "cardHolder": "Intestatario Carta",
+    "expiryDate": "Data di Scadenza",
+    "cvv": "CVV",
+    "saveCard": "Salva carta per prenotazioni future"
+  },
+  "billingAddress": {
+    "title": "Indirizzo di Fatturazione",
+    "addressLine1": "Indirizzo Riga 1",
+    "addressLine2": "Indirizzo Riga 2 (Opzionale)",
+    "city": "Città",
+    "state": "Stato/Provincia",
+    "postalCode": "Codice Postale",
+    "country": "Paese"
+  },
+  "orderSummary": {
+    "title": "Riepilogo Ordine",
+    "bookingDetails": "Dettagli Prenotazione",
+    "route": "Rotta",
+    "outboundJourney": "Viaggio di Andata",
+    "returnJourney": "Viaggio di Ritorno",
+    "departure": "Partenza",
+    "return": "Ritorno",
+    "passengers": "Passeggeri",
+    "vehicles": "Veicoli",
+    "subtotal": "Subtotale",
+    "taxes": "Tasse e Commissioni",
+    "discount": "Sconto",
+    "total": "Importo Totale",
+    "currency": "EUR"
+  },
+  "termsAndConditions": {
+    "title": "Termini e Condizioni",
+    "agree": "Accetto i",
+    "terms": "Termini e Condizioni",
+    "and": "e",
+    "privacy": "Informativa sulla Privacy",
+    "cancellation": "Politica di Cancellazione",
+    "refund": "Politica di Rimborso"
+  },
+  "actions": {
+    "pay": "Paga Ora",
+    "paying": "Elaborazione Pagamento...",
+    "back": "Torna alla Prenotazione",
+    "cancel": "Annulla"
+  },
+  "security": {
+    "title": "Pagamento Sicuro",
+    "description": "Le tue informazioni di pagamento sono criptate e sicure",
+    "ssl": "Crittografia SSL a 256 bit",
+    "pci": "Conforme PCI DSS"
+  },
+  "success": {
+    "title": "Pagamento Riuscito!",
+    "message": "La tua prenotazione è stata confermata",
+    "bookingRef": "Riferimento Prenotazione: {{reference}}",
+    "emailSent": "Email di conferma inviata a {{email}}",
+    "viewBooking": "Visualizza Prenotazione",
+    "downloadTicket": "Scarica Biglietto",
+    "backToHome": "Torna alla Home"
+  },
+  "errors": {
+    "paymentFailed": "Pagamento Fallito",
+    "tryAgain": "Riprova o usa un metodo di pagamento diverso",
+    "invalidCard": "Dettagli carta non validi",
+    "insufficientFunds": "Fondi insufficienti",
+    "expired": "Carta scaduta",
+    "declined": "Pagamento rifiutato",
+    "generic": "Si è verificato un errore durante il pagamento"
+  },
+  "validation": {
+    "cardNumber": "Inserisci un numero di carta valido",
+    "cardHolder": "Inserisci il nome dell'intestatario",
+    "expiryDate": "Inserisci data di scadenza (MM/AA)",
+    "cvv": "Inserisci CVV (3-4 cifre)",
+    "termsRequired": "Devi accettare i termini e le condizioni"
+  },
+  "timer": {
+    "expired": "Prenotazione Scaduta",
+    "expiredMessage": "Questa prenotazione è scaduta. Si prega di avviare una nuova ricerca per prenotare il traghetto.",
+    "criticalTitle": "⚠️ Completa il Pagamento Presto!",
+    "warningTitle": "⏰ Tempo in Scadenza",
+    "normalTitle": "🕐 Prenotazione Riservata",
+    "urgent": "Urgente",
+    "criticalMessage": "La tua prenotazione verrà automaticamente annullata tra {{time}}. Completa il pagamento ora!",
+    "normalMessage": "Questa prenotazione è riservata fino alle {{time}} ({{minutes}} minuti). Completa il pagamento per confermare la tua prenotazione.",
+    "secureInfo": "Le tue informazioni di pagamento sono sicure e crittografate"
+  }
+}

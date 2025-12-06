@@ -191,14 +191,20 @@ todo:complete personla information in mobile like
   on frontend, and possibility to change
   password and activate language choice and
   currency in profile 
-todo:add alert cbain in booking page details in frontend like mobile not only when click modify booking
+todo:add alert cbain in booking page details in frontend like mobile not only when click modify booking:done
 todo:be notified when celery pod or any pod has errors:done
 todo:prevent chatbot to be excessive in request or ask something not related
 todo:ask bot to subscibe to a route and send notification about it, or subscive for cabon vailability
 todo:i cant see ongoing log for chatbot:done
 todo:/contact page exists but empt y add it
 todo:monitor redis and postgres via prometheus and grafana
-todo:add marron small bear run when loading the pages
+todo:add marron small bear run when loading the pages:
+todo:add ticket to wallet
+todo:add loading bear on mobile
+todo:translare profile and settings page
+todo add contact us in mobile and frontend also i think page /contact exist but empty
+todo:update maritime support email address
+todo how many crons we have
 
 
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done

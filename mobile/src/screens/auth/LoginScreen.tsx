@@ -31,12 +31,15 @@ type NavigationProp = NativeStackNavigationProp<AuthStackParamList & RootStackPa
 export default function LoginScreen() {
   const navigation = useNavigation<NavigationProp>();
   const dispatch = useAppDispatch();
-  const { isLoading } = useAppSelector((state) => state.auth);
+  const { isLoading, error: reduxError } = useAppSelector((state) => state.auth);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // Use either local error or redux error
+  const displayError = localError || reduxError;
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<BiometricType>('none');
   const [storedEmail, setStoredEmail] = useState<string | null>(null);
@@ -115,22 +118,14 @@ export default function LoginScreen() {
 
     try {
       const result = await dispatch(login({ email: email.trim(), password }));
-      console.log('Login result:', {
-        type: result.type,
-        payload: result.payload,
-        meta: result.meta
-      });
 
       if (login.fulfilled.match(result)) {
         navigateAfterAuth();
       } else if (login.rejected.match(result)) {
-        // Get error message from the rejected action
         const errorMessage = result.payload as string || 'Login failed. Please try again.';
-        console.log('Setting login error:', errorMessage);
         setLocalError(errorMessage);
       }
     } catch (error: any) {
-      console.error('Login catch error:', error);
       setLocalError(error.message || 'An unexpected error occurred. Please try again.');
     }
   };
@@ -168,7 +163,6 @@ export default function LoginScreen() {
   };
 
   const handleBiometricLogin = async () => {
-    console.log('[LoginScreen] Starting biometric login...');
     setLocalError(null);
     dispatch(clearError());
 
@@ -176,14 +170,11 @@ export default function LoginScreen() {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     const result = await dispatch(biometricLogin());
-    console.log('[LoginScreen] Biometric login result:', { type: result.type, payload: result.payload, meta: result.meta });
 
     if (biometricLogin.fulfilled.match(result)) {
-      console.log('[LoginScreen] Biometric login succeeded, navigating...');
       navigateAfterAuth();
     } else if (biometricLogin.rejected.match(result)) {
       const error = result.payload as string;
-      console.log('[LoginScreen] Biometric login rejected:', error);
       if (error !== 'fallback' && error !== 'Authentication cancelled') {
         setLocalError(error);
       }
@@ -242,10 +233,10 @@ export default function LoginScreen() {
           </View>
 
           {/* Error Message */}
-          {localError && (
+          {displayError && (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={20} color={colors.error} style={{ marginRight: 8 }} />
-              <Text style={styles.errorText}>{localError}</Text>
+              <Text style={styles.errorText}>{displayError}</Text>
             </View>
           )}
 

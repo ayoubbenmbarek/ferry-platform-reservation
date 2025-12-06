@@ -50,7 +50,10 @@ export default function HomeScreen() {
 
   const handleRoutePress = (from: string, to: string) => {
     // Navigate to search with pre-filled route
-    navigation.navigate('Search');
+    navigation.navigate('Search', {
+      prefillDeparture: from,
+      prefillArrival: to,
+    });
   };
 
   return (

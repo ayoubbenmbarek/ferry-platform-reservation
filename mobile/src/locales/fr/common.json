@@ -51,7 +51,26 @@
     "selectTime": "Sélectionner l'Heure",
     "required": "Ce champ est obligatoire",
     "invalidEmail": "Adresse e-mail invalide",
-    "invalidPhone": "Numéro de téléphone invalide"
+    "invalidPhone": "Numéro de téléphone invalide",
+    "signIn": "Se Connecter"
+  },
+  "home": {
+    "title": "Réservez Votre Ferry",
+    "subtitle": "Trouvez les meilleures routes de ferry à travers la Méditerranée",
+    "searchButton": "Rechercher des Ferries",
+    "promoTitle": "Connectez-vous pour des offres exclusives",
+    "promoSubtitle": "Les membres économisent jusqu'à 15%",
+    "welcomeBack": "Bienvenue",
+    "viewBookings": "Voir vos réservations",
+    "popularRoutes": "Routes Populaires",
+    "whyBookWithUs": "Pourquoi Réserver Avec Nous",
+    "ourPartners": "Nos Partenaires",
+    "secureBooking": "Réservation Sécurisée",
+    "secureDesc": "Paiement sécurisé",
+    "bestPrices": "Meilleurs Prix",
+    "pricesDesc": "Comparez tous les opérateurs",
+    "support": "Support 24/7",
+    "supportDesc": "Nous sommes là pour vous aider"
   },
   "date": {
     "today": "Aujourd'hui",

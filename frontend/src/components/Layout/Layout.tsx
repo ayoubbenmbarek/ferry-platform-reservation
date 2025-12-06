@@ -65,6 +65,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <nav className="flex items-center space-x-4">
               <Link to="/" className="text-gray-700 hover:text-blue-600">{t('nav.home')}</Link>
+              <Link to="/contact" className="text-gray-700 hover:text-blue-600">{t('nav.contact', 'Contact')}</Link>
 
               {/* Language Switcher */}
               <div className="relative">

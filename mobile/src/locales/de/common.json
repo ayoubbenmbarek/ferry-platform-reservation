@@ -51,7 +51,26 @@
     "selectTime": "Zeit Auswählen",
     "required": "Dieses Feld ist erforderlich",
     "invalidEmail": "Ungültige E-Mail-Adresse",
-    "invalidPhone": "Ungültige Telefonnummer"
+    "invalidPhone": "Ungültige Telefonnummer",
+    "signIn": "Anmelden"
+  },
+  "home": {
+    "title": "Buchen Sie Ihre Fähre",
+    "subtitle": "Finden Sie die besten Fährrouten im Mittelmeer",
+    "searchButton": "Fähren Suchen",
+    "promoTitle": "Melden Sie sich an für exklusive Angebote",
+    "promoSubtitle": "Mitglieder sparen bis zu 15%",
+    "welcomeBack": "Willkommen zurück",
+    "viewBookings": "Ihre Buchungen anzeigen",
+    "popularRoutes": "Beliebte Routen",
+    "whyBookWithUs": "Warum Bei Uns Buchen",
+    "ourPartners": "Unsere Partner",
+    "secureBooking": "Sichere Buchung",
+    "secureDesc": "Sichere Zahlungsabwicklung",
+    "bestPrices": "Beste Preise",
+    "pricesDesc": "Alle Betreiber vergleichen",
+    "support": "24/7 Support",
+    "supportDesc": "Wir sind für Sie da"
   },
   "date": {
     "today": "Heute",

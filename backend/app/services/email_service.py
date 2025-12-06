@@ -61,7 +61,8 @@ class EmailService:
         subject: str,
         html_content: str,
         text_content: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None
+        attachments: Optional[List[Dict[str, Any]]] = None,
+        reply_to: Optional[str] = None
     ) -> bool:
         """
         Send an email.
@@ -72,6 +73,7 @@ class EmailService:
             html_content: HTML email content
             text_content: Plain text email content (fallback)
             attachments: List of attachment dictionaries
+            reply_to: Optional reply-to email address
 
         Returns:
             bool: True if email sent successfully, False otherwise
@@ -82,6 +84,10 @@ class EmailService:
             msg['Subject'] = subject
             msg['From'] = f"{self.from_name} <{self.from_email}>"
             msg['To'] = to_email
+
+            # Add Reply-To header if provided
+            if reply_to:
+                msg['Reply-To'] = reply_to
 
             # Add text and HTML parts
             if text_content:

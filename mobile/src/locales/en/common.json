@@ -51,7 +51,26 @@
     "selectTime": "Select Time",
     "required": "This field is required",
     "invalidEmail": "Invalid email address",
-    "invalidPhone": "Invalid phone number"
+    "invalidPhone": "Invalid phone number",
+    "signIn": "Sign In"
+  },
+  "home": {
+    "title": "Book Your Ferry",
+    "subtitle": "Find the best ferry routes across the Mediterranean",
+    "searchButton": "Search Ferries",
+    "promoTitle": "Sign in for exclusive deals",
+    "promoSubtitle": "Members save up to 15%",
+    "welcomeBack": "Welcome back",
+    "viewBookings": "View your bookings",
+    "popularRoutes": "Popular Routes",
+    "whyBookWithUs": "Why Book With Us",
+    "ourPartners": "Our Partners",
+    "secureBooking": "Secure Booking",
+    "secureDesc": "Safe payment processing",
+    "bestPrices": "Best Prices",
+    "pricesDesc": "Compare all operators",
+    "support": "24/7 Support",
+    "supportDesc": "We're here to help"
   },
   "date": {
     "today": "Today",

@@ -205,6 +205,10 @@ todo:translare profile and settings page
 todo add contact us in mobile and frontend also i think page /contact exist but empty
 todo:update maritime support email address
 todo how many crons we have
+todo add faq and terms and conditions pages
+todo:when change language in mobile nothing happens
+todo: translate contact page and hidearabic language on menu
+todo  add ticket to wallet
 
 
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done

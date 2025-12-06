@@ -51,7 +51,26 @@
     "selectTime": "اختر الوقت",
     "required": "هذا الحقل مطلوب",
     "invalidEmail": "عنوان البريد الإلكتروني غير صحيح",
-    "invalidPhone": "رقم الهاتف غير صحيح"
+    "invalidPhone": "رقم الهاتف غير صحيح",
+    "signIn": "تسجيل الدخول"
+  },
+  "home": {
+    "title": "احجز عبّارتك",
+    "subtitle": "ابحث عن أفضل خطوط العبّارات عبر البحر الأبيض المتوسط",
+    "searchButton": "البحث عن العبّارات",
+    "promoTitle": "سجل دخولك للحصول على عروض حصرية",
+    "promoSubtitle": "الأعضاء يوفرون حتى 15%",
+    "welcomeBack": "مرحباً بعودتك",
+    "viewBookings": "عرض حجوزاتك",
+    "popularRoutes": "المسارات الشائعة",
+    "whyBookWithUs": "لماذا تحجز معنا",
+    "ourPartners": "شركاؤنا",
+    "secureBooking": "حجز آمن",
+    "secureDesc": "دفع آمن ومضمون",
+    "bestPrices": "أفضل الأسعار",
+    "pricesDesc": "قارن جميع المشغلين",
+    "support": "دعم على مدار الساعة",
+    "supportDesc": "نحن هنا لمساعدتك"
   },
   "date": {
     "today": "اليوم",

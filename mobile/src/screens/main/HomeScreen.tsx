@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { fetchPorts, fetchRoutes } from '../../store/slices/searchSlice';
@@ -28,16 +29,17 @@ const popularRoutes = [
   { from: 'Marseille', to: 'Algiers', image: 'https://images.unsplash.com/photo-1499678329028-101435549a4e?w=400' },
 ];
 
-const features = [
-  { icon: 'shield-checkmark', title: 'Secure Booking', description: 'Safe payment processing' },
-  { icon: 'pricetag', title: 'Best Prices', description: 'Compare all operators' },
-  { icon: 'time', title: '24/7 Support', description: 'We\'re here to help' },
-];
-
 export default function HomeScreen() {
+  const { t } = useTranslation(['common', 'search']);
   const navigation = useNavigation<NavigationProp>();
   const dispatch = useAppDispatch();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+
+  const features = [
+    { icon: 'shield-checkmark', title: t('common:home.secureBooking', 'Secure Booking'), description: t('common:home.secureDesc', 'Safe payment processing') },
+    { icon: 'pricetag', title: t('common:home.bestPrices', 'Best Prices'), description: t('common:home.pricesDesc', 'Compare all operators') },
+    { icon: 'time', title: t('common:home.support', '24/7 Support'), description: t('common:home.supportDesc', "We're here to help") },
+  ];
 
   useEffect(() => {
     dispatch(fetchPorts());
@@ -62,9 +64,9 @@ export default function HomeScreen() {
         {/* Hero Section */}
         <View style={styles.hero}>
           <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>Book Your Ferry</Text>
+            <Text style={styles.heroTitle}>{t('common:home.title', 'Book Your Ferry')}</Text>
             <Text style={styles.heroSubtitle}>
-              Find the best ferry routes across the Mediterranean
+              {t('common:home.subtitle', 'Find the best ferry routes across the Mediterranean')}
             </Text>
             <Button
               mode="contained"
@@ -73,7 +75,7 @@ export default function HomeScreen() {
               contentStyle={styles.searchButtonContent}
               icon="magnify"
             >
-              Search Ferries
+              {t('common:home.searchButton', 'Search Ferries')}
             </Button>
           </View>
           <View style={styles.heroIcon}>
@@ -89,14 +91,14 @@ export default function HomeScreen() {
                 <Ionicons name="gift" size={28} color="#fff" />
               </View>
               <View style={styles.promoText}>
-                <Text style={styles.promoTitle}>Sign in for exclusive deals</Text>
-                <Text style={styles.promoSubtitle}>Members save up to 15%</Text>
+                <Text style={styles.promoTitle}>{t('common:home.promoTitle', 'Sign in for exclusive deals')}</Text>
+                <Text style={styles.promoSubtitle}>{t('common:home.promoSubtitle', 'Members save up to 15%')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.promoButton}
                 onPress={() => navigation.navigate('Auth')}
               >
-                <Text style={styles.promoButtonText}>Sign In</Text>
+                <Text style={styles.promoButtonText}>{t('common:common.signIn', 'Sign In')}</Text>
                 <Ionicons name="arrow-forward" size={16} color={colors.primary} />
               </TouchableOpacity>
             </Card.Content>
@@ -106,12 +108,12 @@ export default function HomeScreen() {
         {isAuthenticated && user && (
           <Card style={styles.welcomeCard}>
             <Card.Content>
-              <Text style={styles.welcomeTitle}>Welcome back, {user.first_name}!</Text>
+              <Text style={styles.welcomeTitle}>{t('common:home.welcomeBack', 'Welcome back')}, {user.first_name}!</Text>
               <TouchableOpacity
                 style={styles.bookingsLink}
                 onPress={() => navigation.navigate('Bookings')}
               >
-                <Text style={styles.bookingsLinkText}>View your bookings</Text>
+                <Text style={styles.bookingsLinkText}>{t('common:home.viewBookings', 'View your bookings')}</Text>
                 <Ionicons name="arrow-forward" size={18} color={colors.primary} />
               </TouchableOpacity>
             </Card.Content>
@@ -120,7 +122,7 @@ export default function HomeScreen() {
 
         {/* Popular Routes */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Popular Routes</Text>
+          <Text style={styles.sectionTitle}>{t('common:home.popularRoutes', 'Popular Routes')}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -148,7 +150,7 @@ export default function HomeScreen() {
 
         {/* Features */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Why Book With Us</Text>
+          <Text style={styles.sectionTitle}>{t('common:home.whyBookWithUs', 'Why Book With Us')}</Text>
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
               <View key={index} style={styles.featureItem}>
@@ -164,7 +166,7 @@ export default function HomeScreen() {
 
         {/* Operators */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Our Partners</Text>
+          <Text style={styles.sectionTitle}>{t('common:home.ourPartners', 'Our Partners')}</Text>
           <View style={styles.operatorsGrid}>
             {['CTN', 'Corsica Linea', 'GNV', 'La Méridionale'].map((operator, index) => (
               <View key={index} style={styles.operatorBadge}>

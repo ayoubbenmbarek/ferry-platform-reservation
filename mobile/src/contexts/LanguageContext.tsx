@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { I18nManager } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supportedLanguages, changeLanguage as i18nChangeLanguage } from '../i18n';
+import i18n, { supportedLanguages } from '../i18n';
 
 interface LanguageContextType {
   currentLanguage: string;
@@ -10,6 +9,7 @@ interface LanguageContextType {
   changeLanguage: (languageCode: string) => Promise<void>;
   supportedLanguages: typeof supportedLanguages;
   isLoading: boolean;
+  languageVersion: number; // For forcing re-renders
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -21,14 +21,17 @@ interface LanguageProviderProps {
 }
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const { i18n } = useTranslation();
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language || 'en');
   const [isLoading, setIsLoading] = useState(false);
+  const [languageVersion, setLanguageVersion] = useState(0);
 
   // Sync with i18n language changes
   useEffect(() => {
     const handleLanguageChange = (lng: string) => {
+      console.log('Language changed to:', lng);
       setCurrentLanguage(lng);
+      // Increment version to trigger re-renders
+      setLanguageVersion(v => v + 1);
 
       // Handle RTL for Arabic
       const shouldBeRTL = RTL_LANGUAGES.includes(lng);
@@ -44,22 +47,30 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     return () => {
       i18n.off('languageChanged', handleLanguageChange);
     };
-  }, [i18n]);
+  }, []);
 
-  const changeLanguage = async (languageCode: string): Promise<void> => {
+  const changeLanguage = useCallback(async (languageCode: string): Promise<void> => {
     if (languageCode === currentLanguage) return;
 
     setIsLoading(true);
     try {
-      await i18nChangeLanguage(languageCode);
+      console.log('Changing language from', currentLanguage, 'to', languageCode);
+      // Change i18n language
+      await i18n.changeLanguage(languageCode);
+      // Also save to AsyncStorage
+      await AsyncStorage.setItem('@app_language', languageCode);
+      // Update state
       setCurrentLanguage(languageCode);
+      // Force re-render
+      setLanguageVersion(v => v + 1);
+      console.log('Language changed successfully to:', languageCode);
     } catch (error) {
       console.error('Error changing language:', error);
       throw error;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentLanguage]);
 
   const isRTL = RTL_LANGUAGES.includes(currentLanguage);
 
@@ -71,6 +82,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
         changeLanguage,
         supportedLanguages,
         isLoading,
+        languageVersion,
       }}
     >
       {children}

@@ -800,31 +800,55 @@ const NewHomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { from: 'Genoa', to: 'Tunis', duration: '24h', price: '€85', flag: '🇮🇹' },
-              { from: 'Civitavecchia', to: 'Tunis', duration: '22h', price: '€92', flag: '🇮🇹' },
-              { from: 'Palermo', to: 'Tunis', duration: '11h', price: '€78', flag: '🇮🇹' },
-              { from: 'Marseille', to: 'Tunis', duration: '21h', price: '€95', flag: '🇫🇷' },
-              { from: 'Salerno', to: 'Tunis', duration: '16h', price: '€88', flag: '🇮🇹' },
-              { from: 'Nice', to: 'Tunis', duration: '19h', price: '€98', flag: '🇫🇷' },
-            ].map((route, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">
-                      {route.flag} {route.from} → 🇹🇳 {route.to}
-                    </h3>
-                    <p className="text-sm text-gray-600">⏱️ {route.duration}</p>
+              { from: 'Genoa', fromCode: 'genoa', to: 'Tunis', toCode: 'tunis', duration: '24h', price: '€85', flag: '🇮🇹' },
+              { from: 'Civitavecchia', fromCode: 'civitavecchia', to: 'Tunis', toCode: 'tunis', duration: '22h', price: '€92', flag: '🇮🇹' },
+              { from: 'Palermo', fromCode: 'palermo', to: 'Tunis', toCode: 'tunis', duration: '11h', price: '€78', flag: '🇮🇹' },
+              { from: 'Marseille', fromCode: 'marseille', to: 'Tunis', toCode: 'tunis', duration: '21h', price: '€95', flag: '🇫🇷' },
+              { from: 'Salerno', fromCode: 'salerno', to: 'Tunis', toCode: 'tunis', duration: '16h', price: '€88', flag: '🇮🇹' },
+              { from: 'Nice', fromCode: 'nice', to: 'Tunis', toCode: 'tunis', duration: '19h', price: '€98', flag: '🇫🇷' },
+            ].map((route, index) => {
+              const handleRouteClick = () => {
+                // Set the default departure date to tomorrow
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const departureDate = tomorrow.toISOString().split('T')[0];
+
+                // Pre-fill the form with route information
+                setForm(prev => ({
+                  ...prev,
+                  departurePort: route.fromCode,
+                  arrivalPort: route.toCode,
+                  departureDate: departureDate,
+                }));
+
+                // Scroll to the top of the page (search form)
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              };
+
+              return (
+                <div key={index} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
+                        {route.flag} {route.from} → 🇹🇳 {route.to}
+                      </h3>
+                      <p className="text-sm text-gray-600">⏱️ {route.duration}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-blue-600">{route.price}</p>
+                      <p className="text-xs text-gray-500">from</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">{route.price}</p>
-                    <p className="text-xs text-gray-500">from</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRouteClick}
+                    className="w-full py-2 px-4 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+                  >
+                    {t('common:features.viewSchedules')}
+                  </button>
                 </div>
-                <button className="w-full py-2 px-4 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors">
-                  {t('common:features.viewSchedules')}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

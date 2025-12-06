@@ -64,13 +64,32 @@ function App() {
 
   // Handle chunk loading errors (outdated cache on mobile)
   useEffect(() => {
-    const handleChunkError = (event: any) => {
-      const isChunkError = event.message?.includes('Loading chunk') ||
-                          event.message?.includes('ChunkLoadError') ||
+    const handleChunkError = async (event: any) => {
+      const errorMessage = event.message || event.reason?.message || '';
+      const isChunkError = errorMessage.includes('Loading chunk') ||
+                          errorMessage.includes('ChunkLoadError') ||
+                          errorMessage.includes('Failed to fetch dynamically imported module') ||
                           event.reason?.name === 'ChunkLoadError';
 
       if (isChunkError) {
-        console.warn('Chunk loading failed - likely outdated cache. Reloading page...');
+        console.warn('Chunk loading failed - clearing cache and reloading...');
+        event.preventDefault?.();
+
+        try {
+          // Unregister service worker
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map(r => r.unregister()));
+          }
+          // Clear caches
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+          }
+        } catch (e) {
+          console.error('Failed to clear cache:', e);
+        }
+
         // Reload the page to get fresh chunks
         window.location.reload();
       }

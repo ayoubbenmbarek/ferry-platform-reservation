@@ -5,6 +5,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { loginUser, clearError, setUser, setToken } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
 import axios from 'axios';
+import RunningBear from '../components/UI/RunningBear';
 
 // Declare global Google type
 declare global {
@@ -125,6 +126,11 @@ const LoginPage: React.FC = () => {
       return () => clearInterval(checkGoogle);
     }
   }, [handleGoogleResponse]);
+
+  // Check if already authenticated - must be AFTER all hooks
+  if (isAuthenticated) {
+    return <RunningBear message="Redirecting" size="medium" />;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Clear error when user starts typing

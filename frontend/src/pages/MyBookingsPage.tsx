@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { bookingAPI, Booking } from '../services/api';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
+import RunningBear from '../components/UI/RunningBear';
 
 // Helper to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -129,10 +130,7 @@ const MyBookingsPage: React.FC = () => {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Loading your bookings...</p>
-          </div>
+          <RunningBear message="Loading your bookings" size="medium" fullScreen={false} />
         )}
 
         {/* Error State */}

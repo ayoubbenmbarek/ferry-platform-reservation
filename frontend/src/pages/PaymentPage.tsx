@@ -10,6 +10,7 @@ import api, { paymentAPI, bookingAPI } from '../services/api';
 import StripePaymentForm from '../components/Payment/StripePaymentForm';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
+import RunningBear from '../components/UI/RunningBear';
 
 // Initialize Stripe (will be loaded with publishable key from backend)
 let stripePromise: Promise<any> | null = null;
@@ -424,14 +425,7 @@ const PaymentPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Preparing payment...</p>
-        </div>
-      </div>
-    );
+    return <RunningBear message="Preparing payment" size="medium" />;
   }
 
   if (error && !clientSecret) {

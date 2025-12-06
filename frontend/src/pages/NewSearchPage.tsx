@@ -20,6 +20,7 @@ import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import SaveRouteButton from '../components/SaveRouteButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
+import RunningBear from '../components/UI/RunningBear';
 
 // Search Form Component
 interface SearchFormProps {
@@ -1043,12 +1044,11 @@ const NewSearchPage: React.FC = () => {
 
           {/* Loading State */}
           {(isSearching || isSearchingReturn) && (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">
-                {isSelectingReturn ? t('search:searchingReturn') : t('search:searchingFerries')}
-              </p>
-            </div>
+            <RunningBear
+              message={isSelectingReturn ? t('search:searchingReturn') : t('search:searchingFerries')}
+              size="medium"
+              fullScreen={false}
+            />
           )}
 
           {/* Error State */}

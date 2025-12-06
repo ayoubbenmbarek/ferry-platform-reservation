@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import api, { bookingAPI } from '../services/api';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
+import RunningBear from '../components/UI/RunningBear';
 
 // Helper to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -122,14 +123,7 @@ const BookingDetailsPage: React.FC = () => {
   }, [id, navigate, location.state, isAuthenticated]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading booking details...</p>
-        </div>
-      </div>
-    );
+    return <RunningBear message="Loading booking details" size="medium" />;
   }
 
   if (error || !booking) {

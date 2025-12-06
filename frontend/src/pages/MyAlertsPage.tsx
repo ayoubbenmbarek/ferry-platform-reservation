@@ -30,7 +30,7 @@ const ALERT_TYPE_LABELS: Record<AlertType, string> = {
 };
 
 const MyAlertsPage: React.FC = () => {
-  const { t } = useTranslation(['common']);
+  useTranslation(['common']);
   const navigate = useNavigate();
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
 

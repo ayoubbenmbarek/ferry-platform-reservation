@@ -181,11 +181,17 @@ todo: add cancellation policy, check screenshot for no refundable, no changes..f
 todo: add Pre-departure reminder emails:done
 todo:add sentry for mobile
 todo:continue with k3s deployment, set it up locally and heberger en local
+todo:when click popular routes should go to home search page with that route information in frontend and mobile
 todo: mcp for postgres and chatbots:done
 todo:the chatbot with work with apiand how to make chatbot efficient and help with useful informations
 todo:chatbot should send relevant link to bokking page or any demand by user if possible, should aware about personal links or data for auth users etc and sending only personla data for the correspondant user:done
 todo:i am connected as ayoubenmbarek@gmail.com and demand chatbot to give me booking of olfaserghini1@gmail.com it gave me its reference, that should not happen!
 todo:delete booking try by chatbot: done, cant delete
+todo:complete personla information in mobile like
+  on frontend, and possibility to change
+  password and activate language choice and
+  currency in profile 
+todo:add alert cbain in booking page details in frontend like mobile not only when click modify booking
 todo:be notified when celery pod or any pod has errors:done
 todo:prevent chatbot to be excessive in request or ask something not related
 todo:ask bot to subscibe to a route and send notification about it, or subscive for cabon vailability

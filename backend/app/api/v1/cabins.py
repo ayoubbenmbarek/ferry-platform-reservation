@@ -252,6 +252,27 @@ async def add_cabin_to_booking(
             detail="Booking not found"
         )
 
+    # Check if the ferry has already departed
+    journey_type = request.journey_type
+    if journey_type == "return" and booking.return_departure_time:
+        departure_time = booking.return_departure_time
+    else:
+        departure_time = booking.departure_time
+
+    if departure_time:
+        # Make both datetimes timezone-naive for consistent comparison
+        now = datetime.utcnow()
+        if hasattr(departure_time, 'tzinfo') and departure_time.tzinfo is not None:
+            departure_time_naive = departure_time.replace(tzinfo=None)
+        else:
+            departure_time_naive = departure_time
+
+        if departure_time_naive < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot add cabin to a booking for a ferry that has already departed"
+            )
+
     # Get cabin
     cabin = db.query(Cabin).filter(Cabin.id == request.cabin_id).first()
     if not cabin:

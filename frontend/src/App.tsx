@@ -27,6 +27,7 @@ const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const VerifyEmailPage = React.lazy(() => import('./pages/VerifyEmailPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const SavedRoutesPage = React.lazy(() => import('./pages/SavedRoutesPage'));
+const MyAlertsPage = React.lazy(() => import('./pages/MyAlertsPage'));
 const AboutPage = React.lazy(() => import('./pages/AboutPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const FindBookingPage = React.lazy(() => import('./pages/FindBookingPage'));
@@ -101,6 +102,7 @@ function App() {
               {/* Protected routes */}
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/saved-routes" element={<ProtectedRoute><SavedRoutesPage /></ProtectedRoute>} />
+              <Route path="/my-alerts" element={<ProtectedRoute><MyAlertsPage /></ProtectedRoute>} />
               <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
               <Route path="/modify-booking/:bookingId" element={<ProtectedRoute><ModifyBookingPage /></ProtectedRoute>} />
 

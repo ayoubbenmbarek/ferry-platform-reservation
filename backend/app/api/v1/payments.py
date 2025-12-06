@@ -61,6 +61,29 @@ async def create_payment_intent(
             or (payment_data.metadata is not None and payment_data.metadata.get('type') == 'cabin_upgrade')
         )
 
+        # For cabin upgrades, check if the ferry has already departed
+        if is_cabin_upgrade:
+            journey_type = payment_data.metadata.get('journey_type', 'outbound') if payment_data.metadata else 'outbound'
+            if journey_type == "return" and booking.return_departure_time:
+                departure_time = booking.return_departure_time
+            else:
+                departure_time = booking.departure_time
+
+            if departure_time:
+                # Make both datetimes timezone-aware for comparison
+                now = datetime.utcnow()
+                # Remove timezone info from departure_time if it has one, for consistent comparison
+                if hasattr(departure_time, 'tzinfo') and departure_time.tzinfo is not None:
+                    departure_time_naive = departure_time.replace(tzinfo=None)
+                else:
+                    departure_time_naive = departure_time
+
+                if departure_time_naive < now:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Cannot add cabin to a booking for a ferry that has already departed"
+                    )
+
         # Check if user has permission to pay for this booking
         # Allow if: 1) Guest booking (no user), 2) Booking belongs to logged-in user, 3) User is admin, 4) Booking is pending (allows sharing payment links), 5) Cabin upgrade
         if current_user:

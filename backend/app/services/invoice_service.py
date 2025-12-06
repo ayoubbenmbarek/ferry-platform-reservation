@@ -665,12 +665,17 @@ class InvoiceService:
         cabin_type = cabin_data.get('cabin_type', 'Standard')
         quantity = cabin_data.get('quantity', 1)
         unit_price = float(cabin_data.get('unit_price', 0))
-        total_price = float(cabin_data.get('total_price', unit_price * quantity))
+        subtotal = float(cabin_data.get('total_price', unit_price * quantity))
+        tax_rate = 0.10  # 10% tax
+        tax_amount = subtotal * tax_rate
+        total_with_tax = subtotal + tax_amount
 
         pricing_data = [
             ['Description', 'Quantity', 'Unit Price', 'Total'],
-            [f"{cabin_name} ({cabin_type})", str(quantity), f"{currency} {unit_price:.2f}", f"{currency} {total_price:.2f}"],
-            ['', '', 'TOTAL', f"{currency} {total_price:.2f}"]
+            [f"{cabin_name} ({cabin_type})", str(quantity), f"{currency} {unit_price:.2f}", f"{currency} {subtotal:.2f}"],
+            ['', '', 'Subtotal', f"{currency} {subtotal:.2f}"],
+            ['', '', 'Tax (10%)', f"{currency} {tax_amount:.2f}"],
+            ['', '', 'TOTAL', f"{currency} {total_with_tax:.2f}"]
         ]
 
         pricing_table = Table(pricing_data, colWidths=[8*cm, 3*cm, 3*cm, 3*cm])
@@ -712,7 +717,7 @@ class InvoiceService:
         payment_data = [
             ['Payment Method', str(payment_method)],
             ['Transaction ID', str(transaction_id)],
-            ['Amount Paid', f"{currency} {total_price:.2f}"],
+            ['Amount Paid', f"{currency} {total_with_tax:.2f}"],
             ['Payment Status', 'COMPLETED']
         ]
 

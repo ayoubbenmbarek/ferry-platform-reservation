@@ -215,7 +215,8 @@ def check_availability_alerts_task(self):
                         passengers_available = available_spaces.get("passengers", 0) if isinstance(available_spaces, dict) else 0
                         if passengers_available >= total_passengers:
                             availability_found = True
-                            logger.info(f"👥 Found passenger space: {passengers_available} seats available on {result.operator} at {result_time}")
+                            departure_time_str = datetime.fromisoformat(str(result.departure_time)).strftime("%H:%M")
+                            logger.info(f"👥 Found passenger space: {passengers_available} seats available on {result.operator} at {departure_time_str}")
                             break
 
                 # 4. Send notification if availability found

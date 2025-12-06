@@ -49,6 +49,19 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Auto-clear arrival port if it matches departure port (for both main and return routes)
+  useEffect(() => {
+    if (form.arrivalPort && form.arrivalPort === form.departurePort) {
+      setForm(prev => ({ ...prev, arrivalPort: '' }));
+    }
+  }, [form.departurePort]);
+
+  useEffect(() => {
+    if (form.returnArrivalPort && form.returnArrivalPort === form.returnDeparturePort) {
+      setForm(prev => ({ ...prev, returnArrivalPort: '' }));
+    }
+  }, [form.returnDeparturePort]);
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!form.departurePort) newErrors.departurePort = 'Please select departure port';
@@ -119,13 +132,30 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                     <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.from')}</label>
                     <select
                       value={form.departurePort}
-                      onChange={(e) => setForm({ ...form, departurePort: e.target.value })}
+                      onChange={(e) => {
+                        const newDeparture = e.target.value;
+                        // Clear arrival port if it becomes the same as new departure
+                        const newArrival = form.arrivalPort === newDeparture ? '' : form.arrivalPort;
+                        setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
+                      }}
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departurePort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
-                      {ports.filter(p => p.countryCode !== 'TN').map(port => (
-                        <option key={port.code} value={port.code}>{port.name}</option>
-                      ))}
+                      <optgroup label="🇹🇳 Tunisia">
+                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇮🇹 Italy">
+                        {ports.filter(p => p.countryCode === 'IT').map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇫🇷 France">
+                        {ports.filter(p => p.countryCode === 'FR').map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
 
@@ -137,9 +167,21 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.arrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      {ports.filter(p => p.countryCode === 'TN').map(port => (
-                        <option key={port.code} value={port.code}>{port.name}</option>
-                      ))}
+                      <optgroup label="🇹🇳 Tunisia">
+                        {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇮🇹 Italy">
+                        {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇫🇷 France">
+                        {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
                 </div>
@@ -223,13 +265,30 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                           <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnFrom')}</label>
                           <select
                             value={form.returnDeparturePort}
-                            onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
+                            onChange={(e) => {
+                              const newReturnDeparture = e.target.value;
+                              // Clear return arrival if it becomes the same
+                              const newReturnArrival = form.returnArrivalPort === newReturnDeparture ? '' : form.returnArrivalPort;
+                              setForm({ ...form, returnDeparturePort: newReturnDeparture, returnArrivalPort: newReturnArrival });
+                            }}
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnDeparturePort')}</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnDeparturePort && <p className="text-red-500 text-sm mt-1">{errors.returnDeparturePort}</p>}
                         </div>
@@ -242,9 +301,21 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnArrivalPort && <p className="text-red-500 text-sm mt-1">{errors.returnArrivalPort}</p>}
                         </div>

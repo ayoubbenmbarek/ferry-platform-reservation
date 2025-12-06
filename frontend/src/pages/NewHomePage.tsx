@@ -70,6 +70,13 @@ const NewHomePage: React.FC = () => {
     console.log('Form state updated - departurePort:', form.departurePort, 'arrivalPort:', form.arrivalPort);
   }, [form.departurePort, form.arrivalPort]);
 
+  // Auto-clear return arrival port if it matches return departure port
+  useEffect(() => {
+    if (form.returnArrivalPort && form.returnArrivalPort === form.returnDeparturePort) {
+      setForm(prev => ({ ...prev, returnArrivalPort: '' }));
+    }
+  }, [form.returnDeparturePort]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
@@ -306,12 +313,24 @@ const NewHomePage: React.FC = () => {
                     </label>
                     <select
                       value={form.departurePort}
-                      onChange={(e) => setForm({ ...form, departurePort: e.target.value })}
+                      onChange={(e) => {
+                        const newDeparture = e.target.value;
+                        // Clear arrival port if it becomes the same as new departure
+                        const newArrival = form.arrivalPort === newDeparture ? '' : form.arrivalPort;
+                        setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
+                      }}
                       className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                         errors.departurePort ? 'border-red-500' : 'border-gray-300'
                       }`}
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
+                      <optgroup label="🇹🇳 Tunisia">
+                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                          <option key={port.code} value={port.code}>
+                            {port.name}
+                          </option>
+                        ))}
+                      </optgroup>
                       <optgroup label="🇮🇹 Italy">
                         {ports.filter(p => p.countryCode === 'IT').map(port => (
                           <option key={port.code} value={port.code}>
@@ -345,7 +364,21 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
-                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                        {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>
+                            {port.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇮🇹 Italy">
+                        {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>
+                            {port.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇫🇷 France">
+                        {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -434,9 +467,21 @@ const NewHomePage: React.FC = () => {
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">Select return departure port</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnDeparturePort && <p className="text-red-500 text-xs mt-1">{errors.returnDeparturePort}</p>}
                         </div>
@@ -449,9 +494,21 @@ const NewHomePage: React.FC = () => {
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnArrivalPort && <p className="text-red-500 text-xs mt-1">{errors.returnArrivalPort}</p>}
                         </div>

@@ -52,6 +52,34 @@ export const GOOGLE_CLIENT_ID = extra.googleClientId || '';
 export const GOOGLE_IOS_CLIENT_ID = extra.googleIosClientId || extra.googleClientId || '';
 export const GOOGLE_ANDROID_CLIENT_ID = extra.googleAndroidClientId || extra.googleClientId || '';
 
+// Chatbot Configuration
+const getChatbotUrl = () => {
+  // Check if explicitly set in env
+  if (extra.chatbotApiUrl && extra.chatbotApiUrl.length > 0) {
+    return extra.chatbotApiUrl;
+  }
+
+  // Auto-detect from Expo host (similar to API URL)
+  const hostUri = Constants.expoConfig?.hostUri;
+  const debuggerHost = hostUri?.split(':')[0];
+
+  if (__DEV__ && debuggerHost && debuggerHost !== 'localhost') {
+    return `http://${debuggerHost}:3100`;
+  }
+
+  // Fallback for different platforms in dev
+  if (__DEV__) {
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:3100';
+    }
+    return 'http://localhost:3100';
+  }
+
+  return 'https://chatbot.maritime-reservations.com';
+};
+
+export const CHATBOT_API_URL = getChatbotUrl();
+
 // App Constants
 export const APP_NAME = 'Maritime Reservations';
 export const BOOKING_EXPIRY_MINUTES = 15;

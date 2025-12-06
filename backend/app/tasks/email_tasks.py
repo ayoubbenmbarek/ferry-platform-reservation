@@ -203,6 +203,11 @@ def send_cabin_upgrade_confirmation_email_task(
 
         # Build cabin upgrade email content
         journey_label = "Return" if cabin_data.get('journey_type') == 'return' else "Outbound"
+        # Calculate tax
+        subtotal = cabin_data.get('total_price', 0)
+        tax_rate = 0.10  # 10% tax
+        tax_amount = subtotal * tax_rate
+        total_with_tax = subtotal + tax_amount
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -239,7 +244,9 @@ def send_cabin_upgrade_confirmation_email_task(
                         <p><strong>Cabin:</strong> {cabin_data.get('cabin_name', 'Cabin')} ({cabin_data.get('cabin_type', 'Standard')})</p>
                         <p><strong>Quantity:</strong> {cabin_data.get('quantity', 1)}</p>
                         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
-                        <p class="price">Amount Paid: €{cabin_data.get('total_price', 0):.2f}</p>
+                        <p style="color: #666;">Subtotal: €{subtotal:.2f}</p>
+                        <p style="color: #666;">Tax (10%): €{tax_amount:.2f}</p>
+                        <p class="price">Amount Paid: €{total_with_tax:.2f}</p>
                     </div>
 
                     <div class="invoice-note">

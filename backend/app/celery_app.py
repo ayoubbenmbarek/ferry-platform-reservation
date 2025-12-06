@@ -2,8 +2,12 @@
 Celery application configuration for async task processing.
 """
 import os
+import logging
 from celery import Celery
+from celery.signals import worker_init, beat_init
 from kombu import Queue
+
+logger = logging.getLogger(__name__)
 
 # Redis configuration for Celery (uses database 1, separate from cache)
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6399/1")
@@ -180,3 +184,81 @@ celery_app.conf.update(
         },
     },
 )
+
+
+@worker_init.connect
+def init_sentry_on_worker(**kwargs):
+    """Initialize Sentry when Celery worker starts."""
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    if not sentry_dsn:
+        logger.info("Sentry DSN not configured for Celery worker")
+        return
+
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+
+        environment = os.getenv("ENVIRONMENT", "development")
+        release = os.getenv("APP_VERSION", "1.0.0")
+
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            environment=environment,
+            release=f"maritime-celery@{release}",
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+            integrations=[
+                CeleryIntegration(monitor_beat_tasks=True),
+                RedisIntegration(),
+                SqlalchemyIntegration(),
+                LoggingIntegration(
+                    level=logging.INFO,
+                    event_level=logging.ERROR
+                ),
+            ],
+            send_default_pii=False,
+        )
+        logger.info(f"Sentry initialized for Celery worker in {environment}")
+    except ImportError:
+        logger.warning("sentry-sdk not installed for Celery worker")
+    except Exception as e:
+        logger.error(f"Failed to initialize Sentry for Celery: {e}")
+
+
+@beat_init.connect
+def init_sentry_on_beat(**kwargs):
+    """Initialize Sentry when Celery Beat starts."""
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    if not sentry_dsn:
+        logger.info("Sentry DSN not configured for Celery Beat")
+        return
+
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+
+        environment = os.getenv("ENVIRONMENT", "development")
+        release = os.getenv("APP_VERSION", "1.0.0")
+
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            environment=environment,
+            release=f"maritime-celery-beat@{release}",
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+            integrations=[
+                CeleryIntegration(monitor_beat_tasks=True),
+                LoggingIntegration(
+                    level=logging.INFO,
+                    event_level=logging.ERROR
+                ),
+            ],
+            send_default_pii=False,
+        )
+        logger.info(f"Sentry initialized for Celery Beat in {environment}")
+    except ImportError:
+        logger.warning("sentry-sdk not installed for Celery Beat")
+    except Exception as e:
+        logger.error(f"Failed to initialize Sentry for Celery Beat: {e}")

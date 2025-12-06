@@ -37,19 +37,30 @@ class MockFerryIntegration(BaseFerryIntegration):
 
         # Mock routes with typical durations
         self.routes = {
+            # Tunis routes
             ("TUNIS", "GENOA"): {"duration_hours": 24, "distance": 520},
             ("TUNIS", "MARSEILLE"): {"duration_hours": 21, "distance": 465},
             ("TUNIS", "CIVITAVECCHIA"): {"duration_hours": 22, "distance": 480},
             ("TUNIS", "PALERMO"): {"duration_hours": 11, "distance": 210},
             ("TUNIS", "NICE"): {"duration_hours": 19, "distance": 440},
             ("TUNIS", "SALERNO"): {"duration_hours": 20, "distance": 450},
-            # Reverse routes
+            # Reverse Tunis routes
             ("GENOA", "TUNIS"): {"duration_hours": 24, "distance": 520},
             ("MARSEILLE", "TUNIS"): {"duration_hours": 21, "distance": 465},
             ("CIVITAVECCHIA", "TUNIS"): {"duration_hours": 22, "distance": 480},
             ("PALERMO", "TUNIS"): {"duration_hours": 11, "distance": 210},
             ("NICE", "TUNIS"): {"duration_hours": 19, "distance": 440},
             ("SALERNO", "TUNIS"): {"duration_hours": 20, "distance": 450},
+            # Zarzis routes (Southern Tunisia - Sicily connection)
+            ("ZARZIS", "TRAPANI"): {"duration_hours": 8, "distance": 180},
+            ("TRAPANI", "ZARZIS"): {"duration_hours": 8, "distance": 180},
+            ("ZARZIS", "PALERMO"): {"duration_hours": 10, "distance": 220},
+            ("PALERMO", "ZARZIS"): {"duration_hours": 10, "distance": 220},
+            # Sfax routes
+            ("SFAX", "TRAPANI"): {"duration_hours": 9, "distance": 200},
+            ("TRAPANI", "SFAX"): {"duration_hours": 9, "distance": 200},
+            ("SFAX", "PALERMO"): {"duration_hours": 12, "distance": 250},
+            ("PALERMO", "SFAX"): {"duration_hours": 12, "distance": 250},
         }
 
     async def search_ferries(self, search_request: SearchRequest) -> List[FerryResult]:

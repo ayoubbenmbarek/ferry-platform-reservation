@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 try:
     from fastapi import APIRouter, Depends, HTTPException, status, Query
     from fastapi.responses import StreamingResponse
-    from sqlalchemy.orm import Session
+    from sqlalchemy.orm import Session, selectinload
     from sqlalchemy import and_, or_
 except ImportError:
     # Fallback for development
@@ -341,6 +341,24 @@ async def create_booking(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Return bookings must be made at least 1 hour before departure"
                 )
+
+        # Check for existing PENDING booking with same route/time/contact to prevent duplicates
+        # This handles the case where user refreshes page and Redux state is lost
+        contact_email = booking_data.contact_info.email.lower() if booking_data.contact_info else None
+        if contact_email and booking_data.departure_time:
+            existing_pending = db.query(Booking).filter(
+                Booking.contact_email == contact_email,
+                Booking.departure_port == booking_data.departure_port,
+                Booking.arrival_port == booking_data.arrival_port,
+                Booking.departure_time == booking_data.departure_time,
+                Booking.status == BookingStatusEnum.PENDING.value,
+                Booking.expires_at > datetime.utcnow()  # Not expired
+            ).first()
+
+            if existing_pending:
+                logger.info(f"Found existing pending booking {existing_pending.booking_reference} for same route/time/contact, returning it instead of creating duplicate")
+                # Return the existing pending booking instead of creating a duplicate
+                return booking_to_response(existing_pending)
 
         # Generate unique booking reference
         booking_reference = generate_booking_reference()
@@ -850,7 +868,15 @@ async def list_bookings(
     Admin users can see all bookings.
     """
     try:
-        query = db.query(Booking)
+        # Use selectinload to eagerly load relationships and avoid N+1 queries
+        query = db.query(Booking).options(
+            selectinload(Booking.passengers),
+            selectinload(Booking.vehicles),
+            selectinload(Booking.meals),
+            selectinload(Booking.booking_cabins).selectinload(BookingCabin.cabin),
+            selectinload(Booking.cabin),
+            selectinload(Booking.return_cabin),
+        )
 
         # Guest users (not logged in) get empty list
         if not current_user:
@@ -961,13 +987,21 @@ async def get_booking(
     Returns detailed information about a specific booking.
     """
     try:
-        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        # Use selectinload to eagerly load relationships and avoid N+1 queries
+        booking = db.query(Booking).options(
+            selectinload(Booking.passengers),
+            selectinload(Booking.vehicles),
+            selectinload(Booking.meals),
+            selectinload(Booking.booking_cabins).selectinload(BookingCabin.cabin),
+            selectinload(Booking.cabin),
+            selectinload(Booking.return_cabin),
+        ).filter(Booking.id == booking_id).first()
         if not booking:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Booking not found"
             )
-        
+
         # Check access permissions
         if not validate_booking_access(booking_id, current_user, db):
             raise HTTPException(
@@ -1620,18 +1654,26 @@ async def get_booking_by_reference(
 ):
     """
     Get booking by reference number.
-    
+
     Allows guests to retrieve booking information using booking reference
     and contact email for verification.
     """
     try:
-        booking = db.query(Booking).filter(
+        # Use selectinload to eagerly load relationships and avoid N+1 queries
+        booking = db.query(Booking).options(
+            selectinload(Booking.passengers),
+            selectinload(Booking.vehicles),
+            selectinload(Booking.meals),
+            selectinload(Booking.booking_cabins).selectinload(BookingCabin.cabin),
+            selectinload(Booking.cabin),
+            selectinload(Booking.return_cabin),
+        ).filter(
             and_(
                 Booking.booking_reference == booking_reference,
                 Booking.contact_email == email
             )
         ).first()
-        
+
         if not booking:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

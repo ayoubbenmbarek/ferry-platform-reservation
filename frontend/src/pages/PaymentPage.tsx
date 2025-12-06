@@ -10,6 +10,7 @@ import api, { paymentAPI, bookingAPI } from '../services/api';
 import StripePaymentForm from '../components/Payment/StripePaymentForm';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
 import BookingStepIndicator, { BookingStep } from '../components/BookingStepIndicator';
+import RunningBear from '../components/UI/RunningBear';
 
 // Initialize Stripe (will be loaded with publishable key from backend)
 let stripePromise: Promise<any> | null = null;
@@ -60,6 +61,9 @@ const PaymentPage: React.FC = () => {
   // Use ref to prevent double initialization in React StrictMode
   const initializingRef = useRef(false);
   const initializedRef = useRef(false);
+
+  // LocalStorage key for persisting booking ID across page refreshes
+  const PENDING_BOOKING_KEY = 'pending_booking_id';
 
   const calculateTotal = () => {
     // This should match the calculation in BookingPage
@@ -146,17 +150,53 @@ const PaymentPage: React.FC = () => {
         booking = await bookingAPI.getById(currentBooking.id);
         setBookingId(booking.id);
         setBookingDetails(booking);
+        // Store in localStorage for page refresh recovery
+        localStorage.setItem(PENDING_BOOKING_KEY, booking.id.toString());
       } else {
-        // Create new booking if no booking exists
-        console.log('Creating new booking...');
-        booking = await dispatch(createBooking()).unwrap();
-        setBookingId(booking.id);
-        setBookingDetails(booking);
+        // Check localStorage for pending booking ID (page refresh recovery)
+        const storedBookingId = localStorage.getItem(PENDING_BOOKING_KEY);
+        if (storedBookingId) {
+          try {
+            console.log('Found stored booking ID, fetching from backend:', storedBookingId);
+            booking = await bookingAPI.getById(parseInt(storedBookingId));
+            // Only use stored booking if it's still PENDING and not expired
+            if (booking.status === 'PENDING' && new Date(booking.expiresAt || booking.expires_at) > new Date()) {
+              console.log('Using stored pending booking:', booking.id);
+              setBookingId(booking.id);
+              setBookingDetails(booking);
+            } else {
+              // Stored booking is no longer valid, clear it and create new
+              console.log('Stored booking is no longer pending/valid, clearing and creating new');
+              localStorage.removeItem(PENDING_BOOKING_KEY);
+              booking = await dispatch(createBooking()).unwrap();
+              setBookingId(booking.id);
+              setBookingDetails(booking);
+              localStorage.setItem(PENDING_BOOKING_KEY, booking.id.toString());
+            }
+          } catch (fetchErr) {
+            console.log('Could not fetch stored booking, creating new:', fetchErr);
+            localStorage.removeItem(PENDING_BOOKING_KEY);
+            booking = await dispatch(createBooking()).unwrap();
+            setBookingId(booking.id);
+            setBookingDetails(booking);
+            localStorage.setItem(PENDING_BOOKING_KEY, booking.id.toString());
+          }
+        } else {
+          // Create new booking if no booking exists
+          console.log('Creating new booking...');
+          booking = await dispatch(createBooking()).unwrap();
+          setBookingId(booking.id);
+          setBookingDetails(booking);
+          // Store in localStorage for page refresh recovery
+          localStorage.setItem(PENDING_BOOKING_KEY, booking.id.toString());
+        }
       }
 
       // For cabin upgrades on confirmed bookings, don't redirect - allow payment for the upgrade
       if (!isCabinUpgrade && (booking.status === 'CONFIRMED' || booking.status === 'COMPLETED')) {
         console.log('Booking already confirmed/completed, redirecting to confirmation page');
+        // Clear localStorage since booking is already confirmed
+        localStorage.removeItem(PENDING_BOOKING_KEY);
         navigate('/booking/confirmation', {
           state: { booking }
         });
@@ -217,6 +257,7 @@ const PaymentPage: React.FC = () => {
       // Handle free booking (100% discount)
       if (paymentIntent.client_secret === 'free_booking') {
         // Booking is already confirmed, redirect to confirmation
+        localStorage.removeItem(PENDING_BOOKING_KEY);
         navigate('/booking/confirmation', {
           state: { booking: bookingDetails || booking }
         });
@@ -236,6 +277,7 @@ const PaymentPage: React.FC = () => {
       // Handle already paid booking (can be 400 or 500 status)
       if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('already paid')) {
         console.log('Booking already paid, redirecting to confirmation');
+        localStorage.removeItem(PENDING_BOOKING_KEY);
         navigate('/booking/confirmation', {
           state: { booking: bookingDetails }
         });
@@ -245,6 +287,7 @@ const PaymentPage: React.FC = () => {
       // Also check if booking status is already CONFIRMED/COMPLETED
       if (bookingDetails && (bookingDetails.status === 'CONFIRMED' || bookingDetails.status === 'COMPLETED')) {
         console.log('Booking already confirmed, redirecting to confirmation');
+        localStorage.removeItem(PENDING_BOOKING_KEY);
         navigate('/booking/confirmation', {
           state: { booking: bookingDetails }
         });
@@ -298,6 +341,9 @@ const PaymentPage: React.FC = () => {
   const handlePaymentSuccess = async (paymentIntentId: string) => {
     setIsConfirming(true);
     try {
+      // Clear pending booking from localStorage since payment is being processed
+      localStorage.removeItem(PENDING_BOOKING_KEY);
+
       // Confirm payment with backend
       const confirmation = await paymentAPI.confirmPayment(paymentIntentId);
 
@@ -379,14 +425,7 @@ const PaymentPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Preparing payment...</p>
-        </div>
-      </div>
-    );
+    return <RunningBear message="Preparing payment" size="medium" />;
   }
 
   if (error && !clientSecret) {

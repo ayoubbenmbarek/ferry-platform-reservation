@@ -1,10 +1,8 @@
-// Simple loading spinner component
+import RunningBear from './RunningBear';
+
+// Simple loading spinner component - now uses the running bear!
 const LoadingSpinner = () => {
-  return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="loading-spinner w-12 h-12"></div>
-    </div>
-  );
+  return <RunningBear message="Loading" size="medium" fullScreen={true} />;
 };
 
-export default LoadingSpinner; 
+export default LoadingSpinner;

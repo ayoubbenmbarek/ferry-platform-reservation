@@ -160,6 +160,30 @@ services:
     networks:
       - maritime-staging-network
 
+  # Support Chatbot (Staging)
+  chatbot:
+    build:
+      context: ./mcp-servers/chatbot
+      dockerfile: Dockerfile
+    container_name: maritime-chatbot-staging
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-staging_user}:${POSTGRES_PASSWORD:-staging_password}@postgres:5432/${POSTGRES_DB:-maritime_staging}
+      PORT: 3100
+    ports:
+      - "3100:3100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - maritime-staging-network
+
 volumes:
   postgres_staging_data:
     driver: local

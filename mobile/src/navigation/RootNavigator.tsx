@@ -20,6 +20,7 @@ import MyAlertsScreen from '../screens/MyAlertsScreen';
 import SavedRoutesScreen from '../screens/SavedRoutesScreen';
 import AddCabinScreen from '../screens/AddCabinScreen';
 import OfflineIndicator from '../components/OfflineIndicator';
+import SupportChatbot from '../components/SupportChatbot';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -42,6 +43,7 @@ export default function RootNavigator() {
   return (
     <>
       <OfflineIndicator showWhenOnline />
+      <SupportChatbot />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

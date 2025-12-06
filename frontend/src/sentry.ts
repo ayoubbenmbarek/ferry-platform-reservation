@@ -66,6 +66,13 @@ export const initSentry = (): boolean => {
         // User browser issues
         'ResizeObserver loop',
         'Non-Error promise rejection',
+        // Navigation errors
+        'Navigation cancelled',
+        'navigation cancelled',
+        'Abort due to navigation',
+        'AbortError',
+        // React Router errors
+        'No routes matched location',
       ],
 
       // URLs to ignore

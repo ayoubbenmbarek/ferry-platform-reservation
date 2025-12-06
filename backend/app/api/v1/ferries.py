@@ -346,26 +346,38 @@ async def get_ports():
 
         # Port information mapping
         port_info = {
+            # Tunisia
             "TUN": {"code": "TUN", "name": "Tunis", "country": "Tunisia"},
             "TUNIS": {"code": "TUNIS", "name": "Tunis", "country": "Tunisia"},
+            "ZARZIS": {"code": "ZARZIS", "name": "Zarzis", "country": "Tunisia"},
+            "ZAR": {"code": "ZAR", "name": "Zarzis", "country": "Tunisia"},
+            "SFAX": {"code": "SFAX", "name": "Sfax", "country": "Tunisia"},
+            "SFA": {"code": "SFA", "name": "Sfax", "country": "Tunisia"},
+            # France
             "MRS": {"code": "MRS", "name": "Marseille", "country": "France"},
             "MARSEILLE": {"code": "MARSEILLE", "name": "Marseille", "country": "France"},
+            "NICE": {"code": "NICE", "name": "Nice", "country": "France"},
+            "TOULON": {"code": "TOULON", "name": "Toulon", "country": "France"},
+            "TLN": {"code": "TLN", "name": "Toulon", "country": "France"},
+            # Italy
             "GEN": {"code": "GEN", "name": "Genoa", "country": "Italy"},
             "GENOA": {"code": "GENOA", "name": "Genoa", "country": "Italy"},
             "CIV": {"code": "CIV", "name": "Civitavecchia", "country": "Italy"},
             "CIVITAVECCHIA": {"code": "CIVITAVECCHIA", "name": "Civitavecchia", "country": "Italy"},
             "PAL": {"code": "PAL", "name": "Palermo", "country": "Italy"},
             "PALERMO": {"code": "PALERMO", "name": "Palermo", "country": "Italy"},
+            "TRAPANI": {"code": "TRAPANI", "name": "Trapani", "country": "Italy"},
+            "TPS": {"code": "TPS", "name": "Trapani", "country": "Italy"},
             "NAP": {"code": "NAP", "name": "Naples", "country": "Italy"},
             "NAPLES": {"code": "NAPLES", "name": "Naples", "country": "Italy"},
             "LIV": {"code": "LIV", "name": "Livorno", "country": "Italy"},
             "LIVORNO": {"code": "LIVORNO", "name": "Livorno", "country": "Italy"},
             "SAL": {"code": "SAL", "name": "Salerno", "country": "Italy"},
             "SALERNO": {"code": "SALERNO", "name": "Salerno", "country": "Italy"},
+            # Other
             "ALG": {"code": "ALG", "name": "Algiers", "country": "Algeria"},
             "BAR": {"code": "BAR", "name": "Barcelona", "country": "Spain"},
             "BARCELONA": {"code": "BARCELONA", "name": "Barcelona", "country": "Spain"},
-            "NICE": {"code": "NICE", "name": "Nice", "country": "France"},
         }
 
         ports = []

@@ -180,28 +180,9 @@ todo:Mobile app         | 60%+ bookings are mobile
 todo: add cancellation policy, check screenshot for no refundable, no changes..for basic, add fee for cancellation garantee
 todo: add Pre-departure reminder emails:done
 todo:add sentry for mobile
-todo:continue with k3s deployment, set it up locally and heberger en local
-todo:when click popular routes should go to home search page with that route information in frontend and mobile
-todo: mcp for postgres and chatbots:done
-todo:the chatbot with work with apiand how to make chatbot efficient and help with useful informations
-todo:chatbot should send relevant link to bokking page or any demand by user if possible, should aware about personal links or data for auth users etc and sending only personla data for the correspondant user:done
-todo:i am connected as ayoubenmbarek@gmail.com and demand chatbot to give me booking of olfaserghini1@gmail.com it gave me its reference, that should not happen!
-todo:delete booking try by chatbot: done, cant delete
-todo:complete personla information in mobile like
-  on frontend, and possibility to change
-  password and activate language choice and
-  currency in profile 
-todo:add alert cbain in booking page details in frontend like mobile not only when click modify booking
-todo:be notified when celery pod or any pod has errors:done
-todo:prevent chatbot to be excessive in request or ask something not related
-todo:ask bot to subscibe to a route and send notification about it, or subscive for cabon vailability
-todo:i cant see ongoing log for chatbot:done
-todo:/contact page exists but empt y add it
-todo:monitor redis and postgres via prometheus and grafana
-todo:add marron small bear run when loading the pages
 
 
-todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done
+todo search this route hsould go to that specific route, but i see the saved on home page search route instead
 
 todo:saved on frontend dont work when want to remove it
 todo missing message please login to save route in frontend
@@ -748,6 +729,99 @@ if is_new_high and price_change_percent >= threshold:
 ---
 
 ## 📝 Notes
+
+### Smart Pricing Panel ✅
+
+#### Overview
+The Smart Pricing Panel provides users with intelligent pricing tools to find the best deals for their ferry trips. Available on both frontend and mobile platforms.
+
+#### Features Implemented
+
+**Fare Calendar**
+- Interactive calendar showing prices for each day
+- Color-coded pricing: Green (cheap), Blue (normal), Red (expensive)
+- Month navigation with disabled past months
+- Shows cheapest date in the month
+- Price trends with rising/falling indicators
+- Updates departure date on date selection
+
+**Price Evolution Chart**
+- 30-day price history visualization
+- Interactive touch/hover to see specific date prices
+- Trend detection: rising, falling, stable
+- Min/max price range display
+- Touch-responsive on mobile with PanResponder
+
+**AI Insights**
+- Deal quality assessment (Excellent, Good, Average, Above Average, Expensive)
+- Price percentile calculation
+- Booking recommendations (Book Now, Book Soon, Wait, Book When Ready)
+- Best day of week to book
+- Savings potential calculation
+- Price volatility analysis
+
+**Flexible Dates Search**
+- Shows prices for dates around selected date (±3 days)
+- Highlights cheapest alternative
+- One-click date selection to switch to better price
+- Shows price difference from selected date
+
+**Return Trip Pricing**
+- Separate Smart Pricing Panel for return trips
+- Supports different return routes
+- Syncs with main search form
+
+#### Technical Implementation
+
+**Frontend Components** (`frontend/src/components/`)
+- `SmartPricingPanel.tsx` - Main container with tabbed interface
+- `FareCalendar.tsx` - Calendar grid with price display
+- `PriceEvolutionChart.tsx` - SVG-based price chart
+- `PriceInsights.tsx` - AI-powered insights display
+- `FlexibleDatesSearch.tsx` - Date alternatives grid
+
+**Mobile Components** (`mobile/src/components/`)
+- `SmartPricingPanel.tsx` - React Native tabbed panel
+- `FareCalendar.tsx` - Native calendar with gestures
+- `PriceEvolutionChart.tsx` - Touch-interactive chart with PanResponder
+- `PriceInsights.tsx` - Native insights cards
+- `FlexibleDatesSearch.tsx` - Native date alternatives
+
+**Backend Endpoints** (`backend/app/api/v1/fare_calendar.py`)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/fare-calendar/{from}/{to}` | GET | Get calendar prices for month |
+| `/fare-calendar/{from}/{to}/history` | GET | Get 30-day price history |
+| `/fare-calendar/{from}/{to}/insights` | GET | Get AI price insights |
+| `/fare-calendar/{from}/{to}/flexible` | GET | Get flexible date prices |
+
+**Caching Strategy**
+- Calendar data cached with 5-minute TTL
+- Price history cached with 15-minute TTL
+- Insights cached with 30-minute TTL
+
+#### Mobile-Specific Features
+
+**Touch Interaction**
+- PanResponder for chart touch handling
+- useRef pattern to avoid stale closures
+- 2-second tooltip display after touch release
+
+**Calendar Sync**
+- useEffect hooks for prop synchronization
+- Calendar auto-navigates when departure date changes
+- Past dates disabled and not clickable
+
+#### Tests
+
+**Mobile Tests** (`mobile/src/__tests__/components/`)
+- `SmartPricingPanel.test.tsx` - View modes, tab switching, state management
+- `FareCalendar.test.tsx` - Date navigation, price colors, grid calculations
+- `PriceEvolutionChart.test.tsx` - Chart math, touch interactions, trend detection
+- `PriceInsights.test.tsx` - Deal quality, recommendations, formatting
+- `FlexibleDatesSearch.test.tsx` - Date generation, price comparison
+
+---
 
 ### Calendar vs Ferry List Price Sync
 - **Known Behavior**: Calendar may show different price than ferry list

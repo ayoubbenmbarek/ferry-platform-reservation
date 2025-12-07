@@ -23,13 +23,14 @@ def _get_redis_client():
     import redis
     import os
     # Use Celery result backend URL, fallback to REDIS_URL, then default
+    # Default uses container hostname "redis" (works inside Docker)
     redis_url = os.getenv("CELERY_RESULT_BACKEND") or os.getenv("REDIS_URL") or "redis://redis:6379/1"
 
     # Handle test environments that use memory:// URLs (not supported by redis-py)
     if redis_url.startswith("memory://"):
-        # In test mode, use a mock-compatible URL or skip
-        logger.warning("Memory URL detected for Redis, using localhost fallback")
-        redis_url = "redis://localhost:6379/1"
+        # In test mode, skip Redis operations - return None and handle gracefully
+        logger.warning("Memory URL detected for Redis - dead-letter queue operations will be skipped in test mode")
+        return None
 
     return redis.from_url(redis_url)
 
@@ -49,6 +50,11 @@ class EmailTask(Task):
         """
         try:
             redis_client = _get_redis_client()
+            if redis_client is None:
+                # Test mode - skip dead-letter queue
+                logger.warning(f"Skipping dead-letter queue (test mode) for task {task_id}")
+                super().on_failure(exc, task_id, args, kwargs, einfo)
+                return
 
             failed_email = {
                 "task_id": task_id,
@@ -463,6 +469,8 @@ def get_dead_letter_queue_stats() -> Dict[str, Any]:
     """
     try:
         redis_client = _get_redis_client()
+        if redis_client is None:
+            return {"queue_length": 0, "recent_failures": [], "note": "Redis not available (test mode)"}
         queue_length = redis_client.llen(DEAD_LETTER_QUEUE_KEY)
 
         # Get sample of recent failures
@@ -502,6 +510,8 @@ def get_failed_emails(limit: int = 50) -> list:
     """
     try:
         redis_client = _get_redis_client()
+        if redis_client is None:
+            return []
         items = redis_client.lrange(DEAD_LETTER_QUEUE_KEY, 0, limit - 1)
         failed_emails = []
 
@@ -531,6 +541,8 @@ def retry_failed_email(queue_index: int) -> Dict[str, Any]:
     """
     try:
         redis_client = _get_redis_client()
+        if redis_client is None:
+            return {"status": "error", "message": "Redis not available (test mode)"}
 
         # Get the item at index
         item = redis_client.lindex(DEAD_LETTER_QUEUE_KEY, queue_index)
@@ -586,6 +598,8 @@ def retry_all_failed_emails() -> Dict[str, Any]:
     """
     try:
         redis_client = _get_redis_client()
+        if redis_client is None:
+            return {"status": "error", "message": "Redis not available (test mode)"}
         queue_length = redis_client.llen(DEAD_LETTER_QUEUE_KEY)
         if queue_length == 0:
             return {"status": "success", "message": "No failed emails to retry", "retried": 0}
@@ -645,6 +659,8 @@ def clear_dead_letter_queue() -> Dict[str, Any]:
     """
     try:
         redis_client = _get_redis_client()
+        if redis_client is None:
+            return {"status": "error", "message": "Redis not available (test mode)"}
         count = redis_client.llen(DEAD_LETTER_QUEUE_KEY)
         redis_client.delete(DEAD_LETTER_QUEUE_KEY)
 

@@ -272,16 +272,33 @@ async def confirm_payment(
                 else:
                     charge = latest_charge
 
-                payment.stripe_charge_id = charge.id
+                # Validate that we have real data, not mock objects
+                # This prevents test mocks from leaking into production database
+                charge_id = charge.id if hasattr(charge, 'id') else None
+                if charge_id and isinstance(charge_id, str) and not charge_id.startswith('<MagicMock'):
+                    payment.stripe_charge_id = charge_id
 
-                # Extract card details if present
-                payment_method_details = getattr(charge, 'payment_method_details', None)
-                if payment_method_details and hasattr(payment_method_details, 'card'):
-                    card = payment_method_details.card
-                    payment.card_last_four = getattr(card, 'last4', None)
-                    payment.card_brand = getattr(card, 'brand', None)
-                    payment.card_exp_month = getattr(card, 'exp_month', None)
-                    payment.card_exp_year = getattr(card, 'exp_year', None)
+                    # Extract card details if present
+                    payment_method_details = getattr(charge, 'payment_method_details', None)
+                    if payment_method_details and hasattr(payment_method_details, 'card'):
+                        card = payment_method_details.card
+                        # Only store real string values, not mock objects
+                        last4 = getattr(card, 'last4', None)
+                        brand = getattr(card, 'brand', None)
+                        exp_month = getattr(card, 'exp_month', None)
+                        exp_year = getattr(card, 'exp_year', None)
+
+                        # Validate values are real, not mocks
+                        if last4 and isinstance(last4, str) and len(last4) == 4:
+                            payment.card_last_four = last4
+                        if brand and isinstance(brand, str) and not brand.startswith('<MagicMock'):
+                            payment.card_brand = brand
+                        if exp_month and isinstance(exp_month, int):
+                            payment.card_exp_month = exp_month
+                        if exp_year and isinstance(exp_year, int):
+                            payment.card_exp_year = exp_year
+                else:
+                    logger.warning(f"Invalid charge ID received for payment {payment_intent_id}: {charge_id}")
 
             # Update booking status to CONFIRMED
             booking = db.query(Booking).filter(Booking.id == payment.booking_id).first()

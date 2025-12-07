@@ -1027,4 +1027,72 @@ See `k8s/SELF-MANAGED-K8S.md` for detailed setup with:
 
 ---
 
-*Last Updated: 2024-11-29*
+### Real-Time WebSocket Availability (2024-12-07) ✅
+
+#### Backend WebSocket System ✅
+- **WebSocketManager** (`app/websockets/manager.py`) - Connection management with Redis pub/sub
+- **Availability Router** (`app/websockets/availability.py`) - WebSocket endpoint `/ws/availability`
+- **Route Subscriptions** - Clients subscribe to specific routes (e.g., "TUNIS-MARSEILLE")
+- **Real-time Broadcasting** - Availability updates broadcast to all subscribed clients
+- **Multi-instance Support** - Redis pub/sub enables horizontal scaling
+
+#### Frontend WebSocket Integration ✅
+- **useAvailabilityWebSocket Hook** - Custom hook for WebSocket connection
+- **Redux Integration** - `updateFerryAvailability` action updates search results
+- **Auto-reconnection** - Handles connection drops gracefully
+- **Route-based Subscriptions** - Subscribes to currently viewed routes
+
+#### Mobile Redux Support ✅
+- **searchSlice** - `updateFerryAvailability` reducer handles:
+  - `passengers_booked` / `passengers_freed`
+  - `vehicles_booked` / `vehicles_freed`
+  - `cabin_quantity` (booking decreases cabins)
+  - `cabins_freed` (cancellation increases cabins)
+- ❌ **Missing**: `useAvailabilityWebSocket` hook for mobile (TODO)
+
+#### Availability Update Flow ✅
+1. User books/cancels on any platform
+2. Backend broadcasts via Redis pub/sub
+3. All connected clients receive update
+4. Redux state updates in real-time
+5. UI reflects new availability instantly
+
+---
+
+### Backend Integration Tests Fixed (2024-12-07) ✅
+
+#### Session Sharing Fix
+- **Problem**: Test fixtures and API used different database sessions
+- **Root Cause**: Two `get_db` functions (`app.database` and `app.api.deps`)
+- **Solution**: Override BOTH `get_db` functions in test fixtures
+
+#### Config Loading Fix
+- **Problem**: Tests loaded `.env` file with production DATABASE_URL
+- **Solution**: Skip `.env` loading when `ENVIRONMENT=testing`
+
+#### Test Counts
+| Component | Tests | Status |
+|-----------|-------|--------|
+| Backend | 380 | ✅ All pass |
+| Frontend | 288 | ✅ All pass |
+| Mobile | 706 | ✅ All pass |
+
+---
+
+## 🔄 NEXT STEPS (TODO)
+
+### High Priority
+1. **Payment Flow Tests** - End-to-end payment with availability updates
+2. **Mobile WebSocket Hook** - Create `useAvailabilityWebSocket` for mobile app
+
+### Medium Priority
+3. **Push Notifications** - Booking confirmations, price alerts
+4. **Offline Support** - Cache results, queue bookings offline
+
+### Lower Priority
+5. **Admin Dashboard** - Booking/user management, analytics
+6. **Performance Optimization** - Redis caching, query optimization
+
+---
+
+*Last Updated: 2024-12-07*

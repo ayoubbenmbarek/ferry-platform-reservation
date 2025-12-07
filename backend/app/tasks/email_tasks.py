@@ -24,6 +24,13 @@ def _get_redis_client():
     import os
     # Use Celery result backend URL, fallback to REDIS_URL, then default
     redis_url = os.getenv("CELERY_RESULT_BACKEND") or os.getenv("REDIS_URL") or "redis://redis:6379/1"
+
+    # Handle test environments that use memory:// URLs (not supported by redis-py)
+    if redis_url.startswith("memory://"):
+        # In test mode, use a mock-compatible URL or skip
+        logger.warning("Memory URL detected for Redis, using localhost fallback")
+        redis_url = "redis://localhost:6379/1"
+
     return redis.from_url(redis_url)
 
 

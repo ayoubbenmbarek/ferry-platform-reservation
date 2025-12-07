@@ -21,6 +21,10 @@ USE_DOCKER_DB = os.environ.get("TEST_USE_DOCKER", "").lower() in ("true", "1", "
 # This must happen before any app imports to ensure correct database is used
 os.environ["ENVIRONMENT"] = "testing"
 
+# CRITICAL: Disable Sentry during tests to prevent test errors from polluting production Sentry
+# This MUST be set before any app imports
+os.environ["SENTRY_DSN"] = ""
+
 # Helper to set env var only if not set or empty
 def set_env_if_empty(key: str, value: str):
     if not os.environ.get(key):

@@ -641,8 +641,8 @@ Important note about cabin
 API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]
 
 todo:click cabin avalaibilty alert get:404 not found:done
-todo:sign out should redirect to home page, actually i logout but still in same page, and faceid activated but after logout it do not work
-todo:i agree checkbox should appear when it is not selected, it is blank on blank when not selected actually
+todo:sign out should redirect to home page, actually i logout but still in same page, and faceid activated but after logout it do not work:done
+todo:i agree checkbox should appear when it is not selected, it is blank on blank when not selected actually:done
 
 to test all:
 All done! Here's the summary:

@@ -196,7 +196,7 @@ todo:be notified when celery pod or any pod has errors:done
 todo:prevent chatbot to be excessive in request or ask something not related
 todo:ask bot to subscibe to a route and send notification about it, or subscive for cabon vailability
 todo:i cant see ongoing log for chatbot:done
-todo:/contact page exists but empt y add it
+todo:/contact page exists but empt y add it:done
 todo:monitor redis and postgres via prometheus and grafana
 todo:add marron small bear run when loading the pages:
 todo:add ticket to wallet

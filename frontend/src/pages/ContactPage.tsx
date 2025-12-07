@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 
 interface ContactFormData {
@@ -11,6 +12,7 @@ interface ContactFormData {
 }
 
 const ContactPage: React.FC = () => {
+  const { t } = useTranslation(['common']);
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
@@ -24,12 +26,12 @@ const ContactPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   const categories = [
-    { value: 'general', label: 'General Inquiry' },
-    { value: 'booking', label: 'Booking Support' },
-    { value: 'refund', label: 'Refunds & Cancellations' },
-    { value: 'technical', label: 'Technical Issue' },
-    { value: 'feedback', label: 'Feedback & Suggestions' },
-    { value: 'other', label: 'Other' },
+    { value: 'general', label: t('contact.categories.general', 'General Inquiry') },
+    { value: 'booking', label: t('contact.categories.booking', 'Booking Support') },
+    { value: 'refund', label: t('contact.categories.refund', 'Refunds & Cancellations') },
+    { value: 'technical', label: t('contact.categories.technical', 'Technical Issue') },
+    { value: 'feedback', label: t('contact.categories.feedback', 'Feedback & Suggestions') },
+    { value: 'other', label: t('contact.categories.other', 'Other') },
   ];
 
   const handleInputChange = (
@@ -70,9 +72,9 @@ const ContactPage: React.FC = () => {
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold mb-4">Contact Us</h1>
+          <h1 className="text-4xl font-bold mb-4">{t('contact.title', 'Contact Us')}</h1>
           <p className="text-xl text-blue-100 max-w-2xl">
-            Have a question or need assistance? We're here to help. Reach out to our team and we'll get back to you as soon as possible.
+            {t('contact.subtitle', "Have a question or need assistance? We're here to help. Reach out to our team and we'll get back to you as soon as possible.")}
           </p>
         </div>
       </div>
@@ -83,7 +85,7 @@ const ContactPage: React.FC = () => {
           <div className="lg:col-span-1 space-y-6">
             {/* Contact Cards */}
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Get in Touch</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('contact.getInTouch', 'Get in Touch')}</h2>
 
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
@@ -91,7 +93,7 @@ const ContactPage: React.FC = () => {
                     📧
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Email</p>
+                    <p className="font-medium text-gray-900">{t('contact.email', 'Email')}</p>
                     <a href="mailto:support@ferryreservation.com" className="text-blue-600 hover:underline">
                       support@ferryreservation.com
                     </a>
@@ -103,11 +105,11 @@ const ContactPage: React.FC = () => {
                     📞
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Phone</p>
+                    <p className="font-medium text-gray-900">{t('contact.phone', 'Phone')}</p>
                     <a href="tel:+21671123456" className="text-blue-600 hover:underline">
                       +216 71 123 456
                     </a>
-                    <p className="text-sm text-gray-500">Mon-Fri, 8am-6pm CET</p>
+                    <p className="text-sm text-gray-500">{t('contact.phoneHours', 'Mon-Fri, 8am-6pm CET')}</p>
                   </div>
                 </div>
 
@@ -116,7 +118,7 @@ const ContactPage: React.FC = () => {
                     📍
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Address</p>
+                    <p className="font-medium text-gray-900">{t('contact.address', 'Address')}</p>
                     <p className="text-gray-600">
                       123 Marina Boulevard<br />
                       La Goulette, Tunis 2060<br />
@@ -130,11 +132,11 @@ const ContactPage: React.FC = () => {
                     🕐
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Business Hours</p>
+                    <p className="font-medium text-gray-900">{t('contact.businessHours', 'Business Hours')}</p>
                     <p className="text-gray-600">
-                      Monday - Friday: 8:00 AM - 6:00 PM<br />
-                      Saturday: 9:00 AM - 2:00 PM<br />
-                      Sunday: Closed
+                      {t('contact.hours.weekdays', 'Monday - Friday: 8:00 AM - 6:00 PM')}<br />
+                      {t('contact.hours.saturday', 'Saturday: 9:00 AM - 2:00 PM')}<br />
+                      {t('contact.hours.sunday', 'Sunday: Closed')}
                     </p>
                   </div>
                 </div>
@@ -143,19 +145,19 @@ const ContactPage: React.FC = () => {
 
             {/* Quick Links */}
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Help</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('contact.quickHelp', 'Quick Help')}</h2>
               <div className="space-y-3">
                 <a href="/faq" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
                   <span>❓</span>
-                  <span>Frequently Asked Questions</span>
+                  <span>{t('contact.links.faq', 'Frequently Asked Questions')}</span>
                 </a>
                 <a href="/terms" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
                   <span>📄</span>
-                  <span>Terms & Conditions</span>
+                  <span>{t('contact.links.terms', 'Terms & Conditions')}</span>
                 </a>
                 <a href="/privacy" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
                   <span>🔒</span>
-                  <span>Privacy Policy</span>
+                  <span>{t('contact.links.privacy', 'Privacy Policy')}</span>
                 </a>
               </div>
             </div>
@@ -164,13 +166,13 @@ const ContactPage: React.FC = () => {
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-sm p-6 text-white">
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-2xl">💬</span>
-                <h2 className="text-lg font-semibold">Live Chat</h2>
+                <h2 className="text-lg font-semibold">{t('contact.liveChat', 'Live Chat')}</h2>
               </div>
               <p className="text-blue-100 text-sm mb-4">
-                Need immediate assistance? Our AI-powered support chatbot is available 24/7 to help you.
+                {t('contact.liveChatDesc', 'Need immediate assistance? Our AI-powered support chatbot is available 24/7 to help you.')}
               </p>
               <p className="text-sm text-blue-200">
-                Look for the chat icon in the bottom right corner of your screen.
+                {t('contact.liveChatHint', 'Look for the chat icon in the bottom right corner of your screen.')}
               </p>
             </div>
           </div>
@@ -178,18 +180,18 @@ const ContactPage: React.FC = () => {
           {/* Contact Form */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-sm p-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Send us a Message</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">{t('contact.sendMessage', 'Send us a Message')}</h2>
               <p className="text-gray-600 mb-6">
-                Fill out the form below and we'll get back to you within 24 hours.
+                {t('contact.sendMessageDesc', "Fill out the form below and we'll get back to you within 24 hours.")}
               </p>
 
               {submitStatus === 'success' && (
                 <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
                   <span className="text-green-600 text-xl">✓</span>
                   <div>
-                    <p className="font-medium text-green-800">Message sent successfully!</p>
+                    <p className="font-medium text-green-800">{t('contact.success.title', 'Message sent successfully!')}</p>
                     <p className="text-sm text-green-700">
-                      Thank you for contacting us. We'll respond to your inquiry within 24 hours.
+                      {t('contact.success.message', "Thank you for contacting us. We'll respond to your inquiry within 24 hours.")}
                     </p>
                   </div>
                 </div>
@@ -199,7 +201,7 @@ const ContactPage: React.FC = () => {
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                   <span className="text-red-600 text-xl">⚠</span>
                   <div>
-                    <p className="font-medium text-red-800">Failed to send message</p>
+                    <p className="font-medium text-red-800">{t('contact.error.title', 'Failed to send message')}</p>
                     <p className="text-sm text-red-700">{errorMessage}</p>
                   </div>
                 </div>
@@ -209,7 +211,7 @@ const ContactPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name *
+                      {t('contact.form.fullName', 'Full Name')} *
                     </label>
                     <input
                       type="text"
@@ -219,13 +221,13 @@ const ContactPage: React.FC = () => {
                       onChange={handleInputChange}
                       required
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="John Doe"
+                      placeholder={t('contact.form.fullNamePlaceholder', 'John Doe')}
                     />
                   </div>
 
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address *
+                      {t('contact.form.emailAddress', 'Email Address')} *
                     </label>
                     <input
                       type="email"
@@ -243,7 +245,7 @@ const ContactPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                      Category *
+                      {t('contact.form.category', 'Category')} *
                     </label>
                     <select
                       id="category"
@@ -263,7 +265,7 @@ const ContactPage: React.FC = () => {
 
                   <div>
                     <label htmlFor="bookingReference" className="block text-sm font-medium text-gray-700 mb-1">
-                      Booking Reference (optional)
+                      {t('contact.form.bookingReference', 'Booking Reference')} ({t('contact.form.optional', 'optional')})
                     </label>
                     <input
                       type="text"
@@ -279,7 +281,7 @@ const ContactPage: React.FC = () => {
 
                 <div>
                   <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
-                    Subject *
+                    {t('contact.form.subject', 'Subject')} *
                   </label>
                   <input
                     type="text"
@@ -289,13 +291,13 @@ const ContactPage: React.FC = () => {
                     onChange={handleInputChange}
                     required
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Brief description of your inquiry"
+                    placeholder={t('contact.form.subjectPlaceholder', 'Brief description of your inquiry')}
                   />
                 </div>
 
                 <div>
                   <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-                    Message *
+                    {t('contact.form.message', 'Message')} *
                   </label>
                   <textarea
                     id="message"
@@ -305,13 +307,13 @@ const ContactPage: React.FC = () => {
                     required
                     rows={6}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
-                    placeholder="Please provide as much detail as possible..."
+                    placeholder={t('contact.form.messagePlaceholder', 'Please provide as much detail as possible...')}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-500">
-                    * Required fields
+                    * {t('contact.form.requiredFields', 'Required fields')}
                   </p>
                   <button
                     type="submit"
@@ -324,12 +326,12 @@ const ContactPage: React.FC = () => {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        Sending...
+                        {t('contact.form.sending', 'Sending...')}
                       </>
                     ) : (
                       <>
                         <span>📤</span>
-                        Send Message
+                        {t('contact.form.sendButton', 'Send Message')}
                       </>
                     )}
                   </button>
@@ -342,7 +344,7 @@ const ContactPage: React.FC = () => {
         {/* Map Section */}
         <div className="mt-12">
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Our Location</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('contact.ourLocation', 'Our Location')}</h2>
             <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden">
               <iframe
                 title="Office Location"

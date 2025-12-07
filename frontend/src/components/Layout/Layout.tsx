@@ -45,7 +45,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const languages = [
     { code: 'en', name: t('language.en'), flag: '🇬🇧' },
     { code: 'fr', name: t('language.fr'), flag: '🇫🇷' },
-    { code: 'ar', name: t('language.ar'), flag: '🇸🇦' },
     { code: 'it', name: t('language.it'), flag: '🇮🇹' },
     { code: 'de', name: t('language.de'), flag: '🇩🇪' },
   ];

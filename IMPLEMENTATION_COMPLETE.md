@@ -386,7 +386,9 @@ Grafana login:
  To deploy to k3s:
   kubectl apply -k k8s/base/monitoring/
 
-  
+todo send notification is something shown down in infra or app
+
+
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done
 
 todo:saved on frontend dont work when want to remove it

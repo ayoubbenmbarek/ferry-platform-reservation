@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from app.models.booking import Booking, BookingStatusEnum
-from app.models.payment import Payment, PaymentStatusEnum
+from app.models.payment import Payment, PaymentStatusEnum, PaymentMethodEnum
 from app.models.user import User
 
 
@@ -301,7 +301,7 @@ class TestRefundFlow:
             amount=Decimal("660.00"),
             currency="EUR",
             status=PaymentStatusEnum.COMPLETED,
-            payment_method="credit_card",
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
             net_amount=Decimal("640.00"),
         )
         db_session.add(payment)
@@ -412,7 +412,7 @@ class TestCancellationWithPayment:
             amount=Decimal("495.00"),
             currency="EUR",
             status=PaymentStatusEnum.COMPLETED,
-            payment_method="credit_card",
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
             net_amount=Decimal("480.00"),
         )
         db_session.add(payment)

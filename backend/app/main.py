@@ -114,6 +114,12 @@ except ImportError as e:
     print(f"Failed to import prices module: {e}")
 
 try:
+    metrics = importlib.import_module('app.api.v1.metrics')
+except ImportError as e:
+    metrics = None
+    print(f"Failed to import metrics module: {e}")
+
+try:
     health = importlib.import_module('app.api.v1.health')
 except ImportError as e:
     health = None
@@ -455,6 +461,9 @@ if prices:
 
 if health:
     app.include_router(health.router, prefix="/api/v1", tags=["Health"])
+
+if metrics:
+    app.include_router(metrics.router, prefix="/api/v1", tags=["Metrics"])
 
 # WebSocket for real-time availability updates
 try:

@@ -345,24 +345,48 @@ todo:ask bot to subscibe to a route and send notification about it, or subscive 
 todo:i cant see ongoing log for chatbot:done
 todo:/contact page exists but empt y add it:done
 todo:monitor redis and postgres via prometheus and grafana
-todo:add marron small bear run when loading the pages:
+todo:add marron small bear run when loading the pages:done
 todo:add ticket to wallet
-todo:add loading bear on mobile
+todo:add loading bear on mobile:done
 todo:translare profile and settings page
-todo add contact us in mobile and frontend also i think page /contact exist but empty
+todo add contact us in mobile and frontend also i think page /contact exist but empty:done
 todo:update maritime support email address
-todo how many crons we have
+todo how many crons we have:12:, include clear price alert and data after 180 days etc..:done
 todo add faq and terms and conditions pages
 todo:when change language in mobile nothing happens:done but only homepage translated for now
-todo: translate contact page and hide arabic language on menu
+todo: translate contact page and hide arabic language on menu:done
 todo  add ticket to wallet
 todo:add ferry map live
-todo:flexible dates could show routes in past! you can show prices but greyed maybe in the past
+todo:flexible dates could show routes in past! you can show prices but greyed maybe in the past:
 todo when token expires, and i was logged in i click my booking it shows no booking while i have but i should reconnect, so maybe one token expired should redirect to login page automatically or say seesion expired or something instead of showing connected but in reality not
 todo:for customer that have cancelled reservation, try to bring them back if they do not yet reserve or had a booking by promotional email mayb or alert, that they could subscribe we can send email to subscribe to a specific route etc quickly
 todo how intergrate real live map
+todo:why docker-compose.monitoring and not the same docker compose.dev that we have, and in production how it will be used, if i already prepared k3s deployment that will be k8s later
 
 
+To Start Monitoring:
+
+docker-compose -f docker-compose.monitoring.yml up -d
+
+It's running. Now you can access:
+Grafana login:
+  - Username: admin
+  - Password: maritime_admin_2024
+  - Grafana: http://localhost:3050 (admin / 
+  maritime_admin_2024)
+  - Prometheus: http://localhost:9090
+
+  Check the status:
+
+  docker ps | grep maritime
+
+  To verify Prometheus is scraping targets,
+  visit http://localhost:9090/targets
+
+ To deploy to k3s:
+  kubectl apply -k k8s/base/monitoring/
+
+  
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done
 
 todo:saved on frontend dont work when want to remove it

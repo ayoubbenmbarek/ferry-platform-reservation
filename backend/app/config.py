@@ -108,9 +108,16 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 10485760  # 10MB
     UPLOAD_DIR: str = "uploads/"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # Use model_config for pydantic-settings v2
+    # Skip loading .env file in testing mode - tests set environment variables directly
+    # In development, use .env.development
+    model_config = {
+        "env_file": None if os.environ.get("ENVIRONMENT") == "testing" else (
+            ".env.development" if os.path.exists(".env.development") else ".env"
+        ),
+        "case_sensitive": True,
+        "extra": "ignore",  # Ignore extra fields from .env
+    }
 
 
 # Global settings instance

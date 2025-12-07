@@ -472,7 +472,8 @@ async def startup_event():
     logger.info(f"Starting {settings.APP_NAME} v{settings.VERSION}")
 
     # Initialize database tables (in production, use Alembic migrations)
-    if settings.DEBUG:
+    # Skip in testing mode - tests manage their own database setup
+    if settings.DEBUG and settings.ENVIRONMENT != "testing":
         try:
             from app.database import create_tables
             create_tables()

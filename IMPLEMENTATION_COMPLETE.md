@@ -610,6 +610,7 @@ todo:when see cabin i see 10 available for all cabin types
 const ws = new WebSocket('ws://localhost:8010/ws/availability?routes=TUNIS-MARSEILLE'); ws.onmessage = (e) => console.log('📢', JSON.parse(e.data)); ws.onopen = () => console.log('✅ Listening for updates...');
 
 todo i get this but i received email then, what was the error  
+todo:what is the diff to use sqlit db and docker db in tests?
 
 
 

@@ -246,6 +246,67 @@ const searchSlice = createSlice({
       state.searchError = null;
     },
     resetSearch: () => initialState,
+
+    // Real-time availability update from WebSocket
+    updateFerryAvailability: (state, action: PayloadAction<{
+      ferryId: string;
+      route: string;
+      availability: {
+        change_type?: string;
+        passengers_booked?: number;
+        passengers_freed?: number;
+        vehicles_booked?: number;
+        vehicles_freed?: number;
+        cabin_type?: string;
+        cabin_quantity?: number;
+      };
+    }>) => {
+      const { ferryId, availability } = action.payload;
+
+      // Helper to update a single ferry
+      const updateFerry = (ferry: FerrySchedule): FerrySchedule => {
+        if (ferry.sailing_id !== ferryId && ferry.id !== ferryId) {
+          return ferry;
+        }
+
+        const updated = { ...ferry };
+
+        // Update passenger availability
+        if (availability.passengers_booked) {
+          updated.available_capacity = Math.max(0, (updated.available_capacity || 0) - availability.passengers_booked);
+        }
+        if (availability.passengers_freed) {
+          updated.available_capacity = (updated.available_capacity || 0) + availability.passengers_freed;
+        }
+
+        // Update vehicle availability
+        if (availability.vehicles_booked) {
+          updated.available_vehicle_space = Math.max(0, (updated.available_vehicle_space || 0) - availability.vehicles_booked);
+        }
+        if (availability.vehicles_freed) {
+          updated.available_vehicle_space = (updated.available_vehicle_space || 0) + availability.vehicles_freed;
+        }
+
+        // Update cabin availability
+        if (availability.cabin_quantity) {
+          updated.available_cabins = Math.max(0, (updated.available_cabins || 0) - availability.cabin_quantity);
+        }
+
+        console.log(`[Search] Updated availability for ferry ${ferryId}:`, {
+          passengers: updated.available_capacity,
+          vehicles: updated.available_vehicle_space,
+          cabins: updated.available_cabins
+        });
+
+        return updated;
+      };
+
+      // Update outbound results
+      state.outboundResults = state.outboundResults.map(updateFerry);
+
+      // Update return results
+      state.returnResults = state.returnResults.map(updateFerry);
+    },
   },
   extraReducers: (builder) => {
     // Fetch ports
@@ -307,6 +368,7 @@ export const {
   clearSelection,
   clearResults,
   resetSearch,
+  updateFerryAvailability,
 } = searchSlice.actions;
 
 export default searchSlice.reducer;

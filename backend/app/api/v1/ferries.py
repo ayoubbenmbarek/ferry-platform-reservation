@@ -88,6 +88,111 @@ router = APIRouter()
 ferry_service = FerryService()
 
 
+async def adjust_availability_from_bookings(results: list) -> list:
+    """
+    Adjust cabin and passenger availability based on our actual bookings.
+
+    This subtracts booked cabins/passengers from the operator's reported availability
+    to reflect our platform's bookings.
+    """
+    from app.database import SessionLocal
+    from app.models.booking import Booking, BookingCabin, BookingStatusEnum
+    from sqlalchemy import func
+
+    if not results:
+        return results
+
+    try:
+        db = SessionLocal()
+
+        # Get all sailing IDs from results
+        sailing_ids = [r.get("sailing_id") for r in results if r.get("sailing_id")]
+
+        if not sailing_ids:
+            db.close()
+            return results
+
+        # Query booked cabins grouped by sailing_id and cabin type
+        cabin_bookings = (
+            db.query(
+                Booking.sailing_id,
+                BookingCabin.cabin_id,
+                func.sum(BookingCabin.quantity).label("total_booked")
+            )
+            .join(BookingCabin, Booking.id == BookingCabin.booking_id)
+            .filter(
+                Booking.sailing_id.in_(sailing_ids),
+                Booking.status.in_([BookingStatusEnum.CONFIRMED, BookingStatusEnum.PENDING])
+            )
+            .group_by(Booking.sailing_id, BookingCabin.cabin_id)
+            .all()
+        )
+
+        # Query booked passengers grouped by sailing_id
+        passenger_bookings = (
+            db.query(
+                Booking.sailing_id,
+                func.sum(Booking.total_passengers).label("total_passengers"),
+                func.sum(Booking.total_vehicles).label("total_vehicles")
+            )
+            .filter(
+                Booking.sailing_id.in_(sailing_ids),
+                Booking.status.in_([BookingStatusEnum.CONFIRMED, BookingStatusEnum.PENDING])
+            )
+            .group_by(Booking.sailing_id)
+            .all()
+        )
+
+        db.close()
+
+        # Build lookup dictionaries
+        # cabin_booked[sailing_id] = total cabins booked (simplified - all types)
+        cabin_booked = {}
+        for sailing_id, cabin_id, total in cabin_bookings:
+            if sailing_id not in cabin_booked:
+                cabin_booked[sailing_id] = 0
+            cabin_booked[sailing_id] += total or 0
+
+        # passenger_booked[sailing_id] = (passengers, vehicles)
+        passenger_booked = {}
+        for sailing_id, passengers, vehicles in passenger_bookings:
+            passenger_booked[sailing_id] = (passengers or 0, vehicles or 0)
+
+        # Adjust results
+        for result in results:
+            sailing_id = result.get("sailing_id")
+            if not sailing_id:
+                continue
+
+            # Adjust cabin availability
+            if sailing_id in cabin_booked:
+                booked = cabin_booked[sailing_id]
+                cabin_types = result.get("cabin_types", [])
+                for cabin in cabin_types:
+                    if cabin.get("type") not in ("deck", "seat", "reclining_seat"):
+                        # Distribute booked cabins proportionally (simplified)
+                        available = cabin.get("available", 0)
+                        cabin["available"] = max(0, available - booked)
+                        booked = max(0, booked - available)  # Carry over to next type
+
+            # Adjust passenger/vehicle availability
+            if sailing_id in passenger_booked:
+                booked_pax, booked_vehicles = passenger_booked[sailing_id]
+
+                spaces = result.get("available_spaces", {})
+                if spaces:
+                    spaces["passengers"] = max(0, spaces.get("passengers", 0) - booked_pax)
+                    spaces["vehicles"] = max(0, spaces.get("vehicles", 0) - booked_vehicles)
+                    result["available_spaces"] = spaces
+
+        logger.info(f"📊 Adjusted availability for {len(results)} results (cabins: {len(cabin_booked)}, passengers: {len(passenger_booked)} sailings)")
+        return results
+
+    except Exception as e:
+        logger.warning(f"Failed to adjust availability from bookings: {e}")
+        return results
+
+
 @router.post("/search", response_model=FerrySearchResponse)
 async def search_ferries(
     search_params: FerrySearch
@@ -152,6 +257,11 @@ async def search_ferries(
                 cached_response["results"] = filtered_cached
                 cached_response["total_results"] = len(filtered_cached)
 
+            # Adjust availability based on our bookings (even for cached results)
+            if cached_response.get("results"):
+                cached_response["results"] = await adjust_availability_from_bookings(cached_response["results"])
+                cached_response["total_results"] = len(cached_response["results"])
+
             # Add cache hit indicator
             cached_response["cached"] = True
             cached_response["cache_age_ms"] = (time.time() - start_time) * 1000
@@ -213,7 +323,7 @@ async def search_ferries(
 
         results_dict = filtered_results
 
-        # Build response
+        # Build response (cache RAW results before adjustment)
         # Serialize search_params dates for caching
         search_params_dict = search_params.dict()
         if search_params_dict.get("departure_date"):
@@ -222,19 +332,29 @@ async def search_ferries(
             search_params_dict["return_date"] = search_params_dict["return_date"].isoformat()
 
         response_dict = {
-            "results": results_dict,
-            "total_results": len(results_dict),  # Use filtered count
+            "results": results_dict,  # RAW unadjusted results for caching
+            "total_results": len(results_dict),
             "search_params": search_params_dict,
             "operators_searched": operators_searched,
             "search_time_ms": search_time,
             "cached": False
         }
 
-        # Cache the results for 5 minutes (300 seconds)
+        # Cache the RAW results for 5 minutes (adjustment happens on read)
         cache_service.set_ferry_search(cache_params, response_dict, ttl=300)
+
         logger.info(f"💾 Cached ferry search results ({search_time:.0f}ms)")
 
-        return FerrySearchResponse(**response_dict)
+        # Now adjust availability based on our bookings (after caching raw results)
+        adjusted_results = await adjust_availability_from_bookings(results_dict)
+
+        # Return adjusted results (not the raw cached ones)
+        adjusted_response = {
+            **response_dict,
+            "results": adjusted_results,
+            "total_results": len(adjusted_results),
+        }
+        return FerrySearchResponse(**adjusted_response)
         
     except FerryAPIError as e:
         raise HTTPException(

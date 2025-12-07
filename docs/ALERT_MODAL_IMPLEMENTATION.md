@@ -181,3 +181,68 @@ When authenticated:
 - API calls remain the same
 - Alert creation logic unchanged
 - Database schema not affected
+
+leanup-old-price-alerts
+what is  the diff with this 
+cleanup-old-price-data 
+
+⏺ Search(pattern: "def
+        cleanup_old_price_alerts|def
+        cleanup_old_price_data", path:
+        "~/Projects/maritime-reservation-website
+        /backend/app/tasks", output_mode:
+        "content")
+  ⎿  Found 53 lines (ctrl+o to expand)
+
+⏺ They clean up different tables:
+
+  cleanup-old-price-alerts
+
+  What it deletes: User-created price alert
+  subscriptions
+
+  # Deletes from: PriceAlert table
+  # Condition: status = CANCELLED or 
+  EXPIRED, older than 180 days
+
+  Example: When a user sets up "Notify me
+  when Tunis→Marseille drops below €80" -
+  this alert record gets cleaned up after it
+   expires/cancels.
+
+  ---
+  cleanup-old-price-data
+
+  What it deletes: System price tracking
+  data for analytics
+
+  # Deletes from 3 tables:
+  # 1. PriceHistory - historical price 
+  snapshots (older than 180 days)
+  # 2. PricePrediction - AI price 
+  predictions (older than 180 days)  
+  # 3. FareCalendarCache - cached fare 
+  calendar data (expired entries)
+
+  Example: Every 6 hours, the system records
+   prices for all routes. This data is used
+  for price trends, predictions, and the
+  fare calendar. Old data gets cleaned up.
+
+  ---
+  Summary
+
+  | Task                     | Cleans Up
+                                      |
+  Purpose                         |
+  |--------------------------|--------------
+  ------------------------------------|-----
+  ----------------------------|
+  | cleanup-old-price-alerts | PriceAlert
+                                      | User
+   notification subscriptions |
+  | cleanup-old-price-data   | PriceHistory,
+   PricePrediction, FareCalendarCache |
+  System analytics data           |
+
+  Both keep 180 days of data and run daily.

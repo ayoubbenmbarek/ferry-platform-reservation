@@ -145,6 +145,153 @@
 | Duplicate booking prevention | ✅ Done |
 | Payment already processed message | ✅ Done |
 | Cabin upgrade from notification email | ✅ Done |
+| Real-time WebSocket availability | ✅ Done |
+
+---
+
+### Real-Time Availability System (WebSocket) ✅
+
+#### Architecture Overview
+Real-time ferry availability updates using WebSocket + Redis pub/sub:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        REAL-TIME AVAILABILITY FLOW                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   INSTANT (<100ms)                    FALLBACK (every 2 min)            │
+│   ─────────────────                   ──────────────────────            │
+│                                                                         │
+│   User books/cancels                  Celery Beat schedules             │
+│        ↓                                     ↓                          │
+│   Booking API                         sync_external_availability()      │
+│        ↓                                     ↓                          │
+│   publish_availability_now()          Fetch from CTN/GNV/Corsica APIs   │
+│        ↓                                     ↓                          │
+│   Redis PUBLISH                       Compare with cache                │
+│        ↓                                     ↓                          │
+│   WebSocket Manager                   If changed → Redis PUBLISH        │
+│        ↓                                     ↓                          │
+│   Broadcast to all                    Broadcast to subscribed           │
+│   subscribed clients                  clients                           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Backend Components
+
+| File | Purpose |
+|------|---------|
+| `backend/app/websockets/manager.py` | WebSocket connection manager with Redis pub/sub |
+| `backend/app/websockets/availability.py` | WebSocket endpoint `/ws/availability` |
+| `backend/app/tasks/availability_sync_tasks.py` | Celery tasks for sync + instant publish |
+
+#### Key Functions
+
+**Instant Publish (Internal Changes)**
+```python
+from app.tasks.availability_sync_tasks import publish_availability_now
+
+# Called automatically when booking is created/cancelled
+publish_availability_now(
+    route="TUNIS-MARSEILLE",
+    ferry_id="sailing-123",
+    departure_time="2024-12-20T20:00:00",
+    availability={
+        "change_type": "booking_created",  # or "booking_cancelled"
+        "passengers_booked": 3,
+        "vehicles_booked": 1,
+    }
+)
+```
+
+**External API Sync (Celery Beat)**
+- Runs every 2 minutes
+- Fetches from CTN, GNV, Corsica Linea APIs
+- Compares with cache, publishes only if changed
+- Catches bookings made outside our platform
+
+#### External API Integration (Future)
+
+When connecting to real ferry operator APIs:
+
+```python
+# backend/app/tasks/availability_sync_tasks.py
+
+def fetch_external_availability(route: str) -> list:
+    """
+    Replace simulated data with real API calls.
+
+    Production implementation:
+    - CTN API: https://api.ctn.com.tn/availability
+    - GNV API: https://api.gnv.it/v2/availability
+    - Corsica Linea: https://api.corsicalinea.com/availability
+
+    Each operator has different auth and response formats.
+    Normalize responses to our standard format.
+    """
+    operator = get_operator_for_route(route)
+
+    if operator == "CTN":
+        response = requests.get(
+            "https://api.ctn.com.tn/availability",
+            headers={"Authorization": f"Bearer {CTN_API_KEY}"},
+            params={"route": route}
+        )
+        return normalize_ctn_response(response.json())
+
+    elif operator == "GNV":
+        response = requests.get(
+            "https://api.gnv.it/v2/availability",
+            headers={"X-API-Key": GNV_API_KEY},
+            params={"departure": route.split("-")[0], "arrival": route.split("-")[1]}
+        )
+        return normalize_gnv_response(response.json())
+
+    # ... other operators
+```
+
+#### Frontend/Mobile Usage
+
+```typescript
+import { useAvailabilityWebSocket } from '../hooks';
+
+function SearchResults() {
+  const { isConnected, lastUpdate } = useAvailabilityWebSocket({
+    routes: ['TUNIS-MARSEILLE', 'TUNIS-GENOA'],
+    onUpdate: (update) => {
+      if (update.type === 'availability_update') {
+        // Refresh search results with new availability
+        refetchSearchResults();
+      }
+    },
+  });
+
+  return (
+    <div>
+      {isConnected && <span className="live-badge">LIVE</span>}
+      {/* search results */}
+    </div>
+  );
+}
+```
+
+#### WebSocket Protocol
+
+**Client → Server Messages:**
+```json
+{"action": "subscribe", "routes": ["TUNIS-MARSEILLE"]}
+{"action": "unsubscribe", "routes": ["TUNIS-MARSEILLE"]}
+{"action": "ping"}
+```
+
+**Server → Client Messages:**
+```json
+{"type": "connected", "client_id": "uuid", "message": "Connected"}
+{"type": "subscribed", "routes": ["TUNIS-MARSEILLE"]}
+{"type": "availability_update", "route": "TUNIS-MARSEILLE", "data": {...}}
+{"type": "pong"}
+```
 
 ---
 
@@ -452,6 +599,20 @@ todo add cabin invoice to my booking and cabin availaibility alert made should b
 todo:add calendar price routes search, and arrow to go forward in days and backward, to see prices and availaibility etc
 todo:add signup popup at the end if user book without registration, also add possibility to search its trip like on frontend by email and booking reference
 todo:add cabin in booking details if exist by default, i can see only the upgraded cabin
+todo:add notify me when route not found or passenger or cabin or vehicule in mobile if not yet, confirm if it exists on frontend?:done
+  - Frontend: AvailabilityAlertButton.tsx exists (passenger/vehicle/cabin alerts)
+  - Mobile: AvailabilityBadge shows notify button when unavailable/limited
+  - Mobile: Added "Notify Me When Available" button to empty search results state
+todo:when see cabin i see 10 available for all cabin types
+
+
+
+const ws = new WebSocket('ws://localhost:8010/ws/availability?routes=TUNIS-MARSEILLE'); ws.onmessage = (e) => console.log('📢', JSON.parse(e.data)); ws.onopen = () => console.log('✅ Listening for updates...');
+
+todo i get this but i received email then, what was the error  
+
+
+
 
 Important note about cabin 
   alerts:

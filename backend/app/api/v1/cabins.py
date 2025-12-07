@@ -317,6 +317,25 @@ async def add_cabin_to_booking(
 
     logger.info(f"Added cabin {request.cabin_id} to booking {booking_id} (alert: {request.alert_id})")
 
+    # Publish instant availability update via WebSocket (cabin booked)
+    try:
+        from app.tasks.availability_sync_tasks import publish_availability_now
+        route = f"{booking.departure_port}-{booking.arrival_port}"
+        publish_availability_now(
+            route=route,
+            ferry_id=booking.sailing_id or f"{booking.operator}-{booking.booking_reference}",
+            departure_time=booking.departure_time.isoformat() if booking.departure_time else "",
+            availability={
+                "change_type": "cabin_booked",
+                "cabin_type": cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type),
+                "cabin_quantity": request.quantity,
+                "booking_reference": booking.booking_reference
+            }
+        )
+        logger.info(f"📢 Instant availability update published for cabin booking on {route}")
+    except Exception as e:
+        logger.warning(f"Failed to publish availability update: {str(e)}")
+
     return AddCabinResponse(
         success=True,
         message="Cabin added to booking successfully",

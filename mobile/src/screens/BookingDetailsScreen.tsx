@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { format, parseISO, differenceInDays, differenceInSeconds } from 'date-fns';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
@@ -31,6 +31,39 @@ import LiveFerryMap from '../components/LiveFerryMap';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'BookingDetails'>;
+
+// Booking expiration time in minutes
+const BOOKING_EXPIRATION_MINUTES = 30;
+
+// Helper to calculate time remaining for pending bookings
+const getTimeRemaining = (createdAt: string | undefined, expiresAt: string | undefined) => {
+  if (!createdAt && !expiresAt) return { seconds: 0, percentage: 0 };
+
+  const now = new Date();
+  let expirationTime: Date;
+
+  if (expiresAt) {
+    expirationTime = parseISO(expiresAt);
+  } else if (createdAt) {
+    const created = parseISO(createdAt);
+    expirationTime = new Date(created.getTime() + BOOKING_EXPIRATION_MINUTES * 60 * 1000);
+  } else {
+    return { seconds: 0, percentage: 0 };
+  }
+
+  const secondsRemaining = Math.max(0, differenceInSeconds(expirationTime, now));
+  const totalSeconds = BOOKING_EXPIRATION_MINUTES * 60;
+  const percentage = Math.max(0, Math.min(100, (secondsRemaining / totalSeconds) * 100));
+
+  return { seconds: secondsRemaining, percentage };
+};
+
+// Format seconds to MM:SS
+const formatTimeRemaining = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
 const statusColors: Record<string, { bg: string; text: string }> = {
   pending: { bg: '#FEF3C7', text: '#92400E' },
@@ -56,6 +89,15 @@ export default function BookingDetailsScreen() {
   const [isViewingCached, setIsViewingCached] = useState(false);
   const [alertToastMessage, setAlertToastMessage] = useState<string | null>(null);
   const [isPriceSummaryExpanded, setIsPriceSummaryExpanded] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every second for countdown
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAlertCreated = (message: string) => {
     setAlertToastMessage(message);
@@ -142,6 +184,53 @@ export default function BookingDetailsScreen() {
 
   const isDeparturePassed = () => {
     return getDaysUntilDeparture() < 0;
+  };
+
+  const handleCancelPending = () => {
+    if (!booking) return;
+
+    Alert.alert(
+      'Cancel Pending Booking',
+      'Are you sure you want to cancel this pending booking? The reservation will be released.',
+      [
+        { text: 'Keep Booking', style: 'cancel' },
+        {
+          text: 'Cancel Booking',
+          style: 'destructive',
+          onPress: async () => {
+            setIsCancelling(true);
+            try {
+              if (isConnected) {
+                const updated = await bookingService.cancelBooking(bookingId);
+                setBooking(updated);
+                await offlineService.updateCachedBooking(updated);
+              } else {
+                await offlineService.queueOperation('cancel_booking', bookingId);
+                setBooking({
+                  ...booking,
+                  status: 'cancelled' as any,
+                });
+                await refreshPendingCount();
+              }
+              Alert.alert(
+                'Success',
+                'Your pending booking has been cancelled.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
+            } catch (err: any) {
+              Alert.alert('Error', err.message);
+            } finally {
+              setIsCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePayNow = () => {
+    if (!booking) return;
+    navigation.navigate('Payment', { bookingId: booking.id });
   };
 
   const handleCancel = () => {
@@ -339,6 +428,91 @@ export default function BookingDetailsScreen() {
           </View>
           <Text style={styles.price}>€{(booking.total_amount ?? 0).toFixed(2)}</Text>
         </View>
+
+        {/* Pending Payment Banner with Countdown */}
+        {status === 'pending' && (() => {
+          const timeRemaining = getTimeRemaining(booking.created_at, booking.expires_at);
+          const isExpiringSoon = timeRemaining.seconds < 300; // Less than 5 minutes
+          const isExpired = timeRemaining.seconds === 0;
+
+          // Get progress bar color based on time remaining
+          const getProgressBarColor = () => {
+            if (timeRemaining.percentage > 50) return colors.success;
+            if (timeRemaining.percentage > 25) return '#F59E0B';
+            return colors.error;
+          };
+
+          if (isExpired) {
+            return (
+              <View style={styles.expiredBanner}>
+                <Ionicons name="alert-circle" size={24} color={colors.error} />
+                <View style={styles.expiredBannerContent}>
+                  <Text style={styles.expiredBannerTitle}>Booking Expired</Text>
+                  <Text style={styles.expiredBannerText}>
+                    This booking has expired and the reservation has been released.
+                  </Text>
+                </View>
+              </View>
+            );
+          }
+
+          return (
+            <View style={[styles.pendingPaymentBanner, isExpiringSoon && styles.pendingPaymentBannerUrgent]}>
+              <View style={styles.pendingPaymentHeader}>
+                <View style={styles.pendingPaymentLeft}>
+                  <Ionicons
+                    name="time-outline"
+                    size={24}
+                    color={isExpiringSoon ? colors.error : '#92400E'}
+                  />
+                  <View>
+                    <Text style={[styles.pendingPaymentTitle, isExpiringSoon && styles.pendingPaymentTitleUrgent]}>
+                      {isExpiringSoon ? 'Expiring Soon!' : 'Payment Pending'}
+                    </Text>
+                    <Text style={[styles.pendingPaymentTime, isExpiringSoon && styles.pendingPaymentTimeUrgent]}>
+                      {formatTimeRemaining(timeRemaining.seconds)} remaining to complete payment
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Progress bar */}
+              <View style={styles.pendingProgressBarContainer}>
+                <View
+                  style={[
+                    styles.pendingProgressBar,
+                    {
+                      width: `${timeRemaining.percentage}%`,
+                      backgroundColor: getProgressBarColor(),
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Action buttons */}
+              <View style={styles.pendingPaymentActions}>
+                <TouchableOpacity
+                  style={[styles.payNowButton, isExpiringSoon && styles.payNowButtonUrgent]}
+                  onPress={handlePayNow}
+                >
+                  <Ionicons name="card" size={20} color="#fff" />
+                  <Text style={styles.payNowButtonText}>Pay Now</Text>
+                  <Text style={styles.payNowAmount}>€{(booking.total_amount ?? 0).toFixed(2)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelPendingButton}
+                  onPress={handleCancelPending}
+                  disabled={isCancelling}
+                >
+                  <Ionicons name="close-circle-outline" size={18} color={colors.error} />
+                  <Text style={styles.cancelPendingButtonText}>
+                    {isCancelling ? 'Cancelling...' : 'Cancel Booking'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Route Card */}
         <Card style={styles.section}>
@@ -1124,6 +1298,119 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#92400E',
+  },
+  // Pending Payment Banner styles
+  pendingPaymentBanner: {
+    backgroundColor: '#FEF3C7',
+    margin: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  pendingPaymentBannerUrgent: {
+    backgroundColor: '#FEE2E2',
+  },
+  pendingPaymentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  pendingPaymentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  pendingPaymentTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  pendingPaymentTitleUrgent: {
+    color: colors.error,
+  },
+  pendingPaymentTime: {
+    fontSize: 14,
+    color: '#B45309',
+    marginTop: 2,
+  },
+  pendingPaymentTimeUrgent: {
+    color: colors.error,
+  },
+  pendingProgressBarContainer: {
+    height: 6,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 3,
+    marginTop: spacing.md,
+    overflow: 'hidden',
+  },
+  pendingProgressBar: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  pendingPaymentActions: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  payNowButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  payNowButtonUrgent: {
+    backgroundColor: colors.error,
+  },
+  payNowButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    flex: 1,
+  },
+  payNowAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  cancelPendingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: '#fff',
+  },
+  cancelPendingButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.error,
+  },
+  expiredBanner: {
+    backgroundColor: '#FEE2E2',
+    margin: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  expiredBannerContent: {
+    flex: 1,
+  },
+  expiredBannerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  expiredBannerText: {
+    fontSize: 14,
+    color: colors.error,
+    marginTop: 2,
   },
   // Booked Cabins styles
   cabinRow: {

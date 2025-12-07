@@ -63,16 +63,29 @@ export default function LoginScreen() {
   }, [dispatch]);
 
   // Google Auth - webClientId is used for Expo Go development
-  const [_, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
     clientId: GOOGLE_CLIENT_ID, // Web client ID for Expo Go
     iosClientId: GOOGLE_IOS_CLIENT_ID,
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
   });
 
+  // Debug: Log Google auth state
   React.useEffect(() => {
+    console.log('[GoogleAuth] Request ready:', !!googleRequest);
+    console.log('[GoogleAuth] Client ID:', GOOGLE_CLIENT_ID ? 'Set' : 'Missing');
+  }, [googleRequest]);
+
+  React.useEffect(() => {
+    console.log('[GoogleAuth] Response:', googleResponse?.type);
     if (googleResponse?.type === 'success') {
       const { id_token } = googleResponse.params;
+      console.log('[GoogleAuth] Got ID token, logging in...');
       dispatch(googleLogin(id_token));
+    } else if (googleResponse?.type === 'error') {
+      console.error('[GoogleAuth] Error:', googleResponse.error);
+      setLocalError('Google login failed. Please try again.');
+    } else if (googleResponse?.type === 'dismiss') {
+      console.log('[GoogleAuth] User dismissed the login');
     }
   }, [googleResponse, dispatch]);
 
@@ -130,12 +143,32 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    promptGoogleAsync();
+  const handleGoogleLogin = async () => {
+    if (!googleRequest) {
+      console.warn('[GoogleAuth] Request not ready yet');
+      setLocalError('Google login is initializing. Please try again in a moment.');
+      return;
+    }
+
+    setLocalError(null);
+    dispatch(clearError());
+
+    try {
+      console.log('[GoogleAuth] Prompting user...');
+      const result = await promptGoogleAsync();
+      console.log('[GoogleAuth] Prompt result:', result?.type);
+    } catch (error: any) {
+      console.error('[GoogleAuth] Prompt error:', error);
+      setLocalError('Failed to open Google login. Please try again.');
+    }
   };
 
   const handleAppleLogin = async () => {
+    setLocalError(null);
+    dispatch(clearError());
+
     try {
+      console.log('[AppleAuth] Starting Apple Sign In...');
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -144,6 +177,7 @@ export default function LoginScreen() {
       });
 
       if (credential.identityToken) {
+        console.log('[AppleAuth] Got identity token, logging in...');
         const result = await dispatch(appleLogin({
           identityToken: credential.identityToken,
           fullName: credential.fullName ? {
@@ -151,13 +185,24 @@ export default function LoginScreen() {
             familyName: credential.fullName.familyName || undefined,
           } : undefined,
         }));
+
         if (appleLogin.fulfilled.match(result)) {
+          console.log('[AppleAuth] Login successful');
           navigateAfterAuth();
+        } else if (appleLogin.rejected.match(result)) {
+          console.error('[AppleAuth] Login rejected:', result.payload);
+          setLocalError(result.payload as string || 'Apple login failed. Please try again.');
         }
+      } else {
+        console.error('[AppleAuth] No identity token received');
+        setLocalError('Apple Sign In failed. No identity token received.');
       }
     } catch (e: any) {
-      if (e.code !== 'ERR_CANCELED') {
-        console.error('Apple Sign In Error:', e);
+      if (e.code === 'ERR_CANCELED') {
+        console.log('[AppleAuth] User cancelled');
+      } else {
+        console.error('[AppleAuth] Error:', e);
+        setLocalError('Apple Sign In failed. Please try again.');
       }
     }
   };
@@ -320,11 +365,14 @@ export default function LoginScreen() {
           {/* Social Login */}
           <View style={styles.socialButtons}>
             <TouchableOpacity
-              style={styles.socialButton}
+              style={[styles.socialButton, !googleRequest && styles.socialButtonDisabled]}
               onPress={handleGoogleLogin}
+              disabled={!googleRequest || isLoading}
             >
-              <Ionicons name="logo-google" size={24} color="#DB4437" />
-              <Text style={styles.socialButtonText}>Google</Text>
+              <Ionicons name="logo-google" size={24} color={googleRequest ? "#DB4437" : "#ccc"} />
+              <Text style={[styles.socialButtonText, !googleRequest && styles.socialButtonTextDisabled]}>
+                {googleRequest ? 'Google' : 'Loading...'}
+              </Text>
             </TouchableOpacity>
 
             {Platform.OS === 'ios' && (
@@ -457,6 +505,13 @@ const styles = StyleSheet.create({
   socialButtonText: {
     fontSize: 16,
     color: colors.text,
+  },
+  socialButtonDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#f5f5f5',
+  },
+  socialButtonTextDisabled: {
+    color: '#999',
   },
   registerContainer: {
     flexDirection: 'row',

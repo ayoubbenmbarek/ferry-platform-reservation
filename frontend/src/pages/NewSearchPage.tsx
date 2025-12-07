@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -11,7 +11,9 @@ import {
   setIsRoundTrip,
   startNewSearch,
   setCurrentStep,
+  updateFerryAvailability,
 } from '../store/slices/ferrySlice';
+import { useAvailabilityWebSocket, AvailabilityUpdate } from '../hooks/useAvailabilityWebSocket';
 import { ferryAPI } from '../services/api';
 import { FerryResult, SearchParams } from '../types/ferry';
 import DatePriceSelector from '../components/DatePriceSelector';
@@ -462,6 +464,34 @@ const NewSearchPage: React.FC = () => {
   // Ref for scrolling to results section when coming from email link
   const resultsRef = React.useRef<HTMLDivElement>(null);
   const [shouldScrollToResults, setShouldScrollToResults] = useState(false);
+
+  // WebSocket for real-time availability updates
+  const currentRoute = searchParams.departurePort && searchParams.arrivalPort
+    ? `${searchParams.departurePort.toUpperCase()}-${searchParams.arrivalPort.toUpperCase()}`
+    : '';
+
+  const handleAvailabilityUpdate = useCallback((update: AvailabilityUpdate) => {
+    if (update.type === 'availability_update' && update.data) {
+      dispatch(updateFerryAvailability({
+        ferryId: update.data.ferry_id,
+        route: update.data.route,
+        availability: update.data.availability,
+      }));
+    }
+  }, [dispatch]);
+
+  const { isConnected: wsConnected } = useAvailabilityWebSocket({
+    routes: currentRoute ? [currentRoute] : [],
+    onUpdate: handleAvailabilityUpdate,
+    autoConnect: !!currentRoute && searchResults.length > 0,
+  });
+
+  // Log WebSocket connection status
+  useEffect(() => {
+    if (wsConnected && currentRoute) {
+      console.log(`🔌 WebSocket connected for route: ${currentRoute}`);
+    }
+  }, [wsConnected, currentRoute]);
 
   // Handle URL query parameters (from email notification links)
   useEffect(() => {
@@ -1176,11 +1206,11 @@ const NewSearchPage: React.FC = () => {
                           );
                         })()}
 
-                        {/* Vehicle Availability */}
-                        {searchParams?.vehicles && searchParams.vehicles.length > 0 && (() => {
+                        {/* Vehicle Availability - Always show */}
+                        {(() => {
                           const vehicleSpaces = ferry.availableSpaces?.vehicles || (ferry as any).available_spaces?.vehicles || 0;
-                          const numVehicles = searchParams.vehicles?.length || 0;
-                          const isUnavailable = vehicleSpaces === 0 || vehicleSpaces < numVehicles;
+                          const numVehicles = searchParams?.vehicles?.length || 0;
+                          const isUnavailable = vehicleSpaces === 0 || (numVehicles > 0 && vehicleSpaces < numVehicles);
                           const isLimited = vehicleSpaces > 0 && vehicleSpaces <= 5;
 
                           let badgeContent;
@@ -1189,7 +1219,7 @@ const NewSearchPage: React.FC = () => {
                           if (vehicleSpaces === 0) {
                             badgeClass = "bg-red-50 border border-red-300 text-red-700";
                             badgeContent = <><span>🚗</span> {t('search:availability.noVehicleSpace')}</>;
-                          } else if (vehicleSpaces < numVehicles) {
+                          } else if (numVehicles > 0 && vehicleSpaces < numVehicles) {
                             badgeClass = "bg-red-50 border border-red-300 text-red-700";
                             badgeContent = <><span>🚗</span> {t('search:availability.notEnoughSpace')}</>;
                           } else if (vehicleSpaces <= 5) {

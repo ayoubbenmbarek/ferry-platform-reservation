@@ -456,13 +456,21 @@ if prices:
 if health:
     app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 
+# WebSocket for real-time availability updates
+try:
+    from app.websockets import availability_router
+    app.include_router(availability_router, tags=["WebSocket"])
+    logger.info("WebSocket availability router registered")
+except ImportError as e:
+    logger.warning(f"Could not import WebSocket router: {e}")
+
 
 # Startup event
 @app.on_event("startup")
 async def startup_event():
     """Application startup event."""
     logger.info(f"Starting {settings.APP_NAME} v{settings.VERSION}")
-    
+
     # Initialize database tables (in production, use Alembic migrations)
     if settings.DEBUG:
         try:
@@ -472,12 +480,31 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"Could not create database tables: {e}")
 
+    # Initialize WebSocket manager
+    try:
+        from app.websockets import get_ws_manager
+        ws_manager = get_ws_manager()
+        await ws_manager.connect_redis()
+        await ws_manager.start_listener()
+        logger.info("WebSocket manager initialized")
+    except Exception as e:
+        logger.warning(f"Could not initialize WebSocket manager: {e}")
+
 
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event."""
     logger.info(f"Shutting down {settings.APP_NAME}")
+
+    # Cleanup WebSocket manager
+    try:
+        from app.websockets import get_ws_manager
+        ws_manager = get_ws_manager()
+        await ws_manager.disconnect_redis()
+        logger.info("WebSocket manager disconnected")
+    except Exception as e:
+        logger.warning(f"Error disconnecting WebSocket manager: {e}")
 
 
 if __name__ == "__main__":

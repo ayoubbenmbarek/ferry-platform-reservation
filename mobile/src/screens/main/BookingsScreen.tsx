@@ -305,16 +305,25 @@ export default function BookingsScreen() {
               </View>
             )}
 
-            {/* Pay Now Button for Pending Bookings */}
+            {/* Action Buttons for Pending Bookings */}
             {isPending && !isExpired && (
-              <TouchableOpacity
-                style={[styles.payNowButton, isExpiringSoon && styles.payNowButtonUrgent]}
-                onPress={handlePayNow}
-              >
-                <Ionicons name="card" size={20} color="#fff" />
-                <Text style={styles.payNowButtonText}>Pay Now</Text>
-                <Text style={styles.payNowAmount}>€{totalAmount.toFixed(2)}</Text>
-              </TouchableOpacity>
+              <View style={styles.pendingActions}>
+                <TouchableOpacity
+                  style={[styles.payNowButton, isExpiringSoon && styles.payNowButtonUrgent]}
+                  onPress={handlePayNow}
+                >
+                  <Ionicons name="card" size={20} color="#fff" />
+                  <Text style={styles.payNowButtonText}>Pay Now</Text>
+                  <Text style={styles.payNowAmount}>€{totalAmount.toFixed(2)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelPendingButton}
+                  onPress={() => navigation.navigate('BookingDetails', { bookingId: item.id })}
+                >
+                  <Ionicons name="close-circle-outline" size={18} color={colors.error} />
+                  <Text style={styles.cancelPendingButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </Card.Content>
         </Card>
@@ -672,11 +681,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.error,
   },
+  pendingActions: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
   payNowButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    marginTop: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -695,5 +707,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  cancelPendingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: 'transparent',
+  },
+  cancelPendingButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.error,
   },
 });

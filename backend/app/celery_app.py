@@ -26,6 +26,7 @@ celery_app = Celery(
         "app.tasks.reminder_tasks",
         "app.tasks.price_alert_tasks",
         "app.tasks.price_tracking_tasks",
+        "app.tasks.availability_sync_tasks",
     ]
 )
 
@@ -180,6 +181,15 @@ celery_app.conf.update(
             'schedule': 86400,  # 24 hours in seconds
             'options': {
                 'expires': 7200,  # Task expires after 2 hours if not picked up
+            }
+        },
+        # Real-time availability sync with external APIs
+        # Runs every 2 minutes to detect changes made outside our platform
+        'sync-external-availability': {
+            'task': 'app.tasks.availability_sync_tasks.sync_external_availability',
+            'schedule': 120,  # 2 minutes in seconds
+            'options': {
+                'expires': 60,  # Task expires after 1 minute if not picked up
             }
         },
     },

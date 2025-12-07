@@ -93,8 +93,10 @@ class MockFerryIntegration(BaseFerryIntegration):
                     departure_hour = 19
                     departure_minute = 0
                 else:
-                    departure_hour = random.choice([20, 21, 22, 23])
-                    departure_minute = random.choice([0, 30])
+                    # Use deterministic departure times based on sailing index
+                    # This ensures sailing IDs are consistent across searches
+                    fixed_times = [(19, 0), (20, 0), (21, 0), (22, 0), (23, 0)]
+                    departure_hour, departure_minute = fixed_times[i % len(fixed_times)]
                 departure_dt = datetime.combine(
                     search_request.departure_date,
                     datetime.min.time()

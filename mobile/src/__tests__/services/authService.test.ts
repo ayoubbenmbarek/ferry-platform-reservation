@@ -194,7 +194,7 @@ describe('authService', () => {
 
       await authService.requestPasswordReset('test@example.com');
 
-      expect(mockedApi.post).toHaveBeenCalledWith('/auth/password-reset/request', {
+      expect(mockedApi.post).toHaveBeenCalledWith('/auth/forgot-password', {
         email: 'test@example.com',
       });
     });

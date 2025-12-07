@@ -259,6 +259,7 @@ const searchSlice = createSlice({
         vehicles_freed?: number;
         cabin_type?: string;
         cabin_quantity?: number;
+        cabins_freed?: number;
       };
     }>) => {
       const { ferryId, availability } = action.payload;
@@ -287,9 +288,15 @@ const searchSlice = createSlice({
           updated.available_vehicle_space = (updated.available_vehicle_space || 0) + availability.vehicles_freed;
         }
 
-        // Update cabin availability
+        // Update cabin availability (booking - decrease)
         if (availability.cabin_quantity) {
           updated.available_cabins = Math.max(0, (updated.available_cabins || 0) - availability.cabin_quantity);
+        }
+
+        // Update cabin availability (cancellation - increase)
+        if (availability.cabins_freed) {
+          updated.available_cabins = (updated.available_cabins || 0) + availability.cabins_freed;
+          console.log(`[Search] Cabins freed: ${availability.cabins_freed} for ferry ${ferryId}`);
         }
 
         console.log(`[Search] Updated availability for ferry ${ferryId}:`, {

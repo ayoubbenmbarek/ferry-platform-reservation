@@ -147,8 +147,16 @@ class WebSocketManager:
             })
 
             return True
+        except RuntimeError as e:
+            # Common case: client disconnected before accept completed (page refresh, navigation)
+            # Log at debug level to reduce noise
+            logger.debug(f"WebSocket connection closed before accept (client may have navigated away): {e}")
+            return False
         except Exception as e:
-            logger.error(f"Failed to accept WebSocket connection: {e}")
+            # Unexpected errors should still be logged
+            error_type = type(e).__name__
+            error_msg = str(e) or "No details available"
+            logger.warning(f"Failed to accept WebSocket connection ({error_type}): {error_msg}")
             return False
 
     async def disconnect(self, client_id: str):

@@ -62,32 +62,33 @@ def cleanup_test_data(session: Session):
     try:
         # Use raw SQL to delete in correct order (child tables first)
         # This handles all foreign key constraints properly
+        # Match all test booking patterns: MR-INTTEST%, MR-WBOOK%, MR-REFUND%, MR-CANCEL%, MR-RETRY%
         session.execute(text("""
             DELETE FROM payments WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_passengers WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_vehicles WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_cabins WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_meals WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
-        session.execute(text("DELETE FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'"))
+        session.execute(text("DELETE FROM bookings WHERE booking_reference LIKE 'MR-%'"))
         session.execute(text("DELETE FROM bookings WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         session.execute(text("DELETE FROM payments WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         session.execute(text("DELETE FROM availability_alerts WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))

@@ -206,9 +206,14 @@ todo add contact us in mobile and frontend also i think page /contact exist but 
 todo:update maritime support email address
 todo how many crons we have
 todo add faq and terms and conditions pages
-todo:when change language in mobile nothing happens
-todo: translate contact page and hidearabic language on menu
+todo:when change language in mobile nothing happens:done but only homepage translated for now
+todo: translate contact page and hide arabic language on menu
 todo  add ticket to wallet
+todo:add ferry map live
+todo:flexible dates could show routes in past! you can show prices but greyed maybe in the past
+todo when token expires, and i was logged in i click my booking it shows no booking while i have but i should reconnect, so maybe one token expired should redirect to login page automatically or say seesion expired or something instead of showing connected but in reality not
+todo:for customer that have cancelled reservation, try to bring them back if they do not yet reserve or had a booking by promotional email mayb or alert, that they could subscribe we can send email to subscribe to a specific route etc quickly
+todo how intergrate real live map
 
 
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done

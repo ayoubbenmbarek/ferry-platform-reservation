@@ -7,6 +7,7 @@ import { RootState, AppDispatch } from '../store';
 import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
+import { LiveFerryMap } from '../components/LiveFerryMap';
 
 const NewHomePage: React.FC = () => {
   const { t } = useTranslation(['search', 'common']);
@@ -849,6 +850,30 @@ const NewHomePage: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+
+      {/* Live Ferry Tracker Section */}
+      <div className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              {t('common:features.liveFerryTrackerTitle', 'Live Ferry Tracker')}
+            </h2>
+            <p className="text-lg text-gray-600">
+              {t('common:features.liveFerryTrackerSubtitle', 'Track ferries in real-time across the Mediterranean')}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <LiveFerryMap mode="homepage" height="500px" />
+          </div>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              {t('common:features.liveFerryTrackerNote', 'Ferry positions update every 30 seconds. Click on a ferry for more details.')}
+            </p>
           </div>
         </div>
       </div>

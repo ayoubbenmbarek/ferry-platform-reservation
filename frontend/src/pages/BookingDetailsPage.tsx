@@ -7,6 +7,7 @@ import api, { bookingAPI } from '../services/api';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
 import RunningBear from '../components/UI/RunningBear';
 import CabinAlertForBooking from '../components/CabinAlertForBooking';
+import { LiveFerryMap } from '../components/LiveFerryMap';
 
 // Helper to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -422,6 +423,34 @@ const BookingDetailsPage: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Live Ferry Tracker - Only for confirmed bookings */}
+          {booking.status?.toLowerCase() === 'confirmed' && booking.departurePort && booking.arrivalPort && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold mb-3 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Track Your Ferry
+              </h2>
+              <div className="rounded-lg overflow-hidden shadow-md">
+                <LiveFerryMap
+                  mode="booking"
+                  bookingData={{
+                    departure_port: booking.departurePort,
+                    arrival_port: booking.arrivalPort,
+                    departure_time: booking.departureTime,
+                    arrival_time: booking.arrivalTime,
+                  }}
+                  height="300px"
+                />
+              </div>
+              <p className="text-sm text-gray-500 text-center mt-2">
+                Live ferry position based on scheduled departure and arrival times
+              </p>
+            </div>
+          )}
 
           {/* Contact Information */}
           <div className="mb-6 pb-6 border-b border-gray-200">

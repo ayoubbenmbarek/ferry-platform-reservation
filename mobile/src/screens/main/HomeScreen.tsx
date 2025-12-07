@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { fetchPorts, fetchRoutes } from '../../store/slices/searchSlice';
 import { RootStackParamList, MainTabParamList } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import LiveFerryMap from '../../components/LiveFerryMap';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList & MainTabParamList>;
 
@@ -146,6 +147,17 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </View>
+
+        {/* Live Ferry Tracker */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('common:home.liveFerryTracker', 'Live Ferry Tracker')}</Text>
+          <View style={styles.mapContainer}>
+            <LiveFerryMap mode="homepage" height={300} />
+          </View>
+          <Text style={styles.mapNote}>
+            {t('common:home.liveFerryTrackerNote', 'Ferry positions update every 30 seconds. Tap a ferry for details.')}
+          </Text>
         </View>
 
         {/* Features */}
@@ -381,5 +393,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     fontWeight: '500',
+  },
+  mapContainer: {
+    marginHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  mapNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
 });

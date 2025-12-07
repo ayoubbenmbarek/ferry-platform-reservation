@@ -27,6 +27,7 @@ import { colors, spacing, borderRadius } from '../constants/theme';
 import { CANCELLATION_RESTRICTION_DAYS, API_BASE_URL } from '../constants/config';
 import CabinAlertForBooking from '../components/CabinAlertForBooking';
 import LoadingScreen from '../components/LoadingScreen';
+import LiveFerryMap from '../components/LiveFerryMap';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'BookingDetails'>;
@@ -399,6 +400,33 @@ export default function BookingDetailsScreen() {
             )}
           </Card.Content>
         </Card>
+
+        {/* Live Ferry Tracker - Only for confirmed bookings */}
+        {booking.status?.toLowerCase() === 'confirmed' && isConnected && !isDeparturePassed() && (
+          <Card style={styles.section}>
+            <Card.Content>
+              <View style={styles.mapHeader}>
+                <Ionicons name="location" size={18} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Track Your Ferry</Text>
+              </View>
+              <View style={styles.mapContainer}>
+                <LiveFerryMap
+                  mode="booking"
+                  bookingData={{
+                    departure_port: booking.departure_port,
+                    arrival_port: booking.arrival_port,
+                    departure_time: booking.departure_time,
+                    arrival_time: booking.arrival_time,
+                  }}
+                  height={250}
+                />
+              </View>
+              <Text style={styles.mapNote}>
+                Live ferry position based on scheduled departure and arrival times
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Cabins Section - Show both original selection and upgrades */}
         {(booking.cabin_id || booking.return_cabin_id || (booking.booking_cabins && booking.booking_cabins.length > 0)) && (
@@ -1290,5 +1318,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#065F46',
     fontWeight: '500',
+  },
+  mapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  mapContainer: {
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  mapNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });

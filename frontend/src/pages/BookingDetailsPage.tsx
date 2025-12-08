@@ -5,6 +5,9 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import api, { bookingAPI } from '../services/api';
 import BookingExpirationTimer from '../components/BookingExpirationTimer';
+import RunningBear from '../components/UI/RunningBear';
+import CabinAlertForBooking from '../components/CabinAlertForBooking';
+import { LiveFerryMap } from '../components/LiveFerryMap';
 
 // Helper to convert snake_case to camelCase
 const snakeToCamel = (obj: any): any => {
@@ -122,14 +125,7 @@ const BookingDetailsPage: React.FC = () => {
   }, [id, navigate, location.state, isAuthenticated]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading booking details...</p>
-        </div>
-      </div>
-    );
+    return <RunningBear message="Loading booking details" size="medium" />;
   }
 
   if (error || !booking) {
@@ -428,6 +424,34 @@ const BookingDetailsPage: React.FC = () => {
             )}
           </div>
 
+          {/* Live Ferry Tracker - Only for confirmed bookings */}
+          {booking.status?.toLowerCase() === 'confirmed' && booking.departurePort && booking.arrivalPort && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold mb-3 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Track Your Ferry
+              </h2>
+              <div className="rounded-lg overflow-hidden shadow-md">
+                <LiveFerryMap
+                  mode="booking"
+                  bookingData={{
+                    departure_port: booking.departurePort,
+                    arrival_port: booking.arrivalPort,
+                    departure_time: booking.departureTime,
+                    arrival_time: booking.arrivalTime,
+                  }}
+                  height="300px"
+                />
+              </div>
+              <p className="text-sm text-gray-500 text-center mt-2">
+                Live ferry position based on scheduled departure and arrival times
+              </p>
+            </div>
+          )}
+
           {/* Contact Information */}
           <div className="mb-6 pb-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold mb-3">Contact Information</h2>
@@ -714,6 +738,41 @@ const BookingDetailsPage: React.FC = () => {
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Cabin Availability Alerts - Only for confirmed bookings */}
+          {booking.status?.toLowerCase() === 'confirmed' && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold mb-2 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                Cabin Availability Alerts
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Get notified when cabins become available for your journey
+              </p>
+              <div className="space-y-3">
+                {/* Outbound Alert */}
+                <CabinAlertForBooking
+                  booking={booking}
+                  journeyType="outbound"
+                  onSuccess={() => {
+                    // Optionally refresh data or show toast
+                  }}
+                />
+                {/* Return Alert - only show for round trips */}
+                {booking.isRoundTrip && booking.returnDepartureTime && (
+                  <CabinAlertForBooking
+                    booking={booking}
+                    journeyType="return"
+                    onSuccess={() => {
+                      // Optionally refresh data or show toast
+                    }}
+                  />
                 )}
               </div>
             </div>

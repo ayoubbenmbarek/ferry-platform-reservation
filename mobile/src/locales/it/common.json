@@ -1,0 +1,104 @@
+{
+  "appName": "Prenotazioni Marittime",
+  "nav": {
+    "home": "Home",
+    "search": "Cerca",
+    "myBookings": "Le Mie Prenotazioni",
+    "findBooking": "Trova la Mia Prenotazione",
+    "login": "Accedi",
+    "register": "Registrati",
+    "logout": "Esci",
+    "profile": "Profilo e Impostazioni",
+    "admin": "Amministrazione",
+    "about": "Chi Siamo",
+    "contact": "Contatti"
+  },
+  "footer": {
+    "copyright": "© 2024 Prenotazioni Marittime. Tutti i diritti riservati.",
+    "terms": "Termini di Servizio",
+    "privacy": "Informativa sulla Privacy",
+    "help": "Centro Assistenza"
+  },
+  "language": {
+    "select": "Seleziona Lingua",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "EUR",
+    "usd": "USD",
+    "gbp": "GBP"
+  },
+  "common": {
+    "loading": "Caricamento...",
+    "error": "Si è verificato un errore",
+    "success": "Successo",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "confirm": "Conferma",
+    "back": "Indietro",
+    "next": "Avanti",
+    "submit": "Invia",
+    "close": "Chiudi",
+    "yes": "Sì",
+    "no": "No",
+    "selectDate": "Seleziona Data",
+    "selectTime": "Seleziona Ora",
+    "required": "Questo campo è obbligatorio",
+    "invalidEmail": "Indirizzo email non valido",
+    "invalidPhone": "Numero di telefono non valido",
+    "signIn": "Accedi"
+  },
+  "home": {
+    "title": "Prenota il Tuo Traghetto",
+    "subtitle": "Trova le migliori rotte di traghetto nel Mediterraneo",
+    "searchButton": "Cerca Traghetti",
+    "promoTitle": "Accedi per offerte esclusive",
+    "promoSubtitle": "I membri risparmiano fino al 15%",
+    "welcomeBack": "Bentornato",
+    "viewBookings": "Visualizza le tue prenotazioni",
+    "popularRoutes": "Rotte Popolari",
+    "whyBookWithUs": "Perché Prenotare Con Noi",
+    "ourPartners": "I Nostri Partner",
+    "secureBooking": "Prenotazione Sicura",
+    "secureDesc": "Elaborazione pagamenti sicura",
+    "bestPrices": "Migliori Prezzi",
+    "pricesDesc": "Confronta tutti gli operatori",
+    "support": "Supporto 24/7",
+    "supportDesc": "Siamo qui per aiutarti"
+  },
+  "date": {
+    "today": "Oggi",
+    "tomorrow": "Domani",
+    "yesterday": "Ieri"
+  },
+  "features": {
+    "compareOperators": "Confronta prezzi • Più operatori • Prenotazione facile",
+    "whyBookTitle": "Perché Prenotare Con Noi?",
+    "whyBookSubtitle": "Il modo più semplice per prenotare traghetti verso la Tunisia",
+    "bestPricesTitle": "Prezzi Migliori",
+    "bestPricesDesc": "Confronta i prezzi di CTN, GNV, Corsica Lines e Danel Casanova in un'unica ricerca",
+    "instantConfirmationTitle": "Conferma Istantanea",
+    "instantConfirmationDesc": "Ricevi la conferma della prenotazione immediatamente con e-ticket inviati alla tua email",
+    "securePaymentTitle": "Pagamento Sicuro",
+    "securePaymentDesc": "Le tue informazioni di pagamento sono criptate e sicure con Stripe",
+    "popularRoutesTitle": "Rotte Popolari",
+    "popularRoutesSubtitle": "Rotte di traghetto più cercate verso la Tunisia",
+    "viewSchedules": "Visualizza Orari",
+    "from": "da"
+  },
+  "bookingStatus": {
+    "all": "Tutti",
+    "pending": "In sospeso",
+    "confirmed": "Confermato",
+    "completed": "Completato",
+    "cancelled": "Cancellato",
+    "paid": "Pagato",
+    "filterByStatus": "Filtra per stato"
+  }
+}

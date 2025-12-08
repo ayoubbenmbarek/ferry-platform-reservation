@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -11,7 +11,9 @@ import {
   setIsRoundTrip,
   startNewSearch,
   setCurrentStep,
+  updateFerryAvailability,
 } from '../store/slices/ferrySlice';
+import { useAvailabilityWebSocket, AvailabilityUpdate } from '../hooks/useAvailabilityWebSocket';
 import { ferryAPI } from '../services/api';
 import { FerryResult, SearchParams } from '../types/ferry';
 import DatePriceSelector from '../components/DatePriceSelector';
@@ -20,6 +22,7 @@ import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import SaveRouteButton from '../components/SaveRouteButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
+import RunningBear from '../components/UI/RunningBear';
 
 // Search Form Component
 interface SearchFormProps {
@@ -48,6 +51,22 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Auto-clear arrival port if it matches departure port (for both main and return routes)
+  // We intentionally only trigger when departure port changes, not when arrival port changes
+  useEffect(() => {
+    if (form.arrivalPort && form.arrivalPort === form.departurePort) {
+      setForm(prev => ({ ...prev, arrivalPort: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.departurePort]);
+
+  useEffect(() => {
+    if (form.returnArrivalPort && form.returnArrivalPort === form.returnDeparturePort) {
+      setForm(prev => ({ ...prev, returnArrivalPort: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.returnDeparturePort]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -119,13 +138,30 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                     <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.from')}</label>
                     <select
                       value={form.departurePort}
-                      onChange={(e) => setForm({ ...form, departurePort: e.target.value })}
+                      onChange={(e) => {
+                        const newDeparture = e.target.value;
+                        // Clear arrival port if it becomes the same as new departure
+                        const newArrival = form.arrivalPort === newDeparture ? '' : form.arrivalPort;
+                        setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
+                      }}
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departurePort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
-                      {ports.filter(p => p.countryCode !== 'TN').map(port => (
-                        <option key={port.code} value={port.code}>{port.name}</option>
-                      ))}
+                      <optgroup label="🇹🇳 Tunisia">
+                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇮🇹 Italy">
+                        {ports.filter(p => p.countryCode === 'IT').map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇫🇷 France">
+                        {ports.filter(p => p.countryCode === 'FR').map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
 
@@ -137,9 +173,21 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.arrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      {ports.filter(p => p.countryCode === 'TN').map(port => (
-                        <option key={port.code} value={port.code}>{port.name}</option>
-                      ))}
+                      <optgroup label="🇹🇳 Tunisia">
+                        {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇮🇹 Italy">
+                        {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇫🇷 France">
+                        {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>{port.name}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
                 </div>
@@ -223,13 +271,30 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                           <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnFrom')}</label>
                           <select
                             value={form.returnDeparturePort}
-                            onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
+                            onChange={(e) => {
+                              const newReturnDeparture = e.target.value;
+                              // Clear return arrival if it becomes the same
+                              const newReturnArrival = form.returnArrivalPort === newReturnDeparture ? '' : form.returnArrivalPort;
+                              setForm({ ...form, returnDeparturePort: newReturnDeparture, returnArrivalPort: newReturnArrival });
+                            }}
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnDeparturePort')}</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnDeparturePort && <p className="text-red-500 text-sm mt-1">{errors.returnDeparturePort}</p>}
                         </div>
@@ -242,9 +307,21 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnArrivalPort && <p className="text-red-500 text-sm mt-1">{errors.returnArrivalPort}</p>}
                         </div>
@@ -387,6 +464,34 @@ const NewSearchPage: React.FC = () => {
   // Ref for scrolling to results section when coming from email link
   const resultsRef = React.useRef<HTMLDivElement>(null);
   const [shouldScrollToResults, setShouldScrollToResults] = useState(false);
+
+  // WebSocket for real-time availability updates
+  const currentRoute = searchParams.departurePort && searchParams.arrivalPort
+    ? `${searchParams.departurePort.toUpperCase()}-${searchParams.arrivalPort.toUpperCase()}`
+    : '';
+
+  const handleAvailabilityUpdate = useCallback((update: AvailabilityUpdate) => {
+    if (update.type === 'availability_update' && update.data) {
+      dispatch(updateFerryAvailability({
+        ferryId: update.data.ferry_id,
+        route: update.data.route,
+        availability: update.data.availability,
+      }));
+    }
+  }, [dispatch]);
+
+  const { isConnected: wsConnected } = useAvailabilityWebSocket({
+    routes: currentRoute ? [currentRoute] : [],
+    onUpdate: handleAvailabilityUpdate,
+    autoConnect: !!currentRoute && searchResults.length > 0,
+  });
+
+  // Log WebSocket connection status
+  useEffect(() => {
+    if (wsConnected && currentRoute) {
+      console.log(`🔌 WebSocket connected for route: ${currentRoute}`);
+    }
+  }, [wsConnected, currentRoute]);
 
   // Handle URL query parameters (from email notification links)
   useEffect(() => {
@@ -969,12 +1074,11 @@ const NewSearchPage: React.FC = () => {
 
           {/* Loading State */}
           {(isSearching || isSearchingReturn) && (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">
-                {isSelectingReturn ? t('search:searchingReturn') : t('search:searchingFerries')}
-              </p>
-            </div>
+            <RunningBear
+              message={isSelectingReturn ? t('search:searchingReturn') : t('search:searchingFerries')}
+              size="medium"
+              fullScreen={false}
+            />
           )}
 
           {/* Error State */}
@@ -1102,11 +1206,11 @@ const NewSearchPage: React.FC = () => {
                           );
                         })()}
 
-                        {/* Vehicle Availability */}
-                        {searchParams?.vehicles && searchParams.vehicles.length > 0 && (() => {
+                        {/* Vehicle Availability - Always show */}
+                        {(() => {
                           const vehicleSpaces = ferry.availableSpaces?.vehicles || (ferry as any).available_spaces?.vehicles || 0;
-                          const numVehicles = searchParams.vehicles?.length || 0;
-                          const isUnavailable = vehicleSpaces === 0 || vehicleSpaces < numVehicles;
+                          const numVehicles = searchParams?.vehicles?.length || 0;
+                          const isUnavailable = vehicleSpaces === 0 || (numVehicles > 0 && vehicleSpaces < numVehicles);
                           const isLimited = vehicleSpaces > 0 && vehicleSpaces <= 5;
 
                           let badgeContent;
@@ -1115,7 +1219,7 @@ const NewSearchPage: React.FC = () => {
                           if (vehicleSpaces === 0) {
                             badgeClass = "bg-red-50 border border-red-300 text-red-700";
                             badgeContent = <><span>🚗</span> {t('search:availability.noVehicleSpace')}</>;
-                          } else if (vehicleSpaces < numVehicles) {
+                          } else if (numVehicles > 0 && vehicleSpaces < numVehicles) {
                             badgeClass = "bg-red-50 border border-red-300 text-red-700";
                             badgeContent = <><span>🚗</span> {t('search:availability.notEnoughSpace')}</>;
                           } else if (vehicleSpaces <= 5) {

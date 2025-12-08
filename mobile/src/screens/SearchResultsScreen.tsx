@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   TouchableOpacity,
 } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
-import { selectOutbound, selectReturn } from '../store/slices/searchSlice';
+import { selectOutbound, selectReturn, updateFerryAvailability } from '../store/slices/searchSlice';
+import { useAvailabilityWebSocket, AvailabilityUpdate } from '../hooks/useAvailabilityWebSocket';
 import { setSelectedSchedule, setReturnSchedule } from '../store/slices/bookingSlice';
 import { RootStackParamList, FerrySchedule } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -21,6 +22,7 @@ import AvailabilityBadge from '../components/AvailabilityBadge';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import { AlertType } from '../services/alertService';
 import SaveRouteButton from '../components/SaveRouteButton';
+import LoadingScreen from '../components/LoadingScreen';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'SearchResults'>;
@@ -60,6 +62,7 @@ export default function SearchResultsScreen() {
   const [selectedAlertFerry, setSelectedAlertFerry] = useState<FerrySchedule | null>(null);
   const [selectedAlertType, setSelectedAlertType] = useState<AlertType>('passenger');
   const [alertToastMessage, setAlertToastMessage] = useState<string | null>(null);
+  const [showEmptyStateAlert, setShowEmptyStateAlert] = useState(false);
 
   // Get search params from state
   const {
@@ -69,6 +72,34 @@ export default function SearchResultsScreen() {
     returnDate,
     vehicleSelections: selectedVehicles,
   } = useAppSelector((state) => state.search);
+
+  // WebSocket for real-time availability updates
+  const currentRoute = departurePort && arrivalPort
+    ? `${departurePort.toUpperCase()}-${arrivalPort.toUpperCase()}`
+    : '';
+
+  const handleAvailabilityUpdate = useCallback((update: AvailabilityUpdate) => {
+    if (update.type === 'availability_update' && update.data) {
+      dispatch(updateFerryAvailability({
+        ferryId: update.data.ferry_id,
+        route: update.data.route,
+        availability: update.data.availability,
+      }));
+    }
+  }, [dispatch]);
+
+  const { isConnected: wsConnected } = useAvailabilityWebSocket({
+    routes: currentRoute ? [currentRoute] : [],
+    onUpdate: handleAvailabilityUpdate,
+    autoConnect: !!currentRoute && outboundResults.length > 0,
+  });
+
+  // Log WebSocket connection status
+  useEffect(() => {
+    if (wsConnected && currentRoute) {
+      console.log(`[SearchResults] WebSocket connected for route: ${currentRoute}`);
+    }
+  }, [wsConnected, currentRoute]);
 
   const handleOpenAlertModal = (ferry: FerrySchedule, alertType: AlertType) => {
     setSelectedAlertFerry(ferry);
@@ -277,17 +308,22 @@ export default function SearchResultsScreen() {
   };
 
   if (isSearching) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Searching for ferries...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Searching for ferries" />;
   }
 
   const currentResults = showReturn ? returnResults : outboundResults;
+
+  // Create a placeholder ferry for empty state alerts
+  const emptyStatePlaceholderFerry = {
+    operator: 'Any',
+    departure_time: `${departureDate}T12:00:00`,
+    arrival_time: `${departureDate}T23:59:00`,
+    departure_port: departurePort,
+    arrival_port: arrivalPort,
+    available_seats: 0,
+    available_vehicle_space: 0,
+    available_cabins: 0,
+  };
 
   if (currentResults.length === 0) {
     return (
@@ -298,7 +334,50 @@ export default function SearchResultsScreen() {
           <Text style={styles.emptySubtitle}>
             Try adjusting your search dates or route
           </Text>
+
+          {/* Notify Me Button for empty state */}
+          <TouchableOpacity
+            style={styles.emptyNotifyButton}
+            onPress={() => setShowEmptyStateAlert(true)}
+          >
+            <Ionicons name="notifications-outline" size={20} color="#fff" />
+            <Text style={styles.emptyNotifyButtonText}>Notify Me When Available</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.emptyNotifyHint}>
+            We'll email you when ferries become available on this route
+          </Text>
         </View>
+
+        {/* Toast Message */}
+        {alertToastMessage && (
+          <View style={styles.toast}>
+            <Ionicons name="checkmark-circle" size={20} color="#059669" />
+            <Text style={styles.toastText}>{alertToastMessage}</Text>
+          </View>
+        )}
+
+        {/* Empty State Alert Modal */}
+        <AvailabilityAlertModal
+          visible={showEmptyStateAlert}
+          onClose={() => setShowEmptyStateAlert(false)}
+          ferry={emptyStatePlaceholderFerry}
+          alertType="passenger"
+          searchParams={{
+            departurePort,
+            arrivalPort,
+            departureDate,
+            returnDate,
+            isRoundTrip,
+            adults,
+            children,
+            infants,
+            vehicleType: selectedVehicles.length > 0 ? selectedVehicles[0].type : undefined,
+            vehicleLength: selectedVehicles.length > 0 ? selectedVehicles[0].length : undefined,
+          }}
+          isReturnJourney={showReturn}
+          onSuccess={handleAlertSuccess}
+        />
       </SafeAreaView>
     );
   }
@@ -450,6 +529,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  emptyNotifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.xl,
+  },
+  emptyNotifyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyNotifyHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   journeyToggle: {
     flexDirection: 'row',

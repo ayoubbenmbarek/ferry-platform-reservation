@@ -45,12 +45,6 @@ export const authService = {
         user: userResponse.data,
       };
     } catch (error: any) {
-      // Log error for debugging
-      console.error('Login error:', {
-        status: error?.response?.status,
-        detail: error?.response?.data?.detail,
-        message: error?.message,
-      });
       const errorMessage = getErrorMessage(error);
       throw new Error(errorMessage);
     }
@@ -134,7 +128,7 @@ export const authService = {
   // Request password reset
   async requestPasswordReset(email: string): Promise<void> {
     try {
-      await api.post('/auth/password-reset/request', { email });
+      await api.post('/auth/forgot-password', { email });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -145,6 +139,18 @@ export const authService = {
     try {
       const response = await api.put<User>('/auth/me', data);
       return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+
+  // Change password
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      await api.post('/auth/change-password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }

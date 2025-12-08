@@ -19,19 +19,30 @@ import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import MyAlertsScreen from '../screens/MyAlertsScreen';
 import SavedRoutesScreen from '../screens/SavedRoutesScreen';
 import AddCabinScreen from '../screens/AddCabinScreen';
+import PersonalInfoScreen from '../screens/PersonalInfoScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import LanguageSettingsScreen from '../screens/LanguageSettingsScreen';
+import CurrencySettingsScreen from '../screens/CurrencySettingsScreen';
+import PaymentMethodsScreen from '../screens/PaymentMethodsScreen';
+import ContactScreen from '../screens/ContactScreen';
 import OfflineIndicator from '../components/OfflineIndicator';
+import SupportChatbot from '../components/SupportChatbot';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const dispatch = useAppDispatch();
   const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
+  const [initialCheckDone, setInitialCheckDone] = React.useState(false);
 
   useEffect(() => {
-    dispatch(checkAuth());
+    dispatch(checkAuth()).finally(() => {
+      setInitialCheckDone(true);
+    });
   }, [dispatch]);
 
-  if (isLoading) {
+  // Only show loading for initial auth check, not during login/register
+  if (!initialCheckDone && isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -42,6 +53,7 @@ export default function RootNavigator() {
   return (
     <>
       <OfflineIndicator showWhenOnline />
+      <SupportChatbot />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -156,6 +168,60 @@ export default function RootNavigator() {
         options={{
           headerShown: true,
           title: 'Add Cabin',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="PersonalInfo"
+        component={PersonalInfoScreen}
+        options={{
+          headerShown: true,
+          title: 'Personal Information',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{
+          headerShown: true,
+          title: 'Change Password',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="LanguageSettings"
+        component={LanguageSettingsScreen}
+        options={{
+          headerShown: true,
+          title: 'Language',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="CurrencySettings"
+        component={CurrencySettingsScreen}
+        options={{
+          headerShown: true,
+          title: 'Currency',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="PaymentMethods"
+        component={PaymentMethodsScreen}
+        options={{
+          headerShown: true,
+          title: 'Payment Methods',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="Contact"
+        component={ContactScreen}
+        options={{
+          headerShown: true,
+          title: 'Contact Us',
           headerBackTitle: 'Back',
         }}
       />

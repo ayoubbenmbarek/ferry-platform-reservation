@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import time
 import logging
@@ -71,6 +73,12 @@ except ImportError as e:
     print(f"Failed to import promo_codes module: {e}")
 
 try:
+    contact = importlib.import_module('app.api.v1.contact')
+except ImportError as e:
+    print(f"Failed to import contact module: {e}")
+    contact = None
+
+try:
     voice_search = importlib.import_module('app.api.v1.voice_search')
 except ImportError as e:
     print(f"Failed to import voice_search module: {e}")
@@ -106,6 +114,12 @@ except ImportError as e:
     print(f"Failed to import prices module: {e}")
 
 try:
+    metrics = importlib.import_module('app.api.v1.metrics')
+except ImportError as e:
+    metrics = None
+    print(f"Failed to import metrics module: {e}")
+
+try:
     health = importlib.import_module('app.api.v1.health')
 except ImportError as e:
     health = None
@@ -125,14 +139,40 @@ except ImportError:
     logger.warning("Monitoring module not available")
 
 # Create FastAPI application
+# Disable default docs to serve with local static files (avoids CDN blocking issues)
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
     description="A comprehensive ferry booking platform for Italy/France to Tunisia routes",
-    docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
+    docs_url=None,
+    redoc_url=None,
     redirect_slashes=False,  # Disable automatic trailing slash redirects to avoid CORS issues
 )
+
+# Mount static files for Swagger UI (served locally to avoid CDN blocking)
+from pathlib import Path
+static_path = Path(__file__).parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+# Custom docs endpoints with local static files (avoids CDN blocking)
+if settings.DEBUG:
+    @app.get("/docs", include_in_schema=False)
+    async def custom_swagger_ui_html():
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title=f"{settings.APP_NAME} - Swagger UI",
+            swagger_js_url="/static/swagger-ui-bundle.js",
+            swagger_css_url="/static/swagger-ui.css",
+        )
+
+    @app.get("/redoc", include_in_schema=False)
+    async def redoc_html():
+        return get_redoc_html(
+            openapi_url="/openapi.json",
+            title=f"{settings.APP_NAME} - ReDoc",
+            redoc_js_url="/static/redoc.standalone.js",
+        )
 
 # Add request ID middleware (must be first)
 app.add_middleware(RequestIDMiddleware)
@@ -395,6 +435,9 @@ if admin:
 if promo_codes:
     app.include_router(promo_codes.router, prefix="/api/v1", tags=["Promo Codes"])
 
+if contact:
+    app.include_router(contact.router, prefix="/api/v1/contact", tags=["Contact"])
+
 if voice_search:
     app.include_router(voice_search.router, prefix="/api/v1/voice", tags=["Voice Search"])
 
@@ -419,15 +462,27 @@ if prices:
 if health:
     app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 
+if metrics:
+    app.include_router(metrics.router, prefix="/api/v1", tags=["Metrics"])
+
+# WebSocket for real-time availability updates
+try:
+    from app.websockets import availability_router
+    app.include_router(availability_router, tags=["WebSocket"])
+    logger.info("WebSocket availability router registered")
+except ImportError as e:
+    logger.warning(f"Could not import WebSocket router: {e}")
+
 
 # Startup event
 @app.on_event("startup")
 async def startup_event():
     """Application startup event."""
     logger.info(f"Starting {settings.APP_NAME} v{settings.VERSION}")
-    
+
     # Initialize database tables (in production, use Alembic migrations)
-    if settings.DEBUG:
+    # Skip in testing mode - tests manage their own database setup
+    if settings.DEBUG and settings.ENVIRONMENT != "testing":
         try:
             from app.database import create_tables
             create_tables()
@@ -435,12 +490,31 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"Could not create database tables: {e}")
 
+    # Initialize WebSocket manager
+    try:
+        from app.websockets import get_ws_manager
+        ws_manager = get_ws_manager()
+        await ws_manager.connect_redis()
+        await ws_manager.start_listener()
+        logger.info("WebSocket manager initialized")
+    except Exception as e:
+        logger.warning(f"Could not initialize WebSocket manager: {e}")
+
 
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event."""
     logger.info(f"Shutting down {settings.APP_NAME}")
+
+    # Cleanup WebSocket manager
+    try:
+        from app.websockets import get_ws_manager
+        ws_manager = get_ws_manager()
+        await ws_manager.disconnect_redis()
+        logger.info("WebSocket manager disconnected")
+    except Exception as e:
+        logger.warning(f"Error disconnecting WebSocket manager: {e}")
 
 
 if __name__ == "__main__":

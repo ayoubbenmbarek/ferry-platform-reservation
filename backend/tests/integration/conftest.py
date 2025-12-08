@@ -22,7 +22,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
-from app.database import Base, get_db
+from app.database import Base, get_db as database_get_db
+from app.api.deps import get_db as deps_get_db
 from app.models.user import User
 from app.models.booking import Booking, BookingStatusEnum
 from app.api.v1.auth import create_access_token, get_password_hash
@@ -51,17 +52,8 @@ else:
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=TEST_ENGINE)
 
 
-def override_get_db():
-    """Override database dependency for tests."""
-    db = TestSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# Override the database dependency
-app.dependency_overrides[get_db] = override_get_db
+# Note: Database override is set per-test in the db_session fixture
+# This ensures fixtures and API use the same session
 
 
 def cleanup_test_data(session: Session):
@@ -70,32 +62,33 @@ def cleanup_test_data(session: Session):
     try:
         # Use raw SQL to delete in correct order (child tables first)
         # This handles all foreign key constraints properly
+        # Match all test booking patterns: MR-INTTEST%, MR-WBOOK%, MR-REFUND%, MR-CANCEL%, MR-RETRY%
         session.execute(text("""
             DELETE FROM payments WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_passengers WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_vehicles WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_cabins WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
         session.execute(text("""
             DELETE FROM booking_meals WHERE booking_id IN (
-                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'
+                SELECT id FROM bookings WHERE booking_reference LIKE 'MR-%'
             )
         """))
-        session.execute(text("DELETE FROM bookings WHERE booking_reference LIKE 'MR-INTTEST%'"))
+        session.execute(text("DELETE FROM bookings WHERE booking_reference LIKE 'MR-%'"))
         session.execute(text("DELETE FROM bookings WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         session.execute(text("DELETE FROM payments WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         session.execute(text("DELETE FROM availability_alerts WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
@@ -129,19 +122,47 @@ def setup_database():
 
 
 @pytest.fixture
-def db_session() -> Generator[Session, None, None]:
-    """Get a database session for tests."""
+def db_session(setup_database) -> Generator[Session, None, None]:
+    """Get a database session for tests and set up the override.
+
+    Depends on setup_database to ensure tables are created first.
+    """
+    from app import database
+
+    # Swap out the app's database engine with our test engine
+    # This ensures the app's startup event uses our test database
+    original_engine = database.engine
+    database.engine = TEST_ENGINE
+
     session = TestSessionLocal()
+
+    # Set up the override so API uses the same session
+    def override_get_db_shared():
+        try:
+            yield session
+        finally:
+            pass  # Session cleanup handled by this fixture
+
+    # Override BOTH get_db functions (database and deps)
+    app.dependency_overrides[database_get_db] = override_get_db_shared
+    app.dependency_overrides[deps_get_db] = override_get_db_shared
+
     try:
         yield session
     finally:
+        # Clean up both overrides
+        app.dependency_overrides.pop(database_get_db, None)
+        app.dependency_overrides.pop(deps_get_db, None)
         session.close()
+        database.engine = original_engine
 
 
 @pytest.fixture
-def client() -> TestClient:
-    """Create a test client."""
-    return TestClient(app)
+def client(db_session: Session) -> TestClient:
+    """Create a test client that shares the database session with fixtures."""
+    # db_session fixture already sets up the override and swaps the engine
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture
@@ -156,6 +177,7 @@ def test_user(db_session: Session) -> User:
         is_verified=True,
     )
     db_session.add(user)
+    db_session.flush()
     db_session.commit()
     db_session.refresh(user)
     return user

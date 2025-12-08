@@ -81,5 +81,62 @@
     "cancelled": "Annulé",
     "paid": "Payé",
     "filterByStatus": "Filtrer par statut"
+  },
+  "contact": {
+    "title": "Contactez-nous",
+    "subtitle": "Vous avez une question ou besoin d'aide ? Nous sommes là pour vous aider. Contactez notre équipe et nous vous répondrons dans les plus brefs délais.",
+    "getInTouch": "Nous Contacter",
+    "email": "Email",
+    "phone": "Téléphone",
+    "phoneHours": "Lun-Ven, 8h-18h CET",
+    "address": "Adresse",
+    "businessHours": "Heures d'Ouverture",
+    "hours": {
+      "weekdays": "Lundi - Vendredi : 8h00 - 18h00",
+      "saturday": "Samedi : 9h00 - 14h00",
+      "sunday": "Dimanche : Fermé"
+    },
+    "quickHelp": "Aide Rapide",
+    "links": {
+      "faq": "Questions Fréquentes",
+      "terms": "Conditions Générales",
+      "privacy": "Politique de Confidentialité"
+    },
+    "liveChat": "Chat en Direct",
+    "liveChatDesc": "Besoin d'aide immédiate ? Notre chatbot d'assistance IA est disponible 24h/24 et 7j/7.",
+    "liveChatHint": "Recherchez l'icône de chat en bas à droite de votre écran.",
+    "sendMessage": "Envoyez-nous un Message",
+    "sendMessageDesc": "Remplissez le formulaire ci-dessous et nous vous répondrons dans les 24 heures.",
+    "ourLocation": "Notre Emplacement",
+    "categories": {
+      "general": "Demande Générale",
+      "booking": "Support de Réservation",
+      "refund": "Remboursements et Annulations",
+      "technical": "Problème Technique",
+      "feedback": "Commentaires et Suggestions",
+      "other": "Autre"
+    },
+    "form": {
+      "fullName": "Nom Complet",
+      "fullNamePlaceholder": "Jean Dupont",
+      "emailAddress": "Adresse Email",
+      "category": "Catégorie",
+      "bookingReference": "Référence de Réservation",
+      "optional": "optionnel",
+      "subject": "Sujet",
+      "subjectPlaceholder": "Brève description de votre demande",
+      "message": "Message",
+      "messagePlaceholder": "Veuillez fournir autant de détails que possible...",
+      "requiredFields": "Champs obligatoires",
+      "sending": "Envoi en cours...",
+      "sendButton": "Envoyer le Message"
+    },
+    "success": {
+      "title": "Message envoyé avec succès !",
+      "message": "Merci de nous avoir contacté. Nous répondrons à votre demande dans les 24 heures."
+    },
+    "error": {
+      "title": "Échec de l'envoi du message"
+    }
   }
 }

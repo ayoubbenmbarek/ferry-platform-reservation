@@ -517,3 +517,86 @@ async def process_refund(
             status_code=400,
             detail=f"Refund error: {str(e)}"
         )
+
+
+# =============================================================================
+# Email Dead-Letter Queue Management
+# =============================================================================
+
+@router.get("/emails/dead-letter-queue")
+async def get_email_dead_letter_queue(
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Get statistics and contents of the email dead-letter queue.
+
+    Shows failed emails that exhausted all retries.
+    """
+    from app.tasks.email_tasks import get_dead_letter_queue_stats, get_failed_emails
+
+    stats = get_dead_letter_queue_stats()
+    failed_emails = get_failed_emails(limit=50)
+
+    return {
+        "stats": stats,
+        "failed_emails": failed_emails
+    }
+
+
+@router.post("/emails/dead-letter-queue/retry/{queue_index}")
+async def retry_single_failed_email(
+    queue_index: int,
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Retry a specific failed email from the dead-letter queue.
+
+    Args:
+        queue_index: Index of the email in the queue (0 = most recent failure)
+    """
+    from app.tasks.email_tasks import retry_failed_email
+
+    result = retry_failed_email(queue_index)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
+
+
+@router.post("/emails/dead-letter-queue/retry-all")
+async def retry_all_failed_emails_endpoint(
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Retry all failed emails in the dead-letter queue.
+
+    Re-queues all failed emails for another delivery attempt.
+    """
+    from app.tasks.email_tasks import retry_all_failed_emails
+
+    result = retry_all_failed_emails()
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
+
+
+@router.delete("/emails/dead-letter-queue")
+async def clear_email_dead_letter_queue(
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Clear all items from the email dead-letter queue.
+
+    Warning: This permanently deletes all failed emails without retrying.
+    """
+    from app.tasks.email_tasks import clear_dead_letter_queue
+
+    result = clear_dead_letter_queue()
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result

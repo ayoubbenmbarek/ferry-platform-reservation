@@ -250,33 +250,63 @@ const HomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { from: 'Genoa', to: 'Tunis', duration: '24h', price: '€85' },
-              { from: 'Civitavecchia', to: 'Tunis', duration: '22h', price: '€92' },
-              { from: 'Palermo', to: 'Tunis', duration: '11h', price: '€78' },
-              { from: 'Marseille', to: 'Tunis', duration: '21h', price: '€95' },
-              { from: 'Salerno', to: 'Tunis', duration: '16h', price: '€88' },
-              { from: 'Nice', to: 'Tunis', duration: '19h', price: '€98' },
-            ].map((route, index) => (
-              <div key={index} className="card hover:shadow-medium transition-shadow duration-200">
-                <div className="card-body">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {route.from} → {route.to}
-                      </h3>
-                      <p className="text-gray-600">Duration: {route.duration}</p>
+              { from: 'Genoa', fromCode: 'genoa', to: 'Tunis', toCode: 'tunis', duration: '24h', price: '€85' },
+              { from: 'Civitavecchia', fromCode: 'civitavecchia', to: 'Tunis', toCode: 'tunis', duration: '22h', price: '€92' },
+              { from: 'Palermo', fromCode: 'palermo', to: 'Tunis', toCode: 'tunis', duration: '11h', price: '€78' },
+              { from: 'Marseille', fromCode: 'marseille', to: 'Tunis', toCode: 'tunis', duration: '21h', price: '€95' },
+              { from: 'Salerno', fromCode: 'salerno', to: 'Tunis', toCode: 'tunis', duration: '16h', price: '€88' },
+              { from: 'Nice', fromCode: 'nice', to: 'Tunis', toCode: 'tunis', duration: '19h', price: '€98' },
+            ].map((route, index) => {
+              const handleRouteClick = () => {
+                // Set the default departure date to tomorrow
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const departureDate = tomorrow.toISOString().split('T')[0];
+
+                dispatch(startNewSearch());
+                dispatch(setSearchParams({
+                  departurePort: route.fromCode,
+                  arrivalPort: route.toCode,
+                  departureDate: departureDate,
+                  passengers: { adults: 1, children: 0, infants: 0 },
+                  vehicles: [],
+                }));
+                dispatch(searchFerries({
+                  departurePort: route.fromCode,
+                  arrivalPort: route.toCode,
+                  departureDate: departureDate,
+                  passengers: { adults: 1, children: 0, infants: 0 },
+                  vehicles: [],
+                } as any));
+                navigate('/search');
+              };
+
+              return (
+                <div key={index} className="card hover:shadow-medium transition-shadow duration-200">
+                  <div className="card-body">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {route.from} → {route.to}
+                        </h3>
+                        <p className="text-gray-600">Duration: {route.duration}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-primary-600">{route.price}</p>
+                        <p className="text-sm text-gray-500">from</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary-600">{route.price}</p>
-                      <p className="text-sm text-gray-500">from</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRouteClick}
+                      className="btn-outline w-full hover:bg-primary-50"
+                    >
+                      View Schedules
+                    </button>
                   </div>
-                  <button className="btn-outline w-full">
-                    View Schedules
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

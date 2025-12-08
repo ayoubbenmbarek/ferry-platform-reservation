@@ -7,7 +7,7 @@ import { updateUser } from '../store/slices/authSlice';
 import { authAPI } from '../services/api';
 
 const ProfilePage: React.FC = () => {
-  const { t } = useTranslation(['profile', 'common']);
+  const { t, i18n } = useTranslation(['profile', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -114,6 +114,12 @@ const ProfilePage: React.FC = () => {
         preferredLanguage: preferencesData.preferredLanguage,
         preferredCurrency: preferencesData.preferredCurrency,
       })).unwrap();
+
+      // Apply the language change immediately
+      if (preferencesData.preferredLanguage !== i18n.language) {
+        await i18n.changeLanguage(preferencesData.preferredLanguage);
+      }
+
       setMessage({ type: 'success', text: 'Preferences updated successfully!' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error || 'Failed to update preferences' });

@@ -1,0 +1,104 @@
+{
+  "appName": "Maritime Reservierungen",
+  "nav": {
+    "home": "Startseite",
+    "search": "Suchen",
+    "myBookings": "Meine Buchungen",
+    "findBooking": "Meine Buchung Finden",
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "logout": "Abmelden",
+    "profile": "Profil & Einstellungen",
+    "admin": "Administration",
+    "about": "Über Uns",
+    "contact": "Kontakt"
+  },
+  "footer": {
+    "copyright": "© 2024 Maritime Reservierungen. Alle Rechte vorbehalten.",
+    "terms": "Nutzungsbedingungen",
+    "privacy": "Datenschutzrichtlinie",
+    "help": "Hilfecenter"
+  },
+  "language": {
+    "select": "Sprache Auswählen",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "EUR",
+    "usd": "USD",
+    "gbp": "GBP"
+  },
+  "common": {
+    "loading": "Wird geladen...",
+    "error": "Ein Fehler ist aufgetreten",
+    "success": "Erfolg",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "confirm": "Bestätigen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "submit": "Absenden",
+    "close": "Schließen",
+    "yes": "Ja",
+    "no": "Nein",
+    "selectDate": "Datum Auswählen",
+    "selectTime": "Zeit Auswählen",
+    "required": "Dieses Feld ist erforderlich",
+    "invalidEmail": "Ungültige E-Mail-Adresse",
+    "invalidPhone": "Ungültige Telefonnummer",
+    "signIn": "Anmelden"
+  },
+  "home": {
+    "title": "Buchen Sie Ihre Fähre",
+    "subtitle": "Finden Sie die besten Fährrouten im Mittelmeer",
+    "searchButton": "Fähren Suchen",
+    "promoTitle": "Melden Sie sich an für exklusive Angebote",
+    "promoSubtitle": "Mitglieder sparen bis zu 15%",
+    "welcomeBack": "Willkommen zurück",
+    "viewBookings": "Ihre Buchungen anzeigen",
+    "popularRoutes": "Beliebte Routen",
+    "whyBookWithUs": "Warum Bei Uns Buchen",
+    "ourPartners": "Unsere Partner",
+    "secureBooking": "Sichere Buchung",
+    "secureDesc": "Sichere Zahlungsabwicklung",
+    "bestPrices": "Beste Preise",
+    "pricesDesc": "Alle Betreiber vergleichen",
+    "support": "24/7 Support",
+    "supportDesc": "Wir sind für Sie da"
+  },
+  "date": {
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "yesterday": "Gestern"
+  },
+  "features": {
+    "compareOperators": "Preise vergleichen • Mehrere Betreiber • Einfache Buchung",
+    "whyBookTitle": "Warum Bei Uns Buchen?",
+    "whyBookSubtitle": "Der einfachste Weg, Fährüberfahrten nach Tunesien zu buchen",
+    "bestPricesTitle": "Beste Preise",
+    "bestPricesDesc": "Vergleichen Sie Preise von CTN, GNV, Corsica Lines und Danel Casanova in einer Suche",
+    "instantConfirmationTitle": "Sofortige Bestätigung",
+    "instantConfirmationDesc": "Erhalten Sie Ihre Buchungsbestätigung sofort mit E-Tickets per E-Mail",
+    "securePaymentTitle": "Sichere Zahlung",
+    "securePaymentDesc": "Ihre Zahlungsinformationen sind mit Stripe verschlüsselt und sicher",
+    "popularRoutesTitle": "Beliebte Routen",
+    "popularRoutesSubtitle": "Meistgesuchte Fährrouten nach Tunesien",
+    "viewSchedules": "Fahrpläne Ansehen",
+    "from": "ab"
+  },
+  "bookingStatus": {
+    "all": "Alle",
+    "pending": "Ausstehend",
+    "confirmed": "Bestätigt",
+    "completed": "Abgeschlossen",
+    "cancelled": "Storniert",
+    "paid": "Bezahlt",
+    "filterByStatus": "Nach Status filtern"
+  }
+}

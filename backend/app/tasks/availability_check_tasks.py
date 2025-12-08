@@ -54,11 +54,22 @@ def check_availability_alerts_task(self):
         ).update({"status": AlertStatusEnum.EXPIRED.value})
 
         if expired_count > 0:
-            logger.info(f"⏰ Expired {expired_count} old alerts")
+            logger.info(f"⏰ Expired {expired_count} old alerts (past expires_at)")
+
+        # 2. Also expire alerts for past departure dates (ferry already sailed)
+        departed_count = db.query(AvailabilityAlert).filter(
+            and_(
+                AvailabilityAlert.status.in_([AlertStatusEnum.ACTIVE.value, AlertStatusEnum.NOTIFIED.value]),
+                AvailabilityAlert.departure_date < now.date()
+            )
+        ).update({"status": AlertStatusEnum.EXPIRED.value})
+
+        if departed_count > 0:
+            logger.info(f"🚢 Expired {departed_count} alerts for departed ferries")
 
         db.commit()
 
-        # 2. Get active alerts that need checking
+        # 3. Get active alerts that need checking
         # Only check alerts for future dates
         # Cooldown to avoid excessive API calls (5 minutes for real-time notifications)
         # Increase to hours=1 or hours=2 if hitting rate limits
@@ -215,7 +226,8 @@ def check_availability_alerts_task(self):
                         passengers_available = available_spaces.get("passengers", 0) if isinstance(available_spaces, dict) else 0
                         if passengers_available >= total_passengers:
                             availability_found = True
-                            logger.info(f"👥 Found passenger space: {passengers_available} seats available on {result.operator} at {result_time}")
+                            departure_time_str = datetime.fromisoformat(str(result.departure_time)).strftime("%H:%M")
+                            logger.info(f"👥 Found passenger space: {passengers_available} seats available on {result.operator} at {departure_time_str}")
                             break
 
                 # 4. Send notification if availability found

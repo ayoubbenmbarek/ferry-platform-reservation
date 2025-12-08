@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { Text, Card, Button, ActivityIndicator, Divider, Chip } from 'react-native-paper';
+import { Text, Card, Button, Divider, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,6 +17,7 @@ import { cabinService, Cabin } from '../services/cabinService';
 import { bookingService } from '../services/bookingService';
 import { RootStackParamList, Booking } from '../types';
 import { colors, spacing, borderRadius } from '../constants/theme';
+import LoadingScreen from '../components/LoadingScreen';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'AddCabin'>;
@@ -130,14 +131,7 @@ export default function AddCabinScreen() {
   };
 
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading available cabins...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Loading available cabins" />;
   }
 
   if (error || !booking) {

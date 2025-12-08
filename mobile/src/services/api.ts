@@ -73,13 +73,36 @@ api.interceptors.response.use(
 
 export default api;
 
+// User-friendly error messages
+const ERROR_MESSAGES: Record<string, string> = {
+  // Password errors
+  'Incorrect password. Please try again.': 'The password you entered is incorrect. Please try again.',
+  'Incorrect email or password': 'The email or password you entered is incorrect. Please try again.',
+  'Invalid credentials': 'The email or password you entered is incorrect. Please try again.',
+  // Account errors
+  'User not found': 'No account found with this email address. Please check your email or sign up.',
+  'Email not verified': 'Please verify your email address before logging in. Check your inbox for the verification link.',
+  'Account disabled': 'Your account has been disabled. Please contact support for assistance.',
+  // Rate limiting
+  'Too many attempts': 'Too many login attempts. Please wait a few minutes and try again.',
+  // Network errors
+  'Network Error': 'Unable to connect to the server. Please check your internet connection.',
+  // General errors
+  'Not Found': 'The requested resource was not found. Please try again.',
+};
+
 // API Error Helper
 export const getErrorMessage = (error: any): string => {
   if (axios.isAxiosError(error)) {
-    return error.response?.data?.message ||
-           error.response?.data?.detail ||
-           error.message ||
-           'An error occurred';
+    const rawMessage = error.response?.data?.message ||
+                       error.response?.data?.detail ||
+                       error.message ||
+                       'An error occurred';
+
+    // Return user-friendly message if available
+    return ERROR_MESSAGES[rawMessage] || rawMessage;
   }
-  return error.message || 'An unexpected error occurred';
+
+  const rawMessage = error.message || 'An unexpected error occurred';
+  return ERROR_MESSAGES[rawMessage] || rawMessage;
 };

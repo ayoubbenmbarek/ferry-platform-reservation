@@ -40,6 +40,37 @@ patches:
     target:
       kind: Deployment
       name: celery-worker
+  # Reduce HPA minReplicas for staging
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+    target:
+      kind: HorizontalPodAutoscaler
+      name: backend-hpa
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+    target:
+      kind: HorizontalPodAutoscaler
+      name: frontend-hpa
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+    target:
+      kind: HorizontalPodAutoscaler
+      name: celery-worker-hpa
 
   # ConfigMap patches for staging
   - patch: |-

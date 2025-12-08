@@ -8,13 +8,19 @@ resources:
   - service-account.yaml
   - configmap.yaml
   - secrets.yaml
+  # Database
+  - postgres-deployment.yaml
   - redis-deployment.yaml
+  # Application
   - backend-deployment.yaml
   - backend-service.yaml
   - frontend-deployment.yaml
   - frontend-service.yaml
+  - chatbot-deployment.yaml
+  # Background workers
   - celery-worker-deployment.yaml
   - celery-beat-deployment.yaml
+  # Networking & scaling
   - ingress.yaml
   - hpa.yaml
   - pdb.yaml

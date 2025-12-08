@@ -9,6 +9,7 @@ env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE: ${{ github.repository }}/backend
   FRONTEND_IMAGE: ${{ github.repository }}/frontend
+  CHATBOT_IMAGE: ${{ github.repository }}/chatbot
 
 jobs:
   # Run backend tests
@@ -114,6 +115,7 @@ jobs:
     outputs:
       backend_tag: ${{ steps.tags.outputs.backend_tag }}
       frontend_tag: ${{ steps.tags.outputs.frontend_tag }}
+      chatbot_tag: ${{ steps.tags.outputs.chatbot_tag }}
 
     steps:
       - name: Checkout code
@@ -135,6 +137,7 @@ jobs:
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
           echo "backend_tag=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "frontend_tag=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "chatbot_tag=${{ env.REGISTRY }}/${{ env.CHATBOT_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Build and push backend
         uses: docker/build-push-action@v5
@@ -165,6 +168,18 @@ jobs:
             REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID }}
             REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND }}
             REACT_APP_VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push chatbot
+        uses: docker/build-push-action@v5
+        with:
+          context: ./mcp-servers/chatbot
+          file: ./mcp-servers/chatbot/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.CHATBOT_IMAGE }}:staging
+            ${{ steps.tags.outputs.chatbot_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -275,6 +290,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Backend Image**: ${{ needs.build.outputs.backend_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend Image**: ${{ needs.build.outputs.frontend_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chatbot Image**: ${{ needs.build.outputs.chatbot_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

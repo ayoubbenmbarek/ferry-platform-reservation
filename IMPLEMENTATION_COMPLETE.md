@@ -387,6 +387,7 @@ Grafana login:
   kubectl apply -k k8s/base/monitoring/
 
 todo send notification is something shown down in infra or app
+todo suggest what else to add to grafana promethus that could help monitor etc
 
 
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done

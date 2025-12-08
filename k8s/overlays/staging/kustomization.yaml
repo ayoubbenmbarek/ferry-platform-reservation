@@ -5,16 +5,19 @@ namespace: maritime-reservations-staging
 
 resources:
   - ../../base
-  - namespace.yaml
-  - ingress-patch.yaml
 
-nameSuffix: -staging
+namePrefix: staging-
 
 commonLabels:
   environment: staging
 
-# Staging-specific patches
+# Patches for staging-specific configuration
 patches:
+  # Staging ingress with traefik and staging subdomains
+  - path: ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: maritime-ingress
   # Reduce replicas for staging
   - patch: |-
       - op: replace
@@ -38,49 +41,44 @@ patches:
       kind: Deployment
       name: celery-worker
 
-  # Reduce HPA for staging
+  # ConfigMap patches for staging
   - patch: |-
       - op: replace
-        path: /spec/minReplicas
-        value: 1
+        path: /data/ENVIRONMENT
+        value: "staging"
       - op: replace
-        path: /spec/maxReplicas
-        value: 3
+        path: /data/DEBUG
+        value: "true"
+      - op: replace
+        path: /data/LOG_LEVEL
+        value: "DEBUG"
+      - op: replace
+        path: /data/ALLOWED_ORIGINS
+        value: "https://staging.maritime-reservations.com,https://api-staging.maritime-reservations.com"
+      - op: replace
+        path: /data/GOOGLE_REDIRECT_URI
+        value: "https://api-staging.maritime-reservations.com/api/v1/auth/google/callback"
+      - op: replace
+        path: /data/BASE_URL
+        value: "https://staging.maritime-reservations.com"
+      - op: replace
+        path: /data/SENTRY_ENVIRONMENT
+        value: "staging"
+      - op: replace
+        path: /data/SENTRY_TRACES_SAMPLE_RATE
+        value: "1.0"
     target:
-      kind: HorizontalPodAutoscaler
-      name: backend-hpa
-  - patch: |-
-      - op: replace
-        path: /spec/minReplicas
-        value: 1
-      - op: replace
-        path: /spec/maxReplicas
-        value: 2
-    target:
-      kind: HorizontalPodAutoscaler
-      name: frontend-hpa
-  - patch: |-
-      - op: replace
-        path: /spec/minReplicas
-        value: 1
-      - op: replace
-        path: /spec/maxReplicas
-        value: 3
-    target:
-      kind: HorizontalPodAutoscaler
-      name: celery-worker-hpa
+      kind: ConfigMap
+      name: maritime-config
 
-# Staging-specific ConfigMap
-configMapGenerator:
-  - name: maritime-config
-    behavior: merge
-    literals:
-      - ENVIRONMENT=staging
-      - DEBUG=true
-      - ALLOWED_ORIGINS=https://staging.maritime-reservations.com
-
+# Image overrides for staging (will be set by CI/CD)
 images:
   - name: maritime-reservations/backend
+    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/backend
     newTag: staging
   - name: maritime-reservations/frontend
+    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/frontend
+    newTag: staging
+  - name: maritime-reservations/chatbot
+    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/chatbot
     newTag: staging

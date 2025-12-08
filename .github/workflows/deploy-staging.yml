@@ -2,8 +2,17 @@ name: Deploy to Staging
 
 on:
   push:
-    branches: [staging, develop]
-  workflow_dispatch:  # Allow manual trigger
+    branches: [staging, develop, features]
+  workflow_dispatch:
+    inputs:
+      deploy_method:
+        description: 'Deploy method'
+        required: false
+        default: 'build-only'
+        type: choice
+        options:
+          - build-only
+          - kubernetes
 
 env:
   REGISTRY: ghcr.io
@@ -188,7 +197,7 @@ jobs:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     needs: build
-    if: vars.DEPLOY_METHOD == 'kubernetes'
+    if: github.event.inputs.deploy_method == 'kubernetes'
     environment:
       name: staging
       url: https://staging.voilaferry.com
@@ -233,54 +242,11 @@ jobs:
           echo "Ingress:"
           kubectl -n maritime-reservations-staging get ingress
 
-  # Deploy with Docker Compose (for VPS)
-  deploy-docker:
-    name: Deploy with Docker Compose
-    runs-on: ubuntu-latest
-    needs: build
-    if: vars.DEPLOY_METHOD == 'docker-compose'
-    environment:
-      name: staging
-      url: https://staging.voilaferry.com
-
-    steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
-          script: |
-            cd /opt/maritime-reservations
-
-            # Pull latest code
-            git fetch origin develop
-            git reset --hard origin/develop
-
-            # Login to registry
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Update images in .env
-            sed -i 's|BACKEND_IMAGE=.*|BACKEND_IMAGE=${{ needs.build.outputs.backend_tag }}|' .env.staging
-            sed -i 's|FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${{ needs.build.outputs.frontend_tag }}|' .env.staging
-
-            # Pull new images and restart
-            docker-compose -f docker-compose.staging.yml pull
-            docker-compose -f docker-compose.staging.yml up -d
-
-            # Wait and health check
-            sleep 30
-            curl -f http://localhost:8010/health || echo "Health check failed"
-
-            # Show status
-            docker-compose -f docker-compose.staging.yml ps
-
   # Notify on completion
   notify:
     name: Notify
     runs-on: ubuntu-latest
-    needs: [build, deploy-k8s, deploy-docker]
+    needs: [build, deploy-k8s]
     if: always()
 
     steps:
@@ -294,8 +260,10 @@ jobs:
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ needs.deploy-k8s.result }}" == "success" ] || [ "${{ needs.deploy-docker.result }}" == "success" ]; then
-            echo "**Status**: Deployed successfully" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-k8s.result }}" == "success" ]; then
+            echo "**Status**: Deployed to Kubernetes successfully ✅" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.build.result }}" == "success" ]; then
+            echo "**Status**: Images built successfully ✅ (manual deploy required)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "**Status**: Deployment may have issues - check logs" >> $GITHUB_STEP_SUMMARY
+            echo "**Status**: Build may have issues - check logs" >> $GITHUB_STEP_SUMMARY
           fi

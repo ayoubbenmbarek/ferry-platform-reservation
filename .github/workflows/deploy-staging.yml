@@ -162,11 +162,11 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging
             ${{ steps.tags.outputs.frontend_tag }}
           build-args: |
-            REACT_APP_API_URL=${{ vars.STAGING_API_URL || 'https://api-staging.maritime-reservations.com' }}
-            REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+            REACT_APP_API_URL=${{ vars.STAGING_API_URL || 'https://api-staging.voilaferry.com' }}
+            REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY || 'pk_test_51Q19DVL40zLTUQ47tUXkuAGMIAmolt6Me8ofAZjxC7yJm7TcPhJllSerGGjsZWYx16UzrR1Kb2ASIKmYn8LDhTy900OM8gz2fF' }}
             REACT_APP_ENVIRONMENT=staging
-            REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID }}
-            REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND }}
+            REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID || '9551469476-cqajqt5r2211pi89enn4qpvaifd1v6ss.apps.googleusercontent.com' }}
+            REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND || '' }}
             REACT_APP_VERSION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -191,7 +191,7 @@ jobs:
     if: vars.DEPLOY_METHOD == 'kubernetes'
     environment:
       name: staging
-      url: https://staging.maritime-reservations.com
+      url: https://staging.voilaferry.com
 
     steps:
       - name: Checkout code
@@ -238,10 +238,10 @@ jobs:
     name: Deploy with Docker Compose
     runs-on: ubuntu-latest
     needs: build
-    if: vars.DEPLOY_METHOD == 'docker-compose' || vars.DEPLOY_METHOD == ''
+    if: vars.DEPLOY_METHOD == 'docker-compose'
     environment:
       name: staging
-      url: https://staging.maritime-reservations.com
+      url: https://staging.voilaferry.com
 
     steps:
       - name: Deploy via SSH

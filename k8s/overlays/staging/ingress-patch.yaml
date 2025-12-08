@@ -11,12 +11,12 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - staging.maritime-reservations.com
-        - api-staging.maritime-reservations.com
-        - chatbot-staging.maritime-reservations.com
-      secretName: staging-maritime-tls-secret
+        - staging.voilaferry.com
+        - api-staging.voilaferry.com
+        - chatbot-staging.voilaferry.com
+      secretName: staging-voilaferry-tls-secret
   rules:
-    - host: staging.maritime-reservations.com
+    - host: staging.voilaferry.com
       http:
         paths:
           - path: /
@@ -26,7 +26,7 @@ spec:
                 name: staging-frontend-service
                 port:
                   number: 80
-    - host: api-staging.maritime-reservations.com
+    - host: api-staging.voilaferry.com
       http:
         paths:
           - path: /
@@ -36,7 +36,7 @@ spec:
                 name: staging-backend-service
                 port:
                   number: 8010
-    - host: chatbot-staging.maritime-reservations.com
+    - host: chatbot-staging.voilaferry.com
       http:
         paths:
           - path: /

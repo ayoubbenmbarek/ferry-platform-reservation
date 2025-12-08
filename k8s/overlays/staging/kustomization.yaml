@@ -54,13 +54,13 @@ patches:
         value: "DEBUG"
       - op: replace
         path: /data/ALLOWED_ORIGINS
-        value: "https://staging.maritime-reservations.com,https://api-staging.maritime-reservations.com"
+        value: "https://staging.voilaferry.com,https://api-staging.voilaferry.com"
       - op: replace
         path: /data/GOOGLE_REDIRECT_URI
-        value: "https://api-staging.maritime-reservations.com/api/v1/auth/google/callback"
+        value: "https://api-staging.voilaferry.com/api/v1/auth/google/callback"
       - op: replace
         path: /data/BASE_URL
-        value: "https://staging.maritime-reservations.com"
+        value: "https://staging.voilaferry.com"
       - op: replace
         path: /data/SENTRY_ENVIRONMENT
         value: "staging"
@@ -74,11 +74,11 @@ patches:
 # Image overrides for staging (will be set by CI/CD)
 images:
   - name: maritime-reservations/backend
-    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/backend
+    newName: ghcr.io/ayoubbenmbarek/ferry-platform-reservation/backend
     newTag: staging
   - name: maritime-reservations/frontend
-    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/frontend
+    newName: ghcr.io/ayoubbenmbarek/ferry-platform-reservation/frontend
     newTag: staging
   - name: maritime-reservations/chatbot
-    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/chatbot
+    newName: ghcr.io/ayoubbenmbarek/ferry-platform-reservation/chatbot
     newTag: staging

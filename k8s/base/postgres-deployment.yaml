@@ -102,14 +102,10 @@ spec:
     - port: 5432
       targetPort: 5432
       name: postgres
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-  namespace: maritime-reservations
-type: Opaque
-stringData:
-  # CHANGE THIS IN PRODUCTION!
-  # Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-  password: "CHANGE_ME_secure_postgres_password"
+# NOTE: postgres-secret must be created manually before deployment
+# Example:
+# kubectl create secret generic postgres-secret \
+#   --namespace=maritime-reservations-staging \
+#   --from-literal=password='YOUR_SECURE_PASSWORD'
+#
+# Or apply the staging-secrets.yaml file that includes postgres-secret

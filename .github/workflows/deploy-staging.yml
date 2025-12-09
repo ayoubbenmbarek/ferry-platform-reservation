@@ -3,6 +3,11 @@ name: Deploy to Staging
 on:
   push:
     branches: [staging, develop, features]
+    paths-ignore:
+      - 'k8s/**'
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       deploy_method:

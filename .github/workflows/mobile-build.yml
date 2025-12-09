@@ -1,6 +1,7 @@
 name: Mobile App Build
 
 on:
+  # Tests run on all branches, EAS builds only on main
   push:
     branches: [main, develop, staging]
     paths:
@@ -10,6 +11,7 @@ on:
     branches: [main, develop]
     paths:
       - 'mobile/**'
+  # Manual trigger for builds when needed
   workflow_dispatch:
     inputs:
       platform:
@@ -72,12 +74,12 @@ jobs:
           flags: mobile
           fail_ci_if_error: false
 
-  # Build with EAS
+  # Build with EAS (only on main or manual trigger - saves build minutes)
   build-eas:
     name: Build with EAS
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     defaults:
       run:
         working-directory: ./mobile

@@ -58,25 +58,28 @@ patches:
     target:
       kind: Deployment
       name: postgres
-  # Frontend secret
+  # Frontend secret (env[1] has the secretKeyRef)
   - patch: |-
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
         value: staging-maritime-secrets
     target:
       kind: Deployment
       name: frontend
-  # Chatbot secrets
+  # Chatbot secrets (env[2]=chatbot-secrets, env[3,4]=maritime-secrets, env[5]=configmap)
   - patch: |-
       - op: replace
-        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
         value: staging-chatbot-secrets
       - op: replace
-        path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/containers/0/env/3/valueFrom/secretKeyRef/name
         value: staging-maritime-secrets
       - op: replace
-        path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+        path: /spec/template/spec/containers/0/env/4/valueFrom/secretKeyRef/name
         value: staging-maritime-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/5/valueFrom/configMapKeyRef/name
+        value: staging-maritime-config
     target:
       kind: Deployment
       name: chatbot

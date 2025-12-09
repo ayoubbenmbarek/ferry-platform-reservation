@@ -19,6 +19,68 @@ patches:
       kind: Ingress
       name: maritime-ingress
 
+  # Fix configMapRef and secretRef to use staging-prefixed names
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+        value: staging-maritime-config
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: backend
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+        value: staging-maritime-config
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: celery-worker
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+        value: staging-maritime-config
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: celery-beat
+  # Postgres secret
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+        value: staging-postgres-secret
+    target:
+      kind: Deployment
+      name: postgres
+  # Frontend secret
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: frontend
+  # Chatbot secrets
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        value: staging-chatbot-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
+        value: staging-maritime-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: chatbot
+
   # Fix REDIS_URL to use staging-prefixed service name
   - patch: |-
       - op: replace

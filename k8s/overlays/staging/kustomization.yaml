@@ -13,6 +13,12 @@ commonLabels:
 
 # Patches for staging-specific configuration
 patches:
+  # ConfigMap override with staging-specific values
+  - path: configmap.yaml
+    target:
+      kind: ConfigMap
+      name: maritime-config
+
   # Staging ingress with traefik and staging subdomains
   - path: ingress-patch.yaml
     target:
@@ -179,10 +185,6 @@ patches:
     target:
       kind: HorizontalPodAutoscaler
       name: celery-worker-hpa
-
-# Strategic merge patches for ConfigMap
-patchesStrategicMerge:
-  - configmap-patch.yaml
 
 # Image overrides for staging (will be set by CI/CD)
 images:

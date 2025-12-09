@@ -366,6 +366,7 @@ todo: create env staging on sentry maybe.?
 todo:when signup should show message if signup success and tell to validate email that you will receive, and check if that email sent asynch
 todo:search with voice don't work on staging get 405 not allowed
 
+cat /etc/rancher/k3s/k3s.yaml | sed 's/127.0.0.1/77.42.37.227/g' | base64 -w 0
 
 git commit -m "Add async email verification and improve registration UX Backend: - Add send_email_verification_task Celery task for async email sending - Update auth.py to use async task instead of sync email sending - Registration is now non-blocking (email sent in background) Frontend: - Show "Check your email" success page after registration - Display verification instructions instead of immediate redirect"
 

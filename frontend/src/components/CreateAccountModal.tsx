@@ -58,8 +58,9 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const handleGoogleResponse = useCallback(async (response: any) => {
     try {
       setLoading(true);
-      // Send the Google credential to our backend
-      const result = await axios.post('/api/v1/auth/google', {
+      // Send the Google credential to our backend using the configured API URL
+      const apiUrl = process.env.REACT_APP_API_URL || '/api/v1';
+      const result = await axios.post(`${apiUrl}/auth/google`, {
         credential: response.credential
       });
 

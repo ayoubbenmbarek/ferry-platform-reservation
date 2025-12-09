@@ -362,7 +362,84 @@ todo when token expires, and i was logged in i click my booking it shows no book
 todo:for customer that have cancelled reservation, try to bring them back if they do not yet reserve or had a booking by promotional email mayb or alert, that they could subscribe we can send email to subscribe to a specific route etc quickly
 todo how intergrate real live map
 todo:why docker-compose.monitoring and not the same docker compose.dev that we have, and in production how it will be used, if i already prepared k3s deployment that will be k8s later
+todo: create env staging on sentry maybe.?
+todo:when signup should show message if signup success and tell to validate email that you will receive, and check if that email sent asynch
 
+
+
+
+kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 --previous 2>/dev/null || kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 -f
+ubectl -nmaritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5
+
+kubectl -n maritime-reservations-staging rollout restart deployment/staging-backend
+
+kubectl -n maritime-reservations-staging exec staging-backend-9cc4cbb4c-8jlpb -- env | grep DATABASE
+
+kubectl -n maritime-reservations-staging get secret staging-postgres-secret -o jsonpath='{.data.password}' | base64 -d && echo
+
+kubectl -n maritime-reservations-staging delete pod -l app=postgres
+
+kubectl -n maritime-reservations-staging describe pod staging-postgres-8f7dcbcb7-mhxtv | grep -A10 "Events"
+
+kubectl -n maritime-reservations-staging get pods -w
+kubectl -n maritime-reservations-staging logs staging-backend-69f4587648-4cm4d -f
+
+kubectl -n maritime-reservations-staging exec -it staging-postgres-8f7dcbcb7-mhxtv -- psql -U maritime -d maritime_reservations -c "SELECT 1;"
+
+kubectl -n maritime-reservations-staging exec -it staging-backend-69f4587648-4cm4d -- sh -c 'python -c "import psycopg2;  import os; conn=psycopg2.connect(os.environ [\"DATABASE_URL\"]); print(\"OK\");  conn.close()"'
+
+kubectl -n maritime-reservations-staging logs staging-backend-69f4587648-4cm4d 2>&1 | head -50
+
+kubectl -n maritime-reservations-staging describe pod staging-backend-69f4587648-4cm4d | grep -A5 "Last State\|Reason\|Exit Code"
+
+kubectl -n maritime-reservations-staging exec -it staging-backend-69f4587648-4cm4d -- python -c "from app.main import app;  print('App loaded OK')"
+
+vps ip: inet 77.42.37.227
+ssh root@77.42.37.227
+or deploy@
+
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
+kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n cert-manager
+kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-webhook -n cert-manager
+
+cat <<EOF | kubectl apply -f -
+  apiVersion: cert-manager.io/v1
+  kind: ClusterIssuer
+  metadata:
+    name: letsencrypt-staging
+  spec:
+    acme:
+      server: https://acme-staging-v02.api.l
+  etsencrypt.org/directory
+      email: ayoubenmbarek@gmail.com
+      privateKeySecretRef:
+        name: letsencrypt-staging
+      solvers:
+        - http01:
+            ingress:
+              class: traefik
+  ---
+  apiVersion: cert-manager.io/v1
+  kind: ClusterIssuer
+  metadata:
+    name: letsencrypt-prod
+  spec:
+    acme:
+      server: https://acme-v02.api.letsencry
+  pt.org/directory
+      email: ayoubenmbarek@gmail.com
+      privateKeySecretRef:
+        name: letsencrypt-prod
+      solvers:
+        - http01:
+            ingress:
+              class: traefik
+  EOF
+
+generate secure passwords:
+DB_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)
+SECRET_KEY=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
+JWT_SECRET=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
 
 To Start Monitoring:
 
@@ -388,6 +465,7 @@ Grafana login:
 
 todo send notification is something shown down in infra or app
 todo suggest what else to add to grafana promethus that could help monitor etc
+todo:do i need one single vps to run kube?
 
 
 todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done

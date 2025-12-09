@@ -117,17 +117,20 @@ patches:
       kind: Deployment
       name: celery-beat
 
-  # Reduce replicas and increase memory for staging (4 workers need more RAM)
+  # Reduce replicas, memory, and workers for staging VPS
   - patch: |-
       - op: replace
         path: /spec/replicas
         value: 1
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/memory
-        value: "1Gi"
+        value: "768Mi"
       - op: replace
         path: /spec/template/spec/containers/0/resources/requests/memory
-        value: "512Mi"
+        value: "384Mi"
+      - op: add
+        path: /spec/template/spec/containers/0/command
+        value: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1"]
     target:
       kind: Deployment
       name: backend

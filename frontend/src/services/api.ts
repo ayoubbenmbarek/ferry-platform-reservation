@@ -32,11 +32,19 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      // Store the current path to redirect back after login
-      const currentPath = window.location.pathname + window.location.search;
-      // Redirect to login with return URL
-      window.location.href = `/login?returnTo=${encodeURIComponent(currentPath)}`;
+      // Don't redirect if we're on auth pages or making auth requests
+      const isAuthPage = window.location.pathname.startsWith('/login') ||
+                         window.location.pathname.startsWith('/register') ||
+                         window.location.pathname.startsWith('/forgot-password');
+      const isAuthRequest = error.config?.url?.includes('/auth/');
+
+      if (!isAuthPage && !isAuthRequest) {
+        localStorage.removeItem('token');
+        // Store the current path to redirect back after login
+        const currentPath = window.location.pathname + window.location.search;
+        // Redirect to login with return URL
+        window.location.href = `/login?returnTo=${encodeURIComponent(currentPath)}`;
+      }
     }
     return Promise.reject(error);
   }

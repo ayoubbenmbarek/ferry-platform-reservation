@@ -364,9 +364,10 @@ todo how intergrate real live map
 todo:why docker-compose.monitoring and not the same docker compose.dev that we have, and in production how it will be used, if i already prepared k3s deployment that will be k8s later
 todo: create env staging on sentry maybe.?
 todo:when signup should show message if signup success and tell to validate email that you will receive, and check if that email sent asynch
+todo:search with voice don't work on staging get 405 not allowed
 
 
-
+git commit -m "Add async email verification and improve registration UX Backend: - Add send_email_verification_task Celery task for async email sending - Update auth.py to use async task instead of sync email sending - Registration is now non-blocking (email sent in background) Frontend: - Show "Check your email" success page after registration - Display verification instructions instead of immediate redirect"
 
 kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 --previous 2>/dev/null || kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 -f
 ubectl -nmaritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5

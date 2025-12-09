@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 interface Cabin {
   id: number;
@@ -89,7 +89,7 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   const fetchCabins = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/v1/cabins', {
+      const response = await api.get('/cabins', {
         params: {
           is_available: true,
           min_occupancy: Math.min(passengerCount, 1),

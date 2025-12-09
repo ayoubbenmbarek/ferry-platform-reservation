@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 export interface VehicleFormData {
   id: string;
@@ -69,7 +69,7 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
     const fetchMakes = async () => {
       try {
         console.log('Fetching vehicle makes...');
-        const response = await axios.get('/api/v1/vehicles/makes');
+        const response = await api.get('/vehicles/makes');
         console.log('Vehicle makes response:', response.data);
         setMakes(response.data);
         setMakesLoading(false);
@@ -87,7 +87,7 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
     const fetchModels = async () => {
       if (selectedMakeId) {
         try {
-          const response = await axios.get(`/api/v1/vehicles/makes/${selectedMakeId}/models`);
+          const response = await api.get(`/vehicles/makes/${selectedMakeId}/models`);
           setModels(response.data);
         } catch (error) {
           console.error('Failed to fetch vehicle models:', error);
@@ -122,7 +122,7 @@ const VehicleFormEnhanced: React.FC<VehicleFormProps> = ({
     setLookupError(null);
 
     try {
-      const response = await axios.get(`/api/v1/vehicles/lookup/${formData.registration}`);
+      const response = await api.get(`/vehicles/lookup/${formData.registration}`);
       const data = response.data;
 
       // Update form with looked up data

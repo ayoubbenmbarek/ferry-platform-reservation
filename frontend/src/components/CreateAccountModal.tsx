@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import api from '../services/api';
 import { useDispatch } from 'react-redux';
 import { setUser, setToken } from '../store/slices/authSlice';
 
@@ -146,7 +147,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     try {
       setLoading(true);
 
-      const response = await axios.post('/api/v1/auth/register-from-booking', {
+      const response = await api.post('/auth/register-from-booking', {
         email: bookingEmail,
         password: formData.password,
         first_name: formData.firstName,

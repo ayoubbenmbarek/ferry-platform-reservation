@@ -1,6 +1,9 @@
 # Multi-stage build for production
 FROM node:18-alpine as build
 
+# Cache buster to force rebuild when needed
+ARG CACHE_BUST=1
+
 # Build arguments for environment configuration
 ARG REACT_APP_API_URL=http://localhost:8010
 ARG REACT_APP_STRIPE_PUBLISHABLE_KEY

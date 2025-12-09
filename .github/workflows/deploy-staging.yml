@@ -176,6 +176,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging
             ${{ steps.tags.outputs.frontend_tag }}
           build-args: |
+            CACHE_BUST=${{ github.run_id }}
             REACT_APP_API_URL=${{ vars.STAGING_API_URL || 'https://api-staging.voilaferry.com/api/v1' }}
             REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY || 'pk_test_51Q19DVL40zLTUQ47tUXkuAGMIAmolt6Me8ofAZjxC7yJm7TcPhJllSerGGjsZWYx16UzrR1Kb2ASIKmYn8LDhTy900OM8gz2fF' }}
             REACT_APP_ENVIRONMENT=staging

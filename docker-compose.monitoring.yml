@@ -59,7 +59,7 @@ services:
     container_name: maritime-postgres-exporter
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/maritime_reservations_dev?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@maritime-postgres-dev:5432/maritime_reservations_dev?sslmode=disable"
     ports:
       - "9187:9187"
     networks:
@@ -76,7 +76,7 @@ services:
     container_name: maritime-redis-exporter
     restart: unless-stopped
     environment:
-      REDIS_ADDR: redis://redis:6379
+      REDIS_ADDR: redis://maritime-redis-dev:6379
     ports:
       - "9121:9121"
     networks:

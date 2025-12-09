@@ -130,9 +130,9 @@ async def register(
         db.commit()
         db.refresh(db_user)
 
-        # Send verification email
+        # Send verification email asynchronously via Celery
         try:
-            from app.services.email_service import email_service
+            from app.tasks.email_tasks import send_email_verification_task
             base_url = os.getenv("BASE_URL", "http://localhost:3001")
             verification_link = f"{base_url}/verify-email?token={verification_token}"
 
@@ -142,13 +142,14 @@ async def register(
                 "base_url": base_url
             }
 
-            email_service.send_email_verification(
+            # Queue email task asynchronously (non-blocking)
+            send_email_verification_task.delay(
                 email_data=email_data,
                 to_email=db_user.email
             )
         except Exception as e:
-            # Log but don't fail registration if email fails
-            print(f"Failed to send verification email: {str(e)}")
+            # Log but don't fail registration if task queuing fails
+            print(f"Failed to queue verification email: {str(e)}")
 
         return UserResponse.model_validate(db_user)
 

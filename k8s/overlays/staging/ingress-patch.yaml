@@ -1,34 +1,48 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: maritime-ingress-staging
+  name: maritime-ingress
   namespace: maritime-reservations-staging
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
+  ingressClassName: traefik
   tls:
     - hosts:
-        - staging.maritime-reservations.com
-        - api-staging.maritime-reservations.com
-      secretName: maritime-tls-secret-staging
+        - staging.voilaferry.com
+        - api-staging.voilaferry.com
+        - chatbot-staging.voilaferry.com
+      secretName: staging-voilaferry-tls-secret
   rules:
-    - host: staging.maritime-reservations.com
+    - host: staging.voilaferry.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: frontend-service-staging
+                name: staging-frontend-service
                 port:
                   number: 80
-    - host: api-staging.maritime-reservations.com
+    - host: api-staging.voilaferry.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: backend-service-staging
+                name: staging-backend-service
                 port:
                   number: 8010
+    - host: chatbot-staging.voilaferry.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: staging-chatbot-service
+                port:
+                  number: 3100

@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot
+  namespace: maritime-reservations
+  labels:
+    app: chatbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatbot
+  template:
+    metadata:
+      labels:
+        app: chatbot
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3100"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: maritime-service-account
+      containers:
+        - name: chatbot
+          image: ghcr.io/OWNER/maritime-reservation-website/chatbot:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3100
+              name: http
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3100"
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: chatbot-secrets
+                  key: anthropic-api-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: maritime-secrets
+                  key: DATABASE_URL
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: maritime-secrets
+                  key: SENTRY_DSN
+                  optional: true
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: maritime-config
+                  key: ENVIRONMENT
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3100
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3100
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+      imagePullSecrets:
+        - name: ghcr-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot-service
+  namespace: maritime-reservations
+  labels:
+    app: chatbot
+spec:
+  type: ClusterIP
+  selector:
+    app: chatbot
+  ports:
+    - port: 3100
+      targetPort: 3100
+      name: http
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chatbot-secrets
+  namespace: maritime-reservations
+type: Opaque
+stringData:
+  # Get from: https://console.anthropic.com/settings/keys
+  anthropic-api-key: "sk-ant-YOUR_ANTHROPIC_API_KEY"

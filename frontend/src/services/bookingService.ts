@@ -2,10 +2,8 @@
  * Booking Service - API calls for ferry bookings
  */
 
-import axios from 'axios';
+import api from './api';
 import { PassengerInfo, VehicleInfo } from '../types/ferry';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8010';
 
 export interface ContactInfo {
   email: string;
@@ -74,10 +72,7 @@ export const bookingService = {
    */
   async createBooking(bookingData: CreateBookingRequest): Promise<BookingResponse> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/api/v1/bookings/`,
-        bookingData
-      );
+      const response = await api.post('/bookings/', bookingData);
       return response.data;
     } catch (error: any) {
       throw new Error(
@@ -93,9 +88,7 @@ export const bookingService = {
    */
   async getBooking(bookingId: number): Promise<BookingResponse> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/bookings/${bookingId}`
-      );
+      const response = await api.get(`/bookings/${bookingId}`);
       return response.data;
     } catch (error: any) {
       throw new Error(
@@ -113,8 +106,8 @@ export const bookingService = {
     email: string
   ): Promise<BookingResponse> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/bookings/reference/${bookingReference}`,
+      const response = await api.get(
+        `/bookings/reference/${bookingReference}`,
         { params: { email } }
       );
       return response.data;
@@ -131,10 +124,7 @@ export const bookingService = {
    */
   async cancelBooking(bookingId: number, reason: string): Promise<void> {
     try {
-      await axios.post(
-        `${API_BASE_URL}/api/v1/bookings/${bookingId}/cancel`,
-        { reason }
-      );
+      await api.post(`/bookings/${bookingId}/cancel`, { reason });
     } catch (error: any) {
       throw new Error(
         error.response?.data?.detail ||
@@ -148,9 +138,7 @@ export const bookingService = {
    */
   async getBookingStatus(bookingId: number): Promise<any> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/bookings/${bookingId}/status`
-      );
+      const response = await api.get(`/bookings/${bookingId}/status`);
       return response.data;
     } catch (error: any) {
       throw new Error(

@@ -246,3 +246,12 @@ cleanup-old-price-data
   System analytics data           |
 
   Both keep 180 days of data and run daily.
+Real-Time Availability Updates
+
+CTN
+
+Tanit
+👥
+192 places
+🛏️
+18 cabines  

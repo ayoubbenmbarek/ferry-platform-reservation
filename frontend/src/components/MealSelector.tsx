@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import api from '../services/api';
 
 interface Meal {
   id: number;
@@ -49,7 +49,7 @@ const MealSelector: React.FC<MealSelectorProps> = ({
   const fetchMeals = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/v1/meals', {
+      const response = await api.get('/meals', {
         params: {
           is_available: true,
         },

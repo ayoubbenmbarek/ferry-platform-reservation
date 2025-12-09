@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 
 const FindBookingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,8 +25,8 @@ const FindBookingPage: React.FC = () => {
     setError(null);
 
     try {
-      const response = await axios.get(
-        `/api/v1/bookings/reference/${formData.bookingReference}`,
+      const response = await api.get(
+        `/bookings/reference/${formData.bookingReference}`,
         {
           params: { email: formData.email },
         }

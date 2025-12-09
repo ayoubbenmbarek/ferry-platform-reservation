@@ -1,640 +1,387 @@
-# Maritime Reservation Platform - Production Deployment Guide
+# Maritime Reservation Platform - Deployment Guide
 
-This guide covers deploying the Maritime Reservation Platform to production.
+Complete guide for deploying the Maritime Reservation Platform to staging and production environments.
 
 ## Table of Contents
-
 1. [Prerequisites](#prerequisites)
-2. [Infrastructure Requirements](#infrastructure-requirements)
-3. [Pre-Deployment Checklist](#pre-deployment-checklist)
-4. [Environment Configuration](#environment-configuration)
-5. [Database Setup](#database-setup)
-6. [SSL Certificate Setup](#ssl-certificate-setup)
-7. [Deployment Steps](#deployment-steps)
-8. [Post-Deployment Verification](#post-deployment-verification)
-9. [Monitoring and Maintenance](#monitoring-and-maintenance)
-10. [Troubleshooting](#troubleshooting)
-11. [Backup and Recovery](#backup-and-recovery)
+2. [VPS Setup](#vps-setup)
+3. [Domain & DNS Configuration](#domain--dns-configuration)
+4. [GitHub Secrets Configuration](#github-secrets-configuration)
+5. [Deployment](#deployment)
+6. [Verification](#verification)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Prerequisites
 
-### Server Requirements
+Before starting, you'll need:
 
-- **OS**: Ubuntu 20.04 LTS or later (recommended)
-- **CPU**: Minimum 2 cores (4+ recommended)
-- **RAM**: Minimum 4GB (8GB+ recommended)
-- **Storage**: Minimum 40GB SSD
-- **Network**: Static IP address with open ports 80, 443
+- [ ] A VPS provider account (Hetzner, DigitalOcean, Vultr, etc.)
+- [ ] A domain name
+- [ ] GitHub repository access
+- [ ] Stripe account (test mode for staging)
+- [ ] Google Cloud Console project (for OAuth)
+- [ ] Gmail account with App Password enabled
 
-### Required Software
+### Recommended VPS Specifications
 
-```bash
-# Docker and Docker Compose
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
+| Environment | CPU | RAM | Storage | Monthly Cost |
+|-------------|-----|-----|---------|--------------|
+| Staging | 2 vCPU | 4 GB | 40 GB SSD | ~$6-12 |
+| Production | 4 vCPU | 8 GB | 80 GB SSD | ~$24-48 |
 
-# Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+### Recommended VPS Providers
 
-# Git
-sudo apt update
-sudo apt install -y git
-
-# Certbot (for SSL)
-sudo apt install -y certbot
-```
-
-### Domain and DNS
-
-- Domain name pointed to your server IP
-- DNS A record: `yourdomain.com` → `your-server-ip`
-- DNS A record: `www.yourdomain.com` → `your-server-ip`
+| Provider | Staging Plan | Price | Link |
+|----------|-------------|-------|------|
+| **Hetzner** | CX22 | €4.35/mo | [hetzner.com/cloud](https://www.hetzner.com/cloud) |
+| **DigitalOcean** | Basic $6 | $6/mo | [digitalocean.com](https://www.digitalocean.com) |
+| **Vultr** | Cloud Compute | $6/mo | [vultr.com](https://www.vultr.com) |
+| **Linode** | Shared 2GB | $10/mo | [linode.com](https://www.linode.com) |
 
 ---
 
-## Infrastructure Requirements
+## VPS Setup
 
-### Required External Services
+### Step 1: Create VPS
 
-1. **PostgreSQL Database** (or use included Docker container)
-2. **Redis** (or use included Docker container)
-3. **SMTP Server** (for emails)
-4. **Stripe Account** (for payments)
-5. **Ferry Operator API Credentials**:
-   - CTN API Key
-   - GNV Client ID & Secret
-   - Corsica API Key & Secret
-   - Danel Username & Password
+1. Sign up/login to your VPS provider
+2. Create a new server with:
+   - **OS**: Ubuntu 22.04 LTS
+   - **Region**: Choose closest to your users (EU recommended)
+   - **Size**: 2 vCPU, 4GB RAM minimum
+   - **SSH Key**: Add your public SSH key
 
----
+3. Note the server's IP address
 
-## Pre-Deployment Checklist
+### Step 2: Initial Server Setup
 
-- [ ] Server provisioned with required specifications
-- [ ] Domain DNS configured and propagated
-- [ ] All required API keys and credentials obtained
-- [ ] SMTP server configured for email delivery
-- [ ] Stripe account set up in production mode
-- [ ] Backup strategy planned
-- [ ] Monitoring tools ready (optional but recommended)
+SSH into your server:
+```bash
+ssh root@YOUR_SERVER_IP
+```
 
----
+Update system and create a non-root user:
+```bash
+# Update system
+apt update && apt upgrade -y
 
-## Environment Configuration
+# Create deploy user
+adduser deploy
+usermod -aG sudo deploy
 
-### 1. Clone the Repository
+# Copy SSH key to deploy user
+mkdir -p /home/deploy/.ssh
+cp ~/.ssh/authorized_keys /home/deploy/.ssh/
+chown -R deploy:deploy /home/deploy/.ssh
+
+# Setup firewall
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 6443/tcp  # Kubernetes API
+ufw enable
+
+# Switch to deploy user
+su - deploy
+```
+
+### Step 3: Run Setup Script
 
 ```bash
-cd /opt
-sudo git clone https://github.com/yourusername/maritime-reservation-website.git
-cd maritime-reservation-website
-sudo chown -R $USER:$USER .
+# Download and run the setup script
+curl -sSL https://raw.githubusercontent.com/ayoubmbarek/maritime-reservation-website/main/scripts/setup-staging-vps.sh -o setup.sh
+chmod +x setup.sh
+./setup.sh
 ```
-
-### 2. Configure Environment Variables
-
-#### Root .env File
-
-```bash
-cp .env.example .env
-nano .env
-```
-
-**Update these values:**
-
-```env
-POSTGRES_DB=maritime_reservations
-POSTGRES_USER=maritime_user
-POSTGRES_PASSWORD=YOUR_SECURE_PASSWORD_HERE
-REDIS_PASSWORD=YOUR_SECURE_REDIS_PASSWORD
-ENVIRONMENT=production
-DEBUG=False
-```
-
-#### Backend .env.production File
-
-```bash
-cd backend
-cp .env.production.example .env.production
-nano .env.production
-```
-
-**Critical values to update:**
-
-1. **Security**:
-   ```env
-   SECRET_KEY=GENERATE_RANDOM_32_CHAR_STRING_HERE
-   ```
-   Generate with: `openssl rand -hex 32`
-
-2. **CORS Origins**:
-   ```env
-   ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-   ```
-
-3. **Email Configuration**:
-   ```env
-   SMTP_HOST=smtp.yourdomain.com
-   SMTP_PORT=587
-   SMTP_USERNAME=your-email@yourdomain.com
-   SMTP_PASSWORD=your-smtp-password
-   FROM_EMAIL=noreply@yourdomain.com
-   ```
-
-4. **Stripe** (Production keys):
-   ```env
-   STRIPE_SECRET_KEY=sk_live_...
-   STRIPE_PUBLISHABLE_KEY=pk_live_...
-   STRIPE_WEBHOOK_SECRET=whsec_...
-   ```
-
-5. **Ferry Operator APIs**:
-   ```env
-   CTN_API_KEY=your_production_ctn_key
-   GNV_CLIENT_ID=your_production_gnv_id
-   GNV_CLIENT_SECRET=your_production_gnv_secret
-   CORSICA_API_KEY=your_production_corsica_key
-   CORSICA_SECRET=your_production_corsica_secret
-   DANEL_USERNAME=your_production_danel_username
-   DANEL_PASSWORD=your_production_danel_password
-   ```
-
-### 3. Update Nginx Configuration
-
-```bash
-nano nginx/conf.d/maritime.conf
-```
-
-Replace `yourdomain.com` with your actual domain name.
-
----
-
-## Database Setup
-
-### Option 1: Use Docker PostgreSQL (Recommended for Getting Started)
-
-The docker-compose.yml includes PostgreSQL. Data is persisted in a Docker volume.
-
-### Option 2: Use External PostgreSQL
-
-Update `docker-compose.yml` to remove the postgres service and update the `DATABASE_URL` in backend environment.
-
----
-
-## SSL Certificate Setup
-
-### Automated SSL with Let's Encrypt
-
-```bash
-# Run the SSL setup script
-sudo ./scripts/setup-ssl.sh
-```
-
-When prompted:
-- Enter your domain name (e.g., `yourdomain.com`)
-- Enter your email address
 
 The script will:
-1. Obtain SSL certificates from Let's Encrypt
-2. Copy them to the nginx/ssl directory
-3. Update nginx configuration
+- Install k3s (lightweight Kubernetes)
+- Install cert-manager for SSL certificates
+- Create Let's Encrypt ClusterIssuers
+- Prompt for your secrets (Stripe, Google, etc.)
+- Deploy the application
 
-### Manual SSL Certificate
+---
 
-If you have your own SSL certificates:
+## Domain & DNS Configuration
+
+### Step 1: Purchase Domain
+
+Purchase a domain from:
+- [Namecheap](https://www.namecheap.com) (~$10/year for .com)
+- [Cloudflare Registrar](https://www.cloudflare.com/products/registrar/) (at-cost pricing)
+- [Google Domains](https://domains.google)
+
+### Step 2: Configure DNS Records
+
+Add the following DNS records pointing to your VPS IP:
+
+#### Staging Environment
+| Type | Name | Value | TTL |
+|------|------|-------|-----|
+| A | staging | YOUR_VPS_IP | 3600 |
+| A | api-staging | YOUR_VPS_IP | 3600 |
+| A | chatbot-staging | YOUR_VPS_IP | 3600 |
+
+#### Production Environment
+| Type | Name | Value | TTL |
+|------|------|-------|-----|
+| A | @ | YOUR_VPS_IP | 3600 |
+| A | www | YOUR_VPS_IP | 3600 |
+| A | api | YOUR_VPS_IP | 3600 |
+| A | chatbot | YOUR_VPS_IP | 3600 |
+
+### Step 3: Verify DNS Propagation
 
 ```bash
-# Copy your certificates
-sudo cp /path/to/fullchain.pem nginx/ssl/
-sudo cp /path/to/privkey.pem nginx/ssl/
-sudo chmod 644 nginx/ssl/fullchain.pem
-sudo chmod 600 nginx/ssl/privkey.pem
+# Check DNS resolution (may take 5-30 minutes)
+dig staging.maritime-reservations.com +short
+dig api-staging.maritime-reservations.com +short
 ```
 
-### SSL Auto-Renewal
+Or use [dnschecker.org](https://dnschecker.org)
 
-Add to crontab for automatic renewal:
+---
+
+## GitHub Secrets Configuration
+
+Navigate to your GitHub repository → Settings → Secrets and variables → Actions
+
+### Required Secrets
+
+#### For Staging Deployment (deploy-staging.yml)
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `STAGING_HOST` | VPS IP address | From VPS provider |
+| `STAGING_USER` | SSH user (e.g., `deploy`) | Created during setup |
+| `STAGING_SSH_KEY` | Private SSH key | `cat ~/.ssh/id_rsa` |
+| `STAGING_SSH_PORT` | SSH port (default: `22`) | Usually 22 |
+| `KUBE_CONFIG_STAGING` | Base64 kubeconfig | Run `./scripts/generate-github-kubeconfig.sh` on VPS |
+
+#### For Stripe Integration
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `STAGING_STRIPE_PUBLISHABLE_KEY` | Stripe public key | [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys) |
+| `STRIPE_SECRET_KEY` | Stripe secret key | Same dashboard |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret | Stripe → Developers → Webhooks |
+
+#### For Google OAuth
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `STAGING_GOOGLE_CLIENT_ID` | Google OAuth client ID | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | Same console |
+
+#### For Mobile App (EAS)
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `EXPO_TOKEN` | Expo access token | [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens) |
+| `GOOGLE_IOS_CLIENT_ID` | iOS Google Sign-In | Google Cloud Console |
+| `GOOGLE_ANDROID_CLIENT_ID` | Android Google Sign-In | Google Cloud Console |
+
+#### For Error Tracking
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `SENTRY_DSN_FRONTEND` | Sentry DSN for frontend | [sentry.io](https://sentry.io) |
+| `SENTRY_DSN_BACKEND` | Sentry DSN for backend | Same project or separate |
+
+### Generate SSH Key (if needed)
 
 ```bash
-sudo crontab -e
+# On your local machine
+ssh-keygen -t ed25519 -C "github-actions-deploy"
+
+# Copy public key to VPS
+ssh-copy-id -i ~/.ssh/id_ed25519.pub deploy@YOUR_VPS_IP
+
+# The private key content goes in STAGING_SSH_KEY secret
+cat ~/.ssh/id_ed25519
 ```
 
-Add this line:
+### Generate Kubeconfig for CI/CD
+
+On your VPS:
+```bash
+cd /opt/maritime-reservation-website
+./scripts/generate-github-kubeconfig.sh
 ```
-0 0 * * 0 certbot renew --quiet --post-hook "docker restart maritime-nginx"
+
+Copy the base64-encoded output to `KUBE_CONFIG_STAGING` secret.
+
+---
+
+## Deployment
+
+### Automatic Deployment (via GitHub Actions)
+
+Push to the staging branch triggers automatic deployment:
+
+```bash
+git checkout staging
+git merge features  # or your development branch
+git push origin staging
+```
+
+Monitor the deployment:
+- Go to GitHub → Actions tab
+- Watch the "Deploy to Staging" workflow
+
+### Manual Deployment
+
+SSH into your VPS and run:
+
+```bash
+cd /opt/maritime-reservation-website
+git pull origin staging
+kubectl apply -k k8s/overlays/staging
+kubectl -n maritime-reservations-staging rollout status deployment --all
 ```
 
 ---
 
-## Deployment Steps
+## Verification
 
-### 1. Initial Deployment
-
-```bash
-# Make scripts executable
-chmod +x scripts/*.sh
-
-# Run deployment script
-./scripts/deploy.sh
-```
-
-The deployment script will:
-1. Build Docker images
-2. Start database and redis
-3. Run database migrations
-4. Start all services
-5. Verify health
-
-### 2. Manual Deployment Steps (if not using script)
+### Check Kubernetes Resources
 
 ```bash
-# Build images
-docker-compose build --no-cache
+# All resources
+kubectl -n maritime-reservations-staging get all
 
-# Start infrastructure services
-docker-compose up -d postgres redis
+# Pods status
+kubectl -n maritime-reservations-staging get pods
 
-# Wait for services to be ready
-sleep 10
+# Services
+kubectl -n maritime-reservations-staging get svc
 
-# Run database migrations
-docker-compose run --rm backend alembic upgrade head
+# Ingress
+kubectl -n maritime-reservations-staging get ingress
 
-# Start all services
-docker-compose up -d
-
-# Check status
-docker-compose ps
+# Certificates
+kubectl -n maritime-reservations-staging get certificate
 ```
 
-### 3. Create Initial Database Data
+### Check Application Health
 
 ```bash
-# Access the backend container
-docker-compose exec backend bash
+# Backend health
+curl https://api-staging.maritime-reservations.com/health
 
-# Create admin user (example)
-python -c "
-from app.database import SessionLocal
-from app.models.user import User
-from passlib.context import CryptContext
+# Frontend
+curl -I https://staging.maritime-reservations.com
 
-pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-db = SessionLocal()
-
-admin = User(
-    email='admin@yourdomain.com',
-    hashed_password=pwd_context.hash('your_secure_password'),
-    first_name='Admin',
-    last_name='User',
-    is_admin=True,
-    is_verified=True,
-    is_active=True
-)
-db.add(admin)
-db.commit()
-print('Admin user created')
-"
+# View logs
+kubectl -n maritime-reservations-staging logs -f deployment/staging-backend
 ```
 
----
-
-## Post-Deployment Verification
-
-### 1. Health Checks
+### Check SSL Certificates
 
 ```bash
-# Check all services are running
-docker-compose ps
+# Certificate status
+kubectl -n maritime-reservations-staging describe certificate
 
-# Check backend health
-curl https://yourdomain.com/health
-
-# Check frontend
-curl -I https://yourdomain.com
-
-# Check API
-curl https://yourdomain.com/api/v1/ferries/routes
+# Test SSL
+curl -vI https://staging.maritime-reservations.com 2>&1 | grep -A 5 "SSL certificate"
 ```
-
-### 2. Test Key Functionality
-
-1. **Frontend**: Visit `https://yourdomain.com`
-2. **User Registration**: Create a test account
-3. **Ferry Search**: Search for available ferries
-4. **Booking Flow**: Test the booking process
-5. **Payment**: Test with Stripe test card (in test mode)
-
-### 3. Monitor Logs
-
-```bash
-# View all logs
-docker-compose logs -f
-
-# View specific service logs
-docker-compose logs -f backend
-docker-compose logs -f frontend
-docker-compose logs -f nginx
-
-# View last 100 lines
-docker-compose logs --tail=100 backend
-```
-
----
-
-## Monitoring and Maintenance
-
-### Application Logs
-
-Logs are written to:
-- **Backend**: `backend/logs/`
-- **Nginx**: `nginx/logs/`
-
-View logs:
-```bash
-# Real-time backend logs
-docker-compose logs -f backend
-
-# Real-time nginx access logs
-tail -f nginx/logs/maritime-access.log
-
-# Real-time nginx error logs
-tail -f nginx/logs/maritime-error.log
-```
-
-### Database Monitoring
-
-```bash
-# Connect to PostgreSQL
-docker-compose exec postgres psql -U maritime_user -d maritime_reservations
-
-# Check database size
-SELECT pg_size_pretty(pg_database_size('maritime_reservations'));
-
-# Check table sizes
-SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename))
-FROM pg_tables
-WHERE schemaname = 'public'
-ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
-```
-
-### Resource Monitoring
-
-```bash
-# Container resource usage
-docker stats
-
-# Disk usage
-docker system df
-
-# Clean up unused resources
-docker system prune -f
-```
-
-### Application Health Monitoring
-
-Set up monitoring for:
-- `/health` endpoint (should return 200)
-- SSL certificate expiry
-- Disk space
-- Database connections
-- API response times
-
-**Recommended tools**:
-- Uptime monitoring: UptimeRobot, Pingdom
-- Application monitoring: Sentry, New Relic
-- Log aggregation: ELK Stack, Grafana Loki
 
 ---
 
 ## Troubleshooting
 
-### Services Won't Start
+### Pod Not Starting
 
 ```bash
-# Check logs
-docker-compose logs
+# Check pod events
+kubectl -n maritime-reservations-staging describe pod <pod-name>
 
-# Check specific service
-docker-compose logs backend
-
-# Restart services
-docker-compose restart
-
-# Force recreate
-docker-compose up -d --force-recreate
+# Check previous logs
+kubectl -n maritime-reservations-staging logs <pod-name> --previous
 ```
 
 ### Database Connection Issues
 
 ```bash
-# Check PostgreSQL is running
-docker-compose ps postgres
+# Check postgres pod
+kubectl -n maritime-reservations-staging get pods -l app=postgres
 
-# Check database logs
-docker-compose logs postgres
-
-# Test connection
-docker-compose exec backend python -c "from app.database import engine; engine.connect()"
+# Test connection from backend
+kubectl -n maritime-reservations-staging exec -it deployment/staging-backend -- \
+  python -c "from app.database import engine; print(engine.connect())"
 ```
 
 ### SSL Certificate Issues
 
 ```bash
-# Check certificate validity
-openssl x509 -in nginx/ssl/fullchain.pem -text -noout
+# Check certificate request
+kubectl -n maritime-reservations-staging get certificaterequest
 
-# Test SSL configuration
-docker-compose exec nginx nginx -t
+# Check cert-manager logs
+kubectl -n cert-manager logs deployment/cert-manager
 
-# Reload nginx
-docker-compose restart nginx
+# Force renewal
+kubectl -n maritime-reservations-staging delete certificate staging-maritime-tls-secret
 ```
 
-### High Memory Usage
+### Ingress Not Working
 
 ```bash
-# Check container memory
-docker stats --no-stream
+# Check ingress controller
+kubectl -n kube-system get pods | grep traefik
 
-# Restart specific service
-docker-compose restart backend
-
-# Clear Redis cache
-docker-compose exec redis redis-cli FLUSHDB
+# Check traefik logs
+kubectl -n kube-system logs deployment/traefik
 ```
 
-### API Errors
+### View All Logs
 
 ```bash
-# Check backend logs
-docker-compose logs backend | grep ERROR
-
-# Check ferry operator API connectivity
-docker-compose exec backend curl -I https://api.ctn.com.tn/
-
-# Restart backend
-docker-compose restart backend celery-worker
+# Install k9s for easier management
+curl -sS https://webinstall.dev/k9s | bash
+k9s -n maritime-reservations-staging
 ```
 
 ---
 
-## Backup and Recovery
+## Quick Reference
 
-### Automated Backups
-
-```bash
-# Set up daily backups
-crontab -e
-```
-
-Add:
-```
-0 2 * * * cd /opt/maritime-reservation-website && ./scripts/backup.sh >> /var/log/maritime-backup.log 2>&1
-```
-
-### Manual Backup
+### Useful Commands
 
 ```bash
-# Create database backup
-./scripts/backup.sh
+# Scale deployment
+kubectl -n maritime-reservations-staging scale deployment/staging-backend --replicas=2
+
+# Restart deployment
+kubectl -n maritime-reservations-staging rollout restart deployment/staging-backend
+
+# Get shell in pod
+kubectl -n maritime-reservations-staging exec -it deployment/staging-backend -- /bin/sh
+
+# Port forward for debugging
+kubectl -n maritime-reservations-staging port-forward svc/staging-backend-service 8010:8010
 ```
 
-Backups are stored in `./backups/` directory.
-
-### Restore from Backup
+### Update Deployment
 
 ```bash
-# List available backups
-ls -lh backups/
+# Update image tag
+kubectl -n maritime-reservations-staging set image deployment/staging-backend \
+  backend=ghcr.io/ayoubmbarek/maritime-reservation-website/backend:new-tag
 
-# Restore backup
-./scripts/restore.sh
-```
-
-### Backup External Services
-
-Don't forget to backup:
-- SSL certificates
-- Configuration files (.env files)
-- Upload directory (`backend/uploads/`)
-- Log files (if needed for compliance)
-
-### Backup to External Storage
-
-```bash
-# Example: Backup to S3
-aws s3 sync ./backups/ s3://your-bucket/maritime-backups/
-
-# Example: Backup to remote server
-rsync -avz ./backups/ user@backup-server:/backups/maritime/
+# Or use kustomize
+cd k8s/overlays/staging
+kustomize edit set image ghcr.io/ayoubmbarek/maritime-reservation-website/backend:new-tag
+kubectl apply -k .
 ```
 
 ---
 
-## Updating the Application
+## Support
 
-### Pull Latest Changes
-
-```bash
-cd /opt/maritime-reservation-website
-git pull origin main
-```
-
-### Apply Updates
-
-```bash
-# Run deployment script
-./scripts/deploy.sh
-```
-
-Or manually:
-
-```bash
-# Rebuild images
-docker-compose build
-
-# Run migrations
-docker-compose run --rm backend alembic upgrade head
-
-# Restart services
-docker-compose up -d
-```
-
-### Zero-Downtime Deployment (Advanced)
-
-For production environments requiring zero downtime:
-
-1. Set up a blue-green deployment
-2. Use a load balancer
-3. Deploy to the inactive environment
-4. Switch traffic after verification
-
----
-
-## Security Best Practices
-
-1. **Keep secrets secure**: Never commit .env files
-2. **Use strong passwords**: Generate with `openssl rand -hex 32`
-3. **Enable firewall**: Only open ports 80, 443, and SSH
-4. **Regular updates**: Keep Docker, OS, and dependencies updated
-5. **Monitor logs**: Check for suspicious activity
-6. **Rate limiting**: Nginx configuration includes rate limiting
-7. **HTTPS only**: Redirect all HTTP to HTTPS
-8. **Database backups**: Automate and encrypt backups
-9. **API key rotation**: Regularly rotate API keys
-10. **Security scanning**: Use GitHub Actions security workflow
-
----
-
-## Support and Resources
-
-- **Project Documentation**: `/docs` directory
-- **API Documentation**: `https://yourdomain.com/docs` (if DEBUG=True)
-- **Health Check**: `https://yourdomain.com/health`
-- **GitHub Issues**: Report issues on GitHub repository
-
----
-
-## Quick Reference Commands
-
-```bash
-# Start all services
-docker-compose up -d
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f
-
-# Restart a service
-docker-compose restart backend
-
-# Run migrations
-docker-compose run --rm backend alembic upgrade head
-
-# Create backup
-./scripts/backup.sh
-
-# Deploy updates
-./scripts/deploy.sh
-
-# Check service status
-docker-compose ps
-
-# Access backend shell
-docker-compose exec backend bash
-
-# Access database
-docker-compose exec postgres psql -U maritime_user -d maritime_reservations
-```
-
----
-
-**Last Updated**: 2024
-**Version**: 1.0.0
+- Check existing issues: [GitHub Issues](https://github.com/ayoubmbarek/maritime-reservation-website/issues)
+- k3s documentation: [k3s.io](https://k3s.io)
+- cert-manager docs: [cert-manager.io](https://cert-manager.io)

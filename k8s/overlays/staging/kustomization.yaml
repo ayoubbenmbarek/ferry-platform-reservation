@@ -5,21 +5,138 @@ namespace: maritime-reservations-staging
 
 resources:
   - ../../base
-  - namespace.yaml
-  - ingress-patch.yaml
 
-nameSuffix: -staging
+namePrefix: staging-
 
 commonLabels:
   environment: staging
 
-# Staging-specific patches
+# Patches for staging-specific configuration
 patches:
-  # Reduce replicas for staging
+  # ConfigMap override with staging-specific values
+  - path: configmap.yaml
+    target:
+      kind: ConfigMap
+      name: maritime-config
+
+  # Staging ingress with traefik and staging subdomains
+  - path: ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: maritime-ingress
+
+  # Fix configMapRef and secretRef to use staging-prefixed names
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+        value: staging-maritime-config
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: backend
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+        value: staging-maritime-config
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: celery-worker
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+        value: staging-maritime-config
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: celery-beat
+  # Postgres secret
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+        value: staging-postgres-secret
+    target:
+      kind: Deployment
+      name: postgres
+  # Frontend secret (env[1] has the secretKeyRef)
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
+        value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: frontend
+  # Chatbot secrets (env[2]=chatbot-secrets, env[3,4]=maritime-secrets, env[5]=configmap)
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+        value: staging-chatbot-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/3/valueFrom/secretKeyRef/name
+        value: staging-maritime-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/4/valueFrom/secretKeyRef/name
+        value: staging-maritime-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/5/valueFrom/configMapKeyRef/name
+        value: staging-maritime-config
+    target:
+      kind: Deployment
+      name: chatbot
+
+  # Fix REDIS_URL to use staging-prefixed service name
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: HOST
+            value: "0.0.0.0"
+          - name: PORT
+            value: "8010"
+          - name: REDIS_URL
+            value: "redis://staging-redis-service:6379/0"
+    target:
+      kind: Deployment
+      name: backend
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: REDIS_URL
+          value: "redis://staging-redis-service:6379/0"
+    target:
+      kind: Deployment
+      name: celery-worker
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: REDIS_URL
+          value: "redis://staging-redis-service:6379/0"
+    target:
+      kind: Deployment
+      name: celery-beat
+
+  # Reduce replicas, memory, and workers for staging VPS
   - patch: |-
       - op: replace
         path: /spec/replicas
         value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "768Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "384Mi"
+      - op: add
+        path: /spec/template/spec/containers/0/command
+        value: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1"]
     target:
       kind: Deployment
       name: backend
@@ -37,15 +154,14 @@ patches:
     target:
       kind: Deployment
       name: celery-worker
-
-  # Reduce HPA for staging
+  # Reduce HPA minReplicas for staging
   - patch: |-
       - op: replace
         path: /spec/minReplicas
         value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 3
+        value: 2
     target:
       kind: HorizontalPodAutoscaler
       name: backend-hpa
@@ -65,22 +181,19 @@ patches:
         value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 3
+        value: 2
     target:
       kind: HorizontalPodAutoscaler
       name: celery-worker-hpa
 
-# Staging-specific ConfigMap
-configMapGenerator:
-  - name: maritime-config
-    behavior: merge
-    literals:
-      - ENVIRONMENT=staging
-      - DEBUG=true
-      - ALLOWED_ORIGINS=https://staging.maritime-reservations.com
-
+# Image overrides for staging (will be set by CI/CD)
 images:
   - name: maritime-reservations/backend
+    newName: ghcr.io/ayoubbenmbarek/ferry-platform-reservation/backend
     newTag: staging
   - name: maritime-reservations/frontend
+    newName: ghcr.io/ayoubbenmbarek/ferry-platform-reservation/frontend
+    newTag: staging
+  - name: maritime-reservations/chatbot
+    newName: ghcr.io/ayoubbenmbarek/ferry-platform-reservation/chatbot
     newTag: staging

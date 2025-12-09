@@ -11,6 +11,7 @@ __all__ = [
     "send_payment_success_email_task",
     "send_refund_confirmation_email_task",
     "send_cancellation_email_task",
+    "send_email_verification_task",
     # Payment tasks
     "process_payment_webhook_task",
     "verify_payment_status_task",

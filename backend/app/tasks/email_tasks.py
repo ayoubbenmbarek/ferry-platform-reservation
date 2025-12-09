@@ -456,6 +456,43 @@ def send_payment_failed_email_task(
         raise
 
 
+@celery_app.task(
+    base=EmailTask,
+    name="app.tasks.email_tasks.send_email_verification",
+    bind=True
+)
+def send_email_verification_task(
+    self,
+    email_data: Dict[str, Any],
+    to_email: str
+):
+    """
+    Send email verification link asynchronously.
+
+    Args:
+        email_data: Dict containing first_name, verification_link, base_url
+        to_email: Recipient email address
+    """
+    try:
+        logger.info(f"Sending email verification to {to_email}")
+
+        success = email_service.send_email_verification(
+            email_data=email_data,
+            to_email=to_email
+        )
+
+        if not success:
+            raise Exception(f"Failed to send verification email to {to_email}")
+
+        logger.info(f"✅ Email verification sent successfully to {to_email}")
+        return {"status": "success", "email": to_email}
+
+    except Exception as e:
+        logger.error(f"❌ Failed to send verification email to {to_email}: {str(e)}")
+        raise
+
+
+
 # =============================================================================
 # Dead-Letter Queue Management Functions
 # =============================================================================

@@ -9,61 +9,25 @@ resources:
 commonLabels:
   environment: production
 
-# Production-specific patches
-patches:
-  # Increase resources for production
-  - patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: "200m"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: "512Mi"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: "1000m"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: "1Gi"
-    target:
-      kind: Deployment
-      name: backend
-
-  # Production replicas
-  - patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-    target:
-      kind: Deployment
-      name: backend
-  - patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 2
-    target:
-      kind: Deployment
-      name: frontend
-  - patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-    target:
-      kind: Deployment
-      name: celery-worker
-
-# Production ConfigMap
+# Production ConfigMap patches
 configMapGenerator:
   - name: maritime-config
     behavior: merge
     literals:
       - ENVIRONMENT=production
       - DEBUG=false
-      - ALLOWED_ORIGINS=https://maritime-reservations.com,https://www.maritime-reservations.com
-      - SENTRY_TRACES_SAMPLE_RATE=0.2
+      - LOG_LEVEL=INFO
+      - SENTRY_ENVIRONMENT=production
+      - SENTRY_TRACES_SAMPLE_RATE=0.1
 
+# Image overrides for production
 images:
   - name: maritime-reservations/backend
-    newTag: latest
+    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/backend
+    newTag: production
   - name: maritime-reservations/frontend
-    newTag: latest
+    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/frontend
+    newTag: production
+  - name: maritime-reservations/chatbot
+    newName: ghcr.io/ayoubmbarek/maritime-reservation-website/chatbot
+    newTag: production

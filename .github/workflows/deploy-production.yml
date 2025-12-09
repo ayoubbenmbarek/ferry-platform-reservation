@@ -1,13 +1,13 @@
-name: Deploy to Staging
+name: Deploy to Production
 
 on:
-  push:
-    branches: [staging, develop, features]
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - '.gitignore'
+  # Manual trigger only - production deploys should be intentional
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -16,10 +16,22 @@ env:
   CHATBOT_IMAGE: ${{ github.repository }}/chatbot
 
 jobs:
+  # Validate confirmation
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        if: github.event.inputs.confirm != 'deploy'
+        run: |
+          echo "::error::You must type 'deploy' to confirm production deployment"
+          exit 1
+
   # Build and push Docker images
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
+    needs: validate
     permissions:
       contents: read
       packages: write
@@ -47,9 +59,9 @@ jobs:
         id: tags
         run: |
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          echo "backend_tag=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "frontend_tag=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "chatbot_tag=${{ env.REGISTRY }}/${{ env.CHATBOT_IMAGE }}:staging-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "backend_tag=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:prod-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "frontend_tag=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:prod-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "chatbot_tag=${{ env.REGISTRY }}/${{ env.CHATBOT_IMAGE }}:prod-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Build and push backend
         uses: docker/build-push-action@v5
@@ -59,7 +71,8 @@ jobs:
           target: production
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:staging
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:production
             ${{ steps.tags.outputs.backend_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -71,17 +84,18 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:production
             ${{ steps.tags.outputs.frontend_tag }}
           build-args: |
-            CACHE_BUST=${{ github.run_id }}
-            REACT_APP_API_URL=${{ vars.STAGING_API_URL || 'https://api-staging.voilaferry.com/api/v1' }}
-            REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY || 'pk_test_51Q19DVL40zLTUQ47tUXkuAGMIAmolt6Me8ofAZjxC7yJm7TcPhJllSerGGjsZWYx16UzrR1Kb2ASIKmYn8LDhTy900OM8gz2fF' }}
-            REACT_APP_ENVIRONMENT=staging
-            REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID || '9551469476-cqajqt5r2211pi89enn4qpvaifd1v6ss.apps.googleusercontent.com' }}
-            REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND || '' }}
+            REACT_APP_API_URL=${{ vars.PRODUCTION_API_URL || 'https://api.voilaferry.com/api/v1' }}
+            REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.PRODUCTION_STRIPE_PUBLISHABLE_KEY }}
+            REACT_APP_ENVIRONMENT=production
+            REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.PRODUCTION_GOOGLE_CLIENT_ID }}
+            REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND }}
             REACT_APP_VERSION=${{ github.sha }}
-          no-cache: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push chatbot
         uses: docker/build-push-action@v5
@@ -90,19 +104,20 @@ jobs:
           file: ./mcp-servers/chatbot/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.CHATBOT_IMAGE }}:staging
+            ${{ env.REGISTRY }}/${{ env.CHATBOT_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.CHATBOT_IMAGE }}:production
             ${{ steps.tags.outputs.chatbot_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Deploy to Kubernetes (automatic)
+  # Deploy to Kubernetes (with manual approval)
   deploy-k8s:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     needs: build
     environment:
-      name: staging
-      url: https://staging.voilaferry.com
+      name: production
+      url: https://voilaferry.com
 
     steps:
       - name: Checkout code
@@ -116,7 +131,7 @@ jobs:
       - name: Configure kubectl
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
 
       - name: Install kustomize
@@ -126,23 +141,23 @@ jobs:
 
       - name: Update image tags
         run: |
-          cd k8s/overlays/staging
+          cd k8s/overlays/production
           kustomize edit set image maritime-reservations/backend=${{ needs.build.outputs.backend_tag }}
           kustomize edit set image maritime-reservations/frontend=${{ needs.build.outputs.frontend_tag }}
 
-      - name: Deploy to staging
+      - name: Deploy to production
         run: |
-          kubectl apply -k k8s/overlays/staging
-          kubectl -n maritime-reservations-staging rollout status deployment/staging-backend --timeout=300s
-          kubectl -n maritime-reservations-staging rollout status deployment/staging-frontend --timeout=300s
+          kubectl apply -k k8s/overlays/production
+          kubectl -n maritime-reservations rollout status deployment/backend --timeout=300s
+          kubectl -n maritime-reservations rollout status deployment/frontend --timeout=300s
 
       - name: Verify deployment
         run: |
           echo "Pod status:"
-          kubectl -n maritime-reservations-staging get pods
+          kubectl -n maritime-reservations get pods
           echo ""
           echo "Ingress:"
-          kubectl -n maritime-reservations-staging get ingress
+          kubectl -n maritime-reservations get ingress
 
   # Notify on completion
   notify:
@@ -154,7 +169,7 @@ jobs:
     steps:
       - name: Deployment Summary
         run: |
-          echo "## Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Backend Image**: ${{ needs.build.outputs.backend_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend Image**: ${{ needs.build.outputs.frontend_tag }}" >> $GITHUB_STEP_SUMMARY
@@ -163,7 +178,7 @@ jobs:
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ needs.deploy-k8s.result }}" == "success" ]; then
-            echo "**Status**: Deployed to Kubernetes successfully ✅" >> $GITHUB_STEP_SUMMARY
+            echo "**Status**: Deployed to Production successfully ✅" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.deploy-k8s.result }}" == "failure" ]; then
             echo "**Status**: Deployment failed ❌ - check logs" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.build.result }}" == "success" ]; then

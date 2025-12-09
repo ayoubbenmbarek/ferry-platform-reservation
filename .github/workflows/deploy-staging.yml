@@ -133,8 +133,8 @@ jobs:
       - name: Deploy to staging
         run: |
           kubectl apply -k k8s/overlays/staging
-          kubectl -n maritime-reservations-staging rollout status deployment/backend-staging --timeout=300s
-          kubectl -n maritime-reservations-staging rollout status deployment/frontend-staging --timeout=300s
+          kubectl -n maritime-reservations-staging rollout status deployment/staging-backend --timeout=300s
+          kubectl -n maritime-reservations-staging rollout status deployment/staging-frontend --timeout=300s
 
       - name: Verify deployment
         run: |

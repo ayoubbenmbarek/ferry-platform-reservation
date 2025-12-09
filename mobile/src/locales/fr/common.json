@@ -1,0 +1,104 @@
+{
+  "appName": "Réservations Maritimes",
+  "nav": {
+    "home": "Accueil",
+    "search": "Rechercher",
+    "myBookings": "Mes Réservations",
+    "findBooking": "Trouver Ma Réservation",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "logout": "Déconnexion",
+    "profile": "Profil & Paramètres",
+    "admin": "Administration",
+    "about": "À Propos",
+    "contact": "Contact"
+  },
+  "footer": {
+    "copyright": "© 2024 Réservations Maritimes. Tous droits réservés.",
+    "terms": "Conditions d'Utilisation",
+    "privacy": "Politique de Confidentialité",
+    "help": "Centre d'Aide"
+  },
+  "language": {
+    "select": "Sélectionner la Langue",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "EUR",
+    "usd": "USD",
+    "gbp": "GBP"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "success": "Succès",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "submit": "Soumettre",
+    "close": "Fermer",
+    "yes": "Oui",
+    "no": "Non",
+    "selectDate": "Sélectionner la Date",
+    "selectTime": "Sélectionner l'Heure",
+    "required": "Ce champ est obligatoire",
+    "invalidEmail": "Adresse e-mail invalide",
+    "invalidPhone": "Numéro de téléphone invalide",
+    "signIn": "Se Connecter"
+  },
+  "home": {
+    "title": "Réservez Votre Ferry",
+    "subtitle": "Trouvez les meilleures routes de ferry à travers la Méditerranée",
+    "searchButton": "Rechercher des Ferries",
+    "promoTitle": "Connectez-vous pour des offres exclusives",
+    "promoSubtitle": "Les membres économisent jusqu'à 15%",
+    "welcomeBack": "Bienvenue",
+    "viewBookings": "Voir vos réservations",
+    "popularRoutes": "Routes Populaires",
+    "whyBookWithUs": "Pourquoi Réserver Avec Nous",
+    "ourPartners": "Nos Partenaires",
+    "secureBooking": "Réservation Sécurisée",
+    "secureDesc": "Paiement sécurisé",
+    "bestPrices": "Meilleurs Prix",
+    "pricesDesc": "Comparez tous les opérateurs",
+    "support": "Support 24/7",
+    "supportDesc": "Nous sommes là pour vous aider"
+  },
+  "date": {
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "yesterday": "Hier"
+  },
+  "features": {
+    "compareOperators": "Comparer les prix • Plusieurs opérateurs • Réservation facile",
+    "whyBookTitle": "Pourquoi Réserver Avec Nous ?",
+    "whyBookSubtitle": "Le moyen le plus simple de réserver des traversées en ferry vers la Tunisie",
+    "bestPricesTitle": "Meilleurs Prix",
+    "bestPricesDesc": "Comparez les prix de CTN, GNV, Corsica Lines et Danel Casanova en une seule recherche",
+    "instantConfirmationTitle": "Confirmation Instantanée",
+    "instantConfirmationDesc": "Obtenez votre réservation confirmée immédiatement avec des e-billets envoyés à votre email",
+    "securePaymentTitle": "Paiement Sécurisé",
+    "securePaymentDesc": "Vos informations de paiement sont cryptées et sécurisées avec Stripe",
+    "popularRoutesTitle": "Routes Populaires",
+    "popularRoutesSubtitle": "Routes de ferry les plus recherchées vers la Tunisie",
+    "viewSchedules": "Voir les Horaires",
+    "from": "à partir de"
+  },
+  "bookingStatus": {
+    "all": "Tous",
+    "pending": "En attente",
+    "confirmed": "Confirmé",
+    "completed": "Terminé",
+    "cancelled": "Annulé",
+    "paid": "Payé",
+    "filterByStatus": "Filtrer par statut"
+  }
+}

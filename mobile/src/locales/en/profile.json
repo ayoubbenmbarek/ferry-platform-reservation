@@ -1,0 +1,87 @@
+{
+  "title": "My Profile",
+  "subtitle": "Manage your account settings and preferences",
+  "tabs": {
+    "personalInfo": "Personal Information",
+    "preferences": "Preferences",
+    "security": "Security",
+    "bookings": "My Bookings"
+  },
+  "personalInfo": {
+    "title": "Personal Information",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email Address",
+    "phone": "Phone Number",
+    "dateOfBirth": "Date of Birth",
+    "nationality": "Nationality",
+    "passportNumber": "Passport Number",
+    "address": "Address",
+    "addressLine1": "Address Line 1",
+    "addressLine2": "Address Line 2",
+    "city": "City",
+    "state": "State/Province",
+    "postalCode": "Postal Code",
+    "country": "Country",
+    "saveChanges": "Save Changes",
+    "cancel": "Cancel"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "language": "Preferred Language",
+    "currency": "Preferred Currency",
+    "notifications": "Notifications",
+    "emailNotifications": "Email Notifications",
+    "smsNotifications": "SMS Notifications",
+    "marketingEmails": "Marketing Emails",
+    "bookingUpdates": "Booking Updates",
+    "specialOffers": "Special Offers",
+    "newsletter": "Newsletter"
+  },
+  "security": {
+    "title": "Security Settings",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm New Password",
+    "passwordRequirements": "Password must be at least 8 characters",
+    "twoFactor": "Two-Factor Authentication",
+    "enable2FA": "Enable 2FA",
+    "disable2FA": "Disable 2FA",
+    "2FAEnabled": "Two-factor authentication is enabled",
+    "2FADisabled": "Two-factor authentication is disabled",
+    "deleteAccount": "Delete Account",
+    "deleteWarning": "This action cannot be undone"
+  },
+  "bookings": {
+    "title": "My Bookings",
+    "upcoming": "Upcoming",
+    "past": "Past",
+    "cancelled": "Cancelled",
+    "noBookings": "No bookings found",
+    "viewDetails": "View Details",
+    "cancel": "Cancel Booking",
+    "downloadTicket": "Download Ticket"
+  },
+  "actions": {
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "update": "Update",
+    "delete": "Delete",
+    "confirm": "Confirm"
+  },
+  "messages": {
+    "updateSuccess": "Profile updated successfully",
+    "updateFailed": "Failed to update profile",
+    "passwordChanged": "Password changed successfully",
+    "passwordChangeFailed": "Failed to change password",
+    "invalidCurrentPassword": "Current password is incorrect",
+    "passwordMismatch": "Passwords do not match"
+  },
+  "validation": {
+    "requiredField": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "invalidPhone": "Invalid phone number",
+    "weakPassword": "Password is too weak"
+  }
+}

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../store';
-import axios from 'axios';
+import api from '../services/api';
 
 interface User {
   id: number;
@@ -33,7 +33,6 @@ const AdminUsers: React.FC = () => {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
 
       const params: any = {
         skip: page * limit,
@@ -44,10 +43,7 @@ const AdminUsers: React.FC = () => {
       if (filterActive !== null) params.is_active = filterActive;
       if (filterAdmin !== null) params.is_admin = filterAdmin;
 
-      const response = await axios.get('/api/v1/admin/users', {
-        headers: { Authorization: `Bearer ${token}` },
-        params,
-      });
+      const response = await api.get('/admin/users', { params });
 
       setUsers(response.data.users);
       setTotal(response.data.total);
@@ -71,12 +67,7 @@ const AdminUsers: React.FC = () => {
 
   const toggleUserStatus = async (userId: number, currentStatus: boolean) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.put(
-        `/api/v1/admin/users/${userId}`,
-        { is_active: !currentStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.put(`/admin/users/${userId}`, { is_active: !currentStatus });
       fetchUsers();
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed to update user');

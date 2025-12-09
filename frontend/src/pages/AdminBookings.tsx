@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RootState } from '../store';
-import axios from 'axios';
+import api from '../services/api';
 
 interface Booking {
   id: number;
@@ -42,7 +42,6 @@ const AdminBookings: React.FC = () => {
   const fetchBookings = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
 
       const params: any = {
         skip: page * limit,
@@ -54,8 +53,7 @@ const AdminBookings: React.FC = () => {
       if (filterOperator) params.operator = filterOperator;
       if (pendingRefund) params.pending_refund = true;
 
-      const response = await axios.get('/api/v1/admin/bookings', {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await api.get('/admin/bookings', {
         params,
       });
 
@@ -95,11 +93,9 @@ const AdminBookings: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `/api/v1/admin/bookings/${bookingId}/refund`,
-        { amount, reason: 'Admin processed refund' },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post(
+        `/admin/bookings/${bookingId}/refund`,
+        { amount, reason: 'Admin processed refund' }
       );
       alert('Refund processed successfully!');
       fetchBookings();
@@ -114,11 +110,9 @@ const AdminBookings: React.FC = () => {
     if (!reason) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `/api/v1/admin/bookings/${bookingId}/cancel`,
-        { reason },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await api.post(
+        `/admin/bookings/${bookingId}/cancel`,
+        { reason }
       );
       alert(response.data.message);
       fetchBookings();

@@ -32,11 +32,19 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      // Store the current path to redirect back after login
-      const currentPath = window.location.pathname + window.location.search;
-      // Redirect to login with return URL
-      window.location.href = `/login?returnTo=${encodeURIComponent(currentPath)}`;
+      // Don't redirect if we're on auth pages or making auth requests
+      const isAuthPage = window.location.pathname.startsWith('/login') ||
+                         window.location.pathname.startsWith('/register') ||
+                         window.location.pathname.startsWith('/forgot-password');
+      const isAuthRequest = error.config?.url?.includes('/auth/');
+
+      if (!isAuthPage && !isAuthRequest) {
+        localStorage.removeItem('token');
+        // Store the current path to redirect back after login
+        const currentPath = window.location.pathname + window.location.search;
+        // Redirect to login with return URL
+        window.location.href = `/login?returnTo=${encodeURIComponent(currentPath)}`;
+      }
     }
     return Promise.reject(error);
   }
@@ -703,6 +711,70 @@ export interface RouteInsights {
 }
 
 // Pricing API
+// Availability Alerts Types
+export type AlertType = 'vehicle' | 'cabin' | 'passenger';
+export type AlertStatus = 'active' | 'notified' | 'expired' | 'cancelled' | 'fulfilled';
+
+export interface AvailabilityAlert {
+  id: number;
+  user_id?: number;
+  email: string;
+  alert_type: AlertType;
+  departure_port: string;
+  arrival_port: string;
+  departure_date: string;
+  is_round_trip: boolean;
+  return_date?: string;
+  operator?: string;
+  sailing_time?: string;
+  num_adults: number;
+  num_children: number;
+  num_infants: number;
+  vehicle_type?: string;
+  vehicle_length_cm?: number;
+  cabin_type?: string;
+  num_cabins?: number;
+  booking_id?: number;
+  journey_type?: 'outbound' | 'return';
+  status: AlertStatus;
+  last_checked_at?: string;
+  notified_at?: string;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Availability Alerts API
+export const availabilityAlertAPI = {
+  getAlerts: async (params?: { email?: string; status?: AlertStatus }): Promise<AvailabilityAlert[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.email) queryParams.append('email', params.email);
+    if (params?.status) queryParams.append('status', params.status);
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `/availability-alerts?${queryString}` : '/availability-alerts';
+
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  getAlert: async (alertId: number): Promise<AvailabilityAlert> => {
+    const response = await api.get(`/availability-alerts/${alertId}`);
+    return response.data;
+  },
+
+  cancelAlert: async (alertId: number, email?: string): Promise<void> => {
+    const queryParams = email ? `?email=${encodeURIComponent(email)}` : '';
+    await api.delete(`/availability-alerts/${alertId}${queryParams}`);
+  },
+
+  markAsFulfilled: async (alertId: number, email?: string): Promise<AvailabilityAlert> => {
+    const queryParams = email ? `?email=${encodeURIComponent(email)}` : '';
+    const response = await api.patch(`/availability-alerts/${alertId}${queryParams}`, { status: 'fulfilled' });
+    return response.data;
+  },
+};
+
 export const pricingAPI = {
   getFareCalendar: async (params: {
     departurePort: string;

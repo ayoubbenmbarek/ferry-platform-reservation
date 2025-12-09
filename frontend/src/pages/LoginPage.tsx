@@ -5,6 +5,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { loginUser, clearError, setUser, setToken } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store';
 import axios from 'axios';
+import RunningBear from '../components/UI/RunningBear';
 
 // Declare global Google type
 declare global {
@@ -61,8 +62,9 @@ const LoginPage: React.FC = () => {
   // Memoize Google response handler to avoid re-renders
   const handleGoogleResponse = useCallback(async (response: any) => {
     try {
-      // Send the Google credential to our backend
-      const result = await axios.post('/api/v1/auth/google', {
+      // Send the Google credential to our backend using the configured API URL
+      const apiUrl = process.env.REACT_APP_API_URL || '/api/v1';
+      const result = await axios.post(`${apiUrl}/auth/google`, {
         credential: response.credential
       });
 
@@ -125,6 +127,11 @@ const LoginPage: React.FC = () => {
       return () => clearInterval(checkGoogle);
     }
   }, [handleGoogleResponse]);
+
+  // Check if already authenticated - must be AFTER all hooks
+  if (isAuthenticated) {
+    return <RunningBear message="Redirecting" size="medium" />;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Clear error when user starts typing

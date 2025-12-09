@@ -81,5 +81,62 @@
     "cancelled": "Cancelled",
     "paid": "Paid",
     "filterByStatus": "Filter by status"
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "Have a question or need assistance? We're here to help. Reach out to our team and we'll get back to you as soon as possible.",
+    "getInTouch": "Get in Touch",
+    "email": "Email",
+    "phone": "Phone",
+    "phoneHours": "Mon-Fri, 8am-6pm CET",
+    "address": "Address",
+    "businessHours": "Business Hours",
+    "hours": {
+      "weekdays": "Monday - Friday: 8:00 AM - 6:00 PM",
+      "saturday": "Saturday: 9:00 AM - 2:00 PM",
+      "sunday": "Sunday: Closed"
+    },
+    "quickHelp": "Quick Help",
+    "links": {
+      "faq": "Frequently Asked Questions",
+      "terms": "Terms & Conditions",
+      "privacy": "Privacy Policy"
+    },
+    "liveChat": "Live Chat",
+    "liveChatDesc": "Need immediate assistance? Our AI-powered support chatbot is available 24/7 to help you.",
+    "liveChatHint": "Look for the chat icon in the bottom right corner of your screen.",
+    "sendMessage": "Send us a Message",
+    "sendMessageDesc": "Fill out the form below and we'll get back to you within 24 hours.",
+    "ourLocation": "Our Location",
+    "categories": {
+      "general": "General Inquiry",
+      "booking": "Booking Support",
+      "refund": "Refunds & Cancellations",
+      "technical": "Technical Issue",
+      "feedback": "Feedback & Suggestions",
+      "other": "Other"
+    },
+    "form": {
+      "fullName": "Full Name",
+      "fullNamePlaceholder": "John Doe",
+      "emailAddress": "Email Address",
+      "category": "Category",
+      "bookingReference": "Booking Reference",
+      "optional": "optional",
+      "subject": "Subject",
+      "subjectPlaceholder": "Brief description of your inquiry",
+      "message": "Message",
+      "messagePlaceholder": "Please provide as much detail as possible...",
+      "requiredFields": "Required fields",
+      "sending": "Sending...",
+      "sendButton": "Send Message"
+    },
+    "success": {
+      "title": "Message sent successfully!",
+      "message": "Thank you for contacting us. We'll respond to your inquiry within 24 hours."
+    },
+    "error": {
+      "title": "Failed to send message"
+    }
   }
 }

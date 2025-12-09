@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 try:
     from fastapi import APIRouter, Depends, HTTPException, status, Query
     from fastapi.responses import StreamingResponse
-    from sqlalchemy.orm import Session
+    from sqlalchemy.orm import Session, selectinload
     from sqlalchemy import and_, or_
 except ImportError:
     # Fallback for development
@@ -342,6 +342,24 @@ async def create_booking(
                     detail="Return bookings must be made at least 1 hour before departure"
                 )
 
+        # Check for existing PENDING booking with same route/time/contact to prevent duplicates
+        # This handles the case where user refreshes page and Redux state is lost
+        contact_email = booking_data.contact_info.email.lower() if booking_data.contact_info else None
+        if contact_email and booking_data.departure_time:
+            existing_pending = db.query(Booking).filter(
+                Booking.contact_email == contact_email,
+                Booking.departure_port == booking_data.departure_port,
+                Booking.arrival_port == booking_data.arrival_port,
+                Booking.departure_time == booking_data.departure_time,
+                Booking.status == BookingStatusEnum.PENDING.value,
+                Booking.expires_at > datetime.utcnow()  # Not expired
+            ).first()
+
+            if existing_pending:
+                logger.info(f"Found existing pending booking {existing_pending.booking_reference} for same route/time/contact, returning it instead of creating duplicate")
+                # Return the existing pending booking instead of creating a duplicate
+                return booking_to_response(existing_pending)
+
         # Generate unique booking reference
         booking_reference = generate_booking_reference()
         
@@ -637,6 +655,41 @@ async def create_booking(
                 )
                 db.add(db_vehicle)
 
+        # Add cabin selections if any
+        if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
+            from app.models.booking import BookingCabin, JourneyTypeEnum as CabinJourneyTypeEnum
+            for cabin_selection in booking_data.cabin_selections:
+                # price is total price, calculate unit price
+                unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
+                db_booking_cabin = BookingCabin(
+                    booking_id=db_booking.id,
+                    cabin_id=cabin_selection.cabin_id,
+                    journey_type=CabinJourneyTypeEnum.OUTBOUND,
+                    quantity=cabin_selection.quantity,
+                    unit_price=unit_price,
+                    total_price=cabin_selection.price,
+                    is_paid=False
+                )
+                db.add(db_booking_cabin)
+                logger.info(f"Added BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
+
+        # Add return cabin selections if any (round trip)
+        if hasattr(booking_data, 'return_cabin_selections') and booking_data.return_cabin_selections:
+            from app.models.booking import BookingCabin, JourneyTypeEnum as CabinJourneyTypeEnum
+            for cabin_selection in booking_data.return_cabin_selections:
+                unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
+                db_booking_cabin = BookingCabin(
+                    booking_id=db_booking.id,
+                    cabin_id=cabin_selection.cabin_id,
+                    journey_type=CabinJourneyTypeEnum.RETURN,
+                    quantity=cabin_selection.quantity,
+                    unit_price=unit_price,
+                    total_price=cabin_selection.price,
+                    is_paid=False
+                )
+                db.add(db_booking_cabin)
+                logger.info(f"Added return BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
+
         # Add meals if any
         if booking_data.meals:
             from app.models.meal import Meal, BookingMeal, DietaryTypeEnum, JourneyTypeEnum
@@ -746,6 +799,34 @@ async def create_booking(
         # Convert to response model manually to handle enum conversions
         db.refresh(db_booking)
 
+        # Publish instant availability update via WebSocket
+        try:
+            from app.tasks.availability_sync_tasks import publish_availability_now
+            route = f"{db_booking.departure_port}-{db_booking.arrival_port}"
+
+            # Calculate total cabins booked (from cabin_selections or single cabin)
+            total_cabins_booked = 0
+            if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
+                total_cabins_booked = sum(cs.quantity for cs in booking_data.cabin_selections)
+            elif booking_data.cabin_id:
+                total_cabins_booked = 1
+
+            publish_availability_now(
+                route=route,
+                ferry_id=db_booking.sailing_id or f"{db_booking.operator}-{db_booking.booking_reference}",
+                departure_time=db_booking.departure_time.isoformat() if db_booking.departure_time else "",
+                availability={
+                    "change_type": "booking_created",
+                    "passengers_booked": db_booking.total_passengers,
+                    "vehicles_booked": db_booking.total_vehicles,
+                    "cabin_quantity": total_cabins_booked,
+                    "booking_reference": db_booking.booking_reference
+                }
+            )
+            logger.info(f"📢 Instant availability update published for booking on {route}")
+        except Exception as e:
+            logger.warning(f"Failed to publish availability update: {str(e)}")
+
         # Send booking confirmation email
         try:
             booking_dict = {
@@ -795,6 +876,26 @@ async def create_booking(
         except Exception as e:
             # Log email error but don't fail the booking
             logger.error(f"Failed to prepare booking confirmation email: {str(e)}")
+
+        # Publish real-time availability update via WebSocket
+        try:
+            from app.tasks.availability_sync_tasks import publish_availability_now
+            route = f"{db_booking.departure_port}-{db_booking.arrival_port}"
+            publish_availability_now(
+                route=route,
+                ferry_id=db_booking.sailing_id or f"{db_booking.operator}-{db_booking.booking_reference}",
+                departure_time=db_booking.departure_time.isoformat() if db_booking.departure_time else "",
+                availability={
+                    "change_type": "booking_created",
+                    "passengers_booked": db_booking.total_passengers,
+                    "vehicles_booked": db_booking.total_vehicles,
+                    "booking_reference": db_booking.booking_reference
+                }
+            )
+            logger.info(f"📢 Real-time availability update published for {route}")
+        except Exception as ws_error:
+            # Log WebSocket error but don't fail the booking
+            logger.warning(f"Failed to publish availability update: {str(ws_error)}")
 
         return booking_to_response(db_booking)
         
@@ -850,7 +951,15 @@ async def list_bookings(
     Admin users can see all bookings.
     """
     try:
-        query = db.query(Booking)
+        # Use selectinload to eagerly load relationships and avoid N+1 queries
+        query = db.query(Booking).options(
+            selectinload(Booking.passengers),
+            selectinload(Booking.vehicles),
+            selectinload(Booking.meals),
+            selectinload(Booking.booking_cabins).selectinload(BookingCabin.cabin),
+            selectinload(Booking.cabin),
+            selectinload(Booking.return_cabin),
+        )
 
         # Guest users (not logged in) get empty list
         if not current_user:
@@ -961,13 +1070,21 @@ async def get_booking(
     Returns detailed information about a specific booking.
     """
     try:
-        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        # Use selectinload to eagerly load relationships and avoid N+1 queries
+        booking = db.query(Booking).options(
+            selectinload(Booking.passengers),
+            selectinload(Booking.vehicles),
+            selectinload(Booking.meals),
+            selectinload(Booking.booking_cabins).selectinload(BookingCabin.cabin),
+            selectinload(Booking.cabin),
+            selectinload(Booking.return_cabin),
+        ).filter(Booking.id == booking_id).first()
         if not booking:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Booking not found"
             )
-        
+
         # Check access permissions
         if not validate_booking_access(booking_id, current_user, db):
             raise HTTPException(
@@ -1503,6 +1620,48 @@ async def cancel_booking(
         except Exception as e:
             logger.warning(f"Failed to invalidate cache: {str(e)}")
 
+        # Calculate total cabins being freed
+        total_cabins_freed = 0
+
+        # First check booking_cabins table (new way - has actual quantities)
+        try:
+            from app.models.booking import BookingCabin
+            booking_cabins = db.query(BookingCabin).filter(BookingCabin.booking_id == booking.id).all()
+            if booking_cabins:
+                # Use booking_cabins as source of truth
+                for cabin in booking_cabins:
+                    total_cabins_freed += cabin.quantity
+                logger.info(f"Cancellation freeing {total_cabins_freed} cabins from {len(booking_cabins)} booking_cabin records")
+            else:
+                # Fallback to legacy cabin_id fields (old bookings without booking_cabins)
+                if booking.cabin_id:
+                    total_cabins_freed += 1
+                if booking.return_cabin_id:
+                    total_cabins_freed += 1
+                logger.info(f"Cancellation freeing {total_cabins_freed} cabins from legacy cabin_id fields")
+        except Exception as e:
+            logger.warning(f"Could not count cabins: {str(e)}")
+
+        # Publish instant availability update via WebSocket (capacity freed up)
+        try:
+            from app.tasks.availability_sync_tasks import publish_availability_now
+            route = f"{booking.departure_port}-{booking.arrival_port}"
+            publish_availability_now(
+                route=route,
+                ferry_id=booking.sailing_id or f"{booking.operator}-{booking.booking_reference}",
+                departure_time=booking.departure_time.isoformat() if booking.departure_time else "",
+                availability={
+                    "change_type": "booking_cancelled",
+                    "passengers_freed": booking.total_passengers,
+                    "vehicles_freed": booking.total_vehicles,
+                    "cabins_freed": total_cabins_freed,
+                    "booking_reference": booking.booking_reference
+                }
+            )
+            logger.info(f"📢 Instant availability update published for cancelled booking {booking.booking_reference} (cabins_freed={total_cabins_freed})")
+        except Exception as e:
+            logger.warning(f"Failed to publish availability update: {str(e)}")
+
         # Queue cancellation email asynchronously (non-blocking)
         try:
             from app.tasks.email_tasks import send_cancellation_email_task
@@ -1620,18 +1779,26 @@ async def get_booking_by_reference(
 ):
     """
     Get booking by reference number.
-    
+
     Allows guests to retrieve booking information using booking reference
     and contact email for verification.
     """
     try:
-        booking = db.query(Booking).filter(
+        # Use selectinload to eagerly load relationships and avoid N+1 queries
+        booking = db.query(Booking).options(
+            selectinload(Booking.passengers),
+            selectinload(Booking.vehicles),
+            selectinload(Booking.meals),
+            selectinload(Booking.booking_cabins).selectinload(BookingCabin.cabin),
+            selectinload(Booking.cabin),
+            selectinload(Booking.return_cabin),
+        ).filter(
             and_(
                 Booking.booking_reference == booking_reference,
                 Booking.contact_email == email
             )
         ).first()
-        
+
         if not booking:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

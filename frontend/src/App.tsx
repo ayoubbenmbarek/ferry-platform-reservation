@@ -1,12 +1,15 @@
 import React, { Suspense, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
+import { RootState } from './store';
 
 import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 import OfflineIndicator from './components/OfflineIndicator';
+import SupportChatbot from './components/SupportChatbot';
 import { getCurrentUser } from './store/slices/authSlice';
 
 // Lazy load pages for better performance
@@ -26,6 +29,7 @@ const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const VerifyEmailPage = React.lazy(() => import('./pages/VerifyEmailPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const SavedRoutesPage = React.lazy(() => import('./pages/SavedRoutesPage'));
+const MyAlertsPage = React.lazy(() => import('./pages/MyAlertsPage'));
 const AboutPage = React.lazy(() => import('./pages/AboutPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const FindBookingPage = React.lazy(() => import('./pages/FindBookingPage'));
@@ -39,6 +43,8 @@ const AdminPromoCodes = React.lazy(() => import('./pages/AdminPromoCodes'));
 
 function App() {
   const dispatch = useDispatch();
+  const { i18n } = useTranslation();
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // Validate stored token on app initialization
   useEffect(() => {
@@ -49,15 +55,41 @@ function App() {
     }
   }, [dispatch]); // Only run once on mount
 
+  // Apply user's preferred language when user data loads
+  useEffect(() => {
+    if (user?.preferredLanguage && user.preferredLanguage !== i18n.language) {
+      i18n.changeLanguage(user.preferredLanguage);
+    }
+  }, [user?.preferredLanguage, i18n]);
+
   // Handle chunk loading errors (outdated cache on mobile)
   useEffect(() => {
-    const handleChunkError = (event: any) => {
-      const isChunkError = event.message?.includes('Loading chunk') ||
-                          event.message?.includes('ChunkLoadError') ||
+    const handleChunkError = async (event: any) => {
+      const errorMessage = event.message || event.reason?.message || '';
+      const isChunkError = errorMessage.includes('Loading chunk') ||
+                          errorMessage.includes('ChunkLoadError') ||
+                          errorMessage.includes('Failed to fetch dynamically imported module') ||
                           event.reason?.name === 'ChunkLoadError';
 
       if (isChunkError) {
-        console.warn('Chunk loading failed - likely outdated cache. Reloading page...');
+        console.warn('Chunk loading failed - clearing cache and reloading...');
+        event.preventDefault?.();
+
+        try {
+          // Unregister service worker
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map(r => r.unregister()));
+          }
+          // Clear caches
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+          }
+        } catch (e) {
+          console.error('Failed to clear cache:', e);
+        }
+
         // Reload the page to get fresh chunks
         window.location.reload();
       }
@@ -76,6 +108,7 @@ function App() {
     <ErrorBoundary>
       <div className="App min-h-screen bg-gray-50">
         <OfflineIndicator showWhenOnline />
+        <SupportChatbot />
         <Suspense fallback={<LoadingSpinner />}>
           <Layout>
             <Suspense fallback={<LoadingSpinner />}>
@@ -99,6 +132,7 @@ function App() {
               {/* Protected routes */}
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/saved-routes" element={<ProtectedRoute><SavedRoutesPage /></ProtectedRoute>} />
+              <Route path="/my-alerts" element={<ProtectedRoute><MyAlertsPage /></ProtectedRoute>} />
               <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
               <Route path="/modify-booking/:bookingId" element={<ProtectedRoute><ModifyBookingPage /></ProtectedRoute>} />
 

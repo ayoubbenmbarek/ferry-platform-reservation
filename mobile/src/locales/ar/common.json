@@ -1,0 +1,80 @@
+{
+  "appName": "الحجوزات البحرية",
+  "nav": {
+    "home": "الرئيسية",
+    "search": "بحث",
+    "myBookings": "حجوزاتي",
+    "findBooking": "البحث عن حجز",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج",
+    "profile": "الملف الشخصي والإعدادات",
+    "admin": "لوحة الإدارة",
+    "about": "من نحن",
+    "contact": "اتصل بنا"
+  },
+  "footer": {
+    "copyright": "© 2024 الحجوزات البحرية. جميع الحقوق محفوظة.",
+    "terms": "شروط الخدمة",
+    "privacy": "سياسة الخصوصية",
+    "help": "مركز المساعدة"
+  },
+  "language": {
+    "select": "اختر اللغة",
+    "en": "English",
+    "fr": "Français",
+    "ar": "العربية",
+    "it": "Italiano",
+    "de": "Deutsch"
+  },
+  "currency": {
+    "eur": "يورو",
+    "usd": "دولار",
+    "gbp": "جنيه"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ",
+    "success": "نجح",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "submit": "إرسال",
+    "close": "إغلاق",
+    "yes": "نعم",
+    "no": "لا",
+    "selectDate": "اختر التاريخ",
+    "selectTime": "اختر الوقت",
+    "required": "هذا الحقل مطلوب",
+    "invalidEmail": "عنوان البريد الإلكتروني غير صحيح",
+    "invalidPhone": "رقم الهاتف غير صحيح",
+    "signIn": "تسجيل الدخول"
+  },
+  "home": {
+    "title": "احجز عبّارتك",
+    "subtitle": "ابحث عن أفضل خطوط العبّارات عبر البحر الأبيض المتوسط",
+    "searchButton": "البحث عن العبّارات",
+    "promoTitle": "سجل دخولك للحصول على عروض حصرية",
+    "promoSubtitle": "الأعضاء يوفرون حتى 15%",
+    "welcomeBack": "مرحباً بعودتك",
+    "viewBookings": "عرض حجوزاتك",
+    "popularRoutes": "المسارات الشائعة",
+    "whyBookWithUs": "لماذا تحجز معنا",
+    "ourPartners": "شركاؤنا",
+    "secureBooking": "حجز آمن",
+    "secureDesc": "دفع آمن ومضمون",
+    "bestPrices": "أفضل الأسعار",
+    "pricesDesc": "قارن جميع المشغلين",
+    "support": "دعم على مدار الساعة",
+    "supportDesc": "نحن هنا لمساعدتك"
+  },
+  "date": {
+    "today": "اليوم",
+    "tomorrow": "غداً",
+    "yesterday": "أمس"
+  }
+}

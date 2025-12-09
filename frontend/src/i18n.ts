@@ -40,8 +40,13 @@ i18n
     },
 
     react: {
-      useSuspense: true, // Re-enable suspense for proper translation loading
+      useSuspense: false, // Disable suspense to prevent hard crashes on translation loading failures
     },
+
+    // Don't throw on missing keys, return the key itself
+    saveMissing: false,
+    returnNull: false,
+    returnEmptyString: false,
   });
 
 export default i18n;

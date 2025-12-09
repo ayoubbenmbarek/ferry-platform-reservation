@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: traefik  # k3s default
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+    # Grafana - main monitoring UI
+    - host: grafana.maritime.yourdomain.com  # Update with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+    # Prometheus - optional, for direct access
+    - host: prometheus.maritime.yourdomain.com  # Update with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+  tls:
+    - hosts:
+        - grafana.maritime.yourdomain.com
+        - prometheus.maritime.yourdomain.com
+      secretName: monitoring-tls  # Create with cert-manager or manually

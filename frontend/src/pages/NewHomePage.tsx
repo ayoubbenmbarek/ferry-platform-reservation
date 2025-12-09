@@ -7,6 +7,7 @@ import { RootState, AppDispatch } from '../store';
 import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
+import { LiveFerryMap } from '../components/LiveFerryMap';
 
 const NewHomePage: React.FC = () => {
   const { t } = useTranslation(['search', 'common']);
@@ -69,6 +70,15 @@ const NewHomePage: React.FC = () => {
   useEffect(() => {
     console.log('Form state updated - departurePort:', form.departurePort, 'arrivalPort:', form.arrivalPort);
   }, [form.departurePort, form.arrivalPort]);
+
+  // Auto-clear return arrival port if it matches return departure port
+  // We intentionally only trigger when departure port changes, not when arrival port changes
+  useEffect(() => {
+    if (form.returnArrivalPort && form.returnArrivalPort === form.returnDeparturePort) {
+      setForm(prev => ({ ...prev, returnArrivalPort: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.returnDeparturePort]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -306,12 +316,24 @@ const NewHomePage: React.FC = () => {
                     </label>
                     <select
                       value={form.departurePort}
-                      onChange={(e) => setForm({ ...form, departurePort: e.target.value })}
+                      onChange={(e) => {
+                        const newDeparture = e.target.value;
+                        // Clear arrival port if it becomes the same as new departure
+                        const newArrival = form.arrivalPort === newDeparture ? '' : form.arrivalPort;
+                        setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
+                      }}
                       className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                         errors.departurePort ? 'border-red-500' : 'border-gray-300'
                       }`}
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
+                      <optgroup label="🇹🇳 Tunisia">
+                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                          <option key={port.code} value={port.code}>
+                            {port.name}
+                          </option>
+                        ))}
+                      </optgroup>
                       <optgroup label="🇮🇹 Italy">
                         {ports.filter(p => p.countryCode === 'IT').map(port => (
                           <option key={port.code} value={port.code}>
@@ -345,7 +367,21 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
-                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                        {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>
+                            {port.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇮🇹 Italy">
+                        {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
+                          <option key={port.code} value={port.code}>
+                            {port.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇫🇷 France">
+                        {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -434,9 +470,21 @@ const NewHomePage: React.FC = () => {
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">Select return departure port</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR').map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnDeparturePort && <p className="text-red-500 text-xs mt-1">{errors.returnDeparturePort}</p>}
                         </div>
@@ -449,9 +497,21 @@ const NewHomePage: React.FC = () => {
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            {ports.map(port => (
-                              <option key={port.code} value={port.code}>{port.name}</option>
-                            ))}
+                            <optgroup label="🇹🇳 Tunisia">
+                              {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {errors.returnArrivalPort && <p className="text-red-500 text-xs mt-1">{errors.returnArrivalPort}</p>}
                         </div>
@@ -741,31 +801,79 @@ const NewHomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { from: 'Genoa', to: 'Tunis', duration: '24h', price: '€85', flag: '🇮🇹' },
-              { from: 'Civitavecchia', to: 'Tunis', duration: '22h', price: '€92', flag: '🇮🇹' },
-              { from: 'Palermo', to: 'Tunis', duration: '11h', price: '€78', flag: '🇮🇹' },
-              { from: 'Marseille', to: 'Tunis', duration: '21h', price: '€95', flag: '🇫🇷' },
-              { from: 'Salerno', to: 'Tunis', duration: '16h', price: '€88', flag: '🇮🇹' },
-              { from: 'Nice', to: 'Tunis', duration: '19h', price: '€98', flag: '🇫🇷' },
-            ].map((route, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">
-                      {route.flag} {route.from} → 🇹🇳 {route.to}
-                    </h3>
-                    <p className="text-sm text-gray-600">⏱️ {route.duration}</p>
+              { from: 'Genoa', fromCode: 'genoa', to: 'Tunis', toCode: 'tunis', duration: '24h', price: '€85', flag: '🇮🇹' },
+              { from: 'Civitavecchia', fromCode: 'civitavecchia', to: 'Tunis', toCode: 'tunis', duration: '22h', price: '€92', flag: '🇮🇹' },
+              { from: 'Palermo', fromCode: 'palermo', to: 'Tunis', toCode: 'tunis', duration: '11h', price: '€78', flag: '🇮🇹' },
+              { from: 'Marseille', fromCode: 'marseille', to: 'Tunis', toCode: 'tunis', duration: '21h', price: '€95', flag: '🇫🇷' },
+              { from: 'Salerno', fromCode: 'salerno', to: 'Tunis', toCode: 'tunis', duration: '16h', price: '€88', flag: '🇮🇹' },
+              { from: 'Nice', fromCode: 'nice', to: 'Tunis', toCode: 'tunis', duration: '19h', price: '€98', flag: '🇫🇷' },
+            ].map((route, index) => {
+              const handleRouteClick = () => {
+                // Set the default departure date to tomorrow
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const departureDate = tomorrow.toISOString().split('T')[0];
+
+                // Pre-fill the form with route information
+                setForm(prev => ({
+                  ...prev,
+                  departurePort: route.fromCode,
+                  arrivalPort: route.toCode,
+                  departureDate: departureDate,
+                }));
+
+                // Scroll to the top of the page (search form)
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              };
+
+              return (
+                <div key={index} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
+                        {route.flag} {route.from} → 🇹🇳 {route.to}
+                      </h3>
+                      <p className="text-sm text-gray-600">⏱️ {route.duration}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-blue-600">{route.price}</p>
+                      <p className="text-xs text-gray-500">from</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">{route.price}</p>
-                    <p className="text-xs text-gray-500">from</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRouteClick}
+                    className="w-full py-2 px-4 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+                  >
+                    {t('common:features.viewSchedules')}
+                  </button>
                 </div>
-                <button className="w-full py-2 px-4 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors">
-                  {t('common:features.viewSchedules')}
-                </button>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Live Ferry Tracker Section */}
+      <div className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              {t('common:features.liveFerryTrackerTitle', 'Live Ferry Tracker')}
+            </h2>
+            <p className="text-lg text-gray-600">
+              {t('common:features.liveFerryTrackerSubtitle', 'Track ferries in real-time across the Mediterranean')}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <LiveFerryMap mode="homepage" height="500px" />
+          </div>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              {t('common:features.liveFerryTrackerNote', 'Ferry positions update every 30 seconds. Click on a ferry for more details.')}
+            </p>
           </div>
         </div>
       </div>

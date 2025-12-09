@@ -1,0 +1,102 @@
+{
+  "title": "Zahlung",
+  "subtitle": "Sichere Zahlung für Ihre Fährbuchung",
+  "bookingReference": "Buchungsreferenz",
+  "paymentMethod": {
+    "title": "Zahlungsmethode",
+    "selectMethod": "Zahlungsmethode wählen",
+    "creditCard": "Kredit-/Debitkarte",
+    "paypal": "PayPal",
+    "bankTransfer": "Banküberweisung"
+  },
+  "cardDetails": {
+    "title": "Kartendetails",
+    "cardNumber": "Kartennummer",
+    "cardHolder": "Karteninhaber",
+    "expiryDate": "Ablaufdatum",
+    "cvv": "CVV",
+    "saveCard": "Karte für zukünftige Buchungen speichern"
+  },
+  "billingAddress": {
+    "title": "Rechnungsadresse",
+    "addressLine1": "Adresszeile 1",
+    "addressLine2": "Adresszeile 2 (Optional)",
+    "city": "Stadt",
+    "state": "Bundesland/Provinz",
+    "postalCode": "Postleitzahl",
+    "country": "Land"
+  },
+  "orderSummary": {
+    "title": "Bestellübersicht",
+    "bookingDetails": "Buchungsdetails",
+    "route": "Route",
+    "outboundJourney": "Hinreise",
+    "returnJourney": "Rückreise",
+    "departure": "Abfahrt",
+    "return": "Rückfahrt",
+    "passengers": "Passagiere",
+    "vehicles": "Fahrzeuge",
+    "subtotal": "Zwischensumme",
+    "taxes": "Steuern & Gebühren",
+    "discount": "Rabatt",
+    "total": "Gesamtbetrag",
+    "currency": "EUR"
+  },
+  "termsAndConditions": {
+    "title": "Allgemeine Geschäftsbedingungen",
+    "agree": "Ich stimme den",
+    "terms": "Allgemeinen Geschäftsbedingungen",
+    "and": "und",
+    "privacy": "Datenschutzrichtlinie",
+    "cancellation": "Stornierungsbedingungen",
+    "refund": "Rückerstattungsrichtlinie"
+  },
+  "actions": {
+    "pay": "Jetzt Bezahlen",
+    "paying": "Zahlung wird verarbeitet...",
+    "back": "Zurück zur Buchung",
+    "cancel": "Abbrechen"
+  },
+  "security": {
+    "title": "Sichere Zahlung",
+    "description": "Ihre Zahlungsinformationen sind verschlüsselt und sicher",
+    "ssl": "256-Bit SSL-Verschlüsselung",
+    "pci": "PCI DSS-konform"
+  },
+  "success": {
+    "title": "Zahlung Erfolgreich!",
+    "message": "Ihre Buchung wurde bestätigt",
+    "bookingRef": "Buchungsreferenz: {{reference}}",
+    "emailSent": "Bestätigungs-E-Mail gesendet an {{email}}",
+    "viewBooking": "Buchung Ansehen",
+    "downloadTicket": "Ticket Herunterladen",
+    "backToHome": "Zurück zur Startseite"
+  },
+  "errors": {
+    "paymentFailed": "Zahlung Fehlgeschlagen",
+    "tryAgain": "Bitte versuchen Sie es erneut oder verwenden Sie eine andere Zahlungsmethode",
+    "invalidCard": "Ungültige Kartendetails",
+    "insufficientFunds": "Unzureichende Deckung",
+    "expired": "Karte abgelaufen",
+    "declined": "Zahlung abgelehnt",
+    "generic": "Ein Fehler ist bei der Zahlung aufgetreten"
+  },
+  "validation": {
+    "cardNumber": "Bitte geben Sie eine gültige Kartennummer ein",
+    "cardHolder": "Bitte geben Sie den Namen des Karteninhabers ein",
+    "expiryDate": "Bitte geben Sie das Ablaufdatum ein (MM/JJ)",
+    "cvv": "Bitte geben Sie CVV ein (3-4 Ziffern)",
+    "termsRequired": "Sie müssen den Allgemeinen Geschäftsbedingungen zustimmen"
+  },
+  "timer": {
+    "expired": "Buchung Abgelaufen",
+    "expiredMessage": "Diese Buchung ist abgelaufen. Bitte starten Sie eine neue Suche, um Ihre Fähre zu buchen.",
+    "criticalTitle": "⚠️ Zahlung Bald Abschließen!",
+    "warningTitle": "⏰ Zeit Läuft Ab",
+    "normalTitle": "🕐 Reservierung Gehalten",
+    "urgent": "Dringend",
+    "criticalMessage": "Ihre Buchung wird automatisch in {{time}} storniert. Bitte schließen Sie die Zahlung jetzt ab!",
+    "normalMessage": "Diese Buchung ist bis {{time}} reserviert ({{minutes}} Minuten). Schließen Sie die Zahlung ab, um Ihre Reservierung zu bestätigen.",
+    "secureInfo": "Ihre Zahlungsinformationen sind sicher und verschlüsselt"
+  }
+}

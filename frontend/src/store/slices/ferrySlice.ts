@@ -566,6 +566,107 @@ const ferrySlice = createSlice({
 
     // Reset all ferry state (used on logout)
     resetAllState: () => initialState,
+
+    // Real-time availability update from WebSocket
+    updateFerryAvailability: (state, action: PayloadAction<{
+      ferryId: string;
+      route: string;
+      availability: {
+        change_type?: string;
+        passengers_booked?: number;
+        passengers_freed?: number;
+        vehicles_booked?: number;
+        vehicles_freed?: number;
+        cabin_type?: string;
+        cabin_quantity?: number;
+        cabins_freed?: number;
+      };
+    }>) => {
+      const { ferryId, availability } = action.payload;
+
+      // Find and update the ferry in searchResults
+      // Note: searchResults contains raw API data with sailing_id and cabin_types (snake_case)
+      const ferryIndex = state.searchResults.findIndex(
+        f => (f as any).sailing_id === ferryId || f.sailingId === ferryId
+      );
+
+      if (ferryIndex !== -1) {
+        const ferry = state.searchResults[ferryIndex] as any; // Cast to any for raw API fields
+
+        // Initialize available_spaces if not present
+        if (!ferry.available_spaces) {
+          ferry.available_spaces = {};
+        }
+
+        // Update passenger availability
+        if (availability.passengers_booked) {
+          const current = ferry.available_spaces.passengers || 0;
+          ferry.available_spaces.passengers = Math.max(0, current - availability.passengers_booked);
+        }
+        if (availability.passengers_freed) {
+          const current = ferry.available_spaces.passengers || 0;
+          ferry.available_spaces.passengers = current + availability.passengers_freed;
+        }
+
+        // Update vehicle availability
+        if (availability.vehicles_booked) {
+          const current = ferry.available_spaces.vehicles || 0;
+          ferry.available_spaces.vehicles = Math.max(0, current - availability.vehicles_booked);
+        }
+        if (availability.vehicles_freed) {
+          const current = ferry.available_spaces.vehicles || 0;
+          ferry.available_spaces.vehicles = current + availability.vehicles_freed;
+        }
+
+        // Update cabin availability in available_spaces (booking - decrease)
+        if (availability.cabin_quantity) {
+          const current = ferry.available_spaces.cabins || 0;
+          ferry.available_spaces.cabins = Math.max(0, current - availability.cabin_quantity);
+
+          // Also update cabin_types array (frontend displays from this)
+          const cabinTypes = ferry.cabin_types || ferry.cabinTypes;
+          if (cabinTypes && Array.isArray(cabinTypes)) {
+            let remaining = availability.cabin_quantity;
+            for (const cabin of cabinTypes) {
+              if (remaining <= 0) break;
+              // Skip deck/seat types
+              if (['deck', 'seat', 'reclining_seat'].includes(cabin.type?.toLowerCase())) continue;
+
+              const available = cabin.available || 0;
+              const toSubtract = Math.min(available, remaining);
+              cabin.available = Math.max(0, available - toSubtract);
+              remaining -= toSubtract;
+            }
+          }
+        }
+
+        // Update cabin availability when booking is cancelled (cabins_freed - increase)
+        if (availability.cabins_freed) {
+          const current = ferry.available_spaces.cabins || 0;
+          ferry.available_spaces.cabins = current + availability.cabins_freed;
+
+          // Also update cabin_types array (frontend displays from this)
+          const cabinTypes = ferry.cabin_types || ferry.cabinTypes;
+          if (cabinTypes && Array.isArray(cabinTypes)) {
+            let remaining = availability.cabins_freed;
+            for (const cabin of cabinTypes) {
+              if (remaining <= 0) break;
+              // Skip deck/seat types
+              if (['deck', 'seat', 'reclining_seat'].includes(cabin.type?.toLowerCase())) continue;
+
+              // Add freed cabins back (distribute evenly for now)
+              cabin.available = (cabin.available || 0) + remaining;
+              remaining = 0; // For simplicity, add all to first cabin type
+            }
+          }
+          console.log(`🔓 Cabins freed: ${availability.cabins_freed} for ferry ${ferryId}`);
+        }
+
+        console.log(`🔄 Updated availability for ferry ${ferryId}:`, ferry.available_spaces, ferry.cabin_types);
+      } else {
+        console.log(`⚠️ Ferry ${ferryId} not found in searchResults`);
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -655,6 +756,7 @@ export const {
   clearError,
   resetSearchState,
   resetAllState,
+  updateFerryAvailability,
 } = ferrySlice.actions;
 
 export default ferrySlice.reducer;

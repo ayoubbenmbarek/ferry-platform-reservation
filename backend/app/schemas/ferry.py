@@ -266,14 +266,42 @@ class VesselInfo(BaseModel):
     deck_plans: Optional[List[str]] = None
 
 
+class Coordinates(BaseModel):
+    """Geographic coordinates."""
+    lat: float
+    lng: float
+
+
 class PortInfo(BaseModel):
     """Port information schema."""
     code: str
     name: str
     city: str
     country: str
+    coordinates: Optional[Coordinates] = None
     facilities: Optional[List[str]] = None
     contact_info: Optional[Dict[str, str]] = None
+
+
+class ActiveFerry(BaseModel):
+    """Active ferry currently in transit."""
+    ferry_id: str
+    vessel_name: str
+    operator: str
+    departure_port: str
+    arrival_port: str
+    departure_time: datetime
+    arrival_time: datetime
+    departure_coordinates: Coordinates
+    arrival_coordinates: Coordinates
+    route_duration_hours: float
+
+
+class ActiveFerriesResponse(BaseModel):
+    """Response for active ferries endpoint."""
+    ferries: List[ActiveFerry]
+    timestamp: datetime
+    routes: List[Dict[str, Any]]  # Route definitions for map display
 
 
 class FerryOperatorInfo(BaseModel):

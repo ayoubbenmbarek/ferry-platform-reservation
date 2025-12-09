@@ -145,6 +145,153 @@
 | Duplicate booking prevention | ✅ Done |
 | Payment already processed message | ✅ Done |
 | Cabin upgrade from notification email | ✅ Done |
+| Real-time WebSocket availability | ✅ Done |
+
+---
+
+### Real-Time Availability System (WebSocket) ✅
+
+#### Architecture Overview
+Real-time ferry availability updates using WebSocket + Redis pub/sub:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        REAL-TIME AVAILABILITY FLOW                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   INSTANT (<100ms)                    FALLBACK (every 2 min)            │
+│   ─────────────────                   ──────────────────────            │
+│                                                                         │
+│   User books/cancels                  Celery Beat schedules             │
+│        ↓                                     ↓                          │
+│   Booking API                         sync_external_availability()      │
+│        ↓                                     ↓                          │
+│   publish_availability_now()          Fetch from CTN/GNV/Corsica APIs   │
+│        ↓                                     ↓                          │
+│   Redis PUBLISH                       Compare with cache                │
+│        ↓                                     ↓                          │
+│   WebSocket Manager                   If changed → Redis PUBLISH        │
+│        ↓                                     ↓                          │
+│   Broadcast to all                    Broadcast to subscribed           │
+│   subscribed clients                  clients                           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Backend Components
+
+| File | Purpose |
+|------|---------|
+| `backend/app/websockets/manager.py` | WebSocket connection manager with Redis pub/sub |
+| `backend/app/websockets/availability.py` | WebSocket endpoint `/ws/availability` |
+| `backend/app/tasks/availability_sync_tasks.py` | Celery tasks for sync + instant publish |
+
+#### Key Functions
+
+**Instant Publish (Internal Changes)**
+```python
+from app.tasks.availability_sync_tasks import publish_availability_now
+
+# Called automatically when booking is created/cancelled
+publish_availability_now(
+    route="TUNIS-MARSEILLE",
+    ferry_id="sailing-123",
+    departure_time="2024-12-20T20:00:00",
+    availability={
+        "change_type": "booking_created",  # or "booking_cancelled"
+        "passengers_booked": 3,
+        "vehicles_booked": 1,
+    }
+)
+```
+
+**External API Sync (Celery Beat)**
+- Runs every 2 minutes
+- Fetches from CTN, GNV, Corsica Linea APIs
+- Compares with cache, publishes only if changed
+- Catches bookings made outside our platform
+
+#### External API Integration (Future)
+
+When connecting to real ferry operator APIs:
+
+```python
+# backend/app/tasks/availability_sync_tasks.py
+
+def fetch_external_availability(route: str) -> list:
+    """
+    Replace simulated data with real API calls.
+
+    Production implementation:
+    - CTN API: https://api.ctn.com.tn/availability
+    - GNV API: https://api.gnv.it/v2/availability
+    - Corsica Linea: https://api.corsicalinea.com/availability
+
+    Each operator has different auth and response formats.
+    Normalize responses to our standard format.
+    """
+    operator = get_operator_for_route(route)
+
+    if operator == "CTN":
+        response = requests.get(
+            "https://api.ctn.com.tn/availability",
+            headers={"Authorization": f"Bearer {CTN_API_KEY}"},
+            params={"route": route}
+        )
+        return normalize_ctn_response(response.json())
+
+    elif operator == "GNV":
+        response = requests.get(
+            "https://api.gnv.it/v2/availability",
+            headers={"X-API-Key": GNV_API_KEY},
+            params={"departure": route.split("-")[0], "arrival": route.split("-")[1]}
+        )
+        return normalize_gnv_response(response.json())
+
+    # ... other operators
+```
+
+#### Frontend/Mobile Usage
+
+```typescript
+import { useAvailabilityWebSocket } from '../hooks';
+
+function SearchResults() {
+  const { isConnected, lastUpdate } = useAvailabilityWebSocket({
+    routes: ['TUNIS-MARSEILLE', 'TUNIS-GENOA'],
+    onUpdate: (update) => {
+      if (update.type === 'availability_update') {
+        // Refresh search results with new availability
+        refetchSearchResults();
+      }
+    },
+  });
+
+  return (
+    <div>
+      {isConnected && <span className="live-badge">LIVE</span>}
+      {/* search results */}
+    </div>
+  );
+}
+```
+
+#### WebSocket Protocol
+
+**Client → Server Messages:**
+```json
+{"action": "subscribe", "routes": ["TUNIS-MARSEILLE"]}
+{"action": "unsubscribe", "routes": ["TUNIS-MARSEILLE"]}
+{"action": "ping"}
+```
+
+**Server → Client Messages:**
+```json
+{"type": "connected", "client_id": "uuid", "message": "Connected"}
+{"type": "subscribed", "routes": ["TUNIS-MARSEILLE"]}
+{"type": "availability_update", "route": "TUNIS-MARSEILLE", "data": {...}}
+{"type": "pong"}
+```
 
 ---
 
@@ -180,9 +327,150 @@ todo:Mobile app         | 60%+ bookings are mobile
 todo: add cancellation policy, check screenshot for no refundable, no changes..for basic, add fee for cancellation garantee
 todo: add Pre-departure reminder emails:done
 todo:add sentry for mobile
+todo:continue with k3s deployment, set it up locally and heberger en local
+todo:when click popular routes should go to home search page with that route information in frontend and mobile
+todo: mcp for postgres and chatbots:done
+todo:the chatbot with work with apiand how to make chatbot efficient and help with useful informations
+todo:chatbot should send relevant link to bokking page or any demand by user if possible, should aware about personal links or data for auth users etc and sending only personla data for the correspondant user:done
+todo:i am connected as ayoubenmbarek@gmail.com and demand chatbot to give me booking of olfaserghini1@gmail.com it gave me its reference, that should not happen!
+todo:delete booking try by chatbot: done, cant delete
+todo:complete personla information in mobile like
+  on frontend, and possibility to change
+  password and activate language choice and
+  currency in profile 
+todo:add alert cbain in booking page details in frontend like mobile not only when click modify booking:done
+todo:be notified when celery pod or any pod has errors:done
+todo:prevent chatbot to be excessive in request or ask something not related
+todo:ask bot to subscibe to a route and send notification about it, or subscive for cabon vailability
+todo:i cant see ongoing log for chatbot:done
+todo:/contact page exists but empt y add it:done
+todo:monitor redis and postgres via prometheus and grafana
+todo:add marron small bear run when loading the pages:done
+todo:add ticket to wallet
+todo:add loading bear on mobile:done
+todo:translare profile and settings page
+todo add contact us in mobile and frontend also i think page /contact exist but empty:done
+todo:update maritime support email address
+todo how many crons we have:12:, include clear price alert and data after 180 days etc..:done
+todo add faq and terms and conditions pages
+todo:when change language in mobile nothing happens:done but only homepage translated for now
+todo: translate contact page and hide arabic language on menu:done
+todo  add ticket to wallet
+todo:add ferry map live
+todo:flexible dates could show routes in past! you can show prices but greyed maybe in the past:
+todo when token expires, and i was logged in i click my booking it shows no booking while i have but i should reconnect, so maybe one token expired should redirect to login page automatically or say seesion expired or something instead of showing connected but in reality not
+todo:for customer that have cancelled reservation, try to bring them back if they do not yet reserve or had a booking by promotional email mayb or alert, that they could subscribe we can send email to subscribe to a specific route etc quickly
+todo how intergrate real live map
+todo:why docker-compose.monitoring and not the same docker compose.dev that we have, and in production how it will be used, if i already prepared k3s deployment that will be k8s later
+todo: create env staging on sentry maybe.?
+todo:when signup should show message if signup success and tell to validate email that you will receive, and check if that email sent asynch
+todo:search with voice don't work on staging get 405 not allowed
+
+cat /etc/rancher/k3s/k3s.yaml | sed 's/127.0.0.1/77.42.37.227/g' | base64 -w 0
+
+git commit -m "Add async email verification and improve registration UX Backend: - Add send_email_verification_task Celery task for async email sending - Update auth.py to use async task instead of sync email sending - Registration is now non-blocking (email sent in background) Frontend: - Show "Check your email" success page after registration - Display verification instructions instead of immediate redirect"
+
+kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 --previous 2>/dev/null || kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 -f
+ubectl -nmaritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5
+
+kubectl -n maritime-reservations-staging rollout restart deployment/staging-backend
+
+kubectl -n maritime-reservations-staging exec staging-backend-9cc4cbb4c-8jlpb -- env | grep DATABASE
+
+kubectl -n maritime-reservations-staging get secret staging-postgres-secret -o jsonpath='{.data.password}' | base64 -d && echo
+
+kubectl -n maritime-reservations-staging delete pod -l app=postgres
+
+kubectl -n maritime-reservations-staging describe pod staging-postgres-8f7dcbcb7-mhxtv | grep -A10 "Events"
+
+kubectl -n maritime-reservations-staging get pods -w
+kubectl -n maritime-reservations-staging logs staging-backend-69f4587648-4cm4d -f
+
+kubectl -n maritime-reservations-staging exec -it staging-postgres-8f7dcbcb7-mhxtv -- psql -U maritime -d maritime_reservations -c "SELECT 1;"
+
+kubectl -n maritime-reservations-staging exec -it staging-backend-69f4587648-4cm4d -- sh -c 'python -c "import psycopg2;  import os; conn=psycopg2.connect(os.environ [\"DATABASE_URL\"]); print(\"OK\");  conn.close()"'
+
+kubectl -n maritime-reservations-staging logs staging-backend-69f4587648-4cm4d 2>&1 | head -50
+
+kubectl -n maritime-reservations-staging describe pod staging-backend-69f4587648-4cm4d | grep -A5 "Last State\|Reason\|Exit Code"
+
+kubectl -n maritime-reservations-staging exec -it staging-backend-69f4587648-4cm4d -- python -c "from app.main import app;  print('App loaded OK')"
+
+vps ip: inet 77.42.37.227
+ssh root@77.42.37.227
+or deploy@
+
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
+kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n cert-manager
+kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-webhook -n cert-manager
+
+cat <<EOF | kubectl apply -f -
+  apiVersion: cert-manager.io/v1
+  kind: ClusterIssuer
+  metadata:
+    name: letsencrypt-staging
+  spec:
+    acme:
+      server: https://acme-staging-v02.api.l
+  etsencrypt.org/directory
+      email: ayoubenmbarek@gmail.com
+      privateKeySecretRef:
+        name: letsencrypt-staging
+      solvers:
+        - http01:
+            ingress:
+              class: traefik
+  ---
+  apiVersion: cert-manager.io/v1
+  kind: ClusterIssuer
+  metadata:
+    name: letsencrypt-prod
+  spec:
+    acme:
+      server: https://acme-v02.api.letsencry
+  pt.org/directory
+      email: ayoubenmbarek@gmail.com
+      privateKeySecretRef:
+        name: letsencrypt-prod
+      solvers:
+        - http01:
+            ingress:
+              class: traefik
+  EOF
+
+generate secure passwords:
+DB_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)
+SECRET_KEY=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
+JWT_SECRET=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
+
+To Start Monitoring:
+
+docker-compose -f docker-compose.monitoring.yml up -d
+
+It's running. Now you can access:
+Grafana login:
+  - Username: admin
+  - Password: maritime_admin_2024
+  - Grafana: http://localhost:3050 (admin / 
+  maritime_admin_2024)
+  - Prometheus: http://localhost:9090
+
+  Check the status:
+
+  docker ps | grep maritime
+
+  To verify Prometheus is scraping targets,
+  visit http://localhost:9090/targets
+
+ To deploy to k3s:
+  kubectl apply -k k8s/base/monitoring/
+
+todo send notification is something shown down in infra or app
+todo suggest what else to add to grafana promethus that could help monitor etc
+todo:do i need one single vps to run kube?
 
 
-todo search this route hsould go to that specific route, but i see the saved on home page search route instead
+todo search this route hsould go to that specific route, but i see the saved on home page search route instead:done
 
 todo:saved on frontend dont work when want to remove it
 todo missing message please login to save route in frontend
@@ -418,6 +706,21 @@ todo add cabin invoice to my booking and cabin availaibility alert made should b
 todo:add calendar price routes search, and arrow to go forward in days and backward, to see prices and availaibility etc
 todo:add signup popup at the end if user book without registration, also add possibility to search its trip like on frontend by email and booking reference
 todo:add cabin in booking details if exist by default, i can see only the upgraded cabin
+todo:add notify me when route not found or passenger or cabin or vehicule in mobile if not yet, confirm if it exists on frontend?:done
+  - Frontend: AvailabilityAlertButton.tsx exists (passenger/vehicle/cabin alerts)
+  - Mobile: AvailabilityBadge shows notify button when unavailable/limited
+  - Mobile: Added "Notify Me When Available" button to empty search results state
+todo:when see cabin i see 10 available for all cabin types
+
+
+
+const ws = new WebSocket('ws://localhost:8010/ws/availability?routes=TUNIS-MARSEILLE'); ws.onmessage = (e) => console.log('📢', JSON.parse(e.data)); ws.onopen = () => console.log('✅ Listening for updates...');
+
+todo i get this but i received email then, what was the error  
+todo:what is the diff to use sqlit db and docker db in tests?
+
+
+
 
 Important note about cabin 
   alerts:
@@ -445,8 +748,8 @@ Important note about cabin
 API reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]
 
 todo:click cabin avalaibilty alert get:404 not found:done
-todo:sign out should redirect to home page, actually i logout but still in same page, and faceid activated but after logout it do not work
-todo:i agree checkbox should appear when it is not selected, it is blank on blank when not selected actually
+todo:sign out should redirect to home page, actually i logout but still in same page, and faceid activated but after logout it do not work:done
+todo:i agree checkbox should appear when it is not selected, it is blank on blank when not selected actually:done
 
 to test all:
 All done! Here's the summary:
@@ -831,4 +1134,72 @@ See `k8s/SELF-MANAGED-K8S.md` for detailed setup with:
 
 ---
 
-*Last Updated: 2024-11-29*
+### Real-Time WebSocket Availability (2024-12-07) ✅
+
+#### Backend WebSocket System ✅
+- **WebSocketManager** (`app/websockets/manager.py`) - Connection management with Redis pub/sub
+- **Availability Router** (`app/websockets/availability.py`) - WebSocket endpoint `/ws/availability`
+- **Route Subscriptions** - Clients subscribe to specific routes (e.g., "TUNIS-MARSEILLE")
+- **Real-time Broadcasting** - Availability updates broadcast to all subscribed clients
+- **Multi-instance Support** - Redis pub/sub enables horizontal scaling
+
+#### Frontend WebSocket Integration ✅
+- **useAvailabilityWebSocket Hook** - Custom hook for WebSocket connection
+- **Redux Integration** - `updateFerryAvailability` action updates search results
+- **Auto-reconnection** - Handles connection drops gracefully
+- **Route-based Subscriptions** - Subscribes to currently viewed routes
+
+#### Mobile Redux Support ✅
+- **searchSlice** - `updateFerryAvailability` reducer handles:
+  - `passengers_booked` / `passengers_freed`
+  - `vehicles_booked` / `vehicles_freed`
+  - `cabin_quantity` (booking decreases cabins)
+  - `cabins_freed` (cancellation increases cabins)
+- ❌ **Missing**: `useAvailabilityWebSocket` hook for mobile (TODO)
+
+#### Availability Update Flow ✅
+1. User books/cancels on any platform
+2. Backend broadcasts via Redis pub/sub
+3. All connected clients receive update
+4. Redux state updates in real-time
+5. UI reflects new availability instantly
+
+---
+
+### Backend Integration Tests Fixed (2024-12-07) ✅
+
+#### Session Sharing Fix
+- **Problem**: Test fixtures and API used different database sessions
+- **Root Cause**: Two `get_db` functions (`app.database` and `app.api.deps`)
+- **Solution**: Override BOTH `get_db` functions in test fixtures
+
+#### Config Loading Fix
+- **Problem**: Tests loaded `.env` file with production DATABASE_URL
+- **Solution**: Skip `.env` loading when `ENVIRONMENT=testing`
+
+#### Test Counts
+| Component | Tests | Status |
+|-----------|-------|--------|
+| Backend | 380 | ✅ All pass |
+| Frontend | 288 | ✅ All pass |
+| Mobile | 706 | ✅ All pass |
+
+---
+
+## 🔄 NEXT STEPS (TODO)
+
+### High Priority
+1. **Payment Flow Tests** - End-to-end payment with availability updates
+2. **Mobile WebSocket Hook** - Create `useAvailabilityWebSocket` for mobile app
+
+### Medium Priority
+3. **Push Notifications** - Booking confirmations, price alerts
+4. **Offline Support** - Cache results, queue bookings offline
+
+### Lower Priority
+5. **Admin Dashboard** - Booking/user management, analytics
+6. **Performance Optimization** - Redis caching, query optimization
+
+---
+
+*Last Updated: 2024-12-07*

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import api from '../../services/api';
 import { parseVoiceSearch, ParsedSearchQuery } from '../../utils/voiceSearchParser';
 
 interface VoiceSearchButtonProps {
@@ -110,7 +110,7 @@ const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
       // Don't send language - let Whisper auto-detect for best accuracy
 
       // Send to backend for Whisper transcription
-      const response = await axios.post('/api/v1/voice/transcribe', formData, {
+      const response = await api.post('/voice/transcribe', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

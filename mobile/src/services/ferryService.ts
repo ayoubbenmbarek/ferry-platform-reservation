@@ -36,11 +36,20 @@ export const ferryService = {
           // Vehicle availability
           vehicle_capacity: result.available_spaces?.vehicles || result.vehicle_capacity || 50,
           available_vehicle_space: result.available_spaces?.vehicles || result.available_vehicle_space || result.vehicle_capacity || 20,
-          // Cabin availability - from cabin_types if available
-          available_cabins: result.cabin_types?.reduce((sum: number, cabin: any) => sum + (cabin.available || 0), 0)
-            || result.available_cabins
-            || result.available_spaces?.cabins
-            || 10,
+          // Cabin availability - from cabin_types if available (exclude deck/seat types)
+          available_cabins: (() => {
+            // If cabin_types exists with data, calculate from it (excluding deck/seat types)
+            if (result.cabin_types && Array.isArray(result.cabin_types) && result.cabin_types.length > 0) {
+              const realCabins = result.cabin_types.filter((cabin: any) =>
+                !['deck', 'seat', 'reclining_seat', 'deck_seat'].includes(cabin.type?.toLowerCase())
+              );
+              const count = realCabins.reduce((sum: number, cabin: any) => sum + (cabin.available || 0), 0);
+              console.log('[FerryService] Cabin count from cabin_types:', count, 'filtered from', result.cabin_types.length, 'types');
+              return count;
+            }
+            // Fallback to other sources
+            return result.available_cabins ?? result.available_spaces?.cabins ?? 10;
+          })(),
           amenities: result.amenities || ['WiFi', 'Restaurant'],
         }));
       };

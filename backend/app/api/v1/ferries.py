@@ -88,6 +88,111 @@ router = APIRouter()
 ferry_service = FerryService()
 
 
+async def adjust_availability_from_bookings(results: list) -> list:
+    """
+    Adjust cabin and passenger availability based on our actual bookings.
+
+    This subtracts booked cabins/passengers from the operator's reported availability
+    to reflect our platform's bookings.
+    """
+    from app.database import SessionLocal
+    from app.models.booking import Booking, BookingCabin, BookingStatusEnum
+    from sqlalchemy import func
+
+    if not results:
+        return results
+
+    try:
+        db = SessionLocal()
+
+        # Get all sailing IDs from results
+        sailing_ids = [r.get("sailing_id") for r in results if r.get("sailing_id")]
+
+        if not sailing_ids:
+            db.close()
+            return results
+
+        # Query booked cabins grouped by sailing_id and cabin type
+        cabin_bookings = (
+            db.query(
+                Booking.sailing_id,
+                BookingCabin.cabin_id,
+                func.sum(BookingCabin.quantity).label("total_booked")
+            )
+            .join(BookingCabin, Booking.id == BookingCabin.booking_id)
+            .filter(
+                Booking.sailing_id.in_(sailing_ids),
+                Booking.status.in_([BookingStatusEnum.CONFIRMED, BookingStatusEnum.PENDING])
+            )
+            .group_by(Booking.sailing_id, BookingCabin.cabin_id)
+            .all()
+        )
+
+        # Query booked passengers grouped by sailing_id
+        passenger_bookings = (
+            db.query(
+                Booking.sailing_id,
+                func.sum(Booking.total_passengers).label("total_passengers"),
+                func.sum(Booking.total_vehicles).label("total_vehicles")
+            )
+            .filter(
+                Booking.sailing_id.in_(sailing_ids),
+                Booking.status.in_([BookingStatusEnum.CONFIRMED, BookingStatusEnum.PENDING])
+            )
+            .group_by(Booking.sailing_id)
+            .all()
+        )
+
+        db.close()
+
+        # Build lookup dictionaries
+        # cabin_booked[sailing_id] = total cabins booked (simplified - all types)
+        cabin_booked = {}
+        for sailing_id, cabin_id, total in cabin_bookings:
+            if sailing_id not in cabin_booked:
+                cabin_booked[sailing_id] = 0
+            cabin_booked[sailing_id] += total or 0
+
+        # passenger_booked[sailing_id] = (passengers, vehicles)
+        passenger_booked = {}
+        for sailing_id, passengers, vehicles in passenger_bookings:
+            passenger_booked[sailing_id] = (passengers or 0, vehicles or 0)
+
+        # Adjust results
+        for result in results:
+            sailing_id = result.get("sailing_id")
+            if not sailing_id:
+                continue
+
+            # Adjust cabin availability
+            if sailing_id in cabin_booked:
+                booked = cabin_booked[sailing_id]
+                cabin_types = result.get("cabin_types", [])
+                for cabin in cabin_types:
+                    if cabin.get("type") not in ("deck", "seat", "reclining_seat"):
+                        # Distribute booked cabins proportionally (simplified)
+                        available = cabin.get("available", 0)
+                        cabin["available"] = max(0, available - booked)
+                        booked = max(0, booked - available)  # Carry over to next type
+
+            # Adjust passenger/vehicle availability
+            if sailing_id in passenger_booked:
+                booked_pax, booked_vehicles = passenger_booked[sailing_id]
+
+                spaces = result.get("available_spaces", {})
+                if spaces:
+                    spaces["passengers"] = max(0, spaces.get("passengers", 0) - booked_pax)
+                    spaces["vehicles"] = max(0, spaces.get("vehicles", 0) - booked_vehicles)
+                    result["available_spaces"] = spaces
+
+        logger.info(f"📊 Adjusted availability for {len(results)} results (cabins: {len(cabin_booked)}, passengers: {len(passenger_booked)} sailings)")
+        return results
+
+    except Exception as e:
+        logger.warning(f"Failed to adjust availability from bookings: {e}")
+        return results
+
+
 @router.post("/search", response_model=FerrySearchResponse)
 async def search_ferries(
     search_params: FerrySearch
@@ -152,6 +257,11 @@ async def search_ferries(
                 cached_response["results"] = filtered_cached
                 cached_response["total_results"] = len(filtered_cached)
 
+            # Adjust availability based on our bookings (even for cached results)
+            if cached_response.get("results"):
+                cached_response["results"] = await adjust_availability_from_bookings(cached_response["results"])
+                cached_response["total_results"] = len(cached_response["results"])
+
             # Add cache hit indicator
             cached_response["cached"] = True
             cached_response["cache_age_ms"] = (time.time() - start_time) * 1000
@@ -213,7 +323,7 @@ async def search_ferries(
 
         results_dict = filtered_results
 
-        # Build response
+        # Build response (cache RAW results before adjustment)
         # Serialize search_params dates for caching
         search_params_dict = search_params.dict()
         if search_params_dict.get("departure_date"):
@@ -222,19 +332,29 @@ async def search_ferries(
             search_params_dict["return_date"] = search_params_dict["return_date"].isoformat()
 
         response_dict = {
-            "results": results_dict,
-            "total_results": len(results_dict),  # Use filtered count
+            "results": results_dict,  # RAW unadjusted results for caching
+            "total_results": len(results_dict),
             "search_params": search_params_dict,
             "operators_searched": operators_searched,
             "search_time_ms": search_time,
             "cached": False
         }
 
-        # Cache the results for 5 minutes (300 seconds)
+        # Cache the RAW results for 5 minutes (adjustment happens on read)
         cache_service.set_ferry_search(cache_params, response_dict, ttl=300)
+
         logger.info(f"💾 Cached ferry search results ({search_time:.0f}ms)")
 
-        return FerrySearchResponse(**response_dict)
+        # Now adjust availability based on our bookings (after caching raw results)
+        adjusted_results = await adjust_availability_from_bookings(results_dict)
+
+        # Return adjusted results (not the raw cached ones)
+        adjusted_response = {
+            **response_dict,
+            "results": adjusted_results,
+            "total_results": len(adjusted_results),
+        }
+        return FerrySearchResponse(**adjusted_response)
         
     except FerryAPIError as e:
         raise HTTPException(
@@ -344,28 +464,40 @@ async def get_ports():
                 ports_set.add(route["departure"])
                 ports_set.add(route["arrival"])
 
-        # Port information mapping
+        # Port information mapping with coordinates
         port_info = {
-            "TUN": {"code": "TUN", "name": "Tunis", "country": "Tunisia"},
-            "TUNIS": {"code": "TUNIS", "name": "Tunis", "country": "Tunisia"},
-            "MRS": {"code": "MRS", "name": "Marseille", "country": "France"},
-            "MARSEILLE": {"code": "MARSEILLE", "name": "Marseille", "country": "France"},
-            "GEN": {"code": "GEN", "name": "Genoa", "country": "Italy"},
-            "GENOA": {"code": "GENOA", "name": "Genoa", "country": "Italy"},
-            "CIV": {"code": "CIV", "name": "Civitavecchia", "country": "Italy"},
-            "CIVITAVECCHIA": {"code": "CIVITAVECCHIA", "name": "Civitavecchia", "country": "Italy"},
-            "PAL": {"code": "PAL", "name": "Palermo", "country": "Italy"},
-            "PALERMO": {"code": "PALERMO", "name": "Palermo", "country": "Italy"},
-            "NAP": {"code": "NAP", "name": "Naples", "country": "Italy"},
-            "NAPLES": {"code": "NAPLES", "name": "Naples", "country": "Italy"},
-            "LIV": {"code": "LIV", "name": "Livorno", "country": "Italy"},
-            "LIVORNO": {"code": "LIVORNO", "name": "Livorno", "country": "Italy"},
-            "SAL": {"code": "SAL", "name": "Salerno", "country": "Italy"},
-            "SALERNO": {"code": "SALERNO", "name": "Salerno", "country": "Italy"},
-            "ALG": {"code": "ALG", "name": "Algiers", "country": "Algeria"},
-            "BAR": {"code": "BAR", "name": "Barcelona", "country": "Spain"},
-            "BARCELONA": {"code": "BARCELONA", "name": "Barcelona", "country": "Spain"},
-            "NICE": {"code": "NICE", "name": "Nice", "country": "France"},
+            # Tunisia
+            "TUN": {"code": "TUN", "name": "Tunis", "country": "Tunisia", "coordinates": {"lat": 36.8065, "lng": 10.1815}},
+            "TUNIS": {"code": "TUNIS", "name": "Tunis", "country": "Tunisia", "coordinates": {"lat": 36.8065, "lng": 10.1815}},
+            "ZARZIS": {"code": "ZARZIS", "name": "Zarzis", "country": "Tunisia", "coordinates": {"lat": 33.5036, "lng": 11.1117}},
+            "ZAR": {"code": "ZAR", "name": "Zarzis", "country": "Tunisia", "coordinates": {"lat": 33.5036, "lng": 11.1117}},
+            "SFAX": {"code": "SFAX", "name": "Sfax", "country": "Tunisia", "coordinates": {"lat": 34.7478, "lng": 10.7661}},
+            "SFA": {"code": "SFA", "name": "Sfax", "country": "Tunisia", "coordinates": {"lat": 34.7478, "lng": 10.7661}},
+            # France
+            "MRS": {"code": "MRS", "name": "Marseille", "country": "France", "coordinates": {"lat": 43.2965, "lng": 5.3698}},
+            "MARSEILLE": {"code": "MARSEILLE", "name": "Marseille", "country": "France", "coordinates": {"lat": 43.2965, "lng": 5.3698}},
+            "NICE": {"code": "NICE", "name": "Nice", "country": "France", "coordinates": {"lat": 43.7102, "lng": 7.2620}},
+            "TOULON": {"code": "TOULON", "name": "Toulon", "country": "France", "coordinates": {"lat": 43.1242, "lng": 5.9280}},
+            "TLN": {"code": "TLN", "name": "Toulon", "country": "France", "coordinates": {"lat": 43.1242, "lng": 5.9280}},
+            # Italy
+            "GEN": {"code": "GEN", "name": "Genoa", "country": "Italy", "coordinates": {"lat": 44.4056, "lng": 8.9463}},
+            "GENOA": {"code": "GENOA", "name": "Genoa", "country": "Italy", "coordinates": {"lat": 44.4056, "lng": 8.9463}},
+            "CIV": {"code": "CIV", "name": "Civitavecchia", "country": "Italy", "coordinates": {"lat": 42.0930, "lng": 11.7969}},
+            "CIVITAVECCHIA": {"code": "CIVITAVECCHIA", "name": "Civitavecchia", "country": "Italy", "coordinates": {"lat": 42.0930, "lng": 11.7969}},
+            "PAL": {"code": "PAL", "name": "Palermo", "country": "Italy", "coordinates": {"lat": 38.1157, "lng": 13.3615}},
+            "PALERMO": {"code": "PALERMO", "name": "Palermo", "country": "Italy", "coordinates": {"lat": 38.1157, "lng": 13.3615}},
+            "TRAPANI": {"code": "TRAPANI", "name": "Trapani", "country": "Italy", "coordinates": {"lat": 38.0174, "lng": 12.5365}},
+            "TPS": {"code": "TPS", "name": "Trapani", "country": "Italy", "coordinates": {"lat": 38.0174, "lng": 12.5365}},
+            "NAP": {"code": "NAP", "name": "Naples", "country": "Italy", "coordinates": {"lat": 40.8518, "lng": 14.2681}},
+            "NAPLES": {"code": "NAPLES", "name": "Naples", "country": "Italy", "coordinates": {"lat": 40.8518, "lng": 14.2681}},
+            "LIV": {"code": "LIV", "name": "Livorno", "country": "Italy", "coordinates": {"lat": 43.5485, "lng": 10.3106}},
+            "LIVORNO": {"code": "LIVORNO", "name": "Livorno", "country": "Italy", "coordinates": {"lat": 43.5485, "lng": 10.3106}},
+            "SAL": {"code": "SAL", "name": "Salerno", "country": "Italy", "coordinates": {"lat": 40.6824, "lng": 14.7681}},
+            "SALERNO": {"code": "SALERNO", "name": "Salerno", "country": "Italy", "coordinates": {"lat": 40.6824, "lng": 14.7681}},
+            # Other
+            "ALG": {"code": "ALG", "name": "Algiers", "country": "Algeria", "coordinates": {"lat": 36.7538, "lng": 3.0588}},
+            "BAR": {"code": "BAR", "name": "Barcelona", "country": "Spain", "coordinates": {"lat": 41.3851, "lng": 2.1734}},
+            "BARCELONA": {"code": "BARCELONA", "name": "Barcelona", "country": "Spain", "coordinates": {"lat": 41.3851, "lng": 2.1734}},
         }
 
         ports = []
@@ -387,6 +519,192 @@ async def get_ports():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get ports: {str(e)}"
         )
+
+
+@router.get("/active-ferries")
+async def get_active_ferries():
+    """
+    Get list of ferries currently in transit (simulated).
+
+    Returns ferries that have departed but not yet arrived,
+    along with route definitions for map display.
+    """
+    from datetime import timedelta
+    import random
+
+    # Port coordinates for reference
+    port_coords = {
+        "TUNIS": {"lat": 36.8065, "lng": 10.1815},
+        "SFAX": {"lat": 34.7478, "lng": 10.7661},
+        "ZARZIS": {"lat": 33.5036, "lng": 11.1117},
+        "GENOA": {"lat": 44.4056, "lng": 8.9463},
+        "CIVITAVECCHIA": {"lat": 42.0930, "lng": 11.7969},
+        "PALERMO": {"lat": 38.1157, "lng": 13.3615},
+        "TRAPANI": {"lat": 38.0174, "lng": 12.5365},
+        "NAPLES": {"lat": 40.8518, "lng": 14.2681},
+        "LIVORNO": {"lat": 43.5485, "lng": 10.3106},
+        "SALERNO": {"lat": 40.6824, "lng": 14.7681},
+        "MARSEILLE": {"lat": 43.2965, "lng": 5.3698},
+        "NICE": {"lat": 43.7102, "lng": 7.2620},
+        "TOULON": {"lat": 43.1242, "lng": 5.9280},
+        "ALGIERS": {"lat": 36.7538, "lng": 3.0588},
+        "BARCELONA": {"lat": 41.3851, "lng": 2.1734},
+    }
+
+    # Real vessel data with MMSI numbers for live tracking
+    # MMSI (Maritime Mobile Service Identity) is used for AIS tracking
+    vessel_registry = {
+        "TANIT": {"mmsi": "672748000", "imo": "9598579", "operator": "CTN"},
+        "CARTHAGE": {"mmsi": "672266000", "imo": "9138528", "operator": "CTN"},
+        "AMILCAR": {"mmsi": "672295000", "imo": "7907429", "operator": "CTN"},
+        "LA SUPERBA": {"mmsi": "247039700", "imo": "9224963", "operator": "GNV"},
+        "SPLENDID": {"mmsi": "247111500", "imo": "9230428", "operator": "GNV"},
+        "EXCELLENT": {"mmsi": "247039500", "imo": "9208402", "operator": "GNV"},
+        "MEDITERRANEE": {"mmsi": "226443000", "imo": "7907417", "operator": "Corsica Linea"},
+    }
+
+    # Define ferry routes with typical durations
+    ferry_routes = [
+        {"departure": "TUNIS", "arrival": "GENOA", "duration_hours": 24, "operator": "CTN", "vessel": "CARTHAGE"},
+        {"departure": "TUNIS", "arrival": "MARSEILLE", "duration_hours": 21, "operator": "CTN", "vessel": "TANIT"},
+        {"departure": "GENOA", "arrival": "TUNIS", "duration_hours": 24, "operator": "GNV", "vessel": "LA SUPERBA"},
+        {"departure": "MARSEILLE", "arrival": "TUNIS", "duration_hours": 21, "operator": "Corsica Linea", "vessel": "MEDITERRANEE"},
+        {"departure": "PALERMO", "arrival": "TUNIS", "duration_hours": 11, "operator": "GNV", "vessel": "SPLENDID"},
+        {"departure": "TUNIS", "arrival": "CIVITAVECCHIA", "duration_hours": 16, "operator": "CTN", "vessel": "AMILCAR"},
+        {"departure": "CIVITAVECCHIA", "arrival": "TUNIS", "duration_hours": 16, "operator": "GNV", "vessel": "EXCELLENT"},
+        {"departure": "TUNIS", "arrival": "PALERMO", "duration_hours": 11, "operator": "CTN", "vessel": "CARTHAGE"},
+    ]
+
+    # Generate simulated active ferries based on current time
+    now = datetime.utcnow()
+    active_ferries = []
+
+    # Simulate some ferries that departed at various times and are now in transit
+    for i, route in enumerate(ferry_routes):
+        # Stagger departures so some ferries are always in transit
+        hours_ago = (i * 3) % 24  # Spread departures throughout the day
+        departure_time = now - timedelta(hours=hours_ago)
+        arrival_time = departure_time + timedelta(hours=route["duration_hours"])
+
+        # Only include if ferry is currently in transit (departed but not arrived)
+        if departure_time <= now < arrival_time:
+            dep_port = route["departure"]
+            arr_port = route["arrival"]
+            vessel_info = vessel_registry.get(route["vessel"], {})
+
+            active_ferries.append({
+                "ferry_id": f"{route['operator'][:3]}-{i+1:03d}",
+                "vessel_name": route["vessel"],
+                "operator": route["operator"],
+                "mmsi": vessel_info.get("mmsi"),
+                "imo": vessel_info.get("imo"),
+                "departure_port": dep_port,
+                "arrival_port": arr_port,
+                "departure_time": departure_time.isoformat() + "Z",
+                "arrival_time": arrival_time.isoformat() + "Z",
+                "departure_coordinates": port_coords.get(dep_port, {"lat": 0, "lng": 0}),
+                "arrival_coordinates": port_coords.get(arr_port, {"lat": 0, "lng": 0}),
+                "route_duration_hours": route["duration_hours"]
+            })
+
+    # Define all routes for map display (lines between ports)
+    routes_for_map = [
+        {"from": "TUNIS", "to": "GENOA", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["GENOA"]},
+        {"from": "TUNIS", "to": "MARSEILLE", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["MARSEILLE"]},
+        {"from": "TUNIS", "to": "CIVITAVECCHIA", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["CIVITAVECCHIA"]},
+        {"from": "TUNIS", "to": "PALERMO", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["PALERMO"]},
+        {"from": "TUNIS", "to": "TRAPANI", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["TRAPANI"]},
+        {"from": "TUNIS", "to": "NAPLES", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["NAPLES"]},
+        {"from": "TUNIS", "to": "LIVORNO", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["LIVORNO"]},
+        {"from": "SFAX", "to": "TRAPANI", "from_coords": port_coords["SFAX"], "to_coords": port_coords["TRAPANI"]},
+        {"from": "ZARZIS", "to": "TRAPANI", "from_coords": port_coords["ZARZIS"], "to_coords": port_coords["TRAPANI"]},
+    ]
+
+    return {
+        "ferries": active_ferries,
+        "timestamp": now.isoformat() + "Z",
+        "routes": routes_for_map,
+        "ports": port_coords,
+        "vessel_registry": vessel_registry  # Include for real tracking
+    }
+
+
+@router.get("/vessel-position/{mmsi}")
+async def get_vessel_position(mmsi: str):
+    """
+    Get real-time vessel position from AIS data.
+
+    Uses MMSI (Maritime Mobile Service Identity) to fetch live position.
+    Falls back to MarineTraffic embed URL if API is unavailable.
+    """
+    import httpx
+    import os
+
+    # Vessel registry for validation
+    valid_vessels = {
+        "672748000": {"name": "TANIT", "imo": "9598579"},
+        "672266000": {"name": "CARTHAGE", "imo": "9138528"},
+        "672295000": {"name": "AMILCAR", "imo": "7907429"},
+        "247039700": {"name": "LA SUPERBA", "imo": "9224963"},
+        "247111500": {"name": "SPLENDID", "imo": "9230428"},
+        "247039500": {"name": "EXCELLENT", "imo": "9208402"},
+        "226443000": {"name": "MEDITERRANEE", "imo": "7907417"},
+    }
+
+    if mmsi not in valid_vessels:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown vessel MMSI: {mmsi}"
+        )
+
+    vessel_info = valid_vessels[mmsi]
+
+    # Try to get real position from AIS API (if configured)
+    ais_api_key = os.environ.get("AIS_API_KEY")
+
+    if ais_api_key:
+        try:
+            async with httpx.AsyncClient() as client:
+                # Example: VesselFinder API or MarineTraffic API
+                response = await client.get(
+                    f"https://api.vesselfinder.com/vesselslist",
+                    params={"userkey": ais_api_key, "mmsi": mmsi},
+                    timeout=10.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("AIS"):
+                        ais_data = data["AIS"][0]
+                        return {
+                            "mmsi": mmsi,
+                            "vessel_name": vessel_info["name"],
+                            "imo": vessel_info["imo"],
+                            "position": {
+                                "lat": ais_data.get("LATITUDE"),
+                                "lng": ais_data.get("LONGITUDE")
+                            },
+                            "speed": ais_data.get("SPEED"),
+                            "course": ais_data.get("COURSE"),
+                            "heading": ais_data.get("HEADING"),
+                            "timestamp": ais_data.get("TIMESTAMP"),
+                            "status": ais_data.get("NAVSTAT"),
+                            "source": "live_ais"
+                        }
+        except Exception as e:
+            logger.warning(f"Failed to fetch AIS data for {mmsi}: {e}")
+
+    # Return embed URL for MarineTraffic widget (free alternative)
+    return {
+        "mmsi": mmsi,
+        "vessel_name": vessel_info["name"],
+        "imo": vessel_info["imo"],
+        "position": None,  # No real position available without API
+        "marine_traffic_url": f"https://www.marinetraffic.com/en/ais/details/ships/mmsi:{mmsi}",
+        "vessel_finder_url": f"https://www.vesselfinder.com/vessels?mmsi={mmsi}",
+        "embed_url": f"https://www.marinetraffic.com/en/ais/embed/zoom:8/centery:38/centerx:10/maptype:0/shownames:true/mmsi:{mmsi}",
+        "source": "simulated",
+        "message": "Set AIS_API_KEY environment variable for real-time tracking"
+    }
 
 
 @router.get("/health", response_model=HealthCheckResponse)

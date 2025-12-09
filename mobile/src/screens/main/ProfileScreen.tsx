@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { logout } from '../../store/slices/authSlice';
@@ -18,6 +19,7 @@ import { selectActiveAlertCount, fetchUserAlerts } from '../../store/slices/aler
 import { selectSavedRoutesTotal, fetchSavedRoutes } from '../../store/slices/priceAlertSlice';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { biometricService, BiometricStatus } from '../../services/biometricService';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { RootStackParamList } from '../../types';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import { APP_NAME } from '../../constants/config';
@@ -66,12 +68,17 @@ const MenuItem: React.FC<MenuItemProps> = ({
 );
 
 export default function ProfileScreen() {
+  const { t } = useTranslation(['common', 'profile']);
   const navigation = useNavigation<NavigationProp>();
   const dispatch = useAppDispatch();
   const { isAuthenticated, user, token } = useAppSelector((state) => state.auth);
   const activeAlertCount = useAppSelector(selectActiveAlertCount);
   const savedRoutesCount = useAppSelector(selectSavedRoutesTotal);
   const { settings, hasPermission } = useNotifications();
+  const { currentLanguage, supportedLanguages } = useLanguage();
+
+  // Get the display name for the current language
+  const currentLanguageName = supportedLanguages.find(l => l.code === currentLanguage)?.name || 'English';
 
   // Fetch alerts and saved routes on mount when authenticated
   React.useEffect(() => {
@@ -223,21 +230,21 @@ export default function ProfileScreen() {
                 icon="person-outline"
                 title="Personal Information"
                 subtitle="Name, email, phone"
-                onPress={() => {}}
+                onPress={() => navigation.navigate('PersonalInfo')}
               />
               <Divider style={styles.divider} />
               <MenuItem
                 icon="card-outline"
                 title="Payment Methods"
                 subtitle="Manage your cards"
-                onPress={() => {}}
+                onPress={() => navigation.navigate('PaymentMethods')}
               />
               <Divider style={styles.divider} />
               <MenuItem
                 icon="lock-closed-outline"
-                title="Security"
-                subtitle="Password, 2FA"
-                onPress={() => {}}
+                title="Change Password"
+                subtitle="Update your password"
+                onPress={() => navigation.navigate('ChangePassword')}
               />
               {biometricStatus.isAvailable && (
                 <>
@@ -287,16 +294,16 @@ export default function ProfileScreen() {
           <Divider style={styles.divider} />
           <MenuItem
             icon="language-outline"
-            title="Language"
-            subtitle="English"
-            onPress={() => {}}
+            title={t('profile:preferences.language')}
+            subtitle={currentLanguageName}
+            onPress={() => navigation.navigate('LanguageSettings')}
           />
           <Divider style={styles.divider} />
           <MenuItem
             icon="cash-outline"
             title="Currency"
-            subtitle="EUR (€)"
-            onPress={() => {}}
+            subtitle={user?.preferred_currency || 'EUR (€)'}
+            onPress={() => navigation.navigate('CurrencySettings')}
           />
         </View>
 
@@ -306,13 +313,15 @@ export default function ProfileScreen() {
           <MenuItem
             icon="help-circle-outline"
             title="Help Center"
+            subtitle="FAQs and guides"
             onPress={() => {}}
           />
           <Divider style={styles.divider} />
           <MenuItem
             icon="chatbubble-outline"
             title="Contact Us"
-            onPress={() => {}}
+            subtitle="Get in touch with our team"
+            onPress={() => navigation.navigate('Contact')}
           />
           <Divider style={styles.divider} />
           <MenuItem

@@ -15,7 +15,7 @@ cd frontend && npm install && npm start
 # Open http://localhost:3010
 ```
 
-**See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed local development guide.**
+**See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed local development guide.**
 
 **Production Deployment:**
 ```bash
@@ -28,7 +28,7 @@ cp backend/.env.production.example backend/.env.production
 ./scripts/deploy.sh
 ```
 
-**See [DEPLOYMENT.md](DEPLOYMENT.md) for complete production deployment guide.**
+**See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for complete production deployment guide.**
 
 ---
 
@@ -278,13 +278,32 @@ For support and questions:
 - Documentation: [API Docs](http://localhost:8000/docs)
 - Issues: GitHub Issues
 
+## Documentation
+
+All documentation files are located in the `/docs` directory:
+
+| Document | Description |
+|----------|-------------|
+| [IMPLEMENTATION_COMPLETE.md](docs/IMPLEMENTATION_COMPLETE.md) | Full implementation status and feature list |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture overview |
+| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local development guide |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment guide |
+| [API_INTEGRATIONS.md](docs/API_INTEGRATIONS.md) | Ferry operator API integrations |
+| [FERRY_INTEGRATIONS.md](docs/FERRY_INTEGRATIONS.md) | Ferry operator details |
+| [AUTHENTICATION_AND_ADMIN_SYSTEM.md](docs/AUTHENTICATION_AND_ADMIN_SYSTEM.md) | Auth system documentation |
+| [BOOKING_SYSTEM_COMPLETE.md](docs/BOOKING_SYSTEM_COMPLETE.md) | Booking flow documentation |
+| [MULTILINGUAL_IMPLEMENTATION.md](docs/MULTILINGUAL_IMPLEMENTATION.md) | i18n implementation |
+| [STRIPE_WEBHOOK_SETUP.md](docs/STRIPE_WEBHOOK_SETUP.md) | Payment webhook configuration |
+| [SENTRY_SETUP.md](docs/SENTRY_SETUP.md) | Error monitoring setup |
+| [SMART_PRICING_PLAN.md](docs/SMART_PRICING_PLAN.md) | Smart pricing feature design |
+
 ## Roadmap
 
-- [ ] Mobile app (React Native)
-- [ ] Real-time notifications
+- [x] Mobile app (React Native)
+- [x] Real-time notifications
 - [ ] Advanced analytics dashboard
 - [ ] Multi-currency support
 - [ ] Loyalty program
 - [ ] Group booking discounts
 - [ ] Weather integration
-- [ ] Live chat support 
+- [ ] Live chat support

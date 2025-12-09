@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../store';
-import axios from 'axios';
+import api from '../services/api';
 
 interface PromoCode {
   id: number;
@@ -73,10 +73,7 @@ const AdminPromoCodes: React.FC = () => {
   const fetchPromoCodes = React.useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`/api/v1/promo-codes?active_only=${activeOnly}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get(`/promo-codes?active_only=${activeOnly}`);
       setPromoCodes(response.data.promo_codes);
       setError(null);
     } catch (err: any) {
@@ -97,8 +94,7 @@ const AdminPromoCodes: React.FC = () => {
   const handleCreatePromoCode = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
-      await axios.post('/api/v1/promo-codes', {
+      await api.post('/promo-codes', {
         code: formData.code.toUpperCase(),
         description: formData.description || null,
         discount_type: formData.discount_type,
@@ -110,8 +106,6 @@ const AdminPromoCodes: React.FC = () => {
         minimum_amount: formData.minimum_amount ? parseFloat(formData.minimum_amount) : null,
         maximum_discount: formData.maximum_discount ? parseFloat(formData.maximum_discount) : null,
         first_booking_only: formData.first_booking_only,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
       });
       setShowCreateModal(false);
       resetForm();
@@ -145,10 +139,7 @@ const AdminPromoCodes: React.FC = () => {
   const handleDeactivate = async (promoId: number) => {
     if (!window.confirm('Are you sure you want to deactivate this promo code?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`/api/v1/promo-codes/${promoId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/promo-codes/${promoId}`);
       fetchPromoCodes();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to deactivate promo code');
@@ -158,14 +149,9 @@ const AdminPromoCodes: React.FC = () => {
   const handleViewStats = async (promo: PromoCode) => {
     setSelectedPromo(promo);
     try {
-      const token = localStorage.getItem('token');
       const [statsResponse, suspiciousResponse] = await Promise.all([
-        axios.get(`/api/v1/promo-codes/${promo.id}/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`/api/v1/promo-codes/${promo.id}/suspicious-activity`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        api.get(`/promo-codes/${promo.id}/stats`),
+        api.get(`/promo-codes/${promo.id}/suspicious-activity`),
       ]);
       setPromoStats(statsResponse.data);
       setSuspiciousActivity(suspiciousResponse.data.suspicious_patterns || []);

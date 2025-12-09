@@ -37,6 +37,7 @@ spec:
             - "app.celery_app"
             - "beat"
             - "--loglevel=info"
+            - "--schedule=/tmp/celerybeat-schedule"
           envFrom:
             - configMapRef:
                 name: maritime-config

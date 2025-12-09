@@ -159,6 +159,30 @@ services:
     networks:
       - maritime-network
 
+  # Support Chatbot (AI-powered customer support)
+  chatbot:
+    build:
+      context: ./mcp-servers/chatbot
+      dockerfile: Dockerfile
+    container_name: maritime-chatbot
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-maritime_reservations}
+      PORT: 3100
+    ports:
+      - "3100:3100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - maritime-network
+
   # Nginx Reverse Proxy (for production with SSL)
   nginx:
     image: nginx:alpine

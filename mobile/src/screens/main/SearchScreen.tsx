@@ -173,7 +173,7 @@ export default function SearchScreen() {
     }
   }, [dispatch, ports.length]);
 
-  // Handle prefilled params from SavedRoutes navigation
+  // Handle prefilled params from SavedRoutes navigation or HomeScreen popular routes
   useEffect(() => {
     const params = route.params;
     if (params?.prefillDeparture || params?.prefillArrival) {
@@ -181,7 +181,8 @@ export default function SearchScreen() {
       if (params.prefillDeparture) {
         const matchedDeparture = ports.find(
           p => p.code.toLowerCase() === params.prefillDeparture?.toLowerCase() ||
-               p.name.toLowerCase() === params.prefillDeparture?.toLowerCase()
+               p.name.toLowerCase() === params.prefillDeparture?.toLowerCase() ||
+               p.name.toLowerCase().includes(params.prefillDeparture?.toLowerCase() || '')
         );
         if (matchedDeparture) {
           dispatch(setDeparturePort(matchedDeparture.code));
@@ -195,7 +196,8 @@ export default function SearchScreen() {
       if (params.prefillArrival) {
         const matchedArrival = ports.find(
           p => p.code.toLowerCase() === params.prefillArrival?.toLowerCase() ||
-               p.name.toLowerCase() === params.prefillArrival?.toLowerCase()
+               p.name.toLowerCase() === params.prefillArrival?.toLowerCase() ||
+               p.name.toLowerCase().includes(params.prefillArrival?.toLowerCase() || '')
         );
         if (matchedArrival) {
           dispatch(setArrivalPort(matchedArrival.code));

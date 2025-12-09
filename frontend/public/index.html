@@ -8,7 +8,7 @@
     <meta name="description" content="Maritime Reservation Platform - Book ferry tickets between Tunisia, Italy, and France with ease. Compare prices, schedules, and operators." />
     <meta name="keywords" content="ferry booking, Tunisia, Italy, France, maritime, reservation, CTN, GNV, Corsica Lines" />
     <meta name="author" content="Maritime Reservation Platform" />
-    
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://maritime-reservations.com/" />
@@ -25,14 +25,14 @@
 
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    
+
     <!-- Preconnect to external domains for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
@@ -40,24 +40,8 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <title>Maritime Reservation Platform</title>
-    
+
     <style>
-      /* Loading spinner styles */
-      .loading-spinner {
-        display: inline-block;
-        width: 40px;
-        height: 40px;
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #0ea5e9;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
       /* Initial loading screen */
       .initial-loading {
         position: fixed;
@@ -65,41 +49,228 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+        background: linear-gradient(to bottom, #e0f2fe, #dbeafe);
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         z-index: 9999;
-        color: white;
         font-family: 'Inter', sans-serif;
       }
-      
+
+      /* Scene container */
+      .scene {
+        position: relative;
+        width: 320px;
+        height: 150px;
+        overflow: hidden;
+      }
+
+      /* Ship sailing across */
+      .ship {
+        position: absolute;
+        bottom: 35px;
+        font-size: 50px;
+        animation: sailShip 6s linear infinite;
+      }
+
+      @keyframes sailShip {
+        0% { left: -70px; }
+        100% { left: calc(100% + 70px); }
+      }
+
+      /* Captain bear with luggage */
+      .captain-bear {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+      }
+
+      .luggage {
+        font-size: 38px;
+        animation: luggageBounce 2s ease-in-out infinite;
+      }
+
+      @keyframes luggageBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+      }
+
+      .bear-container {
+        position: relative;
+      }
+
+      .bear {
+        font-size: 50px;
+        display: inline-block;
+        animation: bearLook 3s ease-in-out infinite;
+      }
+
+      @keyframes bearLook {
+        0%, 100% { transform: rotate(0deg); }
+        30% { transform: rotate(-5deg); }
+        60% { transform: rotate(5deg); }
+      }
+
+      .captain-hat {
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 24px;
+      }
+
+      /* Water at bottom */
+      .water {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 25px;
+        background: linear-gradient(to top, rgba(59, 130, 246, 0.4), transparent);
+      }
+
+      .wave-pattern {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 12px;
+        background: repeating-linear-gradient(
+          90deg,
+          rgba(59, 130, 246, 0.3) 0px,
+          rgba(59, 130, 246, 0.5) 10px,
+          rgba(59, 130, 246, 0.3) 20px
+        );
+        animation: waveScroll 2s linear infinite;
+      }
+
+      @keyframes waveScroll {
+        0% { background-position: 0 0; }
+        100% { background-position: 40px 0; }
+      }
+
+      /* Seagulls */
+      .seagull-1, .seagull-2 {
+        position: absolute;
+        font-size: 20px;
+      }
+
+      .seagull-1 {
+        top: 8px;
+        animation: flyBird1 8s linear infinite;
+      }
+
+      .seagull-2 {
+        top: 25px;
+        font-size: 16px;
+        animation: flyBird2 10s linear infinite;
+        animation-delay: -3s;
+      }
+
+      @keyframes flyBird1 {
+        0% { left: -30px; }
+        100% { left: calc(100% + 30px); }
+      }
+
+      @keyframes flyBird2 {
+        0% { right: -30px; }
+        100% { right: calc(100% + 30px); }
+      }
+
+      /* Text */
       .initial-loading h1 {
         margin-top: 20px;
-        font-size: 24px;
+        font-size: 20px;
         font-weight: 600;
+        color: #374151;
       }
-      
+
       .initial-loading p {
-        margin-top: 10px;
+        margin-top: 8px;
         font-size: 16px;
-        opacity: 0.9;
+        color: #6b7280;
+      }
+
+      .loading-dots::after {
+        content: '';
+        animation: dots 1.5s steps(4, end) infinite;
+      }
+
+      @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        80%, 100% { content: '...'; }
+      }
+
+      /* Wave emojis */
+      .wave-emojis {
+        display: flex;
+        gap: 12px;
+        margin-top: 10px;
+      }
+
+      .wave-emojis span {
+        font-size: 22px;
+        opacity: 0.6;
+        animation: waveFloat 1.5s ease-in-out infinite;
+      }
+
+      .wave-emojis span:nth-child(1) { animation-delay: 0s; }
+      .wave-emojis span:nth-child(2) { animation-delay: 0.2s; }
+      .wave-emojis span:nth-child(3) { animation-delay: 0.4s; }
+
+      @keyframes waveFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-4px); }
       }
     </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    
+
     <!-- Initial loading screen -->
     <div id="initial-loading" class="initial-loading">
-      <div class="loading-spinner"></div>
+      <div class="scene">
+        <!-- Ship sailing -->
+        <div class="ship">🚢</div>
+
+        <!-- Captain bear with luggage -->
+        <div class="captain-bear">
+          <span class="luggage">🧳</span>
+          <div class="bear-container">
+            <span class="bear">🐻</span>
+            <span class="captain-hat">🎩</span>
+          </div>
+        </div>
+
+        <!-- Water -->
+        <div class="water">
+          <div class="wave-pattern"></div>
+        </div>
+
+        <!-- Seagulls -->
+        <div class="seagull-1">🕊️</div>
+        <div class="seagull-2">🕊️</div>
+      </div>
+
+      <div class="wave-emojis">
+        <span>🌊</span>
+        <span>🌊</span>
+        <span>🌊</span>
+      </div>
+
       <h1>Maritime Reservation Platform</h1>
-      <p>Loading your ferry booking experience...</p>
+      <p>Loading<span class="loading-dots"></span></p>
     </div>
-    
+
     <div id="root"></div>
-    
+
     <script>
       // Hide loading screen when React app loads
       window.addEventListener('load', function() {
@@ -116,4 +287,4 @@
       });
     </script>
   </body>
-</html> 
+</html>

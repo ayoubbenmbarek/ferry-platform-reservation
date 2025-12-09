@@ -1,0 +1,87 @@
+{
+  "title": "Mon Profil",
+  "subtitle": "Gérez les paramètres et préférences de votre compte",
+  "tabs": {
+    "personalInfo": "Informations Personnelles",
+    "preferences": "Préférences",
+    "security": "Sécurité",
+    "bookings": "Mes Réservations"
+  },
+  "personalInfo": {
+    "title": "Informations Personnelles",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "Adresse E-mail",
+    "phone": "Numéro de Téléphone",
+    "dateOfBirth": "Date de Naissance",
+    "nationality": "Nationalité",
+    "passportNumber": "Numéro de Passeport",
+    "address": "Adresse",
+    "addressLine1": "Ligne d'Adresse 1",
+    "addressLine2": "Ligne d'Adresse 2",
+    "city": "Ville",
+    "state": "État/Province",
+    "postalCode": "Code Postal",
+    "country": "Pays",
+    "saveChanges": "Enregistrer les Modifications",
+    "cancel": "Annuler"
+  },
+  "preferences": {
+    "title": "Préférences",
+    "language": "Langue Préférée",
+    "currency": "Devise Préférée",
+    "notifications": "Notifications",
+    "emailNotifications": "Notifications E-mail",
+    "smsNotifications": "Notifications SMS",
+    "marketingEmails": "E-mails Marketing",
+    "bookingUpdates": "Mises à Jour de Réservation",
+    "specialOffers": "Offres Spéciales",
+    "newsletter": "Newsletter"
+  },
+  "security": {
+    "title": "Paramètres de Sécurité",
+    "changePassword": "Changer le Mot de Passe",
+    "currentPassword": "Mot de Passe Actuel",
+    "newPassword": "Nouveau Mot de Passe",
+    "confirmPassword": "Confirmer le Nouveau Mot de Passe",
+    "passwordRequirements": "Le mot de passe doit contenir au moins 8 caractères",
+    "twoFactor": "Authentification à Deux Facteurs",
+    "enable2FA": "Activer 2FA",
+    "disable2FA": "Désactiver 2FA",
+    "2FAEnabled": "L'authentification à deux facteurs est activée",
+    "2FADisabled": "L'authentification à deux facteurs est désactivée",
+    "deleteAccount": "Supprimer le Compte",
+    "deleteWarning": "Cette action est irréversible"
+  },
+  "bookings": {
+    "title": "Mes Réservations",
+    "upcoming": "À Venir",
+    "past": "Passées",
+    "cancelled": "Annulées",
+    "noBookings": "Aucune réservation trouvée",
+    "viewDetails": "Voir les Détails",
+    "cancel": "Annuler la Réservation",
+    "downloadTicket": "Télécharger le Billet"
+  },
+  "actions": {
+    "save": "Enregistrer les Modifications",
+    "cancel": "Annuler",
+    "update": "Mettre à Jour",
+    "delete": "Supprimer",
+    "confirm": "Confirmer"
+  },
+  "messages": {
+    "updateSuccess": "Profil mis à jour avec succès",
+    "updateFailed": "Échec de la mise à jour du profil",
+    "passwordChanged": "Mot de passe modifié avec succès",
+    "passwordChangeFailed": "Échec du changement de mot de passe",
+    "invalidCurrentPassword": "Le mot de passe actuel est incorrect",
+    "passwordMismatch": "Les mots de passe ne correspondent pas"
+  },
+  "validation": {
+    "requiredField": "Ce champ est obligatoire",
+    "invalidEmail": "Adresse e-mail invalide",
+    "invalidPhone": "Numéro de téléphone invalide",
+    "weakPassword": "Le mot de passe est trop faible"
+  }
+}

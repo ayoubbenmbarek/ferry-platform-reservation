@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../store';
-import axios from 'axios';
+import api from '../services/api';
 
 interface DashboardStats {
   today: {
@@ -43,12 +43,7 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/v1/admin/dashboard', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get('/admin/dashboard');
       setStats(response.data);
       setError(null);
     } catch (err: any) {

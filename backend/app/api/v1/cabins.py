@@ -252,6 +252,27 @@ async def add_cabin_to_booking(
             detail="Booking not found"
         )
 
+    # Check if the ferry has already departed
+    journey_type = request.journey_type
+    if journey_type == "return" and booking.return_departure_time:
+        departure_time = booking.return_departure_time
+    else:
+        departure_time = booking.departure_time
+
+    if departure_time:
+        # Make both datetimes timezone-naive for consistent comparison
+        now = datetime.utcnow()
+        if hasattr(departure_time, 'tzinfo') and departure_time.tzinfo is not None:
+            departure_time_naive = departure_time.replace(tzinfo=None)
+        else:
+            departure_time_naive = departure_time
+
+        if departure_time_naive < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot add cabin to a booking for a ferry that has already departed"
+            )
+
     # Get cabin
     cabin = db.query(Cabin).filter(Cabin.id == request.cabin_id).first()
     if not cabin:
@@ -295,6 +316,25 @@ async def add_cabin_to_booking(
     db.refresh(booking_cabin)
 
     logger.info(f"Added cabin {request.cabin_id} to booking {booking_id} (alert: {request.alert_id})")
+
+    # Publish instant availability update via WebSocket (cabin booked)
+    try:
+        from app.tasks.availability_sync_tasks import publish_availability_now
+        route = f"{booking.departure_port}-{booking.arrival_port}"
+        publish_availability_now(
+            route=route,
+            ferry_id=booking.sailing_id or f"{booking.operator}-{booking.booking_reference}",
+            departure_time=booking.departure_time.isoformat() if booking.departure_time else "",
+            availability={
+                "change_type": "cabin_booked",
+                "cabin_type": cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type),
+                "cabin_quantity": request.quantity,
+                "booking_reference": booking.booking_reference
+            }
+        )
+        logger.info(f"📢 Instant availability update published for cabin booking on {route}")
+    except Exception as e:
+        logger.warning(f"Failed to publish availability update: {str(e)}")
 
     return AddCabinResponse(
         success=True,

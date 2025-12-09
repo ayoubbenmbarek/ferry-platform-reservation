@@ -258,7 +258,7 @@ def generate_predictions_task(self):
     try:
         logger.info("🤖 Starting prediction generation...")
 
-        prediction_service = PricePredictionService()
+        prediction_service = PricePredictionService(db)
         today = datetime.now().date()
         predictions_created = 0
 
@@ -281,14 +281,22 @@ def generate_predictions_task(self):
                     ).first()
 
                     # Get prediction from service
-                    prediction_data = prediction_service.predict_price(
+                    prediction_result = prediction_service.predict_price(
                         route_id=route_id,
-                        departure_port=departure_port,
-                        arrival_port=arrival_port,
-                        departure_date=prediction_date,
-                        passengers=1,
-                        db=db
+                        departure_date=prediction_date
                     )
+                    # Convert PredictionResult to dict for compatibility
+                    prediction_data = {
+                        "predicted_price": prediction_result.predicted_price,
+                        "predicted_low": prediction_result.predicted_low,
+                        "predicted_high": prediction_result.predicted_high,
+                        "confidence": prediction_result.confidence_score,
+                        "trend": prediction_result.price_trend.value if hasattr(prediction_result.price_trend, 'value') else prediction_result.price_trend,
+                        "recommendation": prediction_result.booking_recommendation.value if hasattr(prediction_result.booking_recommendation, 'value') else prediction_result.booking_recommendation,
+                        "recommendation_reason": prediction_result.recommendation_reason,
+                        "potential_savings": prediction_result.potential_savings,
+                        "factors": prediction_result.factors,
+                    }
 
                     if existing:
                         # Update existing prediction

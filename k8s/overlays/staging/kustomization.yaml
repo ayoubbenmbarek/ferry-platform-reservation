@@ -117,11 +117,17 @@ patches:
       kind: Deployment
       name: celery-beat
 
-  # Reduce replicas for staging
+  # Reduce replicas and increase memory for staging (4 workers need more RAM)
   - patch: |-
       - op: replace
         path: /spec/replicas
         value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
     target:
       kind: Deployment
       name: backend

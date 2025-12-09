@@ -2,12 +2,12 @@ name: Mobile App Build
 
 on:
   push:
-    branches: [main, staging]
+    branches: [main, develop, staging]
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-build.yml'
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'mobile/**'
   workflow_dispatch:

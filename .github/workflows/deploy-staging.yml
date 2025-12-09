@@ -183,8 +183,7 @@ jobs:
             REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID || '9551469476-cqajqt5r2211pi89enn4qpvaifd1v6ss.apps.googleusercontent.com' }}
             REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND || '' }}
             REACT_APP_VERSION=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true
 
       - name: Build and push chatbot
         uses: docker/build-push-action@v5

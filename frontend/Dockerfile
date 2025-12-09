@@ -1,9 +1,6 @@
 # Multi-stage build for production
 FROM node:18-alpine as build
 
-# Cache buster to force rebuild when needed
-ARG CACHE_BUST=1
-
 # Build arguments for environment configuration
 ARG REACT_APP_API_URL=http://localhost:8010
 ARG REACT_APP_STRIPE_PUBLISHABLE_KEY
@@ -31,6 +28,13 @@ RUN npm ci
 
 # Copy source code
 COPY . .
+
+# Cache buster - forces rebuild when ARG changes
+ARG CACHE_BUST=1
+RUN echo "Cache bust: $CACHE_BUST"
+
+# Debug: Print the API URL being used
+RUN echo "Building with REACT_APP_API_URL=$REACT_APP_API_URL"
 
 # Build the application
 RUN npm run build

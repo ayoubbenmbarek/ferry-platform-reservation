@@ -180,8 +180,9 @@ patches:
       kind: HorizontalPodAutoscaler
       name: celery-worker-hpa
 
-  # ConfigMap patches for staging (strategic merge)
-  - path: configmap-patch.yaml
+# Strategic merge patches for ConfigMap
+patchesStrategicMerge:
+  - configmap-patch.yaml
 
 # Image overrides for staging (will be set by CI/CD)
 images:

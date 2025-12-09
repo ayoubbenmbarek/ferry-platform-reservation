@@ -44,6 +44,8 @@ const RegisterPage: React.FC = () => {
   });
 
   const [formError, setFormError] = useState('');
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   // Clear error on component mount
   useEffect(() => {
@@ -154,12 +156,48 @@ const RegisterPage: React.FC = () => {
         preferredCurrency: formData.preferredCurrency
       })).unwrap();
 
-      // After successful registration, redirect to login
-      navigate('/login');
+      // Show success message instead of navigating
+      setRegisteredEmail(formData.email);
+      setRegistrationSuccess(true);
     } catch (err) {
       console.error('Registration failed:', err);
     }
   };
+
+  // Show success message after registration
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 text-center">
+          <div className="rounded-full bg-green-100 p-4 mx-auto w-20 h-20 flex items-center justify-center">
+            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            Check your email
+          </h2>
+          <p className="mt-2 text-gray-600">
+            We've sent a verification link to:
+          </p>
+          <p className="font-medium text-blue-600">{registeredEmail}</p>
+          <p className="mt-4 text-sm text-gray-500">
+            Please click the link in the email to verify your account.
+            <br />
+            Check your spam folder if you don't see it within a few minutes.
+          </p>
+          <div className="mt-6">
+            <Link
+              to="/login"
+              className="text-blue-600 hover:text-blue-500 font-medium"
+            >
+              Go to login page
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

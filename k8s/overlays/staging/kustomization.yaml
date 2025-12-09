@@ -180,48 +180,8 @@ patches:
       kind: HorizontalPodAutoscaler
       name: celery-worker-hpa
 
-  # ConfigMap patches for staging
-  - patch: |-
-      - op: replace
-        path: /data/ENVIRONMENT
-        value: "staging"
-      - op: replace
-        path: /data/DEBUG
-        value: "true"
-      - op: replace
-        path: /data/LOG_LEVEL
-        value: "DEBUG"
-      - op: replace
-        path: /data/ALLOWED_ORIGINS
-        value: "https://staging.voilaferry.com,https://api-staging.voilaferry.com"
-      - op: replace
-        path: /data/GOOGLE_REDIRECT_URI
-        value: "https://api-staging.voilaferry.com/api/v1/auth/google/callback"
-      - op: replace
-        path: /data/BASE_URL
-        value: "https://staging.voilaferry.com"
-      - op: replace
-        path: /data/SENTRY_ENVIRONMENT
-        value: "staging"
-      - op: replace
-        path: /data/SENTRY_TRACES_SAMPLE_RATE
-        value: "1.0"
-      # Fix Redis URLs to use staging-prefixed service name
-      - op: replace
-        path: /data/REDIS_URL
-        value: "redis://staging-redis-service:6379/0"
-      - op: replace
-        path: /data/REDIS_HOST
-        value: "staging-redis-service"
-      - op: replace
-        path: /data/CELERY_BROKER_URL
-        value: "redis://staging-redis-service:6379/1"
-      - op: replace
-        path: /data/CELERY_RESULT_BACKEND
-        value: "redis://staging-redis-service:6379/1"
-    target:
-      kind: ConfigMap
-      name: maritime-config
+  # ConfigMap patches for staging (strategic merge)
+  - path: configmap-patch.yaml
 
 # Image overrides for staging (will be set by CI/CD)
 images:

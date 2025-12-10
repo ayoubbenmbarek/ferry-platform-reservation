@@ -33,8 +33,10 @@ export default {
       favicon: "./assets/favicon.png"
     },
     plugins: [
+      "expo-dev-client",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ],
     extra: {
       googleClientId: process.env.GOOGLE_CLIENT_ID,

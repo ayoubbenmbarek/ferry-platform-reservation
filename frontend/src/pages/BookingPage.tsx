@@ -621,6 +621,10 @@ const BookingPage: React.FC = () => {
                 returnFerryCabinAvailability={selectedReturnFerry?.cabinTypes || (selectedReturnFerry as any)?.cabin_types || []}
                 initialOutboundSelections={reduxCabinSelections || []}
                 initialReturnSelections={reduxReturnCabinSelections || []}
+                departurePort={selectedFerry?.departurePort}
+                arrivalPort={selectedFerry?.arrivalPort}
+                departureDate={selectedFerry?.departureTime ? new Date(selectedFerry.departureTime).toISOString().split('T')[0] : undefined}
+                operator={selectedFerry?.operator}
               />
             </div>
 

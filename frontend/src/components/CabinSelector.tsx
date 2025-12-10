@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import { useSelector } from 'react-redux';
+import api, { availabilityAlertAPI } from '../services/api';
+import { RootState } from '../store';
 
 interface Cabin {
   id: number;
@@ -42,6 +44,11 @@ interface CabinSelectorProps {
   // Initial cabin selections from Redux (for persistence across navigation)
   initialOutboundSelections?: { cabinId: number; quantity: number; price: number }[];
   initialReturnSelections?: { cabinId: number; quantity: number; price: number }[];
+  // For notify me feature
+  departurePort?: string;
+  arrivalPort?: string;
+  departureDate?: string;
+  operator?: string;
 }
 
 const CabinSelector: React.FC<CabinSelectorProps> = ({
@@ -55,11 +62,21 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   returnFerryCabinAvailability = [],
   initialOutboundSelections = [],
   initialReturnSelections = [],
+  departurePort,
+  arrivalPort,
+  departureDate,
+  operator,
 }) => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const [cabins, setCabins] = useState<Cabin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJourney, setSelectedJourney] = useState<'outbound' | 'return'>('outbound');
+
+  // Notify me states
+  const [isCreatingAlert, setIsCreatingAlert] = useState(false);
+  const [alertCreated, setAlertCreated] = useState(false);
+  const [alertEmail, setAlertEmail] = useState(user?.email || '');
 
   // Track quantity per cabin ID for each journey - initialize from props
   const [outboundCabinQuantities, setOutboundCabinQuantities] = useState<Record<number, number>>(() => {
@@ -234,6 +251,41 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
 
   const handleClearAll = () => {
     setCabinQuantities({});
+  };
+
+  // Handle creating cabin availability alert
+  const handleCreateCabinAlert = async () => {
+    if (!alertEmail) {
+      window.alert('Please enter your email to receive notifications.');
+      return;
+    }
+
+    if (!departurePort || !arrivalPort || !departureDate) {
+      window.alert('Missing journey details for creating alert.');
+      return;
+    }
+
+    setIsCreatingAlert(true);
+    try {
+      await api.post('/availability-alerts', {
+        alert_type: 'cabin',
+        email: alertEmail,
+        departure_port: departurePort.toLowerCase(),
+        arrival_port: arrivalPort.toLowerCase(),
+        departure_date: departureDate,
+        is_round_trip: false,
+        operator: operator || undefined,
+        num_adults: passengerCount,
+        num_children: 0,
+        num_infants: 0,
+        alert_duration_days: 30,
+      });
+      setAlertCreated(true);
+    } catch (err: any) {
+      window.alert(err.response?.data?.detail || 'Failed to create alert. Please try again.');
+    } finally {
+      setIsCreatingAlert(false);
+    }
   };
 
   // After quantity change, notify parent - MUST be before early returns
@@ -444,8 +496,58 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
       </div>
 
       {cabins.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <p>No cabins available.</p>
+        <div className="text-center py-8">
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 max-w-md mx-auto">
+            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-2">No cabins available at the moment</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Cabins may become available as the departure date approaches. Get notified when a cabin is available.
+            </p>
+
+            {alertCreated ? (
+              <div className="flex items-center justify-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="font-medium">Alert created! We'll notify you.</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {!user && (
+                  <input
+                    type="email"
+                    value={alertEmail}
+                    onChange={(e) => setAlertEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                )}
+                <button
+                  onClick={handleCreateCabinAlert}
+                  disabled={isCreatingAlert || !departurePort || !arrivalPort || !departureDate}
+                  className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreatingAlert ? (
+                    <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      Notify Me When Available
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

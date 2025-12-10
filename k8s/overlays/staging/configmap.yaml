@@ -10,6 +10,7 @@ data:
   VERSION: "1.0.0"
   ENVIRONMENT: "staging"
   DEBUG: "true"
+  USE_MOCK_FERRIES: "true"  # Enable mock ferry data until we have real API keys
 
   # ===========================================
   # SECURITY SETTINGS

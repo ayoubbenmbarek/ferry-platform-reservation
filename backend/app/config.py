@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
+    USE_MOCK_FERRIES: bool = False  # Enable mock ferry integrations (for dev/staging without real API keys)
     
     # Security
     SECRET_KEY: str = "dev-secret-key-change-this-in-production-12345678901234567890"

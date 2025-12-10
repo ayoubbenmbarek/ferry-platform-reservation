@@ -365,10 +365,70 @@ todo:why docker-compose.monitoring and not the same docker compose.dev that we h
 todo: create env staging on sentry maybe.?
 todo:when signup should show message if signup success and tell to validate email that you will receive, and check if that email sent asynch
 todo:search with voice don't work on staging get 405 not allowed
+todo:How protect user sensitive data passeport etc for rgpd
+todo:Postgres logical backups (pg_dump) + WAL archive to object storage (S3/Backblaze).
+	•	Snapshot VPS daily (provider snapshot).
+todo:Logs: fluent-bit -> Loki + Grafana for recherch
+todo:check if thisis done: Redis distributed lock per ferry+date key (short TTL) pour serialiser réservations.
+todo:cloudflare security and custom rules:done
+todo:Generate sitemap.xml and robots.txt automatically at build.
+	•	Use <Head> for meta tags + JSON-LD structured data (schema.org/Flight? Or TravelAgency/Offer).
+	•	Set canonical URLs and hreflang if multi-lang (fr/it/en).
+	•	Optimize images using Next Image and externalImageDomains or host images on CDN.
+	•	Cache headers: for static assets long TTL, HTML pages controlled by CDN, use Cache-Control appropriately.
+
+toddoUtiliser Helm charts officiels (Bitnami, ingress-nginx, cert-manager) pour robustesse.
+todo:Tests charge (Locust, k6)
+todo:Mentions légales claires
+	•	CGV complètes
+	•	Assurance annulation proposée (facultatif)
+
+todo:SMS confirmation
+todo:Rate limiting (FastAPI + Redis)
+todo: RGPD : stockage dans l’UE
+todo:whats is SEO optimisé
+todo:Change maritime reservation with voila ferry and search for logo
+todo:Chatbot connexion trouble on mobile frontend
+todo:Website on mobile did not show ports:done
+todo prevent abuse use of botchat and voice search
+
+added:
+USE_MOCK_FERRIES: "true"  #
+         +  Enable mock ferry data until 
+         + we have real API keys
 
 cat /etc/rancher/k3s/k3s.yaml | sed 's/127.0.0.1/77.42.37.227/g' | base64 -w 0
 
-git commit -m "Add async email verification and improve registration UX Backend: - Add send_email_verification_task Celery task for async email sending - Update auth.py to use async task instead of sync email sending - Registration is now non-blocking (email sent in background) Frontend: - Show "Check your email" success page after registration - Display verification instructions instead of immediate redirect"
+manage k3s from local machine:
+export KUBECONFIG=/tmp/k3s-config.yaml &&
+      kubectl -n maritime-reservations-staging
+      get pods
+
+Next steps on staging:
+  - Create admin user
+  - Setup mobile (Expo/Apple/Google accounts)
+
+# Get pods
+  kstaging get pods
+
+  # View logs
+  kstaging logs staging-backend-xxx
+
+  # Follow logs
+  kstaging-logs staging-backend-xxx
+
+  # Quick pod status
+  kstaging-pods
+
+  # Any kubectl command
+  kstaging describe pod staging-backend-xxx
+  kstaging exec -it staging-backend-xxx --
+  bash
+
+  # If config expires, refresh it
+  refresh-k3s-config
+  kstaging         kstaging-events  kstaging-logs    kstaging-node    kstaging-pods    kstaging-top
+
 
 kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 --previous 2>/dev/null || kubectl -n maritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5 -f
 ubectl -nmaritime-reservations-staging logs staging-backend-9cc4cbb4c-hwbc5

@@ -47,7 +47,7 @@ class FerryService:
         Args:
             use_mock: If True, use mock integrations for development
         """
-        self.use_mock = use_mock or settings.ENVIRONMENT == "development"
+        self.use_mock = use_mock or settings.ENVIRONMENT == "development" or settings.USE_MOCK_FERRIES
         self.integrations: Dict[str, BaseFerryIntegration] = {}
         self._initialize_integrations()
 

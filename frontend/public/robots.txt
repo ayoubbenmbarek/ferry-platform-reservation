@@ -3,9 +3,13 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://maritime-reservations.com/sitemap.xml
+Sitemap: https://voilaferry.com/sitemap.xml
 
-# Disallow admin and private areas
+# Disallow private and dynamic areas
 Disallow: /admin/
 Disallow: /api/
-Disallow: /dashboard/private/ 
+Disallow: /dashboard/
+Disallow: /booking/
+Disallow: /payment/
+Disallow: /profile/
+Disallow: /auth/ 

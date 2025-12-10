@@ -207,7 +207,7 @@ else:
 if not settings.DEBUG:
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["maritime-reservations.com", "*.maritime-reservations.com"]
+        allowed_hosts=["voilaferry.com", "*.voilaferry.com"]
     )
 
 

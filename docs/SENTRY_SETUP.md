@@ -174,7 +174,7 @@ Conditions:
   - Event level is error
   - Event message contains "payment" OR "stripe"
 Actions:
-  - Send email to team@maritime-reservations.com
+  - Send email to team@voilaferry.com
   - Send Slack notification to #alerts channel
 Frequency: Every time
 ```

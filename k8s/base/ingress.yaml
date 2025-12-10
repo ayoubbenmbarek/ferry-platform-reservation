@@ -31,14 +31,14 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - maritime-reservations.com
-        - www.maritime-reservations.com
-        - api.maritime-reservations.com
-        - chatbot.maritime-reservations.com
+        - voilaferry.com
+        - www.voilaferry.com
+        - api.voilaferry.com
+        - chatbot.voilaferry.com
       secretName: maritime-tls-secret
   rules:
     # Frontend - main domain
-    - host: maritime-reservations.com
+    - host: voilaferry.com
       http:
         paths:
           - path: /
@@ -49,7 +49,7 @@ spec:
                 port:
                   number: 80
     # Frontend - www subdomain
-    - host: www.maritime-reservations.com
+    - host: www.voilaferry.com
       http:
         paths:
           - path: /
@@ -60,7 +60,7 @@ spec:
                 port:
                   number: 80
     # Backend API - api subdomain
-    - host: api.maritime-reservations.com
+    - host: api.voilaferry.com
       http:
         paths:
           - path: /
@@ -71,7 +71,7 @@ spec:
                 port:
                   number: 8010
     # Chatbot API - chatbot subdomain
-    - host: chatbot.maritime-reservations.com
+    - host: chatbot.voilaferry.com
       http:
         paths:
           - path: /

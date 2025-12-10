@@ -87,7 +87,7 @@ const FAQ_KNOWLEDGE = `
 
 ### Where is my confirmation email?
 - Check your spam folder
-- Emails are sent from noreply@maritime-reservations.com
+- Emails are sent from noreply@voilaferry.com
 - You can resend confirmation from booking details
 
 ### How do I get my e-ticket?
@@ -178,7 +178,7 @@ You can travel FROM Tunisia TO Europe or FROM Europe TO Tunisia on all routes.
 ## Contact & Support
 
 ### How do I contact support?
-- Email: support@maritime-reservations.com
+- Email: support@voilaferry.com
 - Use the chatbot (you're using it now!)
 
 ### What are your operating hours?
@@ -653,7 +653,7 @@ Guidelines:
 - If you can't find information, suggest contacting support
 - Don't make up information - use the FAQ or database lookups
 - Protect user privacy - only show user data to authenticated users with matching email
-- For complex issues, recommend contacting support@maritime-reservations.com
+- For complex issues, recommend contacting support@voilaferry.com
 
 IMPORTANT - Include relevant links in your responses:
 - When discussing bookings: Include link to booking details page using format: [View Booking](/booking/REFERENCE)

@@ -40,7 +40,7 @@ const getDevApiUrl = () => {
 // API Configuration
 export const API_BASE_URL = __DEV__
   ? getDevApiUrl()
-  : 'https://api.maritime-reservations.com/api/v1';
+  : 'https://api.voilaferry.com/api/v1';
 
 // Stripe Configuration
 export const STRIPE_PUBLISHABLE_KEY = extra.stripePublishableKey || (__DEV__
@@ -75,7 +75,7 @@ const getChatbotUrl = () => {
     return 'http://localhost:3100';
   }
 
-  return 'https://chatbot.maritime-reservations.com';
+  return 'https://chatbot.voilaferry.com';
 };
 
 export const CHATBOT_API_URL = getChatbotUrl();

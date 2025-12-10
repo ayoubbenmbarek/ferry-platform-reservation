@@ -384,9 +384,49 @@ todo:Mentions légales claires
 	•	Assurance annulation proposée (facultatif)
 
 todo:SMS confirmation
-todo:Rate limiting (FastAPI + Redis)
+todo:Rate limiting (FastAPI + Redis):done
+Yes, rate limiting is implemented. Here's
+  the summary:
+
+  | Component      | Details
+            |
+  |----------------|-------------------------
+  ----------|
+  | Library        | SlowAPI (built on limits
+   library) |
+  | Storage        | Redis (REDIS_URL env
+  var)         |
+  | Strategy       | Fixed-window
+            |
+  | Default limits | 200/minute, 1000/hour
+            |
+
+  Endpoint-specific limits:
+
+  | Endpoint Type   | Limit      |
+  |-----------------|------------|
+  | Login           | 5/minute   |
+  | Register        | 3/minute   |
+  | Password reset  | 3/minute   |
+  | Ferry search    | 60/minute  |
+  | Booking create  | 10/minute  |
+  | Payment create  | 5/minute   |
+  | Admin endpoints | 100/minute |
+
+  Features:
+  - Uses user ID if authenticated, falls back
+   to IP address
+  - Returns X-RateLimit-* headers
+  - Custom rate limit exceeded response with
+  retry info
+
+  The rate limiter is initialized in
+  backend/app/main.py:182-183 and uses Redis
+  from REDIS_URL (configured in staging as
+  redis://staging-redis-service:6379/0).
+
 todo: RGPD : stockage dans l’UE
-todo:whats is SEO optimisé
+todo:whats is SEO optimisé for search rank in google
 todo:Change maritime reservation with voila ferry and search for logo
 todo:Chatbot connexion trouble on mobile frontend
 todo:Website on mobile did not show ports:done

@@ -137,8 +137,8 @@ Add the following DNS records pointing to your VPS IP:
 
 ```bash
 # Check DNS resolution (may take 5-30 minutes)
-dig staging.maritime-reservations.com +short
-dig api-staging.maritime-reservations.com +short
+dig staging.voilaferry.com +short
+dig api-staging.voilaferry.com +short
 ```
 
 Or use [dnschecker.org](https://dnschecker.org)
@@ -270,10 +270,10 @@ kubectl -n maritime-reservations-staging get certificate
 
 ```bash
 # Backend health
-curl https://api-staging.maritime-reservations.com/health
+curl https://api-staging.voilaferry.com/health
 
 # Frontend
-curl -I https://staging.maritime-reservations.com
+curl -I https://staging.voilaferry.com
 
 # View logs
 kubectl -n maritime-reservations-staging logs -f deployment/staging-backend
@@ -286,7 +286,7 @@ kubectl -n maritime-reservations-staging logs -f deployment/staging-backend
 kubectl -n maritime-reservations-staging describe certificate
 
 # Test SSL
-curl -vI https://staging.maritime-reservations.com 2>&1 | grep -A 5 "SSL certificate"
+curl -vI https://staging.voilaferry.com 2>&1 | grep -A 5 "SSL certificate"
 ```
 
 ---

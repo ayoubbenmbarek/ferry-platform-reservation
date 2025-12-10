@@ -22,7 +22,7 @@ data:
   # ===========================================
   # CORS SETTINGS (update with your domain)
   # ===========================================
-  ALLOWED_ORIGINS: "https://maritime-reservations.com,https://www.maritime-reservations.com"
+  ALLOWED_ORIGINS: "https://voilaferry.com,https://www.voilaferry.com"
 
   # ===========================================
   # DATABASE SETTINGS (non-sensitive)
@@ -84,12 +84,12 @@ data:
   # ===========================================
   # GOOGLE OAUTH (non-sensitive)
   # ===========================================
-  GOOGLE_REDIRECT_URI: "https://api.maritime-reservations.com/api/v1/auth/google/callback"
+  GOOGLE_REDIRECT_URI: "https://api.voilaferry.com/api/v1/auth/google/callback"
 
   # ===========================================
   # FRONTEND BASE URL
   # ===========================================
-  BASE_URL: "https://maritime-reservations.com"
+  BASE_URL: "https://voilaferry.com"
 
   # ===========================================
   # FERRY OPERATOR API URLs (non-sensitive)

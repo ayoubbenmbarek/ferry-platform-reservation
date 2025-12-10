@@ -274,7 +274,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Support
 
 For support and questions:
-- Email: support@maritime-reservations.com
+- Email: support@voilaferry.com
 - Documentation: [API Docs](http://localhost:8000/docs)
 - Issues: GitHub Issues
 

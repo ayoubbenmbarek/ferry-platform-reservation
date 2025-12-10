@@ -340,9 +340,9 @@ kubectl -n maritime-reservations get all
 Point your domain to the server's public IP:
 
 ```
-A    maritime-reservations.com      -> YOUR_SERVER_IP
-A    www.maritime-reservations.com  -> YOUR_SERVER_IP
-A    api.maritime-reservations.com  -> YOUR_SERVER_IP
+A    voilaferry.com      -> YOUR_SERVER_IP
+A    www.voilaferry.com  -> YOUR_SERVER_IP
+A    api.voilaferry.com  -> YOUR_SERVER_IP
 ```
 
 ---

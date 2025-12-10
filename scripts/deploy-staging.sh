@@ -71,7 +71,7 @@ if [ "$BUILD" = true ]; then
     # Build frontend
     echo -e "${YELLOW}Building frontend...${NC}"
     docker build -t ${REGISTRY}/maritime-frontend:${IMAGE_TAG} \
-        --build-arg REACT_APP_API_URL=https://api-staging.maritime-reservations.com \
+        --build-arg REACT_APP_API_URL=https://api-staging.voilaferry.com \
         --build-arg REACT_APP_ENVIRONMENT=staging \
         -f frontend/Dockerfile \
         ./frontend

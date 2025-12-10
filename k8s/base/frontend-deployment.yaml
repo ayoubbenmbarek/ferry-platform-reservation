@@ -40,7 +40,7 @@ spec:
               protocol: TCP
           env:
             - name: REACT_APP_API_URL
-              value: "https://api.maritime-reservations.com"
+              value: "https://api.voilaferry.com"
             - name: REACT_APP_STRIPE_PUBLISHABLE_KEY
               valueFrom:
                 secretKeyRef:

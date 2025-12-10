@@ -98,7 +98,7 @@ const getWebSocketUrl = (routes: string[] = []): string => {
     }
   } else {
     // Production
-    wsHost = 'api.maritime-reservations.com';
+    wsHost = 'api.voilaferry.com';
     wsProtocol = 'wss:';
   }
 

@@ -178,7 +178,7 @@ const SupportChatbotInner: React.FC = () => {
         {
           id: `error_${Date.now()}`,
           role: 'assistant',
-          content: t('chatbot.error', 'Sorry, I\'m having trouble connecting. Please try again or contact support@maritime-reservations.com'),
+          content: t('chatbot.error', 'Sorry, I\'m having trouble connecting. Please try again or contact support@voilaferry.com'),
           timestamp: new Date(),
         },
       ]);

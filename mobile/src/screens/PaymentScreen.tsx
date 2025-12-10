@@ -859,14 +859,14 @@ export default function PaymentScreen() {
             I agree to the{' '}
             <Text
               style={styles.termsLink}
-              onPress={() => Linking.openURL('https://maritime-reservations.com/terms')}
+              onPress={() => Linking.openURL('https://voilaferry.com/terms')}
             >
               Terms & Conditions
             </Text>
             {' '}and{' '}
             <Text
               style={styles.termsLink}
-              onPress={() => Linking.openURL('https://maritime-reservations.com/privacy')}
+              onPress={() => Linking.openURL('https://voilaferry.com/privacy')}
             >
               Privacy Policy
             </Text>

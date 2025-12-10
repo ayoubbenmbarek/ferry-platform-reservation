@@ -120,7 +120,7 @@ const SupportChatbot: React.FC = () => {
           id: `error_${Date.now()}`,
           role: 'assistant',
           content:
-            "Sorry, I'm having trouble connecting. Please try again or contact support@maritime-reservations.com",
+            "Sorry, I'm having trouble connecting. Please try again or contact support@voilaferry.com",
           timestamp: new Date(),
         },
       ]);

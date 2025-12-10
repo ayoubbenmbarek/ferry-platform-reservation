@@ -87,18 +87,28 @@ export function useAvailabilityWebSocket(options: UseAvailabilityWebSocketOption
 
   // Build WebSocket URL
   const getWebSocketUrl = useCallback(() => {
-    // In development, always use ws:// (not wss://)
-    // In production, match the page protocol
-    const isDev = process.env.NODE_ENV === 'development' ||
-                  window.location.hostname === 'localhost' ||
-                  window.location.hostname.match(/^192\.168\./);
+    // Get API URL from environment (same as API calls)
+    const apiUrl = process.env.REACT_APP_API_URL || '/api/v1';
 
-    const protocol = isDev ? 'ws:' : (window.location.protocol === 'https:' ? 'wss:' : 'ws:');
+    let wsHost: string;
+    let protocol: string;
 
-    // Use browser's hostname with WebSocket port
-    const host = `${window.location.hostname}:8010`;
+    if (apiUrl.startsWith('http')) {
+      // Production/staging: derive WebSocket URL from API URL
+      // e.g., https://api-staging.voilaferry.com/api/v1 -> wss://api-staging.voilaferry.com
+      const url = new URL(apiUrl);
+      protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsHost = url.host;
+    } else {
+      // Development: use localhost with WebSocket port
+      const isDev = process.env.NODE_ENV === 'development' ||
+                    window.location.hostname === 'localhost' ||
+                    window.location.hostname.match(/^192\.168\./);
+      protocol = isDev ? 'ws:' : (window.location.protocol === 'https:' ? 'wss:' : 'ws:');
+      wsHost = `${window.location.hostname}:8010`;
+    }
 
-    let url = `${protocol}//${host}/ws/availability`;
+    let url = `${protocol}//${wsHost}/ws/availability`;
 
     if (routes.length > 0) {
       url += `?routes=${routes.join(',')}`;

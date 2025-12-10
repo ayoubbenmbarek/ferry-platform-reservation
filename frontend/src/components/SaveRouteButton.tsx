@@ -39,6 +39,10 @@ export default function SaveRouteButton({
   const [dateFrom, setDateFrom] = useState(searchDate || format(addDays(new Date(), 1), 'yyyy-MM-dd'));
   const [dateTo, setDateTo] = useState(searchDate ? format(addDays(new Date(searchDate), 14), 'yyyy-MM-dd') : format(addDays(new Date(), 15), 'yyyy-MM-dd'));
 
+  // Guest email state
+  const [guestEmail, setGuestEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+
   // Ref to prevent duplicate API calls in React 18 Strict Mode
   const checkingRef = useRef(false);
 
@@ -88,19 +92,16 @@ export default function SaveRouteButton({
   const [showOptions, setShowOptions] = useState(false);
 
   const handleButtonClick = useCallback(() => {
-    if (!isAuthenticated) {
-      onError?.('Please log in to save routes');
-      return;
-    }
-
     if (isSaved && alertId) {
       // If already saved, show options dropdown
       setShowOptions(true);
     } else {
-      // Show modal for date selection
+      // Show modal for date selection (works for both authenticated and guest users)
+      setGuestEmail('');
+      setEmailError('');
       setShowModal(true);
     }
-  }, [isSaved, alertId, isAuthenticated, onError]);
+  }, [isSaved, alertId]);
 
   const handleChangeDates = async () => {
     setShowOptions(false);
@@ -174,7 +175,24 @@ export default function SaveRouteButton({
     );
   };
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSave = async () => {
+    // For guest users, validate email
+    if (!isAuthenticated) {
+      if (!guestEmail.trim()) {
+        setEmailError('Email is required');
+        return;
+      }
+      if (!validateEmail(guestEmail)) {
+        setEmailError('Please enter a valid email address');
+        return;
+      }
+    }
+
     setShowModal(false);
     setIsLoading(true);
 
@@ -188,6 +206,7 @@ export default function SaveRouteButton({
         notify_on_drop: true,
         notify_on_increase: true,
         price_threshold_percent: 5.0,
+        email: !isAuthenticated ? guestEmail : undefined,
       });
       setIsSaved(true);
       setAlertId(alert.id);
@@ -281,6 +300,33 @@ export default function SaveRouteButton({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Email input for guest users */}
+          {!isAuthenticated && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Your email address
+              </label>
+              <input
+                type="email"
+                value={guestEmail}
+                onChange={(e) => {
+                  setGuestEmail(e.target.value);
+                  setEmailError('');
+                }}
+                placeholder="Enter your email to receive alerts"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  emailError ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {emailError && (
+                <p className="text-red-500 text-xs mt-1">{emailError}</p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                We'll send price alerts to this email address
+              </p>
             </div>
           )}
 

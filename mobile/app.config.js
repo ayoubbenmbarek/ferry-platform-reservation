@@ -42,6 +42,9 @@ export default {
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
       // apiBaseUrl removed - auto-detected from Expo hostUri for physical devices
+      eas: {
+        projectId: "575f19a7-cd2f-4df9-8da0-cf8d962a5d72"
+      }
     }
   }
 };

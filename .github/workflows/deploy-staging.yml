@@ -33,9 +33,10 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.sha }}
-          check-name: 'All Tests Passed'
+          running-workflow-name: 'Wait for CI Pipeline'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 30
+          allowed-conclusions: success
 
   # Build and push Docker images
   build:

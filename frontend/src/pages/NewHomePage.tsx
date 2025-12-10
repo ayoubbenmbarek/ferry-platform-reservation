@@ -403,7 +403,17 @@ const NewHomePage: React.FC = () => {
                     <input
                       type="date"
                       value={form.departureDate}
-                      onChange={(e) => setForm({ ...form, departureDate: e.target.value })}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        const today = new Date().toISOString().split('T')[0];
+                        // Validate: reject past dates (mobile browsers may not enforce min)
+                        if (selectedDate < today) {
+                          setErrors(prev => ({ ...prev, departureDate: t('search:errors.pastDate', 'Cannot select a past date') }));
+                          return;
+                        }
+                        setErrors(prev => ({ ...prev, departureDate: '' }));
+                        setForm({ ...form, departureDate: selectedDate });
+                      }}
                       min={new Date().toISOString().split('T')[0]}
                       className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                         errors.departureDate ? 'border-red-500' : 'border-gray-300'
@@ -421,7 +431,19 @@ const NewHomePage: React.FC = () => {
                     <input
                       type="date"
                       value={form.returnDate}
-                      onChange={(e) => setForm({ ...form, returnDate: e.target.value })}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        const minReturnDate = form.departureDate
+                          ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
+                          : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0];
+                        // Validate: reject dates before minimum (mobile browsers may not enforce min)
+                        if (selectedDate < minReturnDate) {
+                          setErrors(prev => ({ ...prev, returnDate: t('search:errors.returnBeforeDeparture', 'Return date must be after departure') }));
+                          return;
+                        }
+                        setErrors(prev => ({ ...prev, returnDate: '' }));
+                        setForm({ ...form, returnDate: selectedDate });
+                      }}
                       min={
                         form.departureDate
                           ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]

@@ -868,135 +868,131 @@ async def get_date_prices(
         trip_type = f"round-trip (return: {return_date.isoformat()})" if return_date else "one-way"
         logger.info(f"🔍 Fetching date prices for {departure_port}→{arrival_port} on {center_date} ({trip_type}, A:{adults}, C:{children}, I:{infants})")
 
-        date_prices = []
+        import asyncio
+
         start_date = center_date - timedelta(days=days_before)
         end_date = center_date + timedelta(days=days_after)
 
+        # Generate list of dates to search
+        dates_to_search = []
         current_date = start_date
         while current_date <= end_date:
+            dates_to_search.append(current_date)
+            current_date += timedelta(days=1)
+
+        async def search_single_date(search_date: date) -> dict:
+            """Search ferries for a single date and return date price info."""
             try:
                 # Try to get cached ferry search results first (5-min cache)
-                # This ensures calendar prices match the ferry list when both use cache
-                # Note: cache key uses integer for vehicles count
                 ferry_search_cache_params = {
                     "departure_port": departure_port,
                     "arrival_port": arrival_port,
-                    "departure_date": current_date.isoformat(),
+                    "departure_date": search_date.isoformat(),
                     "return_date": return_date.isoformat() if return_date else None,
                     "return_departure_port": None,
                     "return_arrival_port": None,
                     "adults": adults,
                     "children": children,
                     "infants": infants,
-                    "vehicles": 0,  # Integer count for cache key
+                    "vehicles": 0,
                     "operators": None
                 }
 
                 cached_ferry_results = cache_service.get_ferry_search(ferry_search_cache_params)
 
                 if cached_ferry_results:
-                    # Use cached results from ferry search
                     results = [FerryResult(**r) for r in cached_ferry_results.get("results", [])]
-                    logger.info(f"  ✅ Calendar using cached ferry_search for {current_date.isoformat()} ({len(results)} ferries)")
+                    logger.debug(f"  ✅ Calendar cache HIT for {search_date.isoformat()}")
                 else:
-                    # Cache miss - query operators directly
-                    # Pass return_date to get round-trip context pricing (if applicable)
                     results = await ferry_service.search_ferries(
                         departure_port=departure_port,
                         arrival_port=arrival_port,
-                        departure_date=current_date,
-                        return_date=return_date,  # Include return context for accurate pricing
+                        departure_date=search_date,
+                        return_date=return_date,
                         adults=adults,
                         children=children,
                         infants=infants
                     )
-                    logger.info(f"  ❌ Calendar queried operators for {current_date.isoformat()} ({len(results) if results else 0} ferries)")
+                    logger.debug(f"  ❌ Calendar cache MISS for {search_date.isoformat()}")
 
-                    # Cache these results in ferry_search cache so subsequent searches use same data
+                    # Cache results
                     if results:
                         results_dict = [r.to_dict() for r in results]
-
-                        # Build search_params dict matching FerrySearch schema
                         search_params_for_response = {
                             "departure_port": departure_port,
                             "arrival_port": arrival_port,
-                            "departure_date": current_date.isoformat(),
+                            "departure_date": search_date.isoformat(),
                             "return_date": return_date.isoformat() if return_date else None,
                             "return_departure_port": None,
                             "return_arrival_port": None,
                             "adults": adults,
                             "children": children,
                             "infants": infants,
-                            "vehicles": [],  # List for response schema
+                            "vehicles": [],
                             "operators": None,
                             "passengers": None
                         }
-
                         cache_response = {
                             "results": results_dict,
                             "search_params": search_params_for_response,
                             "operators_searched": list(set([r.operator for r in results])),
                             "total_results": len(results),
-                            "search_time_ms": 0,  # Already searched
+                            "search_time_ms": 0,
                             "cached": False
                         }
                         cache_service.set_ferry_search(ferry_search_cache_params, cache_response, ttl=300)
-                        logger.info(f"  💾 Calendar cached ferry_search for {current_date.isoformat()} (TTL: 5min)")
 
                 if results:
-                    # Calculate lowest per-adult price (to match results display)
                     lowest_price = None
-                    prices_found = []
                     for result in results:
                         adult_price = result.prices.get("adult", 0)
                         if adult_price > 0:
-                            prices_found.append(adult_price)
                             if lowest_price is None or adult_price < lowest_price:
                                 lowest_price = adult_price
 
-                    # Debug logging
-                    if current_date.day == 1:  # Log for Dec 1 specifically
-                        logger.info(f"🔍 Date {current_date.isoformat()}: Found {len(results)} ferries")
-                        logger.info(f"   Adult prices: {prices_found}")
-                        logger.info(f"   Lowest: €{lowest_price}")
-
-                    date_prices.append({
-                        "date": current_date.isoformat(),
-                        "day_of_week": current_date.strftime("%a"),
-                        "day_of_month": current_date.day,
-                        "month": current_date.strftime("%b"),
+                    return {
+                        "date": search_date.isoformat(),
+                        "day_of_week": search_date.strftime("%a"),
+                        "day_of_month": search_date.day,
+                        "month": search_date.strftime("%b"),
                         "lowest_price": round(lowest_price, 2) if lowest_price else None,
                         "available": True,
                         "num_ferries": len(results),
-                        "is_center_date": current_date == center_date
-                    })
+                        "is_center_date": search_date == center_date
+                    }
                 else:
-                    # No ferries available
-                    date_prices.append({
-                        "date": current_date.isoformat(),
-                        "day_of_week": current_date.strftime("%a"),
-                        "day_of_month": current_date.day,
-                        "month": current_date.strftime("%b"),
+                    return {
+                        "date": search_date.isoformat(),
+                        "day_of_week": search_date.strftime("%a"),
+                        "day_of_month": search_date.day,
+                        "month": search_date.strftime("%b"),
                         "lowest_price": None,
                         "available": False,
                         "num_ferries": 0,
-                        "is_center_date": current_date == center_date
-                    })
+                        "is_center_date": search_date == center_date
+                    }
             except Exception as e:
-                logger.warning(f"Error searching date {current_date}: {e}")
-                # Add as unavailable
-                date_prices.append({
-                    "date": current_date.isoformat(),
-                    "day_of_week": current_date.strftime("%a"),
-                    "day_of_month": current_date.day,
-                    "month": current_date.strftime("%b"),
+                logger.warning(f"Error searching date {search_date}: {e}")
+                return {
+                    "date": search_date.isoformat(),
+                    "day_of_week": search_date.strftime("%a"),
+                    "day_of_month": search_date.day,
+                    "month": search_date.strftime("%b"),
                     "lowest_price": None,
                     "available": False,
                     "num_ferries": 0,
-                    "is_center_date": current_date == center_date
-                })
+                    "is_center_date": search_date == center_date
+                }
 
-            current_date += timedelta(days=1)
+        # Search all dates in parallel for much faster response
+        logger.info(f"🚀 Calendar searching {len(dates_to_search)} dates in parallel...")
+        search_start = time.time()
+        date_prices = await asyncio.gather(*[search_single_date(d) for d in dates_to_search])
+        search_duration = (time.time() - search_start) * 1000
+        logger.info(f"✅ Calendar search completed in {search_duration:.0f}ms for {len(dates_to_search)} dates")
+
+        # Sort by date to ensure correct order
+        date_prices = sorted(date_prices, key=lambda x: x["date"])
 
         response = {
             "route": {

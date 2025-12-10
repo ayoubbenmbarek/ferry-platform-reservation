@@ -1,6 +1,196 @@
-# Maritime Reservation Website - Complete Project Guide
+# Maritime Reservation Platform - Architecture
 
-## Project Structure
+## System Overview
+
+The platform uses a **modular monolith** architecture - a single backend application with clearly separated modules, supported by dedicated infrastructure components.
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      Clients                            │
+│    Frontend (React)     │     Mobile (Expo)             │
+└────────────┬────────────┴──────────────┬────────────────┘
+             │                           │
+             ▼                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                   API Gateway (Traefik)                 │
+│              staging.voilaferry.com                     │
+│              api-staging.voilaferry.com                 │
+└────────────┬────────────────────────────┬───────────────┘
+             │                            │
+             ▼                            ▼
+┌────────────────────────┐    ┌───────────────────────────┐
+│   Backend (FastAPI)    │    │   Chatbot (Separate)      │
+│  ┌──────────────────┐  │    │   - Anthropic Claude      │
+│  │ Auth Module      │  │    │   - MCP Server            │
+│  │ Bookings Module  │  │    └───────────────────────────┘
+│  │ Payments Module  │  │
+│  │ Ferries Module   │  │
+│  │ Admin Module     │  │
+│  │ Price Alerts     │  │
+│  │ Availability     │  │
+│  └──────────────────┘  │
+└──────────┬─────────────┘
+           │
+     ┌─────┴─────┐
+     ▼           ▼
+┌─────────┐ ┌─────────┐
+│ Postgres│ │  Redis  │
+│   DB    │ │ Cache   │
+└─────────┘ └─────────┘
+                 ▲
+                 │
+┌────────────────┴────────┐
+│ Celery Workers          │
+│ ├─ Email Tasks          │
+│ ├─ Price Tracking       │
+│ ├─ Availability Sync    │
+│ └─ Scheduled Jobs       │
+└─────────────────────────┘
+```
+
+## Components
+
+### Frontend (React)
+- **Technology**: React 18, TypeScript, Redux Toolkit
+- **Styling**: Tailwind CSS
+- **Features**: PWA support, i18n, responsive design
+- **Deployment**: Nginx serving static files
+
+### Mobile (Expo/React Native)
+- **Technology**: React Native, Expo SDK
+- **Platforms**: iOS, Android
+- **Build**: EAS Build (Expo Application Services)
+- **Distribution**: App Store, Play Store
+
+### Backend (FastAPI)
+- **Technology**: Python 3.11, FastAPI, SQLAlchemy
+- **Modules**:
+  - `auth` - Authentication, OAuth (Google), JWT tokens
+  - `bookings` - Reservation management
+  - `payments` - Stripe integration
+  - `ferries` - Ferry search, operators integration
+  - `admin` - Admin dashboard APIs
+  - `price-alerts` - Price monitoring
+  - `availability-alerts` - Availability notifications
+- **API**: RESTful, OpenAPI/Swagger docs at `/docs`
+
+### Chatbot
+- **Technology**: Python, Anthropic Claude API
+- **Protocol**: MCP (Model Context Protocol)
+- **Purpose**: AI-powered customer support
+
+### Database (PostgreSQL)
+- **Version**: 15+
+- **ORM**: SQLAlchemy with Alembic migrations
+- **Data**: Users, bookings, payments, alerts, etc.
+
+### Cache/Broker (Redis)
+- **Purpose**:
+  - Caching (sessions, API responses)
+  - Celery message broker
+  - WebSocket pub/sub for real-time updates
+
+### Task Queue (Celery)
+- **Broker**: Redis
+- **Workers**: Async task processing
+- **Beat**: Scheduled/periodic tasks
+- **Tasks**:
+  - Email notifications
+  - Price tracking
+  - External API sync
+  - Cleanup jobs
+
+## Infrastructure
+
+### Kubernetes (k3s)
+- **Cluster**: Single-node k3s on VPS
+- **Namespaces**:
+  - `maritime-reservations-staging`
+  - `maritime-reservations` (production)
+- **Ingress**: Traefik
+- **Configuration**: Kustomize overlays
+
+### CI/CD (GitHub Actions)
+- **ci.yml**: Tests on all branches
+- **deploy-staging.yml**: Auto-deploy to staging (develop, staging branches)
+- **deploy-production.yml**: Manual deploy to production
+- **mobile-build.yml**: EAS builds for mobile
+
+### DNS/CDN (Cloudflare)
+- **Domain**: voilaferry.com
+- **Subdomains**:
+  - `staging.voilaferry.com` - Staging frontend
+  - `api-staging.voilaferry.com` - Staging API
+  - `voilaferry.com` - Production frontend
+  - `api.voilaferry.com` - Production API
+
+## Monolith vs Microservices
+
+| Aspect | Current (Monolith) | Microservices |
+|--------|---------------------|---------------|
+| Backend | 1 FastAPI app | Separate services |
+| Database | 1 shared PostgreSQL | Each service has own DB |
+| Deployment | Single container | Multiple containers |
+| Complexity | Lower | Higher |
+| Scaling | Scale entire app | Scale individual services |
+| Dev Speed | Faster | Slower |
+| Debugging | Easier | Harder |
+
+### Why Monolith?
+- **Simplicity**: Easier to develop, test, and deploy
+- **Speed**: Faster development for small team
+- **Cost**: Lower infrastructure costs
+- **Suitable for**: Early stage, MVP, small-medium scale
+
+### When to Consider Microservices?
+- Team grows significantly (10+ developers)
+- Different scaling needs per module
+- Independent deployment cycles needed
+- Clear domain boundaries established
+
+## Data Flow
+
+### Booking Flow
+```
+User → Frontend → API Gateway → Backend
+                                   ↓
+                              Validate
+                                   ↓
+                              Save to DB
+                                   ↓
+                              Queue Email Task
+                                   ↓
+                              Celery Worker → Send Email
+                                   ↓
+                              Return Response
+```
+
+### Real-time Availability
+```
+External APIs → Celery Beat (every 2 min)
+                      ↓
+                Fetch availability
+                      ↓
+                Detect changes
+                      ↓
+                Redis Pub/Sub
+                      ↓
+                WebSocket → Frontend
+```
+
+## Security
+
+- **Authentication**: JWT tokens, OAuth 2.0
+- **HTTPS**: TLS termination at Cloudflare/Traefik
+- **Secrets**: Kubernetes Secrets
+- **CORS**: Configured per environment
+- **Rate Limiting**: Enabled in production
+
+---
+
+# Project Structure
 
 ```
 maritime-reservation-platform/

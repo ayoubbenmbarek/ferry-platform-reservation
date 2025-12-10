@@ -431,7 +431,8 @@ todo:Change maritime reservation with voila ferry and search for logo
 todo:Chatbot connexion trouble on mobile frontend
 todo:Website on mobile did not show ports:done
 todo prevent abuse use of botchat and voice search
-todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details
+todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details, i also receied email cabin evailable but when i enter url i see aucune cabine disponible pour le moment, i know staging db where empty but why i receie email, check availabiity may look for local db?
+todo:later check availaibility will check fomr external api
 
 delete this and make them mandatory:Tip: Fill all fields you want before clicking "Save Passenger"
 

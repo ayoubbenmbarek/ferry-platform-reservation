@@ -156,6 +156,14 @@ def check_availability_alerts_task(self):
                     # Note: cabin_required and cabin_type are not parameters of search_ferries()
                     # We'll search normally and filter results by cabin availability
 
+                    # IMPORTANT: Also check if cabins exist in database
+                    # The frontend shows cabins from DB, not from ferry search results
+                    from app.models.ferry import Cabin
+                    db_cabins = db.query(Cabin).filter(Cabin.is_available == True).count()
+                    if db_cabins == 0:
+                        logger.debug(f"🛏️ Alert {alert.id}: No cabins in database, skipping notification")
+                        continue  # Skip this alert - no cabins to show user
+
                     # Call async ferry search (run in sync context)
                     results = asyncio.run(ferry_service.search_ferries(**search_params))
 

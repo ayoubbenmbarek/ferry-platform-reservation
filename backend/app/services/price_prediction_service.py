@@ -227,7 +227,7 @@ class PricePredictionService:
         if history:
             prices = [h.lowest_price for h in history if h.lowest_price]
             if prices:
-                return np.mean(prices)
+                return float(np.mean(prices))
 
         # Default fallback
         return 85.0
@@ -310,7 +310,7 @@ class PricePredictionService:
         if not availabilities:
             return 1.0
 
-        avg_availability = np.mean(availabilities)
+        avg_availability = float(np.mean(availabilities))
 
         # Low availability = high demand = higher prices
         if avg_availability < 20:
@@ -384,10 +384,11 @@ class PricePredictionService:
         # Simple linear regression
         x = np.arange(len(prices))
         slope, _ = np.polyfit(x, prices, 1)
+        slope = float(slope)  # Convert numpy type to Python float
 
         # Calculate trend strength (normalized slope)
-        avg_price = np.mean(prices)
-        trend_strength = abs(slope / avg_price) if avg_price > 0 else 0
+        avg_price = float(np.mean(prices))
+        trend_strength = abs(slope / avg_price) if avg_price > 0 else 0.0
 
         # Determine trend direction
         if slope > avg_price * 0.01:  # More than 1% increase per period

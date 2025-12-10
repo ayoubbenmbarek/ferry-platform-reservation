@@ -4,11 +4,12 @@ metadata:
   name: maritime-ingress
   namespace: maritime-reservations-staging
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-staging"
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
+    # Using self-signed cert since Cloudflare handles edge SSL (Full mode)
+    # cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 spec:
-  ingressClassName: traefik
+  ingressClassName: nginx
   tls:
     - hosts:
         - staging.voilaferry.com

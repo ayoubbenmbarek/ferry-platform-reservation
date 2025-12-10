@@ -151,6 +151,20 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "768Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "384Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/args
+        value:
+          - "-A"
+          - "app.celery_app"
+          - "worker"
+          - "--loglevel=info"
+          - "--concurrency=2"
     target:
       kind: Deployment
       name: celery-worker

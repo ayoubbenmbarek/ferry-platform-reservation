@@ -495,7 +495,8 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
         })}
       </div>
 
-      {cabins.length === 0 && (
+      {/* Show Notify Me when no cabins in DB OR when all cabins are unavailable on ferry */}
+      {(cabins.length === 0 || (cabins.length > 0 && cabins.every(cabin => !getCabinAvailability(cabin.cabin_type).available))) && (
         <div className="text-center py-8">
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 max-w-md mx-auto">
             <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">

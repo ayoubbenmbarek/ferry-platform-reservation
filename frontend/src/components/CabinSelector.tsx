@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import api, { availabilityAlertAPI } from '../services/api';
+import api from '../services/api';
 import { RootState } from '../store';
 
 interface Cabin {

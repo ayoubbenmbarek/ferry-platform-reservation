@@ -23,7 +23,7 @@ import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import SaveRouteButton from '../components/SaveRouteButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
 import RunningBear from '../components/UI/RunningBear';
-import MobileDatePicker from '../components/MobileDatePicker';
+import DatePickerInput from '../components/DatePickerInput';
 
 // Search Form Component
 interface SearchFormProps {
@@ -195,100 +195,35 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Departure Date */}
-                  <div>
-                    {/* Desktop: Native date input */}
-                    <div className="hidden md:block">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.departureDate')}</label>
-                      <input
-                        type="date"
-                        value={form.departureDate}
-                        onChange={(e) => {
-                          setErrors(prev => ({ ...prev, departureDate: '' }));
-                          setForm({ ...form, departureDate: e.target.value });
-                        }}
-                        min={new Date().toISOString().split('T')[0]}
-                        className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departureDate ? 'border-red-500' : 'border-gray-300'}`}
-                      />
-                      {errors.departureDate && (
-                        <p className="text-red-500 text-xs mt-1">{errors.departureDate}</p>
-                      )}
-                    </div>
-                    {/* Mobile: Custom date picker */}
-                    <div className="md:hidden">
-                      <MobileDatePicker
-                        label={t('search:form.departureDate')}
-                        value={form.departureDate}
-                        onChange={(date) => {
-                          setErrors(prev => ({ ...prev, departureDate: '' }));
-                          setForm({ ...form, departureDate: date });
-                        }}
-                        min={new Date().toISOString().split('T')[0]}
-                        error={errors.departureDate}
-                        placeholder={t('search:form.selectDepartureDate', 'Select departure date')}
-                      />
-                    </div>
-                  </div>
+                  <DatePickerInput
+                    label={t('search:form.departureDate')}
+                    value={form.departureDate}
+                    onChange={(date) => {
+                      setErrors(prev => ({ ...prev, departureDate: '' }));
+                      setForm({ ...form, departureDate: date });
+                    }}
+                    min={new Date().toISOString().split('T')[0]}
+                    error={errors.departureDate}
+                    placeholder={t('search:form.selectDepartureDate', 'Select departure date')}
+                  />
 
                   {/* Return Date */}
-                  <div>
-                    {/* Desktop: Native date input */}
-                    <div className="hidden md:block">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnDate')}</label>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={form.returnDate}
-                          onChange={(e) => {
-                            setErrors(prev => ({ ...prev, returnDate: '' }));
-                            setForm({ ...form, returnDate: e.target.value });
-                            dispatch(setIsRoundTrip(!!e.target.value));
-                          }}
-                          min={
-                            form.departureDate
-                              ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
-                              : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
-                          }
-                          className={`w-full px-4 py-3 pr-12 border-2 rounded-lg ${errors.returnDate ? 'border-red-500' : 'border-gray-300'}`}
-                        />
-                        {form.returnDate && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setForm({ ...form, returnDate: '' });
-                              dispatch(setIsRoundTrip(false));
-                            }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-600 bg-white px-1.5 py-0.5 rounded-full hover:bg-red-50 font-bold text-lg z-10 cursor-pointer"
-                            title="Clear return date"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                      {errors.returnDate && (
-                        <p className="text-red-500 text-xs mt-1">{errors.returnDate}</p>
-                      )}
-                    </div>
-                    {/* Mobile: Custom date picker */}
-                    <div className="md:hidden">
-                      <MobileDatePicker
-                        label={t('search:form.returnDate')}
-                        value={form.returnDate}
-                        onChange={(date) => {
-                          setErrors(prev => ({ ...prev, returnDate: '' }));
-                          setForm({ ...form, returnDate: date });
-                          dispatch(setIsRoundTrip(!!date));
-                        }}
-                        min={
-                          form.departureDate
-                            ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
-                            : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
-                        }
-                        error={errors.returnDate}
-                        placeholder={t('search:form.selectReturnDate', 'Select return date (optional)')}
-                      />
-                    </div>
-                  </div>
+                  <DatePickerInput
+                    label={t('search:form.returnDate')}
+                    value={form.returnDate}
+                    onChange={(date) => {
+                      setErrors(prev => ({ ...prev, returnDate: '' }));
+                      setForm({ ...form, returnDate: date });
+                      dispatch(setIsRoundTrip(!!date));
+                    }}
+                    min={
+                      form.departureDate
+                        ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
+                        : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
+                    }
+                    error={errors.returnDate}
+                    placeholder={t('search:form.selectReturnDate', 'Select return date (optional)')}
+                  />
                 </div>
 
                 {/* Different return route option */}

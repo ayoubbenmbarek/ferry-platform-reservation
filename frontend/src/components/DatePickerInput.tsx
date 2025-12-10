@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-interface MobileDatePickerProps {
+interface DatePickerInputProps {
   value: string;
   onChange: (date: string) => void;
   min?: string;
@@ -10,7 +10,7 @@ interface MobileDatePickerProps {
   placeholder?: string;
 }
 
-const MobileDatePicker: React.FC<MobileDatePickerProps> = ({
+const DatePickerInput: React.FC<DatePickerInputProps> = ({
   value,
   onChange,
   min,
@@ -271,4 +271,4 @@ const MobileDatePicker: React.FC<MobileDatePickerProps> = ({
   );
 };
 
-export default MobileDatePicker;
+export default DatePickerInput;

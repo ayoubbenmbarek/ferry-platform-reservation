@@ -431,6 +431,11 @@ todo:Change maritime reservation with voila ferry and search for logo
 todo:Chatbot connexion trouble on mobile frontend
 todo:Website on mobile did not show ports:done
 todo prevent abuse use of botchat and voice search
+todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details
+
+delete this and make them mandatory:Tip: Fill all fields you want before clicking "Save Passenger"
+
+Requis : Prénom & Nom • Optionnel : Date de naissance, Nationalité, Passeport, Infos animal, etc.
 
 added:
 USE_MOCK_FERRIES: "true"  #

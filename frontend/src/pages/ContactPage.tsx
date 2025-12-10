@@ -94,8 +94,8 @@ const ContactPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">{t('contact.email', 'Email')}</p>
-                    <a href="mailto:support@ferryreservation.com" className="text-blue-600 hover:underline">
-                      support@ferryreservation.com
+                    <a href="mailto:support@voilaferry.com" className="text-blue-600 hover:underline">
+                      support@voilaferry.com
                     </a>
                   </div>
                 </div>

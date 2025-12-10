@@ -267,7 +267,7 @@ describe('ContactPage - Logic Tests', () => {
 
   describe('Contact Information Display', () => {
     const contactInfo = {
-      email: 'support@ferryreservation.com',
+      email: 'support@voilaferry.com',
       phone: '+216 71 123 456',
       phoneHours: 'Mon-Fri, 8am-6pm CET',
       address: {
@@ -279,7 +279,7 @@ describe('ContactPage - Logic Tests', () => {
 
     it('should have valid contact email', () => {
       expect(contactInfo.email).toContain('@');
-      expect(contactInfo.email).toContain('ferryreservation.com');
+      expect(contactInfo.email).toContain('voilaferry.com');
     });
 
     it('should have valid phone number', () => {

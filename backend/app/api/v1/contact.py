@@ -70,7 +70,7 @@ async def send_contact_notification(form_data: ContactFormData):
     try:
         from app.services.email_service import email_service
 
-        support_email = os.getenv("SUPPORT_EMAIL", "support@ferryreservation.com")
+        support_email = os.getenv("SUPPORT_EMAIL", "support@voilaferry.com")
 
         # Build email content
         html_content = f"""
@@ -135,7 +135,7 @@ async def send_contact_notification(form_data: ContactFormData):
 
                 <p>In the meantime, you can:</p>
                 <ul>
-                    <li>Check our <a href="https://ferryreservation.com/faq" style="color: #2563eb;">FAQ section</a> for common questions</li>
+                    <li>Check our <a href="https://voilaferry.com/faq" style="color: #2563eb;">FAQ section</a> for common questions</li>
                     <li>Use our 24/7 AI chatbot for instant assistance</li>
                     <li>Call us at +216 71 123 456 (Mon-Fri, 8am-6pm CET)</li>
                 </ul>

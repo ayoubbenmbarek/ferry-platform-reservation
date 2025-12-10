@@ -100,7 +100,7 @@ export default function ContactScreen() {
   };
 
   const handleEmail = () => {
-    Linking.openURL('mailto:support@ferryreservation.com');
+    Linking.openURL('mailto:support@voilaferry.com');
   };
 
   const handleMap = () => {

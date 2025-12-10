@@ -1,12 +1,12 @@
 export default {
   expo: {
-    name: "Maritime Reservations",
-    slug: "maritime-reservations",
+    name: "VoilaFerry",
+    slug: "voilaferry",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    scheme: "maritime",
+    scheme: "voilaferry",
     newArchEnabled: true,
     splash: {
       image: "./assets/splash-icon.png",
@@ -15,7 +15,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.maritime.reservations",
+      bundleIdentifier: "com.voilaferry.app",
       infoPlist: {
         NSFaceIDUsageDescription: "Sign in quickly and securely using Face ID"
       }
@@ -27,7 +27,7 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.maritime.reservations"
+      package: "com.voilaferry.app"
     },
     web: {
       favicon: "./assets/favicon.png"

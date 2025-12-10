@@ -8,6 +8,7 @@ import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
 import { LiveFerryMap } from '../components/LiveFerryMap';
+import MobileDatePicker from '../components/MobileDatePicker';
 
 const NewHomePage: React.FC = () => {
   const { t } = useTranslation(['search', 'common']);
@@ -396,66 +397,90 @@ const NewHomePage: React.FC = () => {
 
                 {/* Date Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Departure Date */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      {t('search:form.departureDate')}
-                    </label>
-                    <input
-                      type="date"
-                      value={form.departureDate}
-                      onChange={(e) => {
-                        const selectedDate = e.target.value;
-                        const today = new Date().toISOString().split('T')[0];
-                        // Validate: reject past dates (mobile browsers may not enforce min)
-                        if (selectedDate < today) {
-                          setErrors(prev => ({ ...prev, departureDate: t('search:errors.pastDate', 'Cannot select a past date') }));
-                          return;
-                        }
-                        setErrors(prev => ({ ...prev, departureDate: '' }));
-                        setForm({ ...form, departureDate: selectedDate });
-                      }}
-                      min={new Date().toISOString().split('T')[0]}
-                      className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                        errors.departureDate ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                    />
-                    {errors.departureDate && (
-                      <p className="text-red-500 text-xs mt-1">{errors.departureDate}</p>
-                    )}
+                    {/* Desktop: Native date input */}
+                    <div className="hidden md:block">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        {t('search:form.departureDate')}
+                      </label>
+                      <input
+                        type="date"
+                        value={form.departureDate}
+                        onChange={(e) => {
+                          setErrors(prev => ({ ...prev, departureDate: '' }));
+                          setForm({ ...form, departureDate: e.target.value });
+                        }}
+                        min={new Date().toISOString().split('T')[0]}
+                        className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                          errors.departureDate ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {errors.departureDate && (
+                        <p className="text-red-500 text-xs mt-1">{errors.departureDate}</p>
+                      )}
+                    </div>
+                    {/* Mobile: Custom date picker with greyed out past dates */}
+                    <div className="md:hidden">
+                      <MobileDatePicker
+                        label={t('search:form.departureDate')}
+                        value={form.departureDate}
+                        onChange={(date) => {
+                          setErrors(prev => ({ ...prev, departureDate: '' }));
+                          setForm({ ...form, departureDate: date });
+                        }}
+                        min={new Date().toISOString().split('T')[0]}
+                        error={errors.departureDate}
+                        placeholder={t('search:form.selectDepartureDate', 'Select departure date')}
+                      />
+                    </div>
                   </div>
 
+                  {/* Return Date */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      {t('search:form.returnDate')}
-                    </label>
-                    <input
-                      type="date"
-                      value={form.returnDate}
-                      onChange={(e) => {
-                        const selectedDate = e.target.value;
-                        const minReturnDate = form.departureDate
-                          ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
-                          : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0];
-                        // Validate: reject dates before minimum (mobile browsers may not enforce min)
-                        if (selectedDate < minReturnDate) {
-                          setErrors(prev => ({ ...prev, returnDate: t('search:errors.returnBeforeDeparture', 'Return date must be after departure') }));
-                          return;
+                    {/* Desktop: Native date input */}
+                    <div className="hidden md:block">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        {t('search:form.returnDate')}
+                      </label>
+                      <input
+                        type="date"
+                        value={form.returnDate}
+                        onChange={(e) => {
+                          setErrors(prev => ({ ...prev, returnDate: '' }));
+                          setForm({ ...form, returnDate: e.target.value });
+                        }}
+                        min={
+                          form.departureDate
+                            ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
+                            : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
                         }
-                        setErrors(prev => ({ ...prev, returnDate: '' }));
-                        setForm({ ...form, returnDate: selectedDate });
-                      }}
-                      min={
-                        form.departureDate
-                          ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
-                          : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
-                      }
-                      className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                        errors.returnDate ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                    />
-                    {errors.returnDate && (
-                      <p className="text-red-500 text-xs mt-1">{errors.returnDate}</p>
-                    )}
+                        className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                          errors.returnDate ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {errors.returnDate && (
+                        <p className="text-red-500 text-xs mt-1">{errors.returnDate}</p>
+                      )}
+                    </div>
+                    {/* Mobile: Custom date picker with greyed out past dates */}
+                    <div className="md:hidden">
+                      <MobileDatePicker
+                        label={t('search:form.returnDate')}
+                        value={form.returnDate}
+                        onChange={(date) => {
+                          setErrors(prev => ({ ...prev, returnDate: '' }));
+                          setForm({ ...form, returnDate: date });
+                        }}
+                        min={
+                          form.departureDate
+                            ? new Date(new Date(form.departureDate).getTime() + 86400000).toISOString().split('T')[0]
+                            : new Date(new Date().getTime() + 86400000).toISOString().split('T')[0]
+                        }
+                        error={errors.returnDate}
+                        placeholder={t('search:form.selectReturnDate', 'Select return date (optional)')}
+                      />
+                    </div>
                   </div>
                 </div>
 

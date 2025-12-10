@@ -165,6 +165,15 @@ patches:
           - "worker"
           - "--loglevel=info"
           - "--concurrency=2"
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/timeoutSeconds
+        value: 30
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/periodSeconds
+        value: 60
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/failureThreshold
+        value: 5
     target:
       kind: Deployment
       name: celery-worker

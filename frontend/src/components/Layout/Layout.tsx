@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -18,11 +18,29 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
 
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
   // Update HTML dir and lang attributes when language changes
   useEffect(() => {
     document.documentElement.dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = i18n.language;
   }, [i18n.language]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
+        setShowLanguageMenu(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
     setShowUserMenu(false);
@@ -67,7 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Link to="/contact" className="text-gray-700 hover:text-blue-600">{t('nav.contact', 'Contact')}</Link>
 
               {/* Language Switcher */}
-              <div className="relative">
+              <div className="relative" ref={languageMenuRef}>
                 <button
                   onClick={() => setShowLanguageMenu(!showLanguageMenu)}
                   className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 focus:outline-none px-2 py-1 rounded-md hover:bg-gray-100"
@@ -117,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   )}
 
                   {/* User Menu Dropdown */}
-                  <div className="relative">
+                  <div className="relative" ref={userMenuRef}>
                     <button
                       onClick={() => setShowUserMenu(!showUserMenu)}
                       className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 focus:outline-none"
@@ -133,9 +151,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
                     {/* Dropdown Menu */}
                     {showUserMenu && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                      <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                         <div className="px-4 py-2 border-b border-gray-200">
-                          <p className="text-sm font-medium text-gray-900">{user?.email}</p>
+                          <p className="text-sm font-medium text-gray-900 truncate" title={user?.email}>{user?.email}</p>
                         </div>
                         <Link
                           to="/profile"

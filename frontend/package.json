@@ -1,7 +1,7 @@
 {
-  "name": "maritime-reservation-frontend",
+  "name": "voilaferry-frontend",
   "version": "1.0.0",
-  "description": "Maritime reservation website frontend",
+  "description": "VoilaFerry - Ferry booking website frontend",
   "private": true,
   "dependencies": {
     "@reduxjs/toolkit": "^1.9.7",

@@ -12,15 +12,16 @@ i18n
   .use(initReactI18next)
   // Initialize i18next
   .init({
-    fallbackLng: 'en',
+    lng: 'fr', // Default language is French
+    fallbackLng: 'fr',
     debug: process.env.NODE_ENV === 'development',
 
     // Supported languages
-    supportedLngs: ['en', 'fr', 'ar', 'it', 'de'],
+    supportedLngs: ['fr', 'en', 'ar', 'it', 'de'],
 
-    // Language detection order
+    // Language detection order - check stored preference first, then default to French
     detection: {
-      order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],
+      order: ['localStorage', 'cookie', 'querystring'],
       caches: ['localStorage', 'cookie'],
       lookupQuerystring: 'lang',
       lookupCookie: 'i18next',

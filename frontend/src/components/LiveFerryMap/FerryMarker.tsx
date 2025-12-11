@@ -120,9 +120,9 @@ const FerryMarker: React.FC<FerryMarkerProps> = ({
                   href={marineTrafficUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 text-center text-xs bg-emerald-600 text-white py-2 px-3 rounded-md font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
+                  className="flex-1 text-center text-xs text-gray-600 py-1.5 px-2 rounded border border-gray-300 hover:bg-gray-50 transition-colors"
                 >
-                  🛰️ Track Live
+                  Track Live
                 </a>
               )}
               {vesselFinderUrl && (
@@ -130,9 +130,9 @@ const FerryMarker: React.FC<FerryMarkerProps> = ({
                   href={vesselFinderUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 text-center text-xs bg-orange-500 text-white py-2 px-3 rounded-md font-semibold hover:bg-orange-600 transition-colors shadow-sm"
+                  className="flex-1 text-center text-xs text-gray-600 py-1.5 px-2 rounded border border-gray-300 hover:bg-gray-50 transition-colors"
                 >
-                  📍 VesselFinder
+                  VesselFinder
                 </a>
               )}
             </div>

@@ -1,5 +1,5 @@
 {
-  "appName": "Réservations Maritimes",
+  "appName": "VoilaFerry",
   "nav": {
     "home": "Accueil",
     "search": "Rechercher",
@@ -14,7 +14,7 @@
     "contact": "Contact"
   },
   "footer": {
-    "copyright": "© 2024 Réservations Maritimes. Tous droits réservés.",
+    "copyright": "© 2026 VoilaFerry. Tous droits réservés.",
     "terms": "Conditions d'Utilisation",
     "privacy": "Politique de Confidentialité",
     "help": "Centre d'Aide"

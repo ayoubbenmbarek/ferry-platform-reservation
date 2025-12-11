@@ -114,7 +114,7 @@ const SupportChatbotInner: React.FC = () => {
         {
           id: 'welcome',
           role: 'assistant',
-          content: t('chatbot.welcome', 'Hi! I\'m your Maritime Reservations assistant. How can I help you today? You can ask me about bookings, routes, cancellations, or any other questions.'),
+          content: t('chatbot.welcome', 'Hi! I\'m your VoilaFerry assistant. How can I help you today? You can ask me about bookings, routes, cancellations, or any other questions.'),
           timestamp: new Date(),
         },
       ]);
@@ -238,9 +238,12 @@ const SupportChatbotInner: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           ) : (
-            /* Ferry/Ship icon */
+            /* Robot/AI assistant icon */
             <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v-2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42c-.26.08-.48.26-.6.5s-.15.52-.06.78L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z"/>
+              <path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z"/>
+              <circle cx="9" cy="13" r="1.5" fill="white"/>
+              <circle cx="15" cy="13" r="1.5" fill="white"/>
+              <path d="M9 17h6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           )}
         </button>
@@ -259,7 +262,7 @@ const SupportChatbotInner: React.FC = () => {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold">{t('chatbot.title', 'Ferry Assistant')}</h3>
+                <h3 className="font-semibold">{t('chatbot.title', 'VoilaFerry Assistant')}</h3>
                 <p className="text-xs text-blue-100 flex items-center gap-1">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                   {t('chatbot.online', 'Online')}

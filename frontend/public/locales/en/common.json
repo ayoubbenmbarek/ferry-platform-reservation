@@ -1,5 +1,5 @@
 {
-  "appName": "Maritime Reservations",
+  "appName": "VoilaFerry",
   "nav": {
     "home": "Home",
     "search": "Search",
@@ -14,7 +14,7 @@
     "contact": "Contact"
   },
   "footer": {
-    "copyright": "© 2024 Maritime Reservations. All rights reserved.",
+    "copyright": "© 2026 VoilaFerry. All rights reserved.",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "help": "Help Center"

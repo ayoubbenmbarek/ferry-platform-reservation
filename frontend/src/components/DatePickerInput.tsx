@@ -147,38 +147,56 @@ const DatePickerInput: React.FC<DatePickerInputProps> = ({
       )}
 
       {/* Input field */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 border-2 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-          error ? 'border-red-500' : 'border-gray-300'
-        } ${className}`}
-      >
-        {value ? (
-          <span className="text-gray-900">{formatDisplayDate(value)}</span>
-        ) : (
-          <span className="text-gray-400">{placeholder}</span>
-        )}
-        <svg
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`relative w-full px-4 py-3 ${value ? 'pr-16' : 'pr-10'} border-2 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+            error ? 'border-red-500' : 'border-gray-300'
+          } ${className}`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-      </button>
+          {value ? (
+            <span className="text-gray-900">{formatDisplayDate(value)}</span>
+          ) : (
+            <span className="text-gray-400">{placeholder}</span>
+          )}
+          <svg
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        </button>
+        {/* Clear button */}
+        {value && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange('');
+            }}
+            className="absolute right-10 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+            title="Clear date"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
 
       {/* Calendar dropdown */}
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-xl border border-gray-200 p-4">
+        <div className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 min-w-[300px] w-max bg-white rounded-lg shadow-xl border border-gray-200 p-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <button

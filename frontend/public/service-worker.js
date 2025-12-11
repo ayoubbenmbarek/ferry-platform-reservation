@@ -1,7 +1,7 @@
-// Service Worker for Maritime Reservation PWA
+// Service Worker for VoilaFerry PWA
 // Provides offline support and caching
 
-const CACHE_NAME = 'maritime-v1';
+const CACHE_NAME = 'voilaferry-v1';
 const RUNTIME_CACHE = 'runtime-v1';
 
 // Static assets to cache on install
@@ -156,7 +156,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Maritime Reservation', options)
+    self.registration.showNotification(data.title || 'VoilaFerry', options)
   );
 });
 

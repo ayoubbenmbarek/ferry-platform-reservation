@@ -238,12 +238,21 @@ const SupportChatbotInner: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           ) : (
-            /* Robot/AI assistant icon */
-            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z"/>
-              <circle cx="9" cy="13" r="1.5" fill="white"/>
-              <circle cx="15" cy="13" r="1.5" fill="white"/>
-              <path d="M9 17h6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            /* Captain assistant icon with hat */
+            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none">
+              {/* Captain hat */}
+              <ellipse cx="12" cy="6" rx="7" ry="2.5" fill="#1e3a5f"/>
+              <path d="M5 6c0 0 0-3 7-3s7 3 7 3" fill="#1e3a5f"/>
+              <rect x="6" y="4" width="12" height="2.5" fill="#2563eb"/>
+              {/* Hat emblem/anchor */}
+              <circle cx="12" cy="5" r="1.5" fill="#fbbf24"/>
+              {/* Face circle */}
+              <circle cx="12" cy="14" r="6" fill="currentColor"/>
+              {/* Eyes */}
+              <circle cx="10" cy="13" r="1" fill="#1e3a5f"/>
+              <circle cx="14" cy="13" r="1" fill="#1e3a5f"/>
+              {/* Smile */}
+              <path d="M9.5 16c0 0 1.2 1.5 2.5 1.5s2.5-1.5 2.5-1.5" stroke="#1e3a5f" strokeWidth="1.2" strokeLinecap="round"/>
             </svg>
           )}
         </button>

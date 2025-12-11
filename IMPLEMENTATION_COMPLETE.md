@@ -434,6 +434,7 @@ todo prevent abuse use of botchat and voice search
 todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details, i also receied email cabin evailable but when i enter url i see aucune cabine disponible pour le moment, i know staging db where empty but why i receie email, check availabiity may look for local db?
 todo:later check availaibility will check fomr external api
 todo:check every how much time price changed on api and setup TTL on that for cache(instead of 5mn maybe 2 hours or more)
+todo:resend verifiction email page 404 not found
 
 mcp,subagent etc: https://claude.com/blog/skills-explained
 

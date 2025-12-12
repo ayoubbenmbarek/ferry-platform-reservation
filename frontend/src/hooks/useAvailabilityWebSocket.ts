@@ -273,14 +273,21 @@ export function useAvailabilityWebSocket(options: UseAvailabilityWebSocketOption
     };
   }, [autoConnect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Update subscriptions when routes prop changes
-  // Use JSON.stringify to avoid re-running on every render when routes array is recreated
+  // Track initial routes to detect changes (routes passed on connect via URL params)
+  const initialRoutesRef = useRef<string>(JSON.stringify(routes));
   const routesKey = JSON.stringify(routes);
+
+  // Only send subscribe message when routes CHANGE after initial connection
+  // Initial routes are already subscribed via URL query params on connect
   useEffect(() => {
     if (state.isConnected && routes.length > 0) {
-      subscribe(routes);
+      // Only subscribe if routes changed from initial connection
+      if (initialRoutesRef.current !== routesKey) {
+        subscribe(routes);
+        initialRoutesRef.current = routesKey;
+      }
     }
-  }, [routesKey, state.isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [routesKey, state.isConnected, routes, subscribe]);
 
   return {
     ...state,

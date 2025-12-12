@@ -19,10 +19,10 @@ spec:
         prometheus.io/port: "3100"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: maritime-service-account
+      serviceAccountName: maritime-sa
       containers:
         - name: chatbot
-          image: ghcr.io/OWNER/maritime-reservation-website/chatbot:latest
+          image: maritime-reservations/chatbot:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3100

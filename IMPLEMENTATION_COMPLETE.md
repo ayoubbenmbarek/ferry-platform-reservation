@@ -435,6 +435,7 @@ todo:high priority: after search on page meals and cabin, if cabin not exists ad
 todo:later check availaibility will check fomr external api
 todo:check every how much time price changed on api and setup TTL on that for cache(instead of 5mn maybe 2 hours or more)
 todo:resend verifiction email page 404 not found
+todo:except readiness and liveness enpont from rate limit
 
 mcp,subagent etc: https://claude.com/blog/skills-explained
 

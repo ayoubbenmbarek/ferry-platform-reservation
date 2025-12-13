@@ -93,7 +93,7 @@ spec:
               name: metrics
           env:
             - name: REDIS_ADDR
-              value: "redis://staging-redis.maritime-reservations-staging.svc.cluster.local:6379"
+              value: "redis://staging-redis-service.maritime-reservations-staging.svc.cluster.local:6379"
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:

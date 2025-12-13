@@ -356,8 +356,13 @@ todo:add loading bear on mobile:done
   dpeloyed in vps with k3s i want to add fluent bit loki promethues
   exporters but i want export data to grfana.com if it is free not self
   hosted same for promethues if possibe and monitor redis and postgres
-  via prometheus and grafana 
+  via prometheus and grafana
 
+ cd /opt/maritime
+  git pull
+
+  # Deploy monitoring stack
+  kubectl apply -k k8s/base/monitoring/
 
 todo:translare profile and settings page
 todo add contact us in mobile and frontend also i think page /contact exist but empty:done
@@ -442,6 +447,61 @@ todo:Change maritime reservation with voila ferry and search for logo
 todo:Chatbot connexion trouble on mobile frontend
 todo:Website on mobile did not show ports:done
 todo prevent abuse use of botchat and voice search
+
+todo:grafana dashboards:
+Here are useful visualizations for your VoilaFerry dashboard:
+
+  Metrics (Prometheus)
+
+  Backend Performance:
+  - HTTP request rate: rate(http_requests_total[5m])
+  - Request latency (P95): histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+  - Error rate: rate(http_requests_total{status=~"5.."}[5m])
+
+  PostgreSQL:
+  - Active connections: pg_stat_activity_count
+  - Database size: pg_database_size_bytes
+  - Slow queries: pg_stat_statements_seconds_total
+
+  Redis:
+  - Memory usage: redis_memory_used_bytes
+  - Connected clients: redis_connected_clients
+  - Hit rate: redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total)
+
+  System:
+  - CPU usage by pod
+  - Memory usage by pod
+  - Pod restarts: kube_pod_container_status_restarts_total
+
+  Logs (Loki)
+
+  Useful log queries:
+  # All errors from staging
+  {namespace_name="maritime-reservations-staging"} |= "error"
+
+  # Backend logs
+  {namespace_name="maritime-reservations-staging", container_name="backend"}
+
+  # Chatbot logs
+  {namespace_name="maritime-reservations-staging", container_name="chatbot"}
+
+  # Celery worker logs
+  {namespace_name="maritime-reservations-staging", container_name="celery-worker"}
+
+  Suggested panels:
+  1. Logs panel - Live error stream
+  2. Stat panel - Error count per hour
+  3. Time series - Log volume over time
+
+todo:
+To get more metrics, you'd need to add:
+  1. Backend metrics - Add prometheus-fastapi-instrumentator to FastAPI
+  2. Container metrics - Deploy cAdvisor
+  3. Kubernetes metrics - Deploy kube-state-metrics
+
+
+
+
 
 todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details, i also receied email cabin evailable but when i enter url i see aucune cabine disponible pour le moment, i know staging db where empty but why i receie email, check availabiity may look for local db?
 todo:later check availaibility will check fomr external api

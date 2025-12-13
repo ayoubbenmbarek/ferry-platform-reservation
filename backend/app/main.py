@@ -149,6 +149,23 @@ app = FastAPI(
     redirect_slashes=False,  # Disable automatic trailing slash redirects to avoid CORS issues
 )
 
+# Prometheus metrics instrumentation
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    instrumentator = Instrumentator(
+        should_group_status_codes=False,
+        should_ignore_untemplated=True,
+        should_respect_env_var=True,
+        should_instrument_requests_inprogress=True,
+        excluded_handlers=["/health", "/metrics"],
+        inprogress_name="http_requests_inprogress",
+        inprogress_labels=True,
+    )
+    instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    logger.info("Prometheus metrics enabled at /metrics")
+except ImportError:
+    logger.warning("prometheus-fastapi-instrumentator not available, metrics disabled")
+
 # Mount static files for Swagger UI (served locally to avoid CDN blocking)
 from pathlib import Path
 static_path = Path(__file__).parent / "static"

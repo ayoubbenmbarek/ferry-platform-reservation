@@ -22,7 +22,7 @@ data:
         Tag               kube.*
         Path              /var/log/containers/*.log
         Parser            docker
-        DB                /var/log/flb_kube.db
+        DB                /data/flb_kube.db
         Mem_Buf_Limit     50MB
         Skip_Long_Lines   On
         Refresh_Interval  10
@@ -39,11 +39,11 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
 
-    # Only keep logs from maritime namespace (reduce volume)
+    # Only keep logs from maritime namespaces (reduce volume)
     [FILTER]
         Name    grep
         Match   kube.*
-        Regex   $kubernetes['namespace_name'] ^(maritime|monitoring)$
+        Regex   $kubernetes['namespace_name'] ^(maritime-reservations-staging|maritime-reservations-production|monitoring)$
 
     # Drop debug logs to reduce volume (optional - comment out if you need debug)
     [FILTER]
@@ -56,10 +56,12 @@ data:
         Match         kube.*
         Host          ${LOKI_HOST}
         Port          443
+        Uri           /loki/api/v1/push
         TLS           On
         TLS.Verify    On
         HTTP_User     ${LOKI_USERNAME}
         HTTP_Passwd   ${LOKI_PASSWORD}
+        Tenant_ID     ${LOKI_USERNAME}
         Labels        job=fluentbit, environment=${ENVIRONMENT}
         Label_Keys    $kubernetes['namespace_name'],$kubernetes['pod_name'],$kubernetes['container_name']
         Remove_Keys   kubernetes,stream

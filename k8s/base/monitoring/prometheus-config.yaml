@@ -26,7 +26,7 @@ data:
             action: drop
           # Keep only essential metrics
           - source_labels: [__name__]
-            regex: 'up|http_.*|process_.*|pg_.*|redis_.*|node_.*|container_.*|kube_.*'
+            regex: 'up|http_.*|process_.*|pg_.*|redis_.*|node_.*|container_.*|kube_.*|traefik_.*|certmanager_.*|prometheus_.*'
             action: keep
 
     scrape_configs:
@@ -35,21 +35,21 @@ data:
         static_configs:
           - targets: ['localhost:9090']
 
-      # Maritime Backend API
+      # Maritime Backend API (staging)
       - job_name: 'maritime-backend'
-        kubernetes_sd_configs:
-          - role: endpoints
-            namespaces:
-              names:
-                - maritime
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_service_name]
-            regex: backend
-            action: keep
-          - source_labels: [__meta_kubernetes_pod_container_port_number]
-            regex: "8000"
-            action: keep
-        metrics_path: /api/v1/metrics
+        static_configs:
+          - targets: ['staging-backend.maritime-reservations-staging.svc.cluster.local:8000']
+        metrics_path: /metrics
+
+      # Traefik metrics
+      - job_name: 'traefik'
+        static_configs:
+          - targets: ['traefik.kube-system:8080']
+
+      # Cert-manager metrics
+      - job_name: 'cert-manager'
+        static_configs:
+          - targets: ['cert-manager.cert-manager:9402']
 
       # PostgreSQL Exporter
       - job_name: 'postgresql'

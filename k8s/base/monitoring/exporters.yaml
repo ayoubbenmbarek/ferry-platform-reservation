@@ -63,8 +63,9 @@ metadata:
   namespace: monitoring
 type: Opaque
 stringData:
-  # Update with your actual PostgreSQL connection string
-  datasource: "postgresql://postgres:changeme@postgres.maritime:5432/maritime_reservations?sslmode=disable"
+  # Cross-namespace connection to PostgreSQL in staging
+  # NOTE: Update password from staging-maritime-secrets DATABASE_URL
+  datasource: "postgresql://maritime:PNqeKqIjQRL3uoHy8FV60afNNKIp2ZA@staging-postgres-service.maritime-reservations-staging.svc.cluster.local:5432/maritime_reservations?sslmode=disable"
 ---
 # Redis Exporter
 apiVersion: apps/v1
@@ -92,7 +93,7 @@ spec:
               name: metrics
           env:
             - name: REDIS_ADDR
-              value: "redis://redis.maritime:6379"
+              value: "redis://staging-redis.maritime-reservations-staging.svc.cluster.local:6379"
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:

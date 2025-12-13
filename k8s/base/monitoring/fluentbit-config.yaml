@@ -52,20 +52,19 @@ data:
         Exclude log DEBUG
 
     [OUTPUT]
-        Name          loki
-        Match         kube.*
-        Host          ${LOKI_HOST}
-        Port          443
-        Uri           /loki/api/v1/push
-        TLS           On
-        TLS.Verify    On
-        HTTP_User     ${LOKI_USERNAME}
-        HTTP_Passwd   ${LOKI_PASSWORD}
-        Tenant_ID     ${LOKI_USERNAME}
-        Labels        job=fluentbit, environment=${ENVIRONMENT}
-        Label_Keys    $kubernetes['namespace_name'],$kubernetes['pod_name'],$kubernetes['container_name']
-        Remove_Keys   kubernetes,stream
-        Line_Format   json
+        Name                 loki
+        Match                kube.*
+        Host                 ${LOKI_HOST}
+        Port                 443
+        Uri                  /loki/api/v1/push
+        TLS                  On
+        TLS.Verify           On
+        HTTP_User            ${LOKI_USERNAME}
+        HTTP_Passwd          ${LOKI_PASSWORD}
+        Tenant_ID            ${LOKI_USERNAME}
+        Labels               job=fluentbit
+        Auto_Kubernetes_Labels On
+        Line_Format          json
 
   parsers.conf: |
     [PARSER]

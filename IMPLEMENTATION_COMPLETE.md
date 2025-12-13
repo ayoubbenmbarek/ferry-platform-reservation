@@ -352,36 +352,11 @@ todo:add loading bear on mobile:done
 
 
 
- in loclahost i have my own primetheus and grafana, in staging i
+ todo:in loclahost i have my own primetheus and grafana, in staging i
   dpeloyed in vps with k3s i want to add fluent bit loki promethues
   exporters but i want export data to grfana.com if it is free not self
   hosted same for promethues if possibe and monitor redis and postgres
-  via prometheus and grafana
-
-
-  Got it! From the token I can extract your Instance ID: 1615381
-
-  Now run this on your staging cluster:
-
- kubectl create secret generic grafana-cloud-credentials \
-    --namespace=monitoring \
-    --from-literal=prometheus-host="prometheus-prod-55-prod-gb-south-1.grafana.net" \
-    --from-literal=prometheus-username="1615381" \
-    --from-literal=prometheus-password="glc_eyJvIjoiMTYxNTM4MSIsIm4iOiJzdGFnaW5nLW1ldHJpY3MtbG9ncy1zdGFnaW5nLXRva2VuIiwiayI6IjR5Z1FxSUswNDMyNzhLSzZ3UTgyRVVCcyIsIm0iOnsiciI6InVzIn19" \
-    --from-literal=loki-host="logs-prod-035.grafana.net" \
-    --from-literal=loki-username="1615381" \
-    --from-literal=loki-password="glc_eyJvIjoiMTYxNTM4MSIsIm4iOiJzdGFnaW5nLW1ldHJpY3MtbG9ncy1zdGFnaW5nLXRva2VuIiwiayI6IjR5Z1FxSUswNDMyNzhLSzZ3UTgyRVVCcyIsIm0iOnsiciI6InVzIn19" \
-    --dry-run=client -o yaml | kubectl apply -f -
-
-  Important: Since you shared the token in chat, I recommend rotating it after setup:
-  1. Go back to Grafana Cloud → Access Policies
-  2. Delete staging-token
-  3. Create a new one with same permissions
-  4. Update the secret with kubectl create secret ... --dry-run=client -o yaml | kubectl apply -f -
-
-
-
-
+  via prometheus and grafana 
 
 
 todo:translare profile and settings page

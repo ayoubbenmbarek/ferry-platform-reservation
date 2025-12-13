@@ -363,7 +363,7 @@ todo:add loading bear on mobile:done
 
   Now run this on your staging cluster:
 
-  kubectl create secret generic grafana-cloud-credentials \
+ kubectl create secret generic grafana-cloud-credentials \
     --namespace=monitoring \
     --from-literal=prometheus-host="prometheus-prod-55-prod-gb-south-1.grafana.net" \
     --from-literal=prometheus-username="1615381" \
@@ -380,7 +380,6 @@ todo:add loading bear on mobile:done
   4. Update the secret with kubectl create secret ... --dry-run=client -o yaml | kubectl apply -f -
 
 
-  token-stging grafana:glc_eyJvIjoiMTYxNTM4MSIsIm4iOiJzdGFnaW5nLW1ldHJpY3MtbG9ncy1zdGFnaW5nLXRva2VuIiwiayI6IjR5Z1FxSUswNDMyNzhLSzZ3UTgyRVVCcyIsIm0iOnsiciI6InVzIn19
 
 
 

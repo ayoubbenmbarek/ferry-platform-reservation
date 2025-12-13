@@ -6,8 +6,28 @@ metadata:
 data:
   prometheus.yml: |
     global:
-      scrape_interval: 15s
-      evaluation_interval: 15s
+      scrape_interval: 30s
+      evaluation_interval: 30s
+      external_labels:
+        cluster: voilaferry
+        environment: staging
+
+    # Remote write to Grafana Cloud
+    # Credentials mounted from grafana-cloud-credentials secret
+    remote_write:
+      - url: https://${PROMETHEUS_HOST}/api/prom/push
+        basic_auth:
+          username: ${PROMETHEUS_USERNAME}
+          password: ${PROMETHEUS_PASSWORD}
+        write_relabel_configs:
+          # Drop high-cardinality Go metrics to save quota
+          - source_labels: [__name__]
+            regex: 'go_gc_.*|go_memstats_.*'
+            action: drop
+          # Keep only essential metrics
+          - source_labels: [__name__]
+            regex: 'up|http_.*|process_.*|pg_.*|redis_.*|node_.*|container_.*|kube_.*'
+            action: keep
 
     scrape_configs:
       # Prometheus self-monitoring

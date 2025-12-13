@@ -16,13 +16,44 @@ spec:
         app: prometheus
     spec:
       serviceAccountName: prometheus
+      initContainers:
+        # Substitute environment variables in prometheus config
+        - name: config-init
+          image: bhgedigital/envsubst:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - envsubst < /etc/prometheus-template/prometheus.yml > /etc/prometheus/prometheus.yml
+          env:
+            - name: PROMETHEUS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-cloud-credentials
+                  key: prometheus-host
+                  optional: true
+            - name: PROMETHEUS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-cloud-credentials
+                  key: prometheus-username
+                  optional: true
+            - name: PROMETHEUS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-cloud-credentials
+                  key: prometheus-password
+                  optional: true
+          volumeMounts:
+            - name: config-template
+              mountPath: /etc/prometheus-template
+            - name: config
+              mountPath: /etc/prometheus
       containers:
         - name: prometheus
           image: prom/prometheus:v2.48.0
           args:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus'
-            - '--storage.tsdb.retention.time=15d'
+            - '--storage.tsdb.retention.time=7d'
             - '--web.enable-lifecycle'
             - '--web.enable-admin-api'
           ports:
@@ -53,9 +84,11 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:
-        - name: config
+        - name: config-template
           configMap:
             name: prometheus-config
+        - name: config
+          emptyDir: {}
         - name: data
           persistentVolumeClaim:
             claimName: prometheus-data

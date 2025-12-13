@@ -11,6 +11,10 @@ resources:
   - grafana-configmaps.yaml
   - exporters.yaml
   - ingress.yaml
+  # Grafana Cloud integration
+  - grafana-cloud-secret.yaml
+  - fluentbit-config.yaml
+  - fluentbit-daemonset.yaml
 
 # ConfigMap generator for Grafana dashboards
 configMapGenerator:

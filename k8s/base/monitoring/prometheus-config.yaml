@@ -38,13 +38,11 @@ data:
       # Maritime Backend API (staging)
       - job_name: 'maritime-backend'
         static_configs:
-          - targets: ['staging-backend.maritime-reservations-staging.svc.cluster.local:8000']
+          - targets: ['staging-backend-service.maritime-reservations-staging.svc.cluster.local:8010']
         metrics_path: /metrics
 
-      # Traefik metrics
-      - job_name: 'traefik'
-        static_configs:
-          - targets: ['traefik.kube-system:8080']
+      # Traefik metrics (via pod annotations in kubernetes-pods job)
+      # Direct service scraping disabled - traefik metrics via kubernetes-pods
 
       # Cert-manager metrics
       - job_name: 'cert-manager'

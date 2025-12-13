@@ -195,12 +195,11 @@ async def create_price_alert(
                 detail="date_to must be after date_from"
             )
 
-        # Check for duplicate active alerts
+        # Check for duplicate alerts (active or cancelled)
         existing = db.query(PriceAlert).filter(
             PriceAlert.email == email,
             PriceAlert.departure_port == alert_data.departure_port.lower(),
             PriceAlert.arrival_port == alert_data.arrival_port.lower(),
-            PriceAlert.status == PriceAlertStatusEnum.ACTIVE.value,
             # Allow same route with different date ranges
             or_(
                 and_(PriceAlert.date_from == date_from, PriceAlert.date_to == date_to),
@@ -209,10 +208,28 @@ async def create_price_alert(
         ).first()
 
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"You already have an active price alert for this route. Alert ID: {existing.id}"
-            )
+            if existing.status == PriceAlertStatusEnum.ACTIVE.value:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"You already have an active price alert for this route. Alert ID: {existing.id}"
+                )
+            # Reactivate cancelled/expired alert instead of creating new one
+            existing.status = PriceAlertStatusEnum.ACTIVE.value
+            existing.initial_price = alert_data.initial_price
+            existing.current_price = alert_data.initial_price
+            existing.target_price = alert_data.target_price
+            existing.notify_on_drop = alert_data.notify_on_drop
+            existing.notify_on_increase = alert_data.notify_on_increase
+            existing.notify_any_change = alert_data.notify_any_change
+            existing.price_threshold_percent = alert_data.price_threshold_percent
+            if alert_data.expiration_days:
+                existing.expires_at = datetime.now(timezone.utc) + timedelta(days=alert_data.expiration_days)
+            else:
+                existing.expires_at = None
+            db.commit()
+            db.refresh(existing)
+            logger.info(f"Reactivated price alert {existing.id} for {email}")
+            return PriceAlertResponse.from_orm(existing)
 
         # Calculate expiration
         expires_at = None

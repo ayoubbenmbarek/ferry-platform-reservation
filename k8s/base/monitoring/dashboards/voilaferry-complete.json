@@ -266,6 +266,82 @@
       "gridPos": {"h": 1, "w": 24, "x": 0, "y": 19},
       "id": 103,
       "panels": [],
+      "title": "System Resources",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${prometheus_datasource}"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 70}, {"color": "red", "value": 85}]},
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 20},
+      "id": 32,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\", container!=\"POD\"}[5m])) / sum(kube_node_status_capacity{resource=\"cpu\", job=\"kube-state-metrics\"}) * 100", "legendFormat": "CPU Used", "refId": "A"}],
+      "title": "Total CPU Usage %",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${prometheus_datasource}"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 70}, {"color": "red", "value": 85}]},
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 20},
+      "id": 33,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(container_memory_usage_bytes{container!=\"\", container!=\"POD\"}) / sum(kube_node_status_capacity{resource=\"memory\", job=\"kube-state-metrics\"}) * 100", "legendFormat": "Memory Used", "refId": "A"}],
+      "title": "Total Memory Usage %",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${prometheus_datasource}"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 20},
+      "id": 34,
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(kube_node_status_capacity{resource=\"cpu\", job=\"kube-state-metrics\"})", "legendFormat": "Total Cores", "refId": "A"}],
+      "title": "CPU Cores Available",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${prometheus_datasource}"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 20},
+      "id": 35,
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(kube_node_status_capacity{resource=\"memory\", job=\"kube-state-metrics\"})", "legendFormat": "Total Memory", "refId": "A"}],
+      "title": "Memory Available",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 24},
+      "id": 107,
+      "panels": [],
       "title": "Container Resources (Pods)",
       "type": "row"
     },
@@ -278,7 +354,7 @@
           "unit": "percent"
         }
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 25},
       "id": 30,
       "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [

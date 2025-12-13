@@ -44,8 +44,8 @@ spec:
             - name: sys
               mountPath: /sys
               readOnly: true
-            - name: docker
-              mountPath: /var/lib/docker
+            - name: containerd
+              mountPath: /run/containerd
               readOnly: true
             - name: disk
               mountPath: /dev/disk
@@ -56,7 +56,8 @@ spec:
             - --event_storage_event_limit=default=0
             - --event_storage_age_limit=default=0
             - --disable_metrics=percpu,sched,udp,disk,diskIO,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl
-            - --docker_only=true
+            - --containerd=/run/containerd/containerd.sock
+            - --docker_only=false
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       volumes:
@@ -69,9 +70,9 @@ spec:
         - name: sys
           hostPath:
             path: /sys
-        - name: docker
+        - name: containerd
           hostPath:
-            path: /var/lib/docker
+            path: /run/containerd
         - name: disk
           hostPath:
             path: /dev/disk

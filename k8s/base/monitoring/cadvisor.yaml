@@ -50,6 +50,8 @@ spec:
             - name: disk
               mountPath: /dev/disk
               readOnly: true
+          securityContext:
+            privileged: true
           args:
             - --housekeeping_interval=30s
             - --max_housekeeping_interval=35s
@@ -58,6 +60,8 @@ spec:
             - --disable_metrics=percpu,sched,udp,disk,diskIO,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl
             - --containerd=/run/containerd/containerd.sock
             - --docker_only=false
+            - --allow_dynamic_housekeeping=true
+            - --store_container_labels=false
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       volumes:

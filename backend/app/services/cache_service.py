@@ -104,12 +104,10 @@ class CacheService:
             cached_data = self.redis_client.get(cache_key)
 
             if cached_data:
-                logger.info(f"✅ Cache HIT for ferry search: {cache_key}")
-                logger.debug(f"   Cache params: {json.dumps(search_params, sort_keys=True)}")
+                logger.debug(f"✅ Cache HIT for ferry search: {cache_key}")
                 return json.loads(cached_data)
 
-            logger.info(f"❌ Cache MISS for ferry search: {cache_key}")
-            logger.debug(f"   Searched params: {json.dumps(search_params, sort_keys=True)}")
+            logger.debug(f"❌ Cache MISS for ferry search: {cache_key}")
             return None
 
         except Exception as e:
@@ -193,10 +191,10 @@ class CacheService:
             cached_data = self.redis_client.get(cache_key)
 
             if cached_data:
-                logger.info(f"✅ Cache HIT for date prices: {cache_key}")
+                logger.debug(f"✅ Cache HIT for date prices: {cache_key}")
                 return json.loads(cached_data)
 
-            logger.info(f"❌ Cache MISS for date prices: {cache_key}")
+            logger.debug(f"❌ Cache MISS for date prices: {cache_key}")
             return None
 
         except Exception as e:

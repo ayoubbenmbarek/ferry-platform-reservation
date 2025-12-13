@@ -66,7 +66,7 @@ class MockFerryIntegration(BaseFerryIntegration):
     async def search_ferries(self, search_request: SearchRequest) -> List[FerryResult]:
         """Return mock ferry search results."""
         try:
-            logger.info(f"Mock search: {search_request.departure_port} -> {search_request.arrival_port}")
+            logger.debug(f"Mock search: {search_request.departure_port} -> {search_request.arrival_port}")
 
             # Normalize port names to uppercase for lookup
             departure_port = search_request.departure_port.upper()
@@ -77,7 +77,7 @@ class MockFerryIntegration(BaseFerryIntegration):
             route_info = self.routes.get(route_key)
 
             if not route_info:
-                logger.warning(f"No mock route found for {route_key}")
+                logger.debug(f"No mock route found for {route_key}")
                 return []
 
             # Generate 2-3 mock sailings

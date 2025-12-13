@@ -169,7 +169,7 @@ class FerryService:
             logger.warning("No ferry integrations available to search")
             return []
 
-        logger.info(f"Searching {len(integrations_to_search)} operators: {list(integrations_to_search.keys())}")
+        logger.debug(f"Searching {len(integrations_to_search)} operators: {list(integrations_to_search.keys())}")
 
         # Search all operators concurrently
         search_tasks = []
@@ -187,13 +187,13 @@ class FerryService:
                 logger.error(f"Search failed for {operator_name}: {results}")
                 continue
 
-            logger.info(f"{operator_name}: Found {len(results)} sailings")
+            logger.debug(f"{operator_name}: Found {len(results)} sailings")
             all_results.extend(results)
 
         # Sort by departure time
         all_results.sort(key=lambda x: x.departure_time)
 
-        logger.info(f"Total results: {len(all_results)} sailings from {len(integrations_to_search)} operators")
+        logger.debug(f"Total results: {len(all_results)} sailings from {len(integrations_to_search)} operators")
         return all_results
 
     async def _search_operator(

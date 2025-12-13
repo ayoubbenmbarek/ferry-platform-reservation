@@ -265,10 +265,10 @@ async def search_ferries(
             # Add cache hit indicator
             cached_response["cached"] = True
             cached_response["cache_age_ms"] = (time.time() - start_time) * 1000
-            logger.info(f"✅ Cache HIT for ferry search ({(time.time() - start_time)*1000:.0f}ms)")
+            logger.debug(f"✅ Cache HIT for ferry search ({(time.time() - start_time)*1000:.0f}ms)")
             return FerrySearchResponse(**cached_response)
 
-        logger.info(f"❌ Cache MISS for ferry search - fetching from operators")
+        logger.debug(f"❌ Cache MISS for ferry search - fetching from operators")
 
         # Cache miss - fetch from ferry operators
         results = await ferry_service.search_ferries(

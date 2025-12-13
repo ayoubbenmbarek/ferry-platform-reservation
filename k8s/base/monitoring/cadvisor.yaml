@@ -57,7 +57,7 @@ spec:
             - --max_housekeeping_interval=35s
             - --event_storage_event_limit=default=0
             - --event_storage_age_limit=default=0
-            - --disable_metrics=percpu,sched,udp,disk,diskIO,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl
+            - --disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp
             - --containerd=/run/containerd/containerd.sock
             - --docker_only=false
             - --allow_dynamic_housekeeping=true

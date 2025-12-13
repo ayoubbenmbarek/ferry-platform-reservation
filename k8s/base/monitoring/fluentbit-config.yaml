@@ -35,36 +35,24 @@ data:
         Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
         Kube_Tag_Prefix     kube.var.log.containers.
         Merge_Log           On
-        Merge_Log_Key       log_processed
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
-
-    # Only keep logs from maritime namespaces (reduce volume)
-    [FILTER]
-        Name    grep
-        Match   kube.*
-        Regex   $kubernetes['namespace_name'] ^(maritime-reservations-staging|maritime-reservations-production|monitoring)$
-
-    # Drop debug logs to reduce volume (optional - comment out if you need debug)
-    [FILTER]
-        Name    grep
-        Match   kube.*
-        Exclude log DEBUG
+        Labels              On
+        Annotations         Off
 
     [OUTPUT]
-        Name                 loki
-        Match                kube.*
-        Host                 ${LOKI_HOST}
-        Port                 443
-        Uri                  /loki/api/v1/push
-        TLS                  On
-        TLS.Verify           On
-        HTTP_User            ${LOKI_USERNAME}
-        HTTP_Passwd          ${LOKI_PASSWORD}
-        Tenant_ID            ${LOKI_USERNAME}
-        Labels               job=fluentbit
-        Auto_Kubernetes_Labels On
-        Line_Format          json
+        Name                   loki
+        Match                  kube.*
+        Host                   ${LOKI_HOST}
+        Port                   443
+        Uri                    /loki/api/v1/push
+        TLS                    On
+        TLS.Verify             On
+        HTTP_User              ${LOKI_USERNAME}
+        HTTP_Passwd            ${LOKI_PASSWORD}
+        Labels                 job=fluentbit
+        auto_kubernetes_labels on
+        Line_Format            json
 
   parsers.conf: |
     [PARSER]

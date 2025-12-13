@@ -88,8 +88,8 @@
       "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
       "id": 4,
       "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-      "targets": [{"expr": "up{job=\"cadvisor\"}", "refId": "A"}],
-      "title": "cAdvisor",
+      "targets": [{"expr": "up{job=\"kubelet-cadvisor\"}", "refId": "A"}],
+      "title": "Kubelet cAdvisor",
       "type": "stat"
     },
     {
@@ -282,10 +282,9 @@
       "id": 30,
       "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {"expr": "kube_pod_container_resource_requests{namespace=\"maritime-reservations-staging\", resource=\"cpu\"}", "legendFormat": "{{pod}} (requests)", "refId": "A"},
-        {"expr": "kube_pod_container_resource_limits{namespace=\"maritime-reservations-staging\", resource=\"cpu\"}", "legendFormat": "{{pod}} (limits)", "refId": "B"}
+        {"expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"maritime-reservations-staging\", container!=\"\", container!=\"POD\"}[5m])) by (pod) * 100", "legendFormat": "{{pod}}", "refId": "A"}
       ],
-      "title": "CPU Resources by Pod",
+      "title": "CPU Usage by Pod (%)",
       "type": "timeseries"
     },
     {
@@ -301,10 +300,9 @@
       "id": 31,
       "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {"expr": "kube_pod_container_resource_requests{namespace=\"maritime-reservations-staging\", resource=\"memory\"}", "legendFormat": "{{pod}} (requests)", "refId": "A"},
-        {"expr": "kube_pod_container_resource_limits{namespace=\"maritime-reservations-staging\", resource=\"memory\"}", "legendFormat": "{{pod}} (limits)", "refId": "B"}
+        {"expr": "sum(container_memory_usage_bytes{namespace=\"maritime-reservations-staging\", container!=\"\", container!=\"POD\"}) by (pod)", "legendFormat": "{{pod}}", "refId": "A"}
       ],
-      "title": "Memory Resources by Pod",
+      "title": "Memory Usage by Pod",
       "type": "timeseries"
     },
     {

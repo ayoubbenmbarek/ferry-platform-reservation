@@ -59,6 +59,18 @@ data:
         static_configs:
           - targets: ['redis-exporter.monitoring:9121']
 
+      # cAdvisor - Container metrics
+      - job_name: 'cadvisor'
+        static_configs:
+          - targets: ['cadvisor.monitoring:8080']
+        metrics_path: /metrics
+
+      # kube-state-metrics - Kubernetes object metrics
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics.monitoring:8080']
+        metrics_path: /metrics
+
       # Kubernetes nodes
       - job_name: 'kubernetes-nodes'
         kubernetes_sd_configs:

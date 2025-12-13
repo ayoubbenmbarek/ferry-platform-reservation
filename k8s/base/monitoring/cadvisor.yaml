@@ -1,0 +1,92 @@
+---
+# cAdvisor DaemonSet for container metrics
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cadvisor
+  namespace: monitoring
+  labels:
+    app: cadvisor
+spec:
+  selector:
+    matchLabels:
+      app: cadvisor
+  template:
+    metadata:
+      labels:
+        app: cadvisor
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: cadvisor
+          image: gcr.io/cadvisor/cadvisor:v0.47.2
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          volumeMounts:
+            - name: rootfs
+              mountPath: /rootfs
+              readOnly: true
+            - name: var-run
+              mountPath: /var/run
+              readOnly: true
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: docker
+              mountPath: /var/lib/docker
+              readOnly: true
+            - name: disk
+              mountPath: /dev/disk
+              readOnly: true
+          args:
+            - --housekeeping_interval=30s
+            - --max_housekeeping_interval=35s
+            - --event_storage_event_limit=default=0
+            - --event_storage_age_limit=default=0
+            - --disable_metrics=percpu,sched,udp,disk,diskIO,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl
+            - --docker_only=true
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: rootfs
+          hostPath:
+            path: /
+        - name: var-run
+          hostPath:
+            path: /var/run
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: docker
+          hostPath:
+            path: /var/lib/docker
+        - name: disk
+          hostPath:
+            path: /dev/disk
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cadvisor
+  namespace: monitoring
+  labels:
+    app: cadvisor
+spec:
+  selector:
+    app: cadvisor
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

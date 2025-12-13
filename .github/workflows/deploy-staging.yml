@@ -108,7 +108,7 @@ jobs:
             REACT_APP_ENVIRONMENT=staging
             REACT_APP_GOOGLE_CLIENT_ID=${{ secrets.STAGING_GOOGLE_CLIENT_ID || '9551469476-cqajqt5r2211pi89enn4qpvaifd1v6ss.apps.googleusercontent.com' }}
             REACT_APP_SENTRY_DSN=${{ secrets.SENTRY_DSN_FRONTEND || '' }}
-            REACT_APP_CHATBOT_URL=https://chatbot-staging.voilaferry.com
+            REACT_APP_CHATBOT_URL=${{ vars.STAGING_CHATBOT_URL || 'https://chatbot-staging.voilaferry.com' }}
             REACT_APP_VERSION=${{ github.sha }}
           no-cache: true
 

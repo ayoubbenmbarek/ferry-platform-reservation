@@ -346,6 +346,7 @@ todo:i cant see ongoing log for chatbot:done
 todo:/contact page exists but empt y add it:done
 todo:monitor redis and postgres via prometheus and grafana
 todo:add marron small bear run when loading the pages:done
+todo:recive email or notification for tasks in dead letter
 todo:add ticket to wallet
 todo:add loading bear on mobile:done
 todo:translare profile and settings page

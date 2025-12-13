@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -455,6 +455,12 @@ const NewSearchPage: React.FC = () => {
     ? `${searchParams.departurePort.toUpperCase()}-${searchParams.arrivalPort.toUpperCase()}`
     : '';
 
+  // Memoize routes array to prevent unnecessary WebSocket reconnections
+  const wsRoutes = useMemo(
+    () => currentRoute ? [currentRoute] : [],
+    [currentRoute]
+  );
+
   const handleAvailabilityUpdate = useCallback((update: AvailabilityUpdate) => {
     if (update.type === 'availability_update' && update.data) {
       dispatch(updateFerryAvailability({
@@ -466,7 +472,7 @@ const NewSearchPage: React.FC = () => {
   }, [dispatch]);
 
   const { isConnected: wsConnected } = useAvailabilityWebSocket({
-    routes: currentRoute ? [currentRoute] : [],
+    routes: wsRoutes,
     onUpdate: handleAvailabilityUpdate,
     autoConnect: !!currentRoute && searchResults.length > 0,
   });

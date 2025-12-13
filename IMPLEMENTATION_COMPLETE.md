@@ -431,11 +431,34 @@ todo:Change maritime reservation with voila ferry and search for logo
 todo:Chatbot connexion trouble on mobile frontend
 todo:Website on mobile did not show ports:done
 todo prevent abuse use of botchat and voice search
+
 todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details, i also receied email cabin evailable but when i enter url i see aucune cabine disponible pour le moment, i know staging db where empty but why i receie email, check availabiity may look for local db?
 todo:later check availaibility will check fomr external api
 todo:check every how much time price changed on api and setup TTL on that for cache(instead of 5mn maybe 2 hours or more)
 todo:resend verifiction email page 404 not found
 todo:except readiness and liveness enpont from rate limit
+todo:on departure calendar i choose 12 i found 11 set
+todo:on login localhost stuck on connexion en cours, 
+todo:see this on localhost A-TUNIS']
+maritime-backend-dev  | Client 1f8182ec-380c-4997-a8ed-fc949a89f431 subscribed to routes: ['GENOA-TUNIS']
+maritime-backend-dev  | INFO:     172.24.0.9:35460 - "GET /api/v1/metrics HTTP/1.1" 200 OK
+maritime-backend-dev  | Client 1f8182ec-380c-4997-a8ed-fc949a89f431 subscribed to routes: ['GENOA-TUNIS'] sometime i see only once
+
+
+todo:in staging i see twice:
+ailability?routes=TUNIS-GENOA" [accepted]
+WebSocket client connected: cbc9f12e-aa4b-483a-a553-bd436e429046
+INFO:     connection open
+Client cbc9f12e-aa4b-483a-a553-bd436e429046 subscribed to routes: ['TUNIS-GENOA']
+Client cbc9f12e-aa4b-483a-a553-bd436e429046 subscribed to routes: ['TUNIS-GENOA']
+2025-12-12 22:57:19,691 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+BEGIN (implicit) every time i search with that user that he saved that route i see subscribed
+
+todo: correct this in staging  maritime-reservation-website % kstaging logs -f staging-chatbot-67b8b94c59-m9z66
+Sentry initialized for chatbot in staging
+Maritime Chatbot running on port 3100
+Health check: http://localhost:3100/health
+Chat endpoint: POST http://localhost:3100/api/chat
 
 mcp,subagent etc: https://claude.com/blog/skills-explained
 

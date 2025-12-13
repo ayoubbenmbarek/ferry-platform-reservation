@@ -120,7 +120,9 @@ export function useAvailabilityWebSocket(options: UseAvailabilityWebSocketOption
 
   // Connect to WebSocket
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    // Prevent duplicate connections - check both OPEN and CONNECTING states
+    if (wsRef.current?.readyState === WebSocket.OPEN ||
+        wsRef.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
@@ -230,7 +232,17 @@ export function useAvailabilityWebSocket(options: UseAvailabilityWebSocketOption
     }
 
     if (wsRef.current) {
-      wsRef.current.close(1000, 'Client disconnect');
+      // Remove event handlers before closing to prevent callbacks during cleanup
+      wsRef.current.onopen = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.onmessage = null;
+
+      // Only close if not already closed/closing
+      if (wsRef.current.readyState === WebSocket.OPEN ||
+          wsRef.current.readyState === WebSocket.CONNECTING) {
+        wsRef.current.close(1000, 'Client disconnect');
+      }
       wsRef.current = null;
     }
 

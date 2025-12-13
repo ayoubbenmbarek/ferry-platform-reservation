@@ -77,11 +77,12 @@ const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
   const isDateSelected = (day: number) => {
     if (!value) return false;
-    const selectedDate = new Date(value);
+    // Parse date parts to avoid timezone issues (YYYY-MM-DD format)
+    const [year, month, selectedDay] = value.split('-').map(Number);
     return (
-      selectedDate.getDate() === day &&
-      selectedDate.getMonth() === currentMonth.getMonth() &&
-      selectedDate.getFullYear() === currentMonth.getFullYear()
+      selectedDay === day &&
+      month - 1 === currentMonth.getMonth() &&
+      year === currentMonth.getFullYear()
     );
   };
 
@@ -98,7 +99,8 @@ const DatePickerInput: React.FC<DatePickerInputProps> = ({
     if (isDateDisabled(day)) return;
 
     const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    // Format as YYYY-MM-DD without timezone conversion (avoid toISOString which converts to UTC)
+    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
     onChange(dateStr);
     setIsOpen(false);
   };
@@ -113,7 +115,9 @@ const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
   const formatDisplayDate = (dateStr: string) => {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
+    // Parse date parts to avoid timezone issues (YYYY-MM-DD format)
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
       year: 'numeric',
@@ -272,7 +276,8 @@ const DatePickerInput: React.FC<DatePickerInputProps> = ({
               onClick={() => {
                 const today = new Date();
                 if (today >= minDate) {
-                  const dateStr = today.toISOString().split('T')[0];
+                  // Format as YYYY-MM-DD without timezone conversion
+                  const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                   onChange(dateStr);
                   setIsOpen(false);
                 }

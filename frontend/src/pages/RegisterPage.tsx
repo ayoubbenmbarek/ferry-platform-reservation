@@ -97,7 +97,7 @@ const RegisterPage: React.FC = () => {
           {
             theme: 'outline',
             size: 'large',
-            width: '100%',
+            width: 320, // Google requires pixel value, not percentage
             text: 'signup_with',
             logo_alignment: 'left',
           }

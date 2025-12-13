@@ -337,9 +337,15 @@ async def get_my_saved_routes(
 ):
     """
     Get authenticated user's saved routes.
-    Convenience endpoint that doesn't require email parameter.
+    Includes both user_id-linked alerts and email-linked alerts (from guest sessions).
     """
-    query = db.query(PriceAlert).filter(PriceAlert.user_id == current_user.id)
+    # Include alerts by user_id OR by email (for guest-created alerts)
+    query = db.query(PriceAlert).filter(
+        or_(
+            PriceAlert.user_id == current_user.id,
+            PriceAlert.email == current_user.email
+        )
+    )
 
     # Filter by status - exclude cancelled by default
     if status_filter:
@@ -583,15 +589,24 @@ async def get_price_alert_stats(
     current_user: User = Depends(get_current_user)
 ):
     """Get summary statistics for user's price alerts."""
-    base_query = db.query(PriceAlert).filter(PriceAlert.user_id == current_user.id)
+    # Include both user_id-linked and email-linked alerts
+    base_query = db.query(PriceAlert).filter(
+        or_(
+            PriceAlert.user_id == current_user.id,
+            PriceAlert.email == current_user.email
+        )
+    )
 
-    total = base_query.count()
+    # Exclude cancelled alerts from stats (consistent with /my-routes)
+    active_query = base_query.filter(PriceAlert.status != PriceAlertStatusEnum.CANCELLED.value)
+
+    total = active_query.count()
     active = base_query.filter(PriceAlert.status == PriceAlertStatusEnum.ACTIVE.value).count()
     paused = base_query.filter(PriceAlert.status == PriceAlertStatusEnum.PAUSED.value).count()
     triggered = base_query.filter(PriceAlert.status == PriceAlertStatusEnum.TRIGGERED.value).count()
 
-    # Get routes with price drops
-    drops = base_query.filter(
+    # Get routes with price drops (exclude cancelled)
+    drops = active_query.filter(
         PriceAlert.current_price < PriceAlert.initial_price
     ).count()
 

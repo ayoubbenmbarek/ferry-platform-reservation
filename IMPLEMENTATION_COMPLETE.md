@@ -448,7 +448,8 @@ todo:Chatbot connexion trouble on mobile frontend
 todo:Website on mobile did not show ports:done
 todo prevent abuse use of botchat and voice search
 todo:should add dead letter to admin dashboard
-todo: i see 52.1% memory used and same time 3.73gib available
+todo: i see 52.1% memory used and same time 3.73gib available and always 3.37 even memory changed
+todo:add admin dahsboard for dlq managment
 
 
 todo:grafana dashboards:

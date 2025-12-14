@@ -40,6 +40,7 @@ const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
 const AdminUsers = React.lazy(() => import('./pages/AdminUsers'));
 const AdminBookings = React.lazy(() => import('./pages/AdminBookings'));
 const AdminPromoCodes = React.lazy(() => import('./pages/AdminPromoCodes'));
+const AdminDLQ = React.lazy(() => import('./pages/AdminDLQ'));
 
 function App() {
   const dispatch = useDispatch();
@@ -141,6 +142,7 @@ function App() {
               <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
               <Route path="/admin/bookings" element={<ProtectedRoute><AdminBookings /></ProtectedRoute>} />
               <Route path="/admin/promo-codes" element={<ProtectedRoute><AdminPromoCodes /></ProtectedRoute>} />
+              <Route path="/admin/dlq" element={<ProtectedRoute><AdminDLQ /></ProtectedRoute>} />
 
               {/* Booking details - accessible to both authenticated users and guests */}
               <Route path="/booking/:id" element={<BookingDetailsPage />} />

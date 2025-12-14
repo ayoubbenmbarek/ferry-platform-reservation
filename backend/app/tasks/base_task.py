@@ -56,13 +56,17 @@ def _serialize_value(value: Any) -> Any:
         return value.isoformat()
     elif isinstance(value, bytes):
         return value.decode('utf-8', errors='replace')
-    elif hasattr(value, '__dict__'):
+    elif isinstance(value, dict):
+        return {k: _serialize_value(v) for k, v in value.items()}
+    elif isinstance(value, (list, tuple)):
+        return [_serialize_value(v) for v in value]
+    elif hasattr(value, '__dict__') and not isinstance(value, type):
         return str(value)
     return value
 
 
 def _serialize_kwargs(kwargs: Dict) -> Dict:
-    """Serialize kwargs for JSON storage."""
+    """Serialize kwargs for JSON storage (recursively)."""
     return {k: _serialize_value(v) for k, v in kwargs.items()}
 
 

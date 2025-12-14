@@ -4,7 +4,7 @@ Tests the base task classes and DLQ helper functions.
 """
 import pytest
 import json
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, PropertyMock
 from datetime import datetime, timezone
 
 from app.tasks.base_task import (
@@ -157,10 +157,12 @@ class TestDLQOnFailure:
         # Create task instance
         task = EmailTask()
         task.name = "app.tasks.email_tasks.send_test"
-        task.request = Mock()
-        task.request.retries = 2
-        task.request.hostname = "worker-1"
-        task.request.delivery_info = {"routing_key": "email.send"}
+
+        # Mock the request property at the class level
+        mock_request = Mock()
+        mock_request.retries = 2
+        mock_request.hostname = "worker-1"
+        mock_request.delivery_info = {"routing_key": "email.send"}
 
         # Simulate failure
         exc = Exception("Test error")
@@ -169,9 +171,9 @@ class TestDLQOnFailure:
         kwargs = {"to_email": "test@example.com"}
         einfo = None
 
-        # Call on_failure
-        with patch.object(DLQTask, 'on_failure'):  # Mock parent
-            task.on_failure(exc, task_id, args, kwargs, einfo)
+        # Patch request property at class level
+        with patch.object(EmailTask, 'request', new_callable=PropertyMock, return_value=mock_request):
+            task._store_in_redis(exc, task_id, args, kwargs, einfo, "email")
 
         # Verify Redis lpush was called
         mock_redis.lpush.assert_called_once()
@@ -199,10 +201,11 @@ class TestDLQOnFailure:
         # Create task instance
         task = PaymentTask()
         task.name = "app.tasks.payment_tasks.process_payment"
-        task.request = Mock()
-        task.request.retries = 1
-        task.request.hostname = "worker-2"
-        task.request.delivery_info = {"routing_key": "payment.process"}
+
+        mock_request = Mock()
+        mock_request.retries = 1
+        mock_request.hostname = "worker-2"
+        mock_request.delivery_info = {"routing_key": "payment.process"}
 
         # Simulate failure
         exc = ValueError("Payment failed")
@@ -212,9 +215,9 @@ class TestDLQOnFailure:
         einfo = Mock()
         einfo.__str__ = Mock(return_value="Traceback...")
 
-        # Call on_failure
-        with patch.object(DLQTask, 'on_failure'):
-            task.on_failure(exc, task_id, args, kwargs, einfo)
+        # Patch request property at class level
+        with patch.object(PaymentTask, 'request', new_callable=PropertyMock, return_value=mock_request):
+            task._store_in_database(exc, task_id, args, kwargs, einfo, "payment")
 
         # Verify DB add was called
         mock_db.add.assert_called_once()
@@ -241,16 +244,18 @@ class TestDLQOnFailure:
 
         task = BookingTask()
         task.name = "test_task"
-        task.request = Mock()
-        task.request.retries = 0
-        task.request.hostname = "worker"
-        task.request.delivery_info = {}
+
+        mock_request = Mock()
+        mock_request.retries = 0
+        mock_request.hostname = "worker"
+        mock_request.delivery_info = {}
 
         # Test with booking_reference
         kwargs = {"booking_reference": "VF-ABC123"}
 
-        with patch.object(DLQTask, 'on_failure'):
-            task.on_failure(Exception("test"), "task-1", (), kwargs, None)
+        # Patch request property at class level
+        with patch.object(BookingTask, 'request', new_callable=PropertyMock, return_value=mock_request):
+            task._store_in_redis(Exception("test"), "task-1", (), kwargs, None, "booking")
 
         stored_data = json.loads(mock_redis.lpush.call_args[0][1])
         assert stored_data["related_entity_type"] == "booking"
@@ -339,9 +344,9 @@ class TestGetFailedTasksFromRedis:
 class TestRetryFailedTaskFromRedis:
     """Test retry_failed_task_from_redis function."""
 
+    @patch('app.celery_app.celery_app')
     @patch('app.tasks.base_task._get_redis_client')
-    @patch('app.tasks.base_task.celery_app')
-    def test_retry_task_success(self, mock_celery, mock_redis_client):
+    def test_retry_task_success(self, mock_redis_client, mock_celery):
         """Should successfully retry a task."""
         mock_redis = MagicMock()
         mock_redis.lindex.return_value = json.dumps({
@@ -371,7 +376,7 @@ class TestRetryFailedTaskFromRedis:
         result = retry_failed_task_from_redis("email", 999)
 
         assert result["status"] == "error"
-        assert "not found" in result["message"].lower()
+        assert "no item found" in result["message"].lower()
 
 
 class TestClearRedisDLQ:

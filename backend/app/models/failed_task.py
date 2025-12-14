@@ -3,11 +3,26 @@ Failed Task model for dead-letter queue database storage.
 Stores failed Celery tasks for analysis and retry.
 """
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, DateTime, Enum as SQLEnum, Index
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, String, Text, DateTime, Enum as SQLEnum, Index, JSON
+from sqlalchemy.types import TypeDecorator
 import enum
 
 from app.database import Base
+
+
+class JSONType(TypeDecorator):
+    """
+    JSON type that uses JSONB on PostgreSQL and JSON on other databases.
+    This allows tests to run on SQLite while production uses PostgreSQL JSONB.
+    """
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            from sqlalchemy.dialects.postgresql import JSONB
+            return dialect.type_descriptor(JSONB())
+        return dialect.type_descriptor(JSON())
 
 
 class TaskCategoryEnum(enum.Enum):
@@ -53,8 +68,8 @@ class FailedTask(Base):
     )
 
     # Task arguments
-    args = Column(JSONB, default=list)
-    kwargs = Column(JSONB, default=dict)
+    args = Column(JSONType, default=list)
+    kwargs = Column(JSONType, default=dict)
 
     # Error information
     error_type = Column(String(255), nullable=True)

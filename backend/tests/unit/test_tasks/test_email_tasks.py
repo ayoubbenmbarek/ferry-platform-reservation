@@ -19,18 +19,20 @@ class TestEmailTaskConfiguration:
         """Test EmailTask base class has correct retry configuration."""
         from app.tasks.email_tasks import EmailTask
 
-        # Verify retry configuration
+        # Verify retry configuration (now from base_task.py)
         assert EmailTask.autoretry_for == (Exception,)
-        assert EmailTask.retry_kwargs == {"max_retries": 5}
+        assert EmailTask.max_retries == 3
         assert EmailTask.retry_backoff is True
-        assert EmailTask.retry_backoff_max == 1800  # 30 minutes
+        assert EmailTask.retry_backoff_max == 600  # 10 minutes (new default)
         assert EmailTask.retry_jitter is True
+        assert EmailTask.dlq_category == "email"
 
     def test_dead_letter_queue_key(self):
         """Test dead-letter queue key is defined."""
         from app.tasks.email_tasks import DEAD_LETTER_QUEUE_KEY
 
-        assert DEAD_LETTER_QUEUE_KEY == "email:dead_letter_queue"
+        # Key format changed with centralized DLQ in base_task.py
+        assert DEAD_LETTER_QUEUE_KEY == "dlq:email"
 
 
 class TestSerializeKwargs:
@@ -185,16 +187,24 @@ class TestDeadLetterQueueOperations:
 class TestEmailTaskOnFailure:
     """Test EmailTask.on_failure behavior."""
 
-    @patch('app.tasks.email_tasks._get_redis_client')
-    def test_on_failure_adds_to_dead_letter_queue(self, mock_redis_client):
+    @patch('app.tasks.base_task._get_redis_client')
+    @patch('app.tasks.base_task._get_db_session')
+    def test_on_failure_adds_to_dead_letter_queue(self, mock_db_session, mock_redis_client):
         """Test that task failure adds item to dead-letter queue."""
         from app.tasks.email_tasks import EmailTask
 
         mock_client = MagicMock()
         mock_redis_client.return_value = mock_client
+        mock_db_session.return_value = None  # Skip DB for this test
 
         task = EmailTask()
         task.name = "test_task"
+
+        # Mock request property
+        mock_request = MagicMock()
+        mock_request.retries = 0
+        mock_request.hostname = "worker"
+        mock_request.delivery_info = {}
 
         # Simulate failure
         exc = Exception("SMTP connection refused")
@@ -202,18 +212,20 @@ class TestEmailTaskOnFailure:
         args = []
         kwargs = {"to_email": "test@example.com", "booking_data": {"ref": "BK-123"}}
 
-        task.on_failure(exc, task_id, args, kwargs, None)
+        # Use _store_in_redis directly with PropertyMock for request
+        with patch.object(EmailTask, 'request', new_callable=PropertyMock, return_value=mock_request):
+            task._store_in_redis(exc, task_id, args, kwargs, None, "email")
 
         # Verify lpush was called
         mock_client.lpush.assert_called_once()
         call_args = mock_client.lpush.call_args[0]
-        assert call_args[0] == "email:dead_letter_queue"
+        assert call_args[0] == "dlq:email"  # New DLQ key format
 
         # Parse the stored JSON
         stored_data = json.loads(call_args[1])
         assert stored_data["task_id"] == "task-456"
         assert stored_data["task_name"] == "test_task"
-        assert stored_data["error"] == "SMTP connection refused"
+        assert stored_data["error_message"] == "SMTP connection refused"  # Changed field name
 
 
 class TestBookingConfirmationEmailTask:

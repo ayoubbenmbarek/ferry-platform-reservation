@@ -229,8 +229,11 @@ const authSlice = createSlice({
       })
       .addCase(getCurrentUser.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        // Don't show error for token validation failures - just silently log out
+        // This happens when token expires, which is normal behavior
+        state.error = null;
         state.isAuthenticated = false;
+        state.user = null;
         state.token = null;
         localStorage.removeItem('token');
       });

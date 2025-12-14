@@ -793,3 +793,41 @@ async def retry_database_dlq_task(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# DLQ Testing Endpoint (Staging/Dev only)
+# =============================================================================
+
+@router.post("/dlq/test-failure")
+async def trigger_test_failure(
+    category: str = Query("email", description="Task category to test"),
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Trigger a test task that always fails (for DLQ testing).
+
+    Only works in staging/development environments.
+    The task will fail 3 times and end up in the DLQ.
+    """
+    env = os.getenv("ENVIRONMENT", "development")
+    if env == "production":
+        raise HTTPException(
+            status_code=403,
+            detail="Test failure endpoint is disabled in production"
+        )
+
+    from app.tasks.test_tasks import test_failing_task
+
+    # Trigger the test task
+    result = test_failing_task.delay(
+        category=category,
+        test_id=f"test-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    )
+
+    return {
+        "status": "triggered",
+        "task_id": result.id,
+        "category": category,
+        "message": "Test task triggered. It will fail 3 times and appear in DLQ."
+    }

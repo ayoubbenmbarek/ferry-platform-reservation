@@ -26,6 +26,7 @@ patches:
       name: maritime-ingress
 
   # Fix configMapRef and secretRef to use staging-prefixed names
+  # Backend main container
   - patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
@@ -33,6 +34,20 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
         value: staging-maritime-secrets
+    target:
+      kind: Deployment
+      name: backend
+  # Backend init container (migrations)
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/initContainers/0/envFrom/0/configMapRef/name
+        value: staging-maritime-config
+      - op: replace
+        path: /spec/template/spec/initContainers/0/envFrom/1/secretRef/name
+        value: staging-maritime-secrets
+      - op: replace
+        path: /spec/template/spec/initContainers/0/env/0/value
+        value: "redis://staging-redis-service:6379/0"
     target:
       kind: Deployment
       name: backend

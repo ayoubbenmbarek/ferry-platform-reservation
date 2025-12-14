@@ -27,6 +27,7 @@ celery_app = Celery(
         "app.tasks.price_alert_tasks",
         "app.tasks.price_tracking_tasks",
         "app.tasks.availability_sync_tasks",
+        "app.tasks.test_tasks",  # Test tasks for DLQ testing
     ]
 )
 

@@ -29,6 +29,28 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+      initContainers:
+        - name: run-migrations
+          image: maritime-reservations/backend:latest
+          imagePullPolicy: Always
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: maritime-config
+            - secretRef:
+                name: maritime-secrets
+          env:
+            - name: REDIS_URL
+              value: "redis://redis-service:6379/0"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
       containers:
         - name: backend
           image: maritime-reservations/backend:latest

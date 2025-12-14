@@ -368,16 +368,21 @@ def update_route_statistics_task(self):
         today = now.date()
         routes_updated = 0
 
+        # Pre-fetch all route statistics in ONE query (fixes N+1)
+        route_ids = [r["route_id"] for r in TRACKED_ROUTES]
+        existing_stats = db.query(RouteStatistics).filter(
+            RouteStatistics.route_id.in_(route_ids)
+        ).all()
+        stats_by_route = {s.route_id: s for s in existing_stats}
+
         for route in TRACKED_ROUTES:
             route_id = route["route_id"]
             departure_port = route["departure_port"]
             arrival_port = route["arrival_port"]
 
             try:
-                # Get or create route statistics
-                stats = db.query(RouteStatistics).filter(
-                    RouteStatistics.route_id == route_id
-                ).first()
+                # Get or create route statistics (using pre-fetched data)
+                stats = stats_by_route.get(route_id)
 
                 if not stats:
                     stats = RouteStatistics(

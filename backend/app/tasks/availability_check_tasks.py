@@ -97,6 +97,10 @@ def check_availability_alerts_task(self):
         notified_count = 0
         checked_count = 0
 
+        # Pre-fetch cabin count ONCE outside the loop (fixes N+1 query)
+        from app.models.ferry import Cabin
+        available_cabins_count = db.query(Cabin).filter(Cabin.is_available == True).count()
+
         for alert in alerts:
             try:
                 # Update last_checked_at
@@ -158,9 +162,8 @@ def check_availability_alerts_task(self):
 
                     # IMPORTANT: Also check if cabins exist in database
                     # The frontend shows cabins from DB, not from ferry search results
-                    from app.models.ferry import Cabin
-                    db_cabins = db.query(Cabin).filter(Cabin.is_available == True).count()
-                    if db_cabins == 0:
+                    # Using pre-fetched count from outside the loop (fixes N+1 query)
+                    if available_cabins_count == 0:
                         logger.debug(f"🛏️ Alert {alert.id}: No cabins in database, skipping notification")
                         continue  # Skip this alert - no cabins to show user
 

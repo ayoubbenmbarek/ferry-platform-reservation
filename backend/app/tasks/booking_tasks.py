@@ -2,23 +2,16 @@
 Celery tasks for booking operations and availability checking.
 
 These tasks handle ferry availability verification and operator booking confirmation.
+Failed tasks are stored in dead-letter queue (Redis + PostgreSQL) for recovery.
 """
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
-from celery import Task, shared_task
+from celery import shared_task
 from app.celery_app import celery_app
+from app.tasks.base_task import BookingTask
 
 logger = logging.getLogger(__name__)
-
-
-class BookingTask(Task):
-    """Base task for booking operations with retry logic."""
-    autoretry_for = (Exception,)
-    retry_kwargs = {"max_retries": 3}
-    retry_backoff = True
-    retry_backoff_max = 180  # 3 minutes
-    retry_jitter = True
 
 
 @celery_app.task(

@@ -1,13 +1,13 @@
 """
 Celery tasks for checking ferry availability and sending alerts.
 Runs periodically to check if previously unavailable routes now have space.
+Failed tasks are stored in dead-letter queue (Redis + PostgreSQL) for recovery.
 """
 import os
 import logging
 import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
-from celery import shared_task
 from sqlalchemy import and_, or_
 
 from app.database import SessionLocal
@@ -16,15 +16,16 @@ from app.models.user import User
 from app.services.ferry_service import FerryService
 from app.services.email_service import email_service
 from app.services.push_notification_service import push_notification_service
+from app.celery_app import celery_app
+from app.tasks.base_task import AvailabilityTask
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(
+@celery_app.task(
+    base=AvailabilityTask,
     name="app.tasks.availability_check_tasks.check_availability_alerts",
-    bind=True,
-    max_retries=3,
-    default_retry_delay=300  # 5 minutes
+    bind=True
 )
 def check_availability_alerts_task(self):
     """
@@ -386,7 +387,8 @@ def _send_availability_notification(alert: AvailabilityAlert, db):
         raise
 
 
-@shared_task(
+@celery_app.task(
+    base=AvailabilityTask,
     name="app.tasks.availability_check_tasks.cleanup_old_alerts",
     bind=True
 )

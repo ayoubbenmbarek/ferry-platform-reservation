@@ -600,3 +600,196 @@ async def clear_email_dead_letter_queue(
         raise HTTPException(status_code=500, detail=result["message"])
 
     return result
+
+
+# =============================================================================
+# Universal Dead-Letter Queue Management (All Task Types)
+# =============================================================================
+
+@router.get("/dlq/stats")
+async def get_dlq_stats_endpoint(
+    category: Optional[str] = Query(None, description="Filter by category: email, payment, booking, price_alert, availability, sync"),
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Get dead-letter queue statistics for all task types.
+
+    Returns Redis and Database DLQ counts by category.
+    """
+    from app.tasks.base_task import get_dlq_stats
+
+    return get_dlq_stats(category)
+
+
+@router.get("/dlq/redis/{category}")
+async def get_redis_dlq_tasks(
+    category: str,
+    limit: int = Query(50, ge=1, le=200),
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Get failed tasks from Redis DLQ for a specific category.
+
+    Categories: email, payment, booking, price_alert, availability, sync, other
+    """
+    from app.tasks.base_task import get_failed_tasks_from_redis
+
+    valid_categories = ["email", "payment", "booking", "price_alert", "availability", "sync", "other"]
+    if category not in valid_categories:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid category. Must be one of: {valid_categories}"
+        )
+
+    return {
+        "category": category,
+        "tasks": get_failed_tasks_from_redis(category, limit)
+    }
+
+
+@router.get("/dlq/database")
+async def get_database_dlq_tasks(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    status: Optional[str] = Query(None, description="Filter by status: pending, retried, resolved, ignored"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Get failed tasks from Database DLQ with filtering and pagination.
+
+    Supports filtering by category and status.
+    """
+    from app.tasks.base_task import get_failed_tasks_from_db
+
+    return get_failed_tasks_from_db(category, status, limit, offset)
+
+
+@router.post("/dlq/redis/{category}/retry/{queue_index}")
+async def retry_redis_dlq_task(
+    category: str,
+    queue_index: int,
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Retry a specific failed task from Redis DLQ.
+
+    Args:
+        category: Task category (email, payment, booking, etc.)
+        queue_index: Index of the task in the queue (0 = most recent)
+    """
+    from app.tasks.base_task import retry_failed_task_from_redis
+
+    result = retry_failed_task_from_redis(category, queue_index)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
+
+
+@router.delete("/dlq/redis/{category}")
+async def clear_redis_dlq_endpoint(
+    category: str,
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Clear all items from a Redis DLQ category.
+
+    Warning: This permanently deletes all failed tasks without retrying.
+    """
+    from app.tasks.base_task import clear_redis_dlq
+
+    valid_categories = ["email", "payment", "booking", "price_alert", "availability", "sync", "other"]
+    if category not in valid_categories:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid category. Must be one of: {valid_categories}"
+        )
+
+    result = clear_redis_dlq(category)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
+
+
+@router.patch("/dlq/database/{task_id}")
+async def update_database_dlq_task(
+    task_id: int,
+    status: str = Query(..., description="New status: pending, retried, resolved, ignored"),
+    resolution_notes: Optional[str] = Query(None, description="Notes about resolution"),
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Update the status of a failed task in the database.
+
+    Use to mark tasks as resolved, ignored, or retried.
+    """
+    from app.tasks.base_task import update_db_task_status
+
+    valid_statuses = ["pending", "retried", "resolved", "ignored"]
+    if status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Must be one of: {valid_statuses}"
+        )
+
+    result = update_db_task_status(
+        task_id=task_id,
+        status=status,
+        resolution_notes=resolution_notes,
+        resolved_by=current_admin.email
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
+
+
+@router.post("/dlq/database/{task_id}/retry")
+async def retry_database_dlq_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Retry a failed task from the database DLQ.
+
+    Re-queues the task and updates its status.
+    """
+    from app.models.failed_task import FailedTask, FailedTaskStatusEnum
+    from app.celery_app import celery_app
+    from datetime import datetime, timezone
+
+    task = db.query(FailedTask).filter(FailedTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    # Get the Celery task
+    celery_task = celery_app.tasks.get(task.task_name)
+    if not celery_task:
+        raise HTTPException(status_code=400, detail=f"Task {task.task_name} not registered")
+
+    try:
+        # Re-queue the task
+        result = celery_task.apply_async(kwargs=task.kwargs or {})
+
+        # Update status
+        task.status = FailedTaskStatusEnum.RETRIED
+        task.retried_at = datetime.now(timezone.utc)
+        task.retry_count += 1
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "Task re-queued",
+            "new_task_id": result.id,
+            "task_name": task.task_name
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

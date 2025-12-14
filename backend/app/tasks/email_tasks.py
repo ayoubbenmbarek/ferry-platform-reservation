@@ -2,81 +2,20 @@
 Celery tasks for sending emails asynchronously.
 
 These tasks are decoupled from payment/booking logic and run in separate workers.
-Failed emails are stored in a dead-letter queue for manual retry.
+Failed emails are stored in a dead-letter queue (Redis + PostgreSQL) for manual retry.
 """
 import logging
 import json
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
-from celery import Task
 from app.celery_app import celery_app
 from app.services.email_service import email_service
+from app.tasks.base_task import EmailTask, _get_redis_client, DLQ_REDIS_KEYS
 
 logger = logging.getLogger(__name__)
 
-# Redis key for dead-letter queue
-DEAD_LETTER_QUEUE_KEY = "email:dead_letter_queue"
-
-
-def _get_redis_client():
-    """Get Redis client for dead-letter queue operations."""
-    import redis
-    import os
-    # Use Celery result backend URL, fallback to REDIS_URL, then default
-    # Default uses container hostname "redis" (works inside Docker)
-    redis_url = os.getenv("CELERY_RESULT_BACKEND") or os.getenv("REDIS_URL") or "redis://redis:6379/1"
-
-    # Handle test environments that use memory:// URLs (not supported by redis-py)
-    if redis_url.startswith("memory://"):
-        # In test mode, skip Redis operations - return None and handle gracefully
-        logger.warning("Memory URL detected for Redis - dead-letter queue operations will be skipped in test mode")
-        return None
-
-    return redis.from_url(redis_url)
-
-
-class EmailTask(Task):
-    """Base task for email sending with retry logic and dead-letter queue."""
-    autoretry_for = (Exception,)
-    retry_kwargs = {"max_retries": 5}  # Increased from 3 to 5 retries
-    retry_backoff = True
-    retry_backoff_max = 1800  # Increased to 30 minutes max between retries
-    retry_jitter = True
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        """
-        Called when task fails after all retries exhausted.
-        Stores failed email in dead-letter queue for manual retry.
-        """
-        try:
-            redis_client = _get_redis_client()
-            if redis_client is None:
-                # Test mode - skip dead-letter queue
-                logger.warning(f"Skipping dead-letter queue (test mode) for task {task_id}")
-                super().on_failure(exc, task_id, args, kwargs, einfo)
-                return
-
-            failed_email = {
-                "task_id": task_id,
-                "task_name": self.name,
-                "args": args,
-                "kwargs": _serialize_kwargs(kwargs),
-                "error": str(exc),
-                "failed_at": datetime.now(timezone.utc).isoformat(),
-                "retry_count": 0
-            }
-
-            # Add to dead-letter queue
-            redis_client.lpush(DEAD_LETTER_QUEUE_KEY, json.dumps(failed_email, default=str))
-
-            logger.error(
-                f"📭 Email task {self.name} failed permanently after all retries. "
-                f"Added to dead-letter queue. Task ID: {task_id}, Error: {exc}"
-            )
-        except Exception as dlq_error:
-            logger.error(f"Failed to add email to dead-letter queue: {dlq_error}")
-
-        super().on_failure(exc, task_id, args, kwargs, einfo)
+# Legacy Redis key for backward compatibility with existing admin endpoints
+DEAD_LETTER_QUEUE_KEY = DLQ_REDIS_KEYS["email"]
 
 
 def _serialize_kwargs(kwargs: Dict) -> Dict:

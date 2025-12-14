@@ -1,13 +1,13 @@
 """
 Celery tasks for checking price changes on saved routes and sending alerts.
 Runs periodically to check if prices have changed on watched routes.
+Failed tasks are stored in dead-letter queue (Redis + PostgreSQL) for recovery.
 """
 import os
 import logging
 import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
-from celery import shared_task
 from sqlalchemy import and_, or_
 
 from app.database import SessionLocal
@@ -16,15 +16,16 @@ from app.models.user import User
 from app.services.ferry_service import FerryService
 from app.services.email_service import email_service
 from app.services.push_notification_service import push_notification_service
+from app.celery_app import celery_app
+from app.tasks.base_task import PriceAlertTask
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(
+@celery_app.task(
+    base=PriceAlertTask,
     name="app.tasks.price_alert_tasks.check_price_alerts",
-    bind=True,
-    max_retries=3,
-    default_retry_delay=300  # 5 minutes
+    bind=True
 )
 def check_price_alerts_task(self):
     """
@@ -394,7 +395,8 @@ def _send_price_alert_notification(
         raise
 
 
-@shared_task(
+@celery_app.task(
+    base=PriceAlertTask,
     name="app.tasks.price_alert_tasks.cleanup_old_price_alerts",
     bind=True
 )

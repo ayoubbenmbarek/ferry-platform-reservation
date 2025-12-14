@@ -2,11 +2,11 @@
 Celery tasks for payment processing and webhook handling.
 
 These tasks handle Stripe webhooks and payment verification asynchronously.
+Failed tasks are stored in dead-letter queue (Redis + PostgreSQL) for recovery.
 """
 import logging
 from typing import Dict, Any
 from datetime import datetime
-from celery import Task
 from sqlalchemy.orm import Session
 from app.celery_app import celery_app
 from app.database import SessionLocal
@@ -16,6 +16,7 @@ from app.tasks.email_tasks import (
     send_payment_success_email_task,
     send_payment_failed_email_task,
 )
+from app.tasks.base_task import PaymentTask
 import stripe
 import os
 
@@ -23,15 +24,6 @@ logger = logging.getLogger(__name__)
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-
-class PaymentTask(Task):
-    """Base task for payment processing with retry logic."""
-    autoretry_for = (Exception,)
-    retry_kwargs = {"max_retries": 5}
-    retry_backoff = True
-    retry_backoff_max = 300  # 5 minutes
-    retry_jitter = True
 
 
 @celery_app.task(

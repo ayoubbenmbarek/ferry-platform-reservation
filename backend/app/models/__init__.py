@@ -19,6 +19,7 @@ from .price_history import (
     PriceTrendEnum,
     BookingRecommendationEnum,
 )
+from .failed_task import FailedTask, TaskCategoryEnum, FailedTaskStatusEnum
 
 __all__ = [
     "User",
@@ -54,4 +55,7 @@ __all__ = [
     "FareCalendarCache",
     "PriceTrendEnum",
     "BookingRecommendationEnum",
+    "FailedTask",
+    "TaskCategoryEnum",
+    "FailedTaskStatusEnum",
 ] 

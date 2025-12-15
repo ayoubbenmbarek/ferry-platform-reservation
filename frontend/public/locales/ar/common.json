@@ -14,9 +14,15 @@
     "contact": "اتصل بنا"
   },
   "footer": {
-    "copyright": "© 2026 VoilaFerry. جميع الحقوق محفوظة.",
-    "terms": "شروط الخدمة",
+    "copyright": "© 2024 VoilaFerry. جميع الحقوق محفوظة.",
+    "description": "شريكك الموثوق لحجوزات العبّارات في البحر الأبيض المتوسط. قارن المسارات والأسعار واحجز بثقة.",
+    "quickLinks": "روابط سريعة",
+    "legal": "قانوني",
+    "terms": "الشروط والأحكام",
     "privacy": "سياسة الخصوصية",
+    "cancellation": "سياسة الإلغاء",
+    "cookies": "سياسة ملفات تعريف الارتباط",
+    "contactUs": "اتصل بنا",
     "help": "مركز المساعدة"
   },
   "language": {
@@ -57,5 +63,86 @@
     "today": "اليوم",
     "tomorrow": "غداً",
     "yesterday": "أمس"
+  },
+  "features": {
+    "compareOperators": "قارن الأسعار • عدة مشغلين • حجز سهل",
+    "whyBookTitle": "لماذا تحجز معنا؟",
+    "whyBookSubtitle": "أسهل طريقة لحجز رحلات العبّارة إلى تونس",
+    "bestPricesTitle": "أفضل الأسعار",
+    "bestPricesDesc": "قارن أسعار CTN و GNV و Corsica Lines و Danel Casanova في بحث واحد",
+    "instantConfirmationTitle": "تأكيد فوري",
+    "instantConfirmationDesc": "احصل على تأكيد حجزك فوراً مع تذاكر إلكترونية ترسل إلى بريدك",
+    "securePaymentTitle": "دفع آمن",
+    "securePaymentDesc": "معلومات الدفع الخاصة بك مشفرة وآمنة مع Stripe",
+    "popularRoutesTitle": "المسارات الشائعة",
+    "popularRoutesSubtitle": "مسارات العبّارة الأكثر بحثاً إلى تونس",
+    "viewSchedules": "عرض الجداول",
+    "from": "من"
+  },
+  "bookingStatus": {
+    "all": "الكل",
+    "pending": "قيد الانتظار",
+    "confirmed": "مؤكد",
+    "completed": "مكتمل",
+    "cancelled": "ملغي",
+    "paid": "مدفوع",
+    "filterByStatus": "تصفية حسب الحالة"
+  },
+  "contact": {
+    "title": "اتصل بنا",
+    "subtitle": "لديك سؤال أو تحتاج مساعدة؟ نحن هنا للمساعدة. تواصل مع فريقنا وسنرد عليك في أقرب وقت ممكن.",
+    "getInTouch": "تواصل معنا",
+    "email": "البريد الإلكتروني",
+    "phone": "الهاتف",
+    "phoneHours": "الاثنين-الجمعة، 8 صباحاً - 6 مساءً بتوقيت وسط أوروبا",
+    "address": "العنوان",
+    "businessHours": "ساعات العمل",
+    "hours": {
+      "weekdays": "الاثنين - الجمعة: 8:00 صباحاً - 6:00 مساءً",
+      "saturday": "السبت: 9:00 صباحاً - 2:00 مساءً",
+      "sunday": "الأحد: مغلق"
+    },
+    "quickHelp": "مساعدة سريعة",
+    "links": {
+      "faq": "الأسئلة الشائعة",
+      "terms": "الشروط والأحكام",
+      "privacy": "سياسة الخصوصية"
+    },
+    "liveChat": "الدردشة المباشرة",
+    "liveChatDesc": "تحتاج مساعدة فورية؟ روبوت الدعم الذكي لدينا متاح على مدار الساعة طوال أيام الأسبوع.",
+    "liveChatHint": "ابحث عن أيقونة الدردشة في الزاوية اليمنى السفلية من شاشتك.",
+    "sendMessage": "أرسل لنا رسالة",
+    "sendMessageDesc": "املأ النموذج أدناه وسنرد عليك خلال 24 ساعة.",
+    "ourLocation": "موقعنا",
+    "categories": {
+      "general": "استفسار عام",
+      "booking": "دعم الحجز",
+      "refund": "المبالغ المستردة والإلغاءات",
+      "technical": "مشكلة تقنية",
+      "feedback": "ملاحظات واقتراحات",
+      "other": "أخرى"
+    },
+    "form": {
+      "fullName": "الاسم الكامل",
+      "fullNamePlaceholder": "أحمد محمد",
+      "emailAddress": "عنوان البريد الإلكتروني",
+      "category": "الفئة",
+      "bookingReference": "مرجع الحجز",
+      "optional": "اختياري",
+      "subject": "الموضوع",
+      "subjectPlaceholder": "وصف موجز لاستفسارك",
+      "message": "الرسالة",
+      "messagePlaceholder": "يرجى تقديم أكبر قدر ممكن من التفاصيل...",
+      "requiredFields": "الحقول المطلوبة",
+      "sending": "جاري الإرسال...",
+      "sendButton": "إرسال الرسالة"
+    },
+    "success": {
+      "title": "تم إرسال الرسالة بنجاح!",
+      "message": "شكراً لتواصلك معنا. سنرد على استفسارك خلال 24 ساعة."
+    },
+    "error": {
+      "title": "فشل إرسال الرسالة"
+    }
   }
 }

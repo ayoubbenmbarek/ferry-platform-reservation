@@ -14,9 +14,15 @@
     "contact": "Kontakt"
   },
   "footer": {
-    "copyright": "© 2026 VoilaFerry. Alle Rechte vorbehalten.",
-    "terms": "Nutzungsbedingungen",
+    "copyright": "© 2024 VoilaFerry. Alle Rechte vorbehalten.",
+    "description": "Ihr vertrauenswürdiger Partner für Fährbuchungen im Mittelmeer. Vergleichen Sie Routen, Preise und buchen Sie mit Vertrauen.",
+    "quickLinks": "Schnelllinks",
+    "legal": "Rechtliches",
+    "terms": "AGB",
     "privacy": "Datenschutzrichtlinie",
+    "cancellation": "Stornierungsbedingungen",
+    "cookies": "Cookie-Richtlinie",
+    "contactUs": "Kontakt",
     "help": "Hilfecenter"
   },
   "language": {
@@ -81,5 +87,62 @@
     "cancelled": "Storniert",
     "paid": "Bezahlt",
     "filterByStatus": "Nach Status filtern"
+  },
+  "contact": {
+    "title": "Kontakt",
+    "subtitle": "Haben Sie eine Frage oder benötigen Sie Hilfe? Wir sind für Sie da. Kontaktieren Sie unser Team und wir melden uns so schnell wie möglich bei Ihnen.",
+    "getInTouch": "Kontaktieren Sie Uns",
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "phoneHours": "Mo-Fr, 8:00-18:00 MEZ",
+    "address": "Adresse",
+    "businessHours": "Geschäftszeiten",
+    "hours": {
+      "weekdays": "Montag - Freitag: 8:00 - 18:00 Uhr",
+      "saturday": "Samstag: 9:00 - 14:00 Uhr",
+      "sunday": "Sonntag: Geschlossen"
+    },
+    "quickHelp": "Schnelle Hilfe",
+    "links": {
+      "faq": "Häufig Gestellte Fragen",
+      "terms": "AGB",
+      "privacy": "Datenschutzrichtlinie"
+    },
+    "liveChat": "Live-Chat",
+    "liveChatDesc": "Brauchen Sie sofortige Hilfe? Unser KI-gestützter Support-Chatbot ist rund um die Uhr verfügbar.",
+    "liveChatHint": "Suchen Sie nach dem Chat-Symbol in der unteren rechten Ecke Ihres Bildschirms.",
+    "sendMessage": "Senden Sie uns eine Nachricht",
+    "sendMessageDesc": "Füllen Sie das folgende Formular aus und wir melden uns innerhalb von 24 Stunden bei Ihnen.",
+    "ourLocation": "Unser Standort",
+    "categories": {
+      "general": "Allgemeine Anfrage",
+      "booking": "Buchungssupport",
+      "refund": "Rückerstattungen & Stornierungen",
+      "technical": "Technisches Problem",
+      "feedback": "Feedback & Vorschläge",
+      "other": "Sonstiges"
+    },
+    "form": {
+      "fullName": "Vollständiger Name",
+      "fullNamePlaceholder": "Max Mustermann",
+      "emailAddress": "E-Mail-Adresse",
+      "category": "Kategorie",
+      "bookingReference": "Buchungsreferenz",
+      "optional": "optional",
+      "subject": "Betreff",
+      "subjectPlaceholder": "Kurze Beschreibung Ihrer Anfrage",
+      "message": "Nachricht",
+      "messagePlaceholder": "Bitte geben Sie so viele Details wie möglich an...",
+      "requiredFields": "Pflichtfelder",
+      "sending": "Wird gesendet...",
+      "sendButton": "Nachricht senden"
+    },
+    "success": {
+      "title": "Nachricht erfolgreich gesendet!",
+      "message": "Vielen Dank für Ihre Kontaktaufnahme. Wir werden Ihre Anfrage innerhalb von 24 Stunden beantworten."
+    },
+    "error": {
+      "title": "Senden der Nachricht fehlgeschlagen"
+    }
   }
 }

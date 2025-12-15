@@ -14,9 +14,15 @@
     "contact": "Contatti"
   },
   "footer": {
-    "copyright": "© 2026 VoilaFerry. Tutti i diritti riservati.",
-    "terms": "Termini di Servizio",
+    "copyright": "© 2024 VoilaFerry. Tutti i diritti riservati.",
+    "description": "Il tuo partner di fiducia per le prenotazioni di traghetti nel Mediterraneo. Confronta itinerari, prezzi e prenota con sicurezza.",
+    "quickLinks": "Link Rapidi",
+    "legal": "Note Legali",
+    "terms": "Termini e Condizioni",
     "privacy": "Informativa sulla Privacy",
+    "cancellation": "Politica di Cancellazione",
+    "cookies": "Politica sui Cookie",
+    "contactUs": "Contattaci",
     "help": "Centro Assistenza"
   },
   "language": {
@@ -81,5 +87,62 @@
     "cancelled": "Cancellato",
     "paid": "Pagato",
     "filterByStatus": "Filtra per stato"
+  },
+  "contact": {
+    "title": "Contattaci",
+    "subtitle": "Hai una domanda o hai bisogno di assistenza? Siamo qui per aiutarti. Contatta il nostro team e ti risponderemo il prima possibile.",
+    "getInTouch": "Mettiti in Contatto",
+    "email": "Email",
+    "phone": "Telefono",
+    "phoneHours": "Lun-Ven, 8:00-18:00 CET",
+    "address": "Indirizzo",
+    "businessHours": "Orari di Apertura",
+    "hours": {
+      "weekdays": "Lunedì - Venerdì: 8:00 - 18:00",
+      "saturday": "Sabato: 9:00 - 14:00",
+      "sunday": "Domenica: Chiuso"
+    },
+    "quickHelp": "Aiuto Rapido",
+    "links": {
+      "faq": "Domande Frequenti",
+      "terms": "Termini e Condizioni",
+      "privacy": "Informativa sulla Privacy"
+    },
+    "liveChat": "Chat dal Vivo",
+    "liveChatDesc": "Hai bisogno di assistenza immediata? Il nostro chatbot di supporto AI è disponibile 24/7.",
+    "liveChatHint": "Cerca l'icona della chat nell'angolo in basso a destra dello schermo.",
+    "sendMessage": "Inviaci un Messaggio",
+    "sendMessageDesc": "Compila il modulo sottostante e ti risponderemo entro 24 ore.",
+    "ourLocation": "La Nostra Sede",
+    "categories": {
+      "general": "Richiesta Generale",
+      "booking": "Supporto Prenotazioni",
+      "refund": "Rimborsi e Cancellazioni",
+      "technical": "Problema Tecnico",
+      "feedback": "Feedback e Suggerimenti",
+      "other": "Altro"
+    },
+    "form": {
+      "fullName": "Nome Completo",
+      "fullNamePlaceholder": "Mario Rossi",
+      "emailAddress": "Indirizzo Email",
+      "category": "Categoria",
+      "bookingReference": "Riferimento Prenotazione",
+      "optional": "opzionale",
+      "subject": "Oggetto",
+      "subjectPlaceholder": "Breve descrizione della tua richiesta",
+      "message": "Messaggio",
+      "messagePlaceholder": "Fornisci il maggior numero di dettagli possibile...",
+      "requiredFields": "Campi obbligatori",
+      "sending": "Invio in corso...",
+      "sendButton": "Invia Messaggio"
+    },
+    "success": {
+      "title": "Messaggio inviato con successo!",
+      "message": "Grazie per averci contattato. Risponderemo alla tua richiesta entro 24 ore."
+    },
+    "error": {
+      "title": "Invio messaggio fallito"
+    }
   }
 }

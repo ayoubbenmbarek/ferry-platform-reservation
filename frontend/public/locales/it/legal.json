@@ -1,0 +1,399 @@
+{
+  "cancellation": {
+    "title": "Politica di Cancellazione e Rimborso",
+    "lastUpdated": "Ultimo aggiornamento: Dicembre 2024",
+    "backToHome": "Torna alla Home",
+    "sections": {
+      "general": {
+        "title": "1. Regole Generali di Cancellazione",
+        "content": "VoilaFerry agisce come intermediario tra te e gli operatori di traghetti. Le politiche di cancellazione variano a seconda dell'operatore, della rotta e del tipo di tariffa selezionata al momento della prenotazione.",
+        "note": "I termini specifici di cancellazione applicabili alla tua prenotazione sono visualizzati durante il processo di prenotazione e inclusi nell'email di conferma."
+      },
+      "timeframes": {
+        "title": "2. Tempistiche Standard di Cancellazione",
+        "note": "* Queste sono linee guida generali. Gli importi effettivi del rimborso dipendono dalla politica specifica dell'operatore e dal tipo di tariffa. Le tariffe flessibili possono offrire condizioni di cancellazione migliori.",
+        "headers": {
+          "timeBefore": "Tempo Prima della Partenza",
+          "refundAmount": "Importo del Rimborso"
+        },
+        "rows": {
+          "moreThan30": "Più di 30 giorni",
+          "moreThan30Refund": "Rimborso completo meno commissione di servizio (5%)",
+          "15to30": "15-30 giorni",
+          "15to30Refund": "Rimborso del 75%",
+          "7to14": "7-14 giorni",
+          "7to14Refund": "Rimborso del 50%",
+          "48hTo7d": "48 ore - 7 giorni",
+          "48hTo7dRefund": "Rimborso del 25%",
+          "lessThan48h": "Meno di 48 ore",
+          "lessThan48hRefund": "Nessun rimborso"
+        }
+      },
+      "howToCancel": {
+        "title": "3. Come Cancellare una Prenotazione",
+        "steps": [
+          "Accedi al tuo account VoilaFerry",
+          "Vai su \"Le Mie Prenotazioni\"",
+          "Seleziona la prenotazione che desideri cancellare",
+          "Clicca su \"Cancella Prenotazione\" e segui le istruzioni",
+          "Riceverai un'email di conferma con i dettagli del rimborso"
+        ],
+        "alternative": "In alternativa, puoi contattare il nostro servizio clienti a"
+      },
+      "refundProcessing": {
+        "title": "4. Elaborazione dei Rimborsi",
+        "items": [
+          "I rimborsi vengono elaborati entro 5-10 giorni lavorativi",
+          "I rimborsi vengono emessi sul metodo di pagamento originale",
+          "I tempi di elaborazione bancaria possono aggiungere 3-5 giorni lavorativi",
+          "Riceverai un'email di conferma quando il rimborso sarà elaborato"
+        ]
+      },
+      "nonRefundable": {
+        "title": "5. Prenotazioni Non Rimborsabili",
+        "intro": "Alcuni tipi di tariffa sono contrassegnati come \"Non Rimborsabili\" al momento della prenotazione. Queste prenotazioni:",
+        "items": [
+          "Non possono essere cancellate per un rimborso",
+          "Possono essere idonee per modifiche di data/ora (soggette a disponibilità e commissioni)",
+          "Possono essere idonee per voucher di credito in circostanze eccezionali"
+        ]
+      },
+      "operatorCancellations": {
+        "title": "6. Cancellazioni dell'Operatore",
+        "intro": "Se un operatore di traghetti cancella una traversata a causa di condizioni meteorologiche, problemi tecnici o altri motivi:",
+        "items": [
+          "Hai diritto a un rimborso completo",
+          "Puoi scegliere di riprenotare su una traversata alternativa senza costi aggiuntivi",
+          "Ti informeremo non appena riceveremo le informazioni di cancellazione dall'operatore"
+        ]
+      },
+      "modifications": {
+        "title": "7. Modifiche alla Prenotazione",
+        "intro": "Invece di cancellare, potresti essere in grado di modificare la tua prenotazione:",
+        "items": [
+          "Le modifiche di data e ora sono soggette a disponibilità",
+          "Potrebbero essere applicate commissioni di modifica a seconda del tipo di tariffa",
+          "Le differenze di prezzo devono essere pagate se la nuova traversata costa di più",
+          "Nessun rimborso viene dato se la nuova traversata costa meno"
+        ]
+      },
+      "protection": {
+        "title": "8. Protezione Cancellazione",
+        "intro": "Offriamo una Protezione Cancellazione opzionale che fornisce flessibilità aggiuntiva:",
+        "items": [
+          "Cancella per qualsiasi motivo fino a 24 ore prima della partenza",
+          "Ricevi fino all'80% di rimborso indipendentemente dal tipo di tariffa",
+          "La protezione deve essere acquistata al momento della prenotazione",
+          "Il costo è tipicamente il 5-10% del valore della prenotazione"
+        ]
+      },
+      "contact": {
+        "title": "9. Contattaci",
+        "intro": "Per domande sulla nostra politica di cancellazione o assistenza con la tua prenotazione:",
+        "email": "Email",
+        "phone": "Telefono",
+        "phoneHours": "Lun-Ven, 9:00-18:00 CET",
+        "liveChat": "Chat dal Vivo: Disponibile sul nostro sito web"
+      }
+    }
+  },
+  "terms": {
+    "title": "Termini e Condizioni",
+    "lastUpdated": "Ultimo aggiornamento: Dicembre 2024",
+    "sections": {
+      "introduction": {
+        "title": "1. Introduzione",
+        "welcome": "Benvenuto su VoilaFerry. Questi Termini e Condizioni (\"Termini\") regolano l'utilizzo del nostro sito web, applicazione mobile e servizi (collettivamente, il \"Servizio\"). Accedendo o utilizzando il nostro Servizio, accetti di essere vincolato da questi Termini."
+      },
+      "serviceDescription": {
+        "title": "2. Descrizione del Servizio",
+        "intro": "VoilaFerry fornisce una piattaforma online per confrontare e prenotare biglietti di traghetti tra più operatori che servono le rotte mediterranee. Agiamo come intermediario tra te e gli operatori di traghetti.",
+        "items": [
+          "Non operiamo alcun traghetto direttamente",
+          "Il contratto di trasporto è tra te e l'operatore del traghetto",
+          "Facilitiamo il processo di prenotazione e forniamo supporto clienti"
+        ]
+      },
+      "account": {
+        "title": "3. Registrazione Account",
+        "intro": "Per utilizzare alcune funzionalità del nostro Servizio, potrebbe essere necessario creare un account. Accetti di:",
+        "items": [
+          "Fornire informazioni accurate, attuali e complete",
+          "Mantenere e aggiornare le tue informazioni per mantenerle accurate",
+          "Mantenere la sicurezza delle credenziali del tuo account",
+          "Accettare la responsabilità per tutte le attività sotto il tuo account",
+          "Notificarci immediatamente di qualsiasi uso non autorizzato"
+        ]
+      },
+      "booking": {
+        "title": "4. Processo di Prenotazione",
+        "makingBooking": {
+          "title": "4.1 Effettuare una Prenotazione",
+          "intro": "Quando effettui una prenotazione attraverso il nostro Servizio:",
+          "items": [
+            "Confermi che tutte le informazioni sui passeggeri fornite sono accurate",
+            "Accetti le regole tariffarie e le condizioni visualizzate durante la prenotazione",
+            "Autorizzi il pagamento dell'importo totale mostrato",
+            "Un contratto vincolante si forma quando ricevi la conferma della prenotazione"
+          ]
+        },
+        "pricing": {
+          "title": "4.2 Prezzi",
+          "content": "Tutti i prezzi sono visualizzati in Euro (EUR) e includono le tasse applicabili salvo diversa indicazione. I prezzi possono cambiare fino alla conferma della prenotazione. Ci riserviamo il diritto di correggere eventuali errori di prezzo, anche dopo che una prenotazione è stata effettuata."
+        }
+      },
+      "payment": {
+        "title": "5. Pagamento",
+        "items": [
+          "Il pagamento è dovuto al momento della prenotazione",
+          "Accettiamo le principali carte di credito/debito (Visa, Mastercard, American Express)",
+          "Tutti i pagamenti sono elaborati in modo sicuro attraverso il nostro fornitore di pagamenti (Stripe)",
+          "La tua carta verrà addebitata in EUR",
+          "Potrebbero essere applicate commissioni di conversione valuta se la tua carta è in una valuta diversa"
+        ]
+      },
+      "passengerResponsibilities": {
+        "title": "7. Responsabilità del Passeggero",
+        "intro": "Come passeggero, sei responsabile di:",
+        "items": [
+          "Arrivare al porto con tempo sufficiente prima della partenza (minimo 90 minuti consigliati)",
+          "Portare documenti di viaggio validi (passaporto, carta d'identità, visto se richiesto)",
+          "Rispettare i requisiti del veicolo se viaggi con un veicolo",
+          "Dichiarare eventuali merci pericolose o requisiti speciali",
+          "Seguire le regole dell'operatore del traghetto e le istruzioni dell'equipaggio",
+          "Assicurarsi che i bambini siano supervisionati in ogni momento"
+        ]
+      },
+      "travelDocuments": {
+        "title": "8. Documenti di Viaggio",
+        "intro": "Sei l'unico responsabile di assicurarti di avere tutti i documenti di viaggio necessari:",
+        "items": [
+          "Passaporto o carta d'identità nazionale validi",
+          "Visti dove richiesti",
+          "Documenti di immatricolazione del veicolo (se applicabile)",
+          "Passaporti per animali e certificati sanitari (se viaggi con animali domestici)"
+        ],
+        "note": "Non siamo responsabili per qualsiasi rifiuto di imbarco dovuto a documentazione inadeguata."
+      },
+      "liability": {
+        "title": "9. Limitazione di Responsabilità",
+        "intro": "Nella misura massima consentita dalla legge:",
+        "items": [
+          "Non siamo responsabili per atti o omissioni degli operatori di traghetti",
+          "Non siamo responsabili per ritardi, cancellazioni o modifiche ai servizi di traghetto",
+          "La nostra responsabilità è limitata all'importo pagato per la tua prenotazione",
+          "Non siamo responsabili per danni indiretti, consequenziali o speciali"
+        ]
+      },
+      "intellectualProperty": {
+        "title": "10. Proprietà Intellettuale",
+        "content": "Tutti i contenuti sul nostro Servizio, inclusi testo, grafica, loghi e software, sono di nostra proprietà o concessi in licenza a noi e sono protetti dalle leggi sulla proprietà intellettuale. Non puoi riprodurre, distribuire o creare opere derivate senza il nostro espresso consenso scritto."
+      },
+      "governingLaw": {
+        "title": "13. Legge Applicabile",
+        "content": "Questi Termini sono regolati dalle leggi della Francia. Qualsiasi controversia sarà soggetta alla giurisdizione esclusiva dei tribunali di Parigi, Francia, a meno che le normative sulla protezione dei consumatori dell'UE non dispongano diversamente."
+      },
+      "contact": {
+        "title": "14. Informazioni di Contatto",
+        "intro": "Per domande su questi Termini, contattaci:",
+        "email": "Email"
+      }
+    }
+  },
+  "privacy": {
+    "title": "Informativa sulla Privacy",
+    "lastUpdated": "Ultimo aggiornamento: Dicembre 2024",
+    "sections": {
+      "introduction": {
+        "title": "1. Introduzione",
+        "content": "VoilaFerry (\"noi\", \"ci\", \"nostro\") si impegna a proteggere la tua privacy. Questa Informativa sulla Privacy spiega come raccogliamo, utilizziamo, divulghiamo e proteggiamo le tue informazioni quando utilizzi il nostro sito web e i nostri servizi.",
+        "gdpr": "Siamo conformi al Regolamento Generale sulla Protezione dei Dati (GDPR) e ad altre leggi applicabili sulla protezione dei dati nell'Unione Europea."
+      },
+      "dataController": {
+        "title": "2. Titolare del Trattamento",
+        "intro": "Il titolare del trattamento responsabile dei tuoi dati personali è:"
+      },
+      "informationCollected": {
+        "title": "3. Informazioni che Raccogliamo",
+        "provided": {
+          "title": "3.1 Informazioni che Fornisci",
+          "items": [
+            "Informazioni dell'account (nome, email, password)",
+            "Dettagli della prenotazione (nomi dei passeggeri, informazioni di contatto)",
+            "Informazioni di pagamento (elaborate in modo sicuro da Stripe)",
+            "Preferenze di comunicazione",
+            "Richieste di assistenza clienti"
+          ]
+        },
+        "automatic": {
+          "title": "3.2 Informazioni Raccolte Automaticamente",
+          "items": [
+            "Informazioni sul dispositivo (tipo di browser, sistema operativo)",
+            "Indirizzo IP e posizione approssimativa",
+            "Dati di utilizzo (pagine visitate, funzionalità utilizzate)",
+            "Cookie e tecnologie simili"
+          ]
+        },
+        "thirdParty": {
+          "title": "3.3 Informazioni da Terze Parti",
+          "items": [
+            "Dati di accesso social (se accedi con Google)",
+            "Operatori di traghetti (aggiornamenti prenotazioni, modifiche orari)"
+          ]
+        }
+      },
+      "howWeUse": {
+        "title": "4. Come Utilizziamo le Tue Informazioni",
+        "intro": "Utilizziamo le tue informazioni per:",
+        "items": [
+          "Elaborare e gestire le tue prenotazioni",
+          "Inviare conferme di prenotazione e aggiornamenti di viaggio",
+          "Fornire assistenza clienti",
+          "Elaborare pagamenti e rimborsi",
+          "Inviare comunicazioni di marketing (con il tuo consenso)",
+          "Migliorare i nostri servizi e l'esperienza utente",
+          "Rilevare e prevenire frodi",
+          "Adempiere agli obblighi legali"
+        ]
+      },
+      "legalBasis": {
+        "title": "5. Base Giuridica del Trattamento (GDPR)",
+        "intro": "Trattiamo i tuoi dati sulla base di:",
+        "items": [
+          "Contratto: Trattamento necessario per adempiere alla tua prenotazione",
+          "Consenso: Per comunicazioni di marketing e cookie non essenziali",
+          "Interessi legittimi: Miglioramento del servizio, prevenzione frodi, analisi",
+          "Obbligo legale: Conformità alle leggi applicabili"
+        ]
+      },
+      "dataSharing": {
+        "title": "6. Condivisione dei Dati",
+        "intro": "Condividiamo i tuoi dati con:",
+        "items": [
+          "Operatori di traghetti: Per elaborare e gestire le tue prenotazioni",
+          "Processori di pagamento: Stripe, per l'elaborazione sicura dei pagamenti",
+          "Fornitori di servizi: Hosting, email, strumenti di assistenza clienti",
+          "Fornitori di analisi: Per migliorare i nostri servizi",
+          "Autorità legali: Quando richiesto dalla legge"
+        ],
+        "noSale": "Non vendiamo i tuoi dati personali a terze parti."
+      },
+      "dataRetention": {
+        "title": "8. Conservazione dei Dati",
+        "intro": "Conserviamo i tuoi dati per:",
+        "items": [
+          "Dati dell'account: Fino alla cancellazione del tuo account",
+          "Dati di prenotazione: 7 anni per conformità legale/fiscale",
+          "Dati di marketing: Fino alla cancellazione dell'iscrizione",
+          "Dati di analisi: 26 mesi"
+        ]
+      },
+      "yourRights": {
+        "title": "9. I Tuoi Diritti (GDPR)",
+        "intro": "Ai sensi del GDPR, hai il diritto di:",
+        "items": [
+          "Accesso: Richiedere una copia dei tuoi dati personali",
+          "Rettifica: Correggere dati inesatti o incompleti",
+          "Cancellazione: Richiedere la cancellazione dei tuoi dati (\"diritto all'oblio\")",
+          "Limitazione: Limitare il modo in cui trattiamo i tuoi dati",
+          "Portabilità: Ricevere i tuoi dati in un formato portabile",
+          "Opposizione: Opporti al trattamento basato su interessi legittimi",
+          "Revoca del consenso: Revocare il consenso in qualsiasi momento"
+        ],
+        "exercise": "Per esercitare i tuoi diritti, contattaci a"
+      },
+      "security": {
+        "title": "10. Sicurezza dei Dati",
+        "intro": "Implementiamo misure di sicurezza appropriate per proteggere i tuoi dati:",
+        "items": [
+          "Crittografia SSL/TLS per tutta la trasmissione dei dati",
+          "Elaborazione sicura dei pagamenti attraverso Stripe (conforme PCI DSS)",
+          "Controlli di accesso e autenticazione",
+          "Audit di sicurezza e aggiornamenti regolari",
+          "Formazione dei dipendenti sulla protezione dei dati"
+        ]
+      },
+      "contact": {
+        "title": "13. Contattaci",
+        "intro": "Per domande su questa Informativa sulla Privacy o per esercitare i tuoi diritti sui dati:",
+        "dpo": "Responsabile della Protezione dei Dati",
+        "complaint": "Hai anche il diritto di presentare un reclamo alla tua autorità locale per la protezione dei dati (in Francia: CNIL - Commission Nationale de l'Informatique et des Libertés)."
+      }
+    }
+  },
+  "cookies": {
+    "title": "Politica sui Cookie",
+    "lastUpdated": "Ultimo aggiornamento: Dicembre 2024",
+    "sections": {
+      "whatAreCookies": {
+        "title": "1. Cosa Sono i Cookie?",
+        "content": "I cookie sono piccoli file di testo che vengono memorizzati sul tuo dispositivo quando visiti un sito web. Aiutano i siti web a ricordare le tue preferenze, capire come utilizzi il sito e fornire un'esperienza utente migliore."
+      },
+      "howWeUse": {
+        "title": "2. Come Utilizziamo i Cookie",
+        "intro": "VoilaFerry utilizza i cookie per i seguenti scopi:",
+        "essential": {
+          "title": "2.1 Cookie Essenziali",
+          "description": "Questi cookie sono necessari per il corretto funzionamento del sito web. Abilitano funzionalità di base come sicurezza, gestione della rete e accesso all'account."
+        },
+        "functional": {
+          "title": "2.2 Cookie Funzionali",
+          "description": "Questi cookie abilitano funzionalità avanzate e personalizzazione, come ricordare la tua preferenza di lingua e le ricerche recenti."
+        },
+        "analytics": {
+          "title": "2.3 Cookie Analitici",
+          "description": "Questi cookie ci aiutano a capire come i visitatori interagiscono con il nostro sito web raccogliendo e riportando informazioni in modo anonimo."
+        },
+        "marketing": {
+          "title": "2.4 Cookie di Marketing",
+          "description": "Questi cookie vengono utilizzati per tracciare i visitatori sui siti web per mostrare pubblicità pertinenti. Li utilizziamo solo con il tuo consenso."
+        },
+        "tableHeaders": {
+          "cookie": "Cookie",
+          "purpose": "Scopo",
+          "duration": "Durata"
+        }
+      },
+      "thirdParty": {
+        "title": "3. Cookie di Terze Parti",
+        "intro": "Alcuni cookie sono inseriti da servizi di terze parti che appaiono sulle nostre pagine:",
+        "items": [
+          "Stripe: Per l'elaborazione sicura dei pagamenti",
+          "Google: Funzionalità di analisi e accesso",
+          "Sentry: Tracciamento errori e monitoraggio delle prestazioni"
+        ]
+      },
+      "managing": {
+        "title": "4. Gestione dei Cookie",
+        "intro": "Puoi controllare e gestire i cookie in diversi modi:",
+        "consentBanner": {
+          "title": "4.1 Banner di Consenso Cookie",
+          "description": "Quando visiti il nostro sito web per la prima volta, puoi scegliere quali categorie di cookie accettare attraverso il nostro banner di consenso cookie. Puoi modificare queste preferenze in qualsiasi momento cliccando sul link \"Impostazioni Cookie\" nel nostro footer."
+        },
+        "browserSettings": {
+          "title": "4.2 Impostazioni del Browser",
+          "description": "La maggior parte dei browser ti permette di gestire i cookie attraverso le loro impostazioni. Ecco come accedere alle impostazioni dei cookie nei browser più popolari:"
+        },
+        "optOut": {
+          "title": "4.3 Link di Opt-Out",
+          "description": "Puoi disattivare alcuni cookie di terze parti:"
+        }
+      },
+      "impact": {
+        "title": "5. Impatto della Disattivazione dei Cookie",
+        "intro": "Se disattivi alcuni cookie, alcune parti del nostro sito web potrebbero non funzionare correttamente:",
+        "items": [
+          "Potresti dover accedere più frequentemente",
+          "Le tue preferenze potrebbero non essere salvate",
+          "Alcune funzionalità potrebbero non essere disponibili",
+          "Il processo di prenotazione potrebbe essere influenzato"
+        ],
+        "note": "I cookie essenziali non possono essere disattivati in quanto sono necessari per il funzionamento del sito web."
+      },
+      "contact": {
+        "title": "7. Contattaci",
+        "intro": "Se hai domande sul nostro utilizzo dei cookie, contattaci:"
+      }
+    }
+  }
+}

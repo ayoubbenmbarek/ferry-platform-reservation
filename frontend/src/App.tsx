@@ -42,6 +42,12 @@ const AdminBookings = React.lazy(() => import('./pages/AdminBookings'));
 const AdminPromoCodes = React.lazy(() => import('./pages/AdminPromoCodes'));
 const AdminDLQ = React.lazy(() => import('./pages/AdminDLQ'));
 
+// Legal pages
+const TermsAndConditions = React.lazy(() => import('./pages/legal/TermsAndConditions'));
+const PrivacyPolicy = React.lazy(() => import('./pages/legal/PrivacyPolicy'));
+const CancellationPolicy = React.lazy(() => import('./pages/legal/CancellationPolicy'));
+const CookiePolicy = React.lazy(() => import('./pages/legal/CookiePolicy'));
+
 function App() {
   const dispatch = useDispatch();
   const { i18n } = useTranslation();
@@ -129,7 +135,13 @@ function App() {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/find-booking" element={<FindBookingPage />} />
-              
+
+              {/* Legal pages */}
+              <Route path="/terms" element={<TermsAndConditions />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/cancellation-policy" element={<CancellationPolicy />} />
+              <Route path="/cookie-policy" element={<CookiePolicy />} />
+
               {/* Protected routes */}
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/saved-routes" element={<ProtectedRoute><SavedRoutesPage /></ProtectedRoute>} />

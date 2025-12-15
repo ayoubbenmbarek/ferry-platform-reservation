@@ -1,0 +1,399 @@
+{
+  "cancellation": {
+    "title": "Politique d'Annulation et de Remboursement",
+    "lastUpdated": "Dernière mise à jour : Décembre 2024",
+    "backToHome": "Retour à l'accueil",
+    "sections": {
+      "general": {
+        "title": "1. Règles Générales d'Annulation",
+        "content": "VoilaFerry agit en tant qu'intermédiaire entre vous et les compagnies de ferry. Les politiques d'annulation varient selon la compagnie, l'itinéraire et le type de tarif sélectionné lors de la réservation.",
+        "note": "Les conditions d'annulation spécifiques à votre réservation sont affichées pendant le processus de réservation et incluses dans votre e-mail de confirmation."
+      },
+      "timeframes": {
+        "title": "2. Délais d'Annulation Standards",
+        "note": "* Ce sont des lignes directrices générales. Les montants de remboursement réels dépendent de la politique spécifique de la compagnie et du type de tarif.",
+        "headers": {
+          "timeBefore": "Délai Avant Départ",
+          "refundAmount": "Montant du Remboursement"
+        },
+        "rows": {
+          "moreThan30": "Plus de 30 jours",
+          "moreThan30Refund": "Remboursement complet moins frais de service (5%)",
+          "15to30": "15-30 jours",
+          "15to30Refund": "Remboursement de 75%",
+          "7to14": "7-14 jours",
+          "7to14Refund": "Remboursement de 50%",
+          "48hTo7d": "48 heures - 7 jours",
+          "48hTo7dRefund": "Remboursement de 25%",
+          "lessThan48h": "Moins de 48 heures",
+          "lessThan48hRefund": "Aucun remboursement"
+        }
+      },
+      "howToCancel": {
+        "title": "3. Comment Annuler une Réservation",
+        "steps": [
+          "Connectez-vous à votre compte VoilaFerry",
+          "Allez dans \"Mes Réservations\"",
+          "Sélectionnez la réservation que vous souhaitez annuler",
+          "Cliquez sur \"Annuler la Réservation\" et suivez les instructions",
+          "Vous recevrez un e-mail de confirmation avec les détails du remboursement"
+        ],
+        "alternative": "Vous pouvez également contacter notre service client à"
+      },
+      "refundProcessing": {
+        "title": "4. Traitement des Remboursements",
+        "items": [
+          "Les remboursements sont traités dans un délai de 5 à 10 jours ouvrables",
+          "Les remboursements sont effectués sur le moyen de paiement d'origine",
+          "Le traitement bancaire peut ajouter 3 à 5 jours ouvrables supplémentaires",
+          "Vous recevrez un e-mail de confirmation lorsque le remboursement sera traité"
+        ]
+      },
+      "nonRefundable": {
+        "title": "5. Réservations Non Remboursables",
+        "intro": "Certains types de tarifs sont marqués comme \"Non Remboursables\" au moment de la réservation. Ces réservations :",
+        "items": [
+          "Ne peuvent pas être annulées pour un remboursement",
+          "Peuvent être éligibles à des modifications de date/heure (sous réserve de disponibilité et de frais)",
+          "Peuvent être éligibles à des bons de crédit dans des circonstances exceptionnelles"
+        ]
+      },
+      "operatorCancellations": {
+        "title": "6. Annulations par la Compagnie",
+        "intro": "Si une compagnie de ferry annule une traversée en raison des conditions météorologiques, de problèmes techniques ou d'autres raisons :",
+        "items": [
+          "Vous avez droit à un remboursement complet",
+          "Vous pouvez choisir de réserver une autre traversée sans frais supplémentaires",
+          "Nous vous informerons dès que nous recevrons les informations d'annulation de la compagnie"
+        ]
+      },
+      "modifications": {
+        "title": "7. Modifications de Réservation",
+        "intro": "Au lieu d'annuler, vous pouvez modifier votre réservation :",
+        "items": [
+          "Les changements de date et d'heure sont soumis à disponibilité",
+          "Des frais de modification peuvent s'appliquer selon le type de tarif",
+          "Les différences de prix doivent être payées si la nouvelle traversée coûte plus cher",
+          "Aucun remboursement n'est effectué si la nouvelle traversée coûte moins cher"
+        ]
+      },
+      "protection": {
+        "title": "8. Protection Annulation",
+        "intro": "Nous proposons une Protection Annulation optionnelle qui offre une flexibilité supplémentaire :",
+        "items": [
+          "Annulez pour n'importe quelle raison jusqu'à 24 heures avant le départ",
+          "Recevez jusqu'à 80% de remboursement quel que soit le type de tarif",
+          "La protection doit être achetée au moment de la réservation",
+          "Le coût est généralement de 5 à 10% de la valeur de la réservation"
+        ]
+      },
+      "contact": {
+        "title": "9. Nous Contacter",
+        "intro": "Pour toute question sur notre politique d'annulation ou assistance avec votre réservation :",
+        "email": "Email",
+        "phone": "Téléphone",
+        "phoneHours": "Lun-Ven, 9h-18h CET",
+        "liveChat": "Chat en direct : Disponible sur notre site web"
+      }
+    }
+  },
+  "terms": {
+    "title": "Conditions Générales",
+    "lastUpdated": "Dernière mise à jour : Décembre 2024",
+    "sections": {
+      "introduction": {
+        "title": "1. Introduction",
+        "welcome": "Bienvenue sur VoilaFerry. Ces Conditions Générales (\"Conditions\") régissent votre utilisation de notre site web, application mobile et services (collectivement, le \"Service\"). En accédant ou en utilisant notre Service, vous acceptez d'être lié par ces Conditions."
+      },
+      "serviceDescription": {
+        "title": "2. Description du Service",
+        "intro": "VoilaFerry fournit une plateforme en ligne pour comparer et réserver des billets de ferry auprès de plusieurs compagnies desservant les routes méditerranéennes. Nous agissons en tant qu'intermédiaire entre vous et les compagnies de ferry.",
+        "items": [
+          "Nous n'exploitons aucun ferry nous-mêmes",
+          "Le contrat de transport est entre vous et la compagnie de ferry",
+          "Nous facilitons le processus de réservation et fournissons un support client"
+        ]
+      },
+      "account": {
+        "title": "3. Inscription au Compte",
+        "intro": "Pour utiliser certaines fonctionnalités de notre Service, vous devrez peut-être créer un compte. Vous acceptez de :",
+        "items": [
+          "Fournir des informations exactes, actuelles et complètes",
+          "Maintenir et mettre à jour vos informations pour les garder exactes",
+          "Maintenir la sécurité de vos identifiants de compte",
+          "Accepter la responsabilité de toutes les activités sous votre compte",
+          "Nous informer immédiatement de toute utilisation non autorisée"
+        ]
+      },
+      "booking": {
+        "title": "4. Processus de Réservation",
+        "makingBooking": {
+          "title": "4.1 Effectuer une Réservation",
+          "intro": "Lorsque vous effectuez une réservation via notre Service :",
+          "items": [
+            "Vous confirmez que toutes les informations des passagers fournies sont exactes",
+            "Vous acceptez les règles tarifaires et conditions affichées lors de la réservation",
+            "Vous autorisez le paiement du montant total affiché",
+            "Un contrat contraignant est formé lorsque vous recevez la confirmation de réservation"
+          ]
+        },
+        "pricing": {
+          "title": "4.2 Tarification",
+          "content": "Tous les prix sont affichés en Euros (EUR) et incluent les taxes applicables sauf indication contraire. Les prix peuvent changer jusqu'à ce qu'une réservation soit confirmée. Nous nous réservons le droit de corriger toute erreur de prix, même après qu'une réservation ait été effectuée."
+        }
+      },
+      "payment": {
+        "title": "5. Paiement",
+        "items": [
+          "Le paiement est dû au moment de la réservation",
+          "Nous acceptons les principales cartes de crédit/débit (Visa, Mastercard, American Express)",
+          "Tous les paiements sont traités de manière sécurisée via notre prestataire de paiement (Stripe)",
+          "Votre carte sera débitée en EUR",
+          "Des frais de conversion de devise peuvent s'appliquer si votre carte est dans une autre devise"
+        ]
+      },
+      "passengerResponsibilities": {
+        "title": "7. Responsabilités du Passager",
+        "intro": "En tant que passager, vous êtes responsable de :",
+        "items": [
+          "Arriver au port avec suffisamment de temps avant le départ (minimum 90 minutes recommandé)",
+          "Porter des documents de voyage valides (passeport, carte d'identité, visa si nécessaire)",
+          "Respecter les exigences relatives aux véhicules si vous voyagez avec un véhicule",
+          "Déclarer tout produit dangereux ou exigence spéciale",
+          "Suivre les règles de la compagnie de ferry et les instructions de l'équipage",
+          "S'assurer que les enfants sont surveillés à tout moment"
+        ]
+      },
+      "travelDocuments": {
+        "title": "8. Documents de Voyage",
+        "intro": "Vous êtes seul responsable de vous assurer d'avoir tous les documents de voyage nécessaires :",
+        "items": [
+          "Passeport ou carte d'identité nationale valide",
+          "Visas si nécessaire",
+          "Documents d'immatriculation du véhicule (si applicable)",
+          "Passeports et certificats de santé pour animaux (si vous voyagez avec des animaux)"
+        ],
+        "note": "Nous ne sommes pas responsables de tout refus d'embarquement dû à une documentation inadéquate."
+      },
+      "liability": {
+        "title": "9. Limitation de Responsabilité",
+        "intro": "Dans la mesure maximale permise par la loi :",
+        "items": [
+          "Nous ne sommes pas responsables des actes ou omissions des compagnies de ferry",
+          "Nous ne sommes pas responsables des retards, annulations ou modifications des services de ferry",
+          "Notre responsabilité est limitée au montant que vous avez payé pour votre réservation",
+          "Nous ne sommes pas responsables des dommages indirects, consécutifs ou spéciaux"
+        ]
+      },
+      "intellectualProperty": {
+        "title": "10. Propriété Intellectuelle",
+        "content": "Tout le contenu de notre Service, y compris le texte, les graphiques, les logos et les logiciels, est notre propriété ou nous est licencié et est protégé par les lois sur la propriété intellectuelle. Vous ne pouvez pas reproduire, distribuer ou créer des œuvres dérivées sans notre consentement écrit exprès."
+      },
+      "governingLaw": {
+        "title": "13. Droit Applicable",
+        "content": "Ces Conditions sont régies par les lois de la France. Tout litige sera soumis à la compétence exclusive des tribunaux de Paris, France, sauf si les réglementations européennes de protection des consommateurs en disposent autrement."
+      },
+      "contact": {
+        "title": "14. Coordonnées",
+        "intro": "Pour toute question sur ces Conditions, veuillez nous contacter :",
+        "email": "Email"
+      }
+    }
+  },
+  "privacy": {
+    "title": "Politique de Confidentialité",
+    "lastUpdated": "Dernière mise à jour : Décembre 2024",
+    "sections": {
+      "introduction": {
+        "title": "1. Introduction",
+        "content": "VoilaFerry (\"nous\", \"notre\") s'engage à protéger votre vie privée. Cette Politique de Confidentialité explique comment nous collectons, utilisons, divulguons et protégeons vos informations lorsque vous utilisez notre site web et nos services.",
+        "gdpr": "Nous respectons le Règlement Général sur la Protection des Données (RGPD) et les autres lois applicables en matière de protection des données dans l'Union Européenne."
+      },
+      "dataController": {
+        "title": "2. Responsable du Traitement",
+        "intro": "Le responsable du traitement de vos données personnelles est :"
+      },
+      "informationCollected": {
+        "title": "3. Informations que Nous Collectons",
+        "provided": {
+          "title": "3.1 Informations que Vous Fournissez",
+          "items": [
+            "Informations de compte (nom, email, mot de passe)",
+            "Détails de réservation (noms des passagers, coordonnées)",
+            "Informations de paiement (traitées de manière sécurisée par Stripe)",
+            "Préférences de communication",
+            "Demandes au support client"
+          ]
+        },
+        "automatic": {
+          "title": "3.2 Informations Collectées Automatiquement",
+          "items": [
+            "Informations sur l'appareil (type de navigateur, système d'exploitation)",
+            "Adresse IP et localisation approximative",
+            "Données d'utilisation (pages visitées, fonctionnalités utilisées)",
+            "Cookies et technologies similaires"
+          ]
+        },
+        "thirdParty": {
+          "title": "3.3 Informations de Tiers",
+          "items": [
+            "Données de connexion sociale (si vous vous connectez avec Google)",
+            "Compagnies de ferry (mises à jour de réservation, changements d'horaires)"
+          ]
+        }
+      },
+      "howWeUse": {
+        "title": "4. Comment Nous Utilisons Vos Informations",
+        "intro": "Nous utilisons vos informations pour :",
+        "items": [
+          "Traiter et gérer vos réservations",
+          "Envoyer des confirmations de réservation et des mises à jour de voyage",
+          "Fournir un support client",
+          "Traiter les paiements et remboursements",
+          "Envoyer des communications marketing (avec votre consentement)",
+          "Améliorer nos services et l'expérience utilisateur",
+          "Détecter et prévenir la fraude",
+          "Respecter les obligations légales"
+        ]
+      },
+      "legalBasis": {
+        "title": "5. Base Légale du Traitement (RGPD)",
+        "intro": "Nous traitons vos données sur la base de :",
+        "items": [
+          "Contrat : Traitement nécessaire pour exécuter votre réservation",
+          "Consentement : Pour les communications marketing et les cookies non essentiels",
+          "Intérêts légitimes : Amélioration du service, prévention de la fraude, analyses",
+          "Obligation légale : Conformité aux lois applicables"
+        ]
+      },
+      "dataSharing": {
+        "title": "6. Partage des Données",
+        "intro": "Nous partageons vos données avec :",
+        "items": [
+          "Compagnies de ferry : Pour traiter et gérer vos réservations",
+          "Processeurs de paiement : Stripe, pour le traitement sécurisé des paiements",
+          "Prestataires de services : Hébergement, email, outils de support client",
+          "Fournisseurs d'analyses : Pour améliorer nos services",
+          "Autorités légales : Lorsque la loi l'exige"
+        ],
+        "noSale": "Nous ne vendons pas vos données personnelles à des tiers."
+      },
+      "dataRetention": {
+        "title": "8. Conservation des Données",
+        "intro": "Nous conservons vos données pendant :",
+        "items": [
+          "Données de compte : Jusqu'à ce que vous supprimiez votre compte",
+          "Données de réservation : 7 ans pour la conformité légale/fiscale",
+          "Données marketing : Jusqu'à ce que vous vous désabonniez",
+          "Données analytiques : 26 mois"
+        ]
+      },
+      "yourRights": {
+        "title": "9. Vos Droits (RGPD)",
+        "intro": "En vertu du RGPD, vous avez le droit de :",
+        "items": [
+          "Accès : Demander une copie de vos données personnelles",
+          "Rectification : Corriger des données inexactes ou incomplètes",
+          "Effacement : Demander la suppression de vos données (\"droit à l'oubli\")",
+          "Limitation : Limiter la façon dont nous traitons vos données",
+          "Portabilité : Recevoir vos données dans un format portable",
+          "Opposition : S'opposer au traitement basé sur des intérêts légitimes",
+          "Retrait du consentement : Retirer votre consentement à tout moment"
+        ],
+        "exercise": "Pour exercer vos droits, contactez-nous à"
+      },
+      "security": {
+        "title": "10. Sécurité des Données",
+        "intro": "Nous mettons en œuvre des mesures de sécurité appropriées pour protéger vos données :",
+        "items": [
+          "Chiffrement SSL/TLS pour toute transmission de données",
+          "Traitement sécurisé des paiements via Stripe (conforme PCI DSS)",
+          "Contrôles d'accès et authentification",
+          "Audits de sécurité et mises à jour régulières",
+          "Formation des employés sur la protection des données"
+        ]
+      },
+      "contact": {
+        "title": "13. Nous Contacter",
+        "intro": "Pour toute question sur cette Politique de Confidentialité ou pour exercer vos droits :",
+        "dpo": "Délégué à la Protection des Données",
+        "complaint": "Vous avez également le droit de déposer une plainte auprès de votre autorité locale de protection des données (en France : CNIL - Commission Nationale de l'Informatique et des Libertés)."
+      }
+    }
+  },
+  "cookies": {
+    "title": "Politique de Cookies",
+    "lastUpdated": "Dernière mise à jour : Décembre 2024",
+    "sections": {
+      "whatAreCookies": {
+        "title": "1. Que Sont les Cookies ?",
+        "content": "Les cookies sont de petits fichiers texte stockés sur votre appareil lorsque vous visitez un site web. Ils aident les sites web à se souvenir de vos préférences, à comprendre comment vous utilisez le site et à fournir une meilleure expérience utilisateur."
+      },
+      "howWeUse": {
+        "title": "2. Comment Nous Utilisons les Cookies",
+        "intro": "VoilaFerry utilise des cookies aux fins suivantes :",
+        "essential": {
+          "title": "2.1 Cookies Essentiels",
+          "description": "Ces cookies sont nécessaires au bon fonctionnement du site web. Ils permettent des fonctionnalités essentielles telles que la sécurité, la gestion du réseau et l'accès au compte."
+        },
+        "functional": {
+          "title": "2.2 Cookies Fonctionnels",
+          "description": "Ces cookies permettent des fonctionnalités améliorées et la personnalisation, comme la mémorisation de votre préférence de langue et de vos recherches récentes."
+        },
+        "analytics": {
+          "title": "2.3 Cookies Analytiques",
+          "description": "Ces cookies nous aident à comprendre comment les visiteurs interagissent avec notre site web en collectant et en rapportant des informations de manière anonyme."
+        },
+        "marketing": {
+          "title": "2.4 Cookies Marketing",
+          "description": "Ces cookies sont utilisés pour suivre les visiteurs sur les sites web afin d'afficher des publicités pertinentes. Nous ne les utilisons qu'avec votre consentement."
+        },
+        "tableHeaders": {
+          "cookie": "Cookie",
+          "purpose": "Objectif",
+          "duration": "Durée"
+        }
+      },
+      "thirdParty": {
+        "title": "3. Cookies Tiers",
+        "intro": "Certains cookies sont placés par des services tiers qui apparaissent sur nos pages :",
+        "items": [
+          "Stripe : Pour le traitement sécurisé des paiements",
+          "Google : Analyses et fonctionnalité de connexion",
+          "Sentry : Suivi des erreurs et surveillance des performances"
+        ]
+      },
+      "managing": {
+        "title": "4. Gestion des Cookies",
+        "intro": "Vous pouvez contrôler et gérer les cookies de plusieurs façons :",
+        "consentBanner": {
+          "title": "4.1 Bannière de Consentement aux Cookies",
+          "description": "Lors de votre première visite sur notre site web, vous pouvez choisir quelles catégories de cookies accepter via notre bannière de consentement. Vous pouvez modifier ces préférences à tout moment en cliquant sur le lien \"Paramètres des cookies\" dans notre pied de page."
+        },
+        "browserSettings": {
+          "title": "4.2 Paramètres du Navigateur",
+          "description": "La plupart des navigateurs vous permettent de gérer les cookies via leurs paramètres. Voici comment accéder aux paramètres des cookies dans les navigateurs populaires :"
+        },
+        "optOut": {
+          "title": "4.3 Liens de Désinscription",
+          "description": "Vous pouvez vous désinscrire de certains cookies tiers :"
+        }
+      },
+      "impact": {
+        "title": "5. Impact de la Désactivation des Cookies",
+        "intro": "Si vous désactivez certains cookies, certaines parties de notre site web peuvent ne pas fonctionner correctement :",
+        "items": [
+          "Vous devrez peut-être vous connecter plus fréquemment",
+          "Vos préférences peuvent ne pas être enregistrées",
+          "Certaines fonctionnalités peuvent être indisponibles",
+          "Le processus de réservation peut être affecté"
+        ],
+        "note": "Les cookies essentiels ne peuvent pas être désactivés car ils sont nécessaires au fonctionnement du site web."
+      },
+      "contact": {
+        "title": "7. Nous Contacter",
+        "intro": "Si vous avez des questions sur notre utilisation des cookies, veuillez nous contacter :"
+      }
+    }
+  }
+}

@@ -1,0 +1,399 @@
+{
+  "cancellation": {
+    "title": "Stornierungs- und Rückerstattungsrichtlinie",
+    "lastUpdated": "Letzte Aktualisierung: Dezember 2024",
+    "backToHome": "Zurück zur Startseite",
+    "sections": {
+      "general": {
+        "title": "1. Allgemeine Stornierungsregeln",
+        "content": "VoilaFerry fungiert als Vermittler zwischen Ihnen und den Fährbetreibern. Die Stornierungsrichtlinien variieren je nach Fährbetreiber, Route und zum Zeitpunkt der Buchung ausgewähltem Tariftyp.",
+        "note": "Die für Ihre Buchung geltenden spezifischen Stornierungsbedingungen werden während des Buchungsprozesses angezeigt und sind in Ihrer Buchungsbestätigungs-E-Mail enthalten."
+      },
+      "timeframes": {
+        "title": "2. Standard-Stornierungsfristen",
+        "note": "* Dies sind allgemeine Richtlinien. Die tatsächlichen Rückerstattungsbeträge hängen von der spezifischen Richtlinie des Betreibers und dem Tariftyp ab. Flexible Tarife können bessere Stornierungsbedingungen bieten.",
+        "headers": {
+          "timeBefore": "Zeit vor Abfahrt",
+          "refundAmount": "Rückerstattungsbetrag"
+        },
+        "rows": {
+          "moreThan30": "Mehr als 30 Tage",
+          "moreThan30Refund": "Volle Rückerstattung abzüglich Servicegebühr (5%)",
+          "15to30": "15-30 Tage",
+          "15to30Refund": "75% Rückerstattung",
+          "7to14": "7-14 Tage",
+          "7to14Refund": "50% Rückerstattung",
+          "48hTo7d": "48 Stunden - 7 Tage",
+          "48hTo7dRefund": "25% Rückerstattung",
+          "lessThan48h": "Weniger als 48 Stunden",
+          "lessThan48hRefund": "Keine Rückerstattung"
+        }
+      },
+      "howToCancel": {
+        "title": "3. Wie Sie eine Buchung stornieren",
+        "steps": [
+          "Melden Sie sich bei Ihrem VoilaFerry-Konto an",
+          "Gehen Sie zu \"Meine Buchungen\"",
+          "Wählen Sie die Buchung aus, die Sie stornieren möchten",
+          "Klicken Sie auf \"Buchung stornieren\" und folgen Sie den Anweisungen",
+          "Sie erhalten eine Bestätigungs-E-Mail mit den Rückerstattungsdetails"
+        ],
+        "alternative": "Alternativ können Sie unser Kundenservice-Team kontaktieren unter"
+      },
+      "refundProcessing": {
+        "title": "4. Rückerstattungsbearbeitung",
+        "items": [
+          "Rückerstattungen werden innerhalb von 5-10 Werktagen bearbeitet",
+          "Rückerstattungen werden auf die ursprüngliche Zahlungsmethode ausgestellt",
+          "Bankbearbeitungszeiten können 3-5 zusätzliche Werktage hinzufügen",
+          "Sie erhalten eine E-Mail-Bestätigung, wenn die Rückerstattung bearbeitet wurde"
+        ]
+      },
+      "nonRefundable": {
+        "title": "5. Nicht erstattungsfähige Buchungen",
+        "intro": "Einige Tariftypen sind zum Zeitpunkt der Buchung als \"Nicht erstattungsfähig\" gekennzeichnet. Diese Buchungen:",
+        "items": [
+          "Können nicht für eine Rückerstattung storniert werden",
+          "Können für Datums-/Zeitänderungen berechtigt sein (vorbehaltlich Verfügbarkeit und Gebühren)",
+          "Können in Ausnahmefällen für Gutschriften berechtigt sein"
+        ]
+      },
+      "operatorCancellations": {
+        "title": "6. Stornierungen durch den Betreiber",
+        "intro": "Wenn ein Fährbetreiber eine Überfahrt aufgrund von Wetter, technischen Problemen oder anderen Gründen storniert:",
+        "items": [
+          "Sie haben Anspruch auf volle Rückerstattung",
+          "Sie können ohne zusätzliche Kosten auf eine alternative Überfahrt umbuchen",
+          "Wir werden Sie benachrichtigen, sobald wir Stornierungsinformationen vom Betreiber erhalten"
+        ]
+      },
+      "modifications": {
+        "title": "7. Buchungsänderungen",
+        "intro": "Anstatt zu stornieren, können Sie möglicherweise Ihre Buchung ändern:",
+        "items": [
+          "Datums- und Zeitänderungen unterliegen der Verfügbarkeit",
+          "Änderungsgebühren können je nach Tariftyp anfallen",
+          "Preisdifferenzen müssen bezahlt werden, wenn die neue Überfahrt mehr kostet",
+          "Keine Rückerstattung erfolgt, wenn die neue Überfahrt weniger kostet"
+        ]
+      },
+      "protection": {
+        "title": "8. Stornierungsschutz",
+        "intro": "Wir bieten einen optionalen Stornierungsschutz an, der zusätzliche Flexibilität bietet:",
+        "items": [
+          "Stornieren Sie aus beliebigem Grund bis zu 24 Stunden vor Abfahrt",
+          "Erhalten Sie bis zu 80% Rückerstattung unabhängig vom Tariftyp",
+          "Der Schutz muss zum Zeitpunkt der Buchung erworben werden",
+          "Die Kosten betragen typischerweise 5-10% des Buchungswertes"
+        ]
+      },
+      "contact": {
+        "title": "9. Kontakt",
+        "intro": "Für Fragen zu unserer Stornierungsrichtlinie oder Unterstützung bei Ihrer Buchung:",
+        "email": "E-Mail",
+        "phone": "Telefon",
+        "phoneHours": "Mo-Fr, 9:00-18:00 MEZ",
+        "liveChat": "Live-Chat: Auf unserer Website verfügbar"
+      }
+    }
+  },
+  "terms": {
+    "title": "Allgemeine Geschäftsbedingungen",
+    "lastUpdated": "Letzte Aktualisierung: Dezember 2024",
+    "sections": {
+      "introduction": {
+        "title": "1. Einführung",
+        "welcome": "Willkommen bei VoilaFerry. Diese Allgemeinen Geschäftsbedingungen (\"AGB\") regeln Ihre Nutzung unserer Website, mobilen Anwendung und Dienste (zusammen der \"Service\"). Durch den Zugriff auf oder die Nutzung unseres Services erklären Sie sich mit diesen AGB einverstanden."
+      },
+      "serviceDescription": {
+        "title": "2. Servicebeschreibung",
+        "intro": "VoilaFerry bietet eine Online-Plattform zum Vergleichen und Buchen von Fährtickets bei mehreren Betreibern, die mediterrane Routen bedienen. Wir fungieren als Vermittler zwischen Ihnen und den Fährbetreibern.",
+        "items": [
+          "Wir betreiben selbst keine Fähren",
+          "Der Beförderungsvertrag besteht zwischen Ihnen und dem Fährbetreiber",
+          "Wir erleichtern den Buchungsprozess und bieten Kundenservice"
+        ]
+      },
+      "account": {
+        "title": "3. Kontoregistrierung",
+        "intro": "Um bestimmte Funktionen unseres Services zu nutzen, müssen Sie möglicherweise ein Konto erstellen. Sie erklären sich damit einverstanden:",
+        "items": [
+          "Genaue, aktuelle und vollständige Informationen bereitzustellen",
+          "Ihre Informationen zu pflegen und zu aktualisieren, um sie aktuell zu halten",
+          "Die Sicherheit Ihrer Kontodaten zu wahren",
+          "Die Verantwortung für alle Aktivitäten unter Ihrem Konto zu übernehmen",
+          "Uns unverzüglich über jede unbefugte Nutzung zu informieren"
+        ]
+      },
+      "booking": {
+        "title": "4. Buchungsprozess",
+        "makingBooking": {
+          "title": "4.1 Eine Buchung vornehmen",
+          "intro": "Wenn Sie über unseren Service buchen:",
+          "items": [
+            "Sie bestätigen, dass alle bereitgestellten Passagierinformationen korrekt sind",
+            "Sie akzeptieren die bei der Buchung angezeigten Tarifregeln und Bedingungen",
+            "Sie autorisieren die Zahlung des angezeigten Gesamtbetrags",
+            "Ein verbindlicher Vertrag entsteht, wenn Sie die Buchungsbestätigung erhalten"
+          ]
+        },
+        "pricing": {
+          "title": "4.2 Preise",
+          "content": "Alle Preise werden in Euro (EUR) angezeigt und enthalten die geltenden Steuern, sofern nicht anders angegeben. Preise können sich ändern, bis eine Buchung bestätigt ist. Wir behalten uns das Recht vor, Preisfehler zu korrigieren, auch nachdem eine Buchung vorgenommen wurde."
+        }
+      },
+      "payment": {
+        "title": "5. Zahlung",
+        "items": [
+          "Die Zahlung ist zum Zeitpunkt der Buchung fällig",
+          "Wir akzeptieren gängige Kredit-/Debitkarten (Visa, Mastercard, American Express)",
+          "Alle Zahlungen werden sicher über unseren Zahlungsanbieter (Stripe) abgewickelt",
+          "Ihre Karte wird in EUR belastet",
+          "Währungsumrechnungsgebühren können anfallen, wenn Ihre Karte in einer anderen Währung ist"
+        ]
+      },
+      "passengerResponsibilities": {
+        "title": "7. Passagierverantwortlichkeiten",
+        "intro": "Als Passagier sind Sie verantwortlich für:",
+        "items": [
+          "Rechtzeitige Ankunft am Hafen vor Abfahrt (mindestens 90 Minuten empfohlen)",
+          "Mitführen gültiger Reisedokumente (Reisepass, Ausweis, Visum falls erforderlich)",
+          "Einhaltung der Fahrzeuganforderungen bei Reisen mit einem Fahrzeug",
+          "Deklaration von Gefahrgütern oder besonderen Anforderungen",
+          "Befolgen der Regeln des Fährbetreibers und Anweisungen der Besatzung",
+          "Sicherstellen, dass Kinder jederzeit beaufsichtigt werden"
+        ]
+      },
+      "travelDocuments": {
+        "title": "8. Reisedokumente",
+        "intro": "Sie sind allein verantwortlich dafür, dass Sie alle erforderlichen Reisedokumente haben:",
+        "items": [
+          "Gültiger Reisepass oder Personalausweis",
+          "Visa, wo erforderlich",
+          "Fahrzeugzulassungsdokumente (falls zutreffend)",
+          "Heimtierausweise und Gesundheitszeugnisse (bei Reisen mit Haustieren)"
+        ],
+        "note": "Wir sind nicht verantwortlich für eine Verweigerung des Boardings aufgrund unzureichender Dokumentation."
+      },
+      "liability": {
+        "title": "9. Haftungsbeschränkung",
+        "intro": "Im gesetzlich zulässigen Höchstmaß:",
+        "items": [
+          "Wir haften nicht für Handlungen oder Unterlassungen der Fährbetreiber",
+          "Wir haften nicht für Verspätungen, Stornierungen oder Änderungen der Fährdienste",
+          "Unsere Haftung ist auf den Betrag begrenzt, den Sie für Ihre Buchung bezahlt haben",
+          "Wir haften nicht für indirekte, Folge- oder besondere Schäden"
+        ]
+      },
+      "intellectualProperty": {
+        "title": "10. Geistiges Eigentum",
+        "content": "Alle Inhalte auf unserem Service, einschließlich Text, Grafiken, Logos und Software, sind unser Eigentum oder an uns lizenziert und durch Gesetze zum Schutz des geistigen Eigentums geschützt. Sie dürfen ohne unsere ausdrückliche schriftliche Zustimmung keine Inhalte reproduzieren, verbreiten oder abgeleitete Werke erstellen."
+      },
+      "governingLaw": {
+        "title": "13. Anwendbares Recht",
+        "content": "Diese AGB unterliegen dem französischen Recht. Alle Streitigkeiten unterliegen der ausschließlichen Zuständigkeit der Gerichte in Paris, Frankreich, es sei denn, EU-Verbraucherschutzvorschriften sehen anderes vor."
+      },
+      "contact": {
+        "title": "14. Kontaktinformationen",
+        "intro": "Bei Fragen zu diesen AGB kontaktieren Sie uns bitte:",
+        "email": "E-Mail"
+      }
+    }
+  },
+  "privacy": {
+    "title": "Datenschutzrichtlinie",
+    "lastUpdated": "Letzte Aktualisierung: Dezember 2024",
+    "sections": {
+      "introduction": {
+        "title": "1. Einführung",
+        "content": "VoilaFerry (\"wir\", \"uns\", \"unser\") verpflichtet sich zum Schutz Ihrer Privatsphäre. Diese Datenschutzrichtlinie erklärt, wie wir Ihre Informationen sammeln, verwenden, offenlegen und schützen, wenn Sie unsere Website und Dienste nutzen.",
+        "gdpr": "Wir entsprechen der Datenschutz-Grundverordnung (DSGVO) und anderen geltenden Datenschutzgesetzen in der Europäischen Union."
+      },
+      "dataController": {
+        "title": "2. Verantwortlicher",
+        "intro": "Der für Ihre personenbezogenen Daten Verantwortliche ist:"
+      },
+      "informationCollected": {
+        "title": "3. Informationen, die wir sammeln",
+        "provided": {
+          "title": "3.1 Informationen, die Sie bereitstellen",
+          "items": [
+            "Kontoinformationen (Name, E-Mail, Passwort)",
+            "Buchungsdetails (Passagiernamen, Kontaktinformationen)",
+            "Zahlungsinformationen (sicher verarbeitet durch Stripe)",
+            "Kommunikationspräferenzen",
+            "Kundenservice-Anfragen"
+          ]
+        },
+        "automatic": {
+          "title": "3.2 Automatisch gesammelte Informationen",
+          "items": [
+            "Geräteinformationen (Browsertyp, Betriebssystem)",
+            "IP-Adresse und ungefährer Standort",
+            "Nutzungsdaten (besuchte Seiten, genutzte Funktionen)",
+            "Cookies und ähnliche Technologien"
+          ]
+        },
+        "thirdParty": {
+          "title": "3.3 Informationen von Dritten",
+          "items": [
+            "Social-Login-Daten (wenn Sie sich mit Google anmelden)",
+            "Fährbetreiber (Buchungsaktualisierungen, Fahrplanänderungen)"
+          ]
+        }
+      },
+      "howWeUse": {
+        "title": "4. Wie wir Ihre Informationen verwenden",
+        "intro": "Wir verwenden Ihre Informationen für:",
+        "items": [
+          "Bearbeitung und Verwaltung Ihrer Buchungen",
+          "Versand von Buchungsbestätigungen und Reiseupdates",
+          "Bereitstellung von Kundenservice",
+          "Bearbeitung von Zahlungen und Rückerstattungen",
+          "Versand von Marketingkommunikation (mit Ihrer Zustimmung)",
+          "Verbesserung unserer Dienste und Benutzererfahrung",
+          "Erkennung und Verhinderung von Betrug",
+          "Einhaltung gesetzlicher Verpflichtungen"
+        ]
+      },
+      "legalBasis": {
+        "title": "5. Rechtsgrundlage der Verarbeitung (DSGVO)",
+        "intro": "Wir verarbeiten Ihre Daten auf Grundlage von:",
+        "items": [
+          "Vertrag: Verarbeitung, die zur Erfüllung Ihrer Buchung erforderlich ist",
+          "Einwilligung: Für Marketingkommunikation und nicht wesentliche Cookies",
+          "Berechtigte Interessen: Serviceverbesserung, Betrugsprävention, Analysen",
+          "Rechtliche Verpflichtung: Einhaltung geltender Gesetze"
+        ]
+      },
+      "dataSharing": {
+        "title": "6. Datenweitergabe",
+        "intro": "Wir teilen Ihre Daten mit:",
+        "items": [
+          "Fährbetreiber: Zur Bearbeitung und Verwaltung Ihrer Buchungen",
+          "Zahlungsabwickler: Stripe, für sichere Zahlungsabwicklung",
+          "Dienstleister: Hosting, E-Mail, Kundenservice-Tools",
+          "Analyseanbieter: Zur Verbesserung unserer Dienste",
+          "Rechtliche Behörden: Wenn gesetzlich vorgeschrieben"
+        ],
+        "noSale": "Wir verkaufen Ihre personenbezogenen Daten nicht an Dritte."
+      },
+      "dataRetention": {
+        "title": "8. Datenspeicherung",
+        "intro": "Wir speichern Ihre Daten für:",
+        "items": [
+          "Kontodaten: Bis Sie Ihr Konto löschen",
+          "Buchungsdaten: 7 Jahre für rechtliche/steuerliche Compliance",
+          "Marketingdaten: Bis Sie sich abmelden",
+          "Analysedaten: 26 Monate"
+        ]
+      },
+      "yourRights": {
+        "title": "9. Ihre Rechte (DSGVO)",
+        "intro": "Nach der DSGVO haben Sie das Recht auf:",
+        "items": [
+          "Auskunft: Eine Kopie Ihrer personenbezogenen Daten anfordern",
+          "Berichtigung: Unrichtige oder unvollständige Daten korrigieren",
+          "Löschung: Löschung Ihrer Daten anfordern (\"Recht auf Vergessenwerden\")",
+          "Einschränkung: Die Art der Verarbeitung Ihrer Daten beschränken",
+          "Datenübertragbarkeit: Ihre Daten in einem portablen Format erhalten",
+          "Widerspruch: Der Verarbeitung aufgrund berechtigter Interessen widersprechen",
+          "Einwilligung widerrufen: Ihre Einwilligung jederzeit widerrufen"
+        ],
+        "exercise": "Um Ihre Rechte auszuüben, kontaktieren Sie uns unter"
+      },
+      "security": {
+        "title": "10. Datensicherheit",
+        "intro": "Wir implementieren angemessene Sicherheitsmaßnahmen zum Schutz Ihrer Daten:",
+        "items": [
+          "SSL/TLS-Verschlüsselung für alle Datenübertragungen",
+          "Sichere Zahlungsabwicklung durch Stripe (PCI DSS-konform)",
+          "Zugriffskontrollen und Authentifizierung",
+          "Regelmäßige Sicherheitsaudits und Updates",
+          "Mitarbeiterschulung zum Datenschutz"
+        ]
+      },
+      "contact": {
+        "title": "13. Kontakt",
+        "intro": "Bei Fragen zu dieser Datenschutzrichtlinie oder zur Ausübung Ihrer Datenrechte:",
+        "dpo": "Datenschutzbeauftragter",
+        "complaint": "Sie haben auch das Recht, eine Beschwerde bei Ihrer lokalen Datenschutzbehörde einzureichen (in Frankreich: CNIL - Commission Nationale de l'Informatique et des Libertés)."
+      }
+    }
+  },
+  "cookies": {
+    "title": "Cookie-Richtlinie",
+    "lastUpdated": "Letzte Aktualisierung: Dezember 2024",
+    "sections": {
+      "whatAreCookies": {
+        "title": "1. Was sind Cookies?",
+        "content": "Cookies sind kleine Textdateien, die auf Ihrem Gerät gespeichert werden, wenn Sie eine Website besuchen. Sie helfen Websites, Ihre Präferenzen zu merken, zu verstehen, wie Sie die Website nutzen, und eine bessere Benutzererfahrung zu bieten."
+      },
+      "howWeUse": {
+        "title": "2. Wie wir Cookies verwenden",
+        "intro": "VoilaFerry verwendet Cookies für die folgenden Zwecke:",
+        "essential": {
+          "title": "2.1 Essentielle Cookies",
+          "description": "Diese Cookies sind für das ordnungsgemäße Funktionieren der Website erforderlich. Sie ermöglichen Kernfunktionen wie Sicherheit, Netzwerkverwaltung und Kontozugriff."
+        },
+        "functional": {
+          "title": "2.2 Funktionale Cookies",
+          "description": "Diese Cookies ermöglichen erweiterte Funktionen und Personalisierung, wie das Speichern Ihrer Spracheinstellung und kürzlich durchgeführter Suchen."
+        },
+        "analytics": {
+          "title": "2.3 Analyse-Cookies",
+          "description": "Diese Cookies helfen uns zu verstehen, wie Besucher mit unserer Website interagieren, indem sie Informationen anonym sammeln und berichten."
+        },
+        "marketing": {
+          "title": "2.4 Marketing-Cookies",
+          "description": "Diese Cookies werden verwendet, um Besucher über Websites hinweg zu verfolgen, um relevante Werbung anzuzeigen. Wir verwenden diese nur mit Ihrer Zustimmung."
+        },
+        "tableHeaders": {
+          "cookie": "Cookie",
+          "purpose": "Zweck",
+          "duration": "Dauer"
+        }
+      },
+      "thirdParty": {
+        "title": "3. Cookies von Drittanbietern",
+        "intro": "Einige Cookies werden von Drittanbieterdiensten gesetzt, die auf unseren Seiten erscheinen:",
+        "items": [
+          "Stripe: Für sichere Zahlungsabwicklung",
+          "Google: Analyse- und Anmeldefunktionen",
+          "Sentry: Fehlerverfolgung und Leistungsüberwachung"
+        ]
+      },
+      "managing": {
+        "title": "4. Cookies verwalten",
+        "intro": "Sie können Cookies auf verschiedene Arten kontrollieren und verwalten:",
+        "consentBanner": {
+          "title": "4.1 Cookie-Zustimmungsbanner",
+          "description": "Wenn Sie unsere Website zum ersten Mal besuchen, können Sie über unser Cookie-Zustimmungsbanner auswählen, welche Cookie-Kategorien Sie akzeptieren möchten. Sie können diese Einstellungen jederzeit ändern, indem Sie auf den Link \"Cookie-Einstellungen\" in unserer Fußzeile klicken."
+        },
+        "browserSettings": {
+          "title": "4.2 Browser-Einstellungen",
+          "description": "Die meisten Browser ermöglichen es Ihnen, Cookies über ihre Einstellungen zu verwalten. So greifen Sie auf die Cookie-Einstellungen in gängigen Browsern zu:"
+        },
+        "optOut": {
+          "title": "4.3 Opt-Out-Links",
+          "description": "Sie können sich von bestimmten Drittanbieter-Cookies abmelden:"
+        }
+      },
+      "impact": {
+        "title": "5. Auswirkungen der Deaktivierung von Cookies",
+        "intro": "Wenn Sie bestimmte Cookies deaktivieren, funktionieren einige Teile unserer Website möglicherweise nicht richtig:",
+        "items": [
+          "Sie müssen sich möglicherweise häufiger anmelden",
+          "Ihre Präferenzen werden möglicherweise nicht gespeichert",
+          "Einige Funktionen sind möglicherweise nicht verfügbar",
+          "Der Buchungsprozess kann beeinträchtigt werden"
+        ],
+        "note": "Essentielle Cookies können nicht deaktiviert werden, da sie für das Funktionieren der Website erforderlich sind."
+      },
+      "contact": {
+        "title": "7. Kontakt",
+        "intro": "Wenn Sie Fragen zu unserer Verwendung von Cookies haben, kontaktieren Sie uns:"
+      }
+    }
+  }
+}

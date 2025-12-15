@@ -234,20 +234,9 @@ const BookingDetailsPage: React.FC = () => {
 
     setIsDownloadingETicket(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v1/bookings/${id}/eticket`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const blob = await bookingAPI.downloadETicket(parseInt(id));
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to download E-Ticket');
-      }
-
-      // Get the blob and create download
-      const blob = await response.blob();
+      // Create download link
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -257,7 +246,7 @@ const BookingDetailsPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err: any) {
-      alert(err.message || 'Failed to download E-Ticket');
+      alert(err.response?.data?.detail || err.message || 'Failed to download E-Ticket');
     } finally {
       setIsDownloadingETicket(false);
     }

@@ -372,6 +372,30 @@ export const bookingAPI = {
     const response = await api.get(`/bookings/${id}/status`);
     return response.data;
   },
+
+  canModify: async (id: number): Promise<{
+    can_modify: boolean;
+    modification_type_allowed: string;
+    restrictions: string[];
+  }> => {
+    const response = await api.get(`/bookings/${id}/can-modify`);
+    return response.data;
+  },
+
+  quickUpdate: async (id: number, updateData: {
+    passenger_updates?: any[];
+    vehicle_updates?: any[];
+  }): Promise<any> => {
+    const response = await api.patch(`/bookings/${id}/quick-update`, updateData);
+    return response.data;
+  },
+
+  downloadETicket: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/bookings/${id}/eticket`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 // Payment API

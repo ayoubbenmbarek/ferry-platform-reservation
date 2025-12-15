@@ -96,20 +96,15 @@ const ModifyBookingPage: React.FC = () => {
         }
 
         // Check modification eligibility
-        const eligibilityResponse = await fetch(
-          `/api/v1/bookings/${bookingId}/can-modify`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          }
-        );
-
-        if (eligibilityResponse.ok) {
-          const eligibility = await eligibilityResponse.json();
+        try {
+          const eligibility = await bookingAPI.canModify(parseInt(bookingId));
           setCanModify(eligibility.can_modify);
           setModificationType(eligibility.modification_type_allowed);
           setRestrictions(eligibility.restrictions || []);
+        } catch (eligibilityErr) {
+          console.error('Error checking modification eligibility:', eligibilityErr);
+          // Default to not allowing modifications if we can't check
+          setCanModify(false);
         }
       } catch (err: any) {
         console.error('Error loading booking:', err);
@@ -142,24 +137,11 @@ const ModifyBookingPage: React.FC = () => {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/v1/bookings/${bookingId}/quick-update`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          passenger_updates: passengerUpdates,
-          vehicle_updates: vehicleUpdates,
-        }),
+      await bookingAPI.quickUpdate(parseInt(bookingId), {
+        passenger_updates: passengerUpdates,
+        vehicle_updates: vehicleUpdates,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to update booking');
-      }
-
-      await response.json();
       setSuccessMessage(t('booking:modify.success'));
 
       // Refresh booking data

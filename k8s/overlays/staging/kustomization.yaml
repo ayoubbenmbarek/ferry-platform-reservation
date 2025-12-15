@@ -19,6 +19,12 @@ patches:
       kind: ConfigMap
       name: maritime-config
 
+  # pgAdmin servers config with staging postgres host
+  - path: pgadmin-servers-patch.yaml
+    target:
+      kind: ConfigMap
+      name: pgadmin-servers
+
   # Staging ingress with traefik and staging subdomains
   - path: ingress-patch.yaml
     target:
@@ -79,6 +85,20 @@ patches:
     target:
       kind: Deployment
       name: postgres
+  # pgAdmin secrets and configmap
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        value: staging-pgadmin-secret
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
+        value: staging-pgadmin-secret
+      - op: replace
+        path: /spec/template/spec/volumes/1/configMap/name
+        value: staging-pgadmin-servers
+    target:
+      kind: Deployment
+      name: pgadmin
   # Frontend secret (env[1] has the secretKeyRef)
   - patch: |-
       - op: replace

@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-pvc
+  namespace: maritime-reservations
+  labels:
+    app: pgadmin
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pgadmin-secret
+  namespace: maritime-reservations
+  labels:
+    app: pgadmin
+type: Opaque
+stringData:
+  # Default credentials - change in production
+  email: admin@voilaferry.com
+  password: PgAdmin2024!Secure
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgadmin-servers
+  namespace: maritime-reservations
+  labels:
+    app: pgadmin
+data:
+  servers.json: |
+    {
+      "Servers": {
+        "1": {
+          "Name": "VoilaFerry Database",
+          "Group": "Servers",
+          "Host": "postgres-service",
+          "Port": 5432,
+          "MaintenanceDB": "maritime_reservations",
+          "Username": "maritime",
+          "SSLMode": "prefer",
+          "PassFile": "/pgpass"
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  namespace: maritime-reservations
+  labels:
+    app: pgadmin
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: pgadmin
+  template:
+    metadata:
+      labels:
+        app: pgadmin
+    spec:
+      securityContext:
+        runAsUser: 5050
+        runAsGroup: 5050
+        fsGroup: 5050
+      containers:
+        - name: pgadmin
+          image: dpage/pgadmin4:latest
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: pgadmin-secret
+                  key: email
+            - name: PGADMIN_DEFAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pgadmin-secret
+                  key: password
+            - name: PGADMIN_CONFIG_SERVER_MODE
+              value: "True"
+            - name: PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED
+              value: "False"
+            - name: PGADMIN_LISTEN_PORT
+              value: "80"
+          volumeMounts:
+            - name: pgadmin-storage
+              mountPath: /var/lib/pgadmin
+            - name: pgadmin-servers-config
+              mountPath: /pgadmin4/servers.json
+              subPath: servers.json
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: pgadmin-storage
+          persistentVolumeClaim:
+            claimName: pgadmin-pvc
+        - name: pgadmin-servers-config
+          configMap:
+            name: pgadmin-servers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin-service
+  namespace: maritime-reservations
+  labels:
+    app: pgadmin
+spec:
+  # ClusterIP only - no public access, use port-forward
+  type: ClusterIP
+  selector:
+    app: pgadmin
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http

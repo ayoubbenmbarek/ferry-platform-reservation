@@ -12,6 +12,8 @@ resources:
   # Database
   - postgres-deployment.yaml
   - redis-deployment.yaml
+  # Database Admin (internal only - access via port-forward)
+  - pgadmin-deployment.yaml
   # Application
   - backend-deployment.yaml
   - backend-service.yaml

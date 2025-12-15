@@ -254,12 +254,12 @@ async def add_security_headers(request: Request, call_next):
     # Adjust as needed for your frontend requirements
     csp_directives = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com https://maps.googleapis.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: https:",
-        "connect-src 'self' https://api.stripe.com https://*.sentry.io",
-        "frame-src https://js.stripe.com https://hooks.stripe.com",
+        "connect-src 'self' https://api.stripe.com https://*.sentry.io https://maps.googleapis.com",
+        "frame-src https://js.stripe.com https://hooks.stripe.com https://www.google.com https://maps.google.com https://maps.googleapis.com",
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",

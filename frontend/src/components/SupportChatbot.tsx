@@ -221,7 +221,7 @@ const SupportChatbotInner: React.FC = () => {
   return (
     <>
       {/* Chat Toggle Button - Maritime themed with label */}
-      <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-3" style={{ zIndex: 9999 }}>
+      <div className="fixed bottom-24 right-6 z-[9999] flex items-center gap-3" style={{ zIndex: 9999 }}>
         {/* Attractive label - only show when closed */}
         {!isOpen && (
           <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100">

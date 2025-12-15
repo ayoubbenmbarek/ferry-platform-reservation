@@ -258,13 +258,6 @@ const LoginPage: React.FC = () => {
         <div className="mt-6">
           <div ref={googleButtonRef} className="w-full"></div>
         </div>
-
-        {/* Test Credentials Info */}
-        <div className="mt-4 p-4 bg-blue-50 rounded-md">
-          <p className="text-xs text-blue-800 font-semibold mb-2">Test Credentials:</p>
-          <p className="text-xs text-blue-700">Email: demo@maritime.com</p>
-          <p className="text-xs text-blue-700">{t('auth:login.password')}: Demo1234</p>
-        </div>
       </div>
     </div>
   );

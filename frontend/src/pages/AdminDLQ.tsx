@@ -78,14 +78,6 @@ const AdminDLQ: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!isAuthenticated || !user?.isAdmin) {
-      navigate('/');
-      return;
-    }
-    fetchData();
-  }, [isAuthenticated, user, navigate]);
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -111,6 +103,14 @@ const AdminDLQ: React.FC = () => {
       setLoading(false);
     }
   }, [selectedCategory, selectedStatus]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.isAdmin) {
+      navigate('/');
+      return;
+    }
+    fetchData();
+  }, [isAuthenticated, user, navigate, fetchData]);
 
   const fetchRedisTasks = async (category: string) => {
     try {

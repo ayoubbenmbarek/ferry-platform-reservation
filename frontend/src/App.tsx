@@ -32,6 +32,7 @@ const SavedRoutesPage = React.lazy(() => import('./pages/SavedRoutesPage'));
 const MyAlertsPage = React.lazy(() => import('./pages/MyAlertsPage'));
 const AboutPage = React.lazy(() => import('./pages/AboutPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
+const HelpCenterPage = React.lazy(() => import('./pages/HelpCenterPage'));
 const FindBookingPage = React.lazy(() => import('./pages/FindBookingPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
@@ -134,6 +135,7 @@ function App() {
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/help" element={<HelpCenterPage />} />
               <Route path="/find-booking" element={<FindBookingPage />} />
 
               {/* Legal pages */}

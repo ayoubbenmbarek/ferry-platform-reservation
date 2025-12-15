@@ -22,6 +22,7 @@
     "privacy": "Informativa sulla Privacy",
     "cancellation": "Politica di Cancellazione",
     "cookies": "Politica sui Cookie",
+    "cookieSettings": "Impostazioni Cookie",
     "contactUs": "Contattaci",
     "help": "Centro Assistenza"
   },
@@ -143,6 +144,36 @@
     },
     "error": {
       "title": "Invio messaggio fallito"
+    }
+  },
+  "cookies": {
+    "banner": {
+      "message": "Utilizziamo i cookie per migliorare la tua esperienza di navigazione, offrire contenuti personalizzati e analizzare il nostro traffico. Cliccando su \"Accetta Tutti\", acconsenti all'uso dei nostri cookie.",
+      "learnMore": "Scopri di più",
+      "acceptAll": "Accetta Tutti",
+      "rejectAll": "Rifiuta Non Essenziali",
+      "customize": "Personalizza"
+    },
+    "preferences": {
+      "title": "Preferenze Cookie",
+      "save": "Salva Preferenze",
+      "alwaysOn": "Sempre Attivo",
+      "essential": {
+        "title": "Cookie Essenziali",
+        "description": "Necessari per il funzionamento del sito. Non possono essere disattivati."
+      },
+      "functional": {
+        "title": "Cookie Funzionali",
+        "description": "Ricordano le tue preferenze come lingua e ricerche recenti."
+      },
+      "analytics": {
+        "title": "Cookie Analitici",
+        "description": "Ci aiutano a capire come i visitatori utilizzano il nostro sito."
+      },
+      "marketing": {
+        "title": "Cookie di Marketing",
+        "description": "Utilizzati per mostrare pubblicità pertinenti."
+      }
     }
   }
 }

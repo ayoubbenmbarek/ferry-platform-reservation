@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 const CancellationPolicy: React.FC = () => {
-  const { t } = useTranslation(['legal']);
+  // Translation hook for future i18n support
+  useTranslation(['legal']);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">

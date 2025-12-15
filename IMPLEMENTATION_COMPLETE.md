@@ -444,15 +444,15 @@ Yes, rate limiting is implemented. Here's
 todo: RGPD : stockage dans l’UE
 todo:whats is SEO optimisé for search rank in google
 todo:Change maritime reservation with voila ferry and search for logo
-todo:Chatbot connexion trouble on mobile frontend
+todo:Chatbot connexion trouble on mobile frontend:done
 todo:Website on mobile did not show ports:done
 todo prevent abuse use of botchat and voice search
-todo:should add dead letter to admin dashboard
-todo: i see 52.1% memory used and same time 3.73gib available and always 3.37 even memory changed
-todo:add admin dahsboard for dlq managment
+todo:should add dead letter to admin dashboard:done
+todo: i see 52.1% memory used and same time 3.73gib available and always 3.37 even memory changed:done
+todo:add admin dahsboard for dlq managment:done
 
 
-todo:grafana dashboards:
+todo:grafana dashboards:done
 Here are useful visualizations for your VoilaFerry dashboard:
 
   Metrics (Prometheus)

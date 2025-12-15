@@ -287,13 +287,17 @@ const ProfilePage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700">Preferred Language</label>
                   <select
                     value={preferencesData.preferredLanguage}
-                    onChange={(e) => setPreferencesData({ ...preferencesData, preferredLanguage: e.target.value })}
+                    onChange={(e) => {
+                      const newLang = e.target.value;
+                      setPreferencesData({ ...preferencesData, preferredLanguage: newLang });
+                      i18n.changeLanguage(newLang);
+                    }}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border"
                   >
                     <option value="en">English</option>
                     <option value="fr">Français</option>
-                    <option value="ar">العربية</option>
                     <option value="it">Italiano</option>
+                    <option value="de">Deutsch</option>
                   </select>
                 </div>
 

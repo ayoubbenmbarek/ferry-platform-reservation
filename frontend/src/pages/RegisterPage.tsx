@@ -26,7 +26,7 @@ const snakeToCamel = (obj: any): any => {
 };
 
 const RegisterPage: React.FC = () => {
-  const { t } = useTranslation(['auth', 'common']);
+  const { t, i18n } = useTranslation(['auth', 'common']);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading, error } = useSelector((state: RootState) => state.auth);
@@ -125,9 +125,17 @@ const RegisterPage: React.FC = () => {
     if (error) {
       dispatch(clearError());
     }
+
+    const { name, value } = e.target;
+
+    // Change app language when language preference is selected
+    if (name === 'preferredLanguage') {
+      i18n.changeLanguage(value);
+    }
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
     setFormError('');
   };
@@ -332,8 +340,8 @@ const RegisterPage: React.FC = () => {
                 >
                   <option value="en">English</option>
                   <option value="fr">Français</option>
-                  <option value="ar">العربية</option>
                   <option value="it">Italiano</option>
+                  <option value="de">Deutsch</option>
                 </select>
               </div>
               <div>

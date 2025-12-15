@@ -508,15 +508,15 @@ Here are useful visualizations for your VoilaFerry dashboard:
 todo:
 To get more metrics, you'd need to add:
   1. Backend metrics - Add prometheus-fastapi-instrumentator to FastAPI
-  2. Container metrics - Deploy cAdvisor
+  2. Container metrics - Deploy cAdvisor:done and removed used kubelet
   3. Kubernetes metrics - Deploy kube-state-metrics
 
 
 
 
 
-todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details, i also receied email cabin evailable but when i enter url i see aucune cabine disponible pour le moment, i know staging db where empty but why i receie email, check availabiity may look for local db?
-todo:later check availaibility will check fomr external api
+todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details, i also receied email cabin evailable but when i enter url i see aucune cabine disponible pour le moment, i know staging db where empty but why i receie email, check availabiity may look for local db?done
+todo:later check availaibility will check from external api
 todo:check every how much time price changed on api and setup TTL on that for cache(instead of 5mn maybe 2 hours or more)
 todo:resend verifiction email page 404 not found
 todo:except readiness and liveness enpont from rate limit
@@ -1217,8 +1217,8 @@ if is_new_high and price_change_percent >= threshold:
 | Dynamic sign-in pages | More info and ads |
 | Search filters | Filter by price, company, date, time |
 | Booking page translations | Passenger details, summary, cabin, meals text |
-| Copyright update | Change "2024" to current year |
-| Remove Arabic | Remove from language selection |
+| Copyright update | Change "2024" to current year | done
+| Remove Arabic | Remove from language selection | done 
 
 ### Technical Improvements
 

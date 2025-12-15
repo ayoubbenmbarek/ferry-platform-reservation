@@ -28,6 +28,7 @@ const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const VerifyEmailPage = React.lazy(() => import('./pages/VerifyEmailPage'));
+const ResendVerificationPage = React.lazy(() => import('./pages/ResendVerificationPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const SavedRoutesPage = React.lazy(() => import('./pages/SavedRoutesPage'));
 const MyAlertsPage = React.lazy(() => import('./pages/MyAlertsPage'));
@@ -135,6 +136,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/resend-verification" element={<ResendVerificationPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/help" element={<HelpCenterPage />} />

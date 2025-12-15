@@ -195,13 +195,22 @@ const RegisterPage: React.FC = () => {
             <br />
             Check your spam folder if you don't see it within a few minutes.
           </p>
-          <div className="mt-6">
+          <div className="mt-6 space-y-3">
             <Link
               to="/login"
               className="text-blue-600 hover:text-blue-500 font-medium"
             >
               Go to login page
             </Link>
+            <p className="text-sm text-gray-500">
+              Didn't receive the email?{' '}
+              <Link
+                to={`/resend-verification?email=${encodeURIComponent(registeredEmail)}`}
+                className="text-blue-600 hover:text-blue-500 font-medium"
+              >
+                Resend verification email
+              </Link>
+            </p>
           </div>
         </div>
       </div>

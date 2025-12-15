@@ -1,22 +1,25 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 
 const ResendVerificationPage: React.FC = () => {
   const { t } = useTranslation(['common']);
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const emailFromUrl = searchParams.get('email') || '';
+
+  const [email, setEmail] = useState(emailFromUrl);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendVerificationEmail = async (emailToSend: string) => {
     setIsLoading(true);
     setError('');
 
     try {
-      await api.post('/auth/resend-verification', null, { params: { email } });
+      await api.post('/auth/resend-verification', null, { params: { email: emailToSend } });
       setIsSuccess(true);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to resend verification email';
@@ -24,6 +27,19 @@ const ResendVerificationPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Auto-submit if email is provided in URL
+  useEffect(() => {
+    if (emailFromUrl && !autoSubmitted) {
+      setAutoSubmitted(true);
+      sendVerificationEmail(emailFromUrl);
+    }
+  }, [emailFromUrl, autoSubmitted]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    sendVerificationEmail(email);
   };
 
   if (isSuccess) {

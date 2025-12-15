@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dotenv import load_dotenv
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
@@ -656,7 +656,7 @@ async def verify_email(
 
 @router.post("/resend-verification")
 async def resend_verification_email(
-    email: str,
+    email: str = Query(..., description="Email address to resend verification to"),
     db: Session = Depends(get_db)
 ):
     """

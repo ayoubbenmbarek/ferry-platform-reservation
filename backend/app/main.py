@@ -481,6 +481,8 @@ if health:
 
 if metrics:
     app.include_router(metrics.router, prefix="/api/v1", tags=["Metrics"])
+    # Also expose metrics at /metrics for Prometheus/Grafana Agent
+    app.include_router(metrics.router, prefix="", tags=["Metrics"])
 
 # WebSocket for real-time availability updates
 try:

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 
 interface ContactFormData {
@@ -147,18 +148,18 @@ const ContactPage: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('contact.quickHelp', 'Quick Help')}</h2>
               <div className="space-y-3">
-                <a href="/faq" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
+                <Link to="/help" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
                   <span>❓</span>
                   <span>{t('contact.links.faq', 'Frequently Asked Questions')}</span>
-                </a>
-                <a href="/terms" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
+                </Link>
+                <Link to="/terms" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
                   <span>📄</span>
                   <span>{t('contact.links.terms', 'Terms & Conditions')}</span>
-                </a>
-                <a href="/privacy" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
+                </Link>
+                <Link to="/privacy-policy" className="flex items-center gap-3 text-gray-600 hover:text-blue-600 transition-colors">
                   <span>🔒</span>
                   <span>{t('contact.links.privacy', 'Privacy Policy')}</span>
-                </a>
+                </Link>
               </div>
             </div>
 

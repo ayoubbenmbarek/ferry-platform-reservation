@@ -450,6 +450,14 @@ todo prevent abuse use of botchat and voice search
 todo:should add dead letter to admin dashboard:done
 todo: i see 52.1% memory used and same time 3.73gib available and always 3.37 even memory changed:done
 todo:add admin dahsboard for dlq managment:done
+todo:refund policy to be automated by example:
+Time Before Departure	Refund Amount
+More than 30 days	Full refund minus service fee (5%)
+15-30 days	75% refund
+7-14 days	50% refund
+48 hours - 7 days	25% refund
+Less than 48 hours	No refund
+
 
 
 todo:grafana dashboards:done

@@ -10,6 +10,7 @@ import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 import OfflineIndicator from './components/OfflineIndicator';
 import SupportChatbot from './components/SupportChatbot';
+import ScrollToTop from './components/ScrollToTop';
 import { getCurrentUser } from './store/slices/authSlice';
 
 // Lazy load pages for better performance
@@ -118,6 +119,7 @@ function App() {
         <OfflineIndicator showWhenOnline />
         <SupportChatbot />
         <Suspense fallback={<LoadingSpinner />}>
+          <ScrollToTop />
           <Layout>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>

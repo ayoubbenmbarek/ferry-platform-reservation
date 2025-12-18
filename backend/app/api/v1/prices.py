@@ -258,7 +258,7 @@ async def get_fare_calendar(
     Get fare calendar for a specific month.
 
     Returns daily prices with availability and price level indicators.
-    Uses cached data when available, otherwise generates from current prices.
+    Uses cached data from FerryHopper when available, otherwise generates mock prices.
 
     Accepts either:
     - year and month as separate parameters, OR
@@ -277,33 +277,100 @@ async def get_fare_calendar(
         raise HTTPException(status_code=400, detail="Either year/month or year_month is required")
 
     route_id = get_route_id(departure_port, arrival_port)
+    year_month_str = f"{year:04d}-{month:02d}"
 
-    # Base prices for different routes (mock data)
+    # Try to get cached calendar data from FerryHopper sync
+    cached_calendar = db.query(FareCalendarCache).filter(
+        FareCalendarCache.route_id == route_id,
+        FareCalendarCache.year_month == year_month_str,
+        FareCalendarCache.passengers == passengers,
+        FareCalendarCache.expires_at > datetime.utcnow()
+    ).first()
+
+    _, num_days = calendar.monthrange(year, month)
+    month_name = calendar.month_name[month]
+    today = date.today()
+
+    if cached_calendar and cached_calendar.calendar_data:
+        # Use cached FerryHopper data
+        days = []
+        prices = []
+
+        for day in range(1, num_days + 1):
+            departure_date = date(year, month, day)
+            day_data = cached_calendar.calendar_data.get(str(day), {})
+
+            price = day_data.get("price")
+            if price:
+                price_for_passengers = price * passengers
+                prices.append(price_for_passengers)
+            else:
+                price_for_passengers = None
+
+            days.append(DayPrice(
+                date=departure_date.isoformat(),
+                day=day,
+                price=price_for_passengers,
+                lowest_price=price_for_passengers,
+                highest_price=price_for_passengers * 1.3 if price_for_passengers else None,
+                available=day_data.get("available", False),
+                num_ferries=day_data.get("ferries", 0),
+                trend=day_data.get("trend"),
+                is_weekend=departure_date.weekday() >= 5,
+            ))
+
+        # Use cached summary
+        min_price = cached_calendar.month_lowest * passengers if cached_calendar.month_lowest else None
+        max_price = cached_calendar.month_highest * passengers if cached_calendar.month_highest else None
+        avg_price = cached_calendar.month_average * passengers if cached_calendar.month_average else None
+        cheapest_date = None
+
+        if cached_calendar.cheapest_date:
+            cheapest_date = date(year, month, cached_calendar.cheapest_date).isoformat()
+
+        # Mark cheapest and set price levels
+        if min_price and max_price:
+            for day_price in days:
+                if day_price.price is not None:
+                    day_price.is_cheapest = day_price.date == cheapest_date
+                    day_price.price_level = get_price_level(day_price.price, min_price, max_price)
+
+        return FareCalendarResponse(
+            route_id=route_id,
+            departure_port=departure_port,
+            arrival_port=arrival_port,
+            year=year,
+            month=month,
+            month_name=month_name,
+            passengers=passengers,
+            days=days,
+            summary={
+                "min_price": round(min_price, 2) if min_price else None,
+                "max_price": round(max_price, 2) if max_price else None,
+                "avg_price": round(avg_price, 2) if avg_price else None,
+                "cheapest_date": cheapest_date,
+                "available_days": len([p for p in prices if p]),
+                "source": "ferryhopper_cache"
+            }
+        )
+
+    # Fallback to mock data if no cached data
     base_prices = {
-        "marseille_tunis": 85,
-        "genoa_tunis": 95,
-        "civitavecchia_tunis": 90,
+        "marseille_tunis": 85, "mrs_tun": 85,
+        "genoa_tunis": 95, "goa_tun": 95,
+        "civitavecchia_tunis": 90, "civ_tun": 90,
         "nice_tunis": 88,
         "barcelona_tunis": 110,
     }
     base_price = base_prices.get(route_id, 85)
 
-    # Get number of days in month
-    _, num_days = calendar.monthrange(year, month)
-    month_name = calendar.month_name[month]
-
-    today = date.today()
     days = []
     prices = []
 
-    # For development/demo purposes, generate prices even for past dates
-    # In production with real data, this would query actual ferry schedules
     for day in range(1, num_days + 1):
         departure_date = date(year, month, day)
         days_ahead = (departure_date - today).days
 
-        # For demo: generate prices for reasonable date range (up to 1 year back for historical view)
-        # and up to 1 year ahead for booking
         if days_ahead < -365 or days_ahead > 365:
             days.append(DayPrice(
                 date=departure_date.isoformat(),
@@ -315,7 +382,6 @@ async def get_fare_calendar(
             ))
             continue
 
-        # Generate mock price (use absolute value for past dates to maintain price generation)
         price = generate_mock_price(base_price, departure_date, abs(days_ahead) if days_ahead >= 0 else 30)
         price_for_passengers = price * passengers
         prices.append(price_for_passengers)
@@ -331,26 +397,21 @@ async def get_fare_calendar(
             is_weekend=departure_date.weekday() >= 5,
         ))
 
-    # Calculate summary stats
     valid_prices = [p for p in prices if p is not None]
     if valid_prices:
         min_price = min(valid_prices)
         max_price = max(valid_prices)
         avg_price = sum(valid_prices) / len(valid_prices)
 
-        # Mark cheapest and set price levels
         for day_price in days:
             if day_price.price is not None:
                 day_price.is_cheapest = day_price.price == min_price
-                day_price.price_level = get_price_level(
-                    day_price.price, min_price, max_price
-                )
+                day_price.price_level = get_price_level(day_price.price, min_price, max_price)
     else:
         min_price = 0
         max_price = 0
         avg_price = 0
 
-    # Find cheapest date
     cheapest_date = None
     for dp in days:
         if dp.is_cheapest:
@@ -372,6 +433,7 @@ async def get_fare_calendar(
             "avg_price": round(avg_price, 2) if avg_price else None,
             "cheapest_date": cheapest_date,
             "available_days": len(valid_prices),
+            "source": "mock"
         }
     )
 
@@ -388,7 +450,7 @@ async def get_price_history(
     Get price history for a specific route and departure date.
 
     Returns historical price data points for trend visualization.
-    If departure_date is not provided, defaults to 30 days from now.
+    Uses FerryHopper synced data when available, otherwise generates mock data.
     """
     route_id = get_route_id(departure_port, arrival_port)
 
@@ -398,20 +460,71 @@ async def get_price_history(
     else:
         target_date = date.today() + timedelta(days=30)
 
-    # Base price for route
+    # Try to get price history from database
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    db_history = db.query(PriceHistory).filter(
+        PriceHistory.route_id == route_id,
+        PriceHistory.recorded_at >= cutoff_date
+    ).order_by(PriceHistory.recorded_at.asc()).all()
+
+    if db_history:
+        # Use database history from FerryHopper sync
+        history = []
+        prices = []
+
+        for record in db_history:
+            price = float(record.lowest_price) if record.lowest_price else float(record.price_adult)
+            prices.append(price)
+
+            history.append(PriceHistoryPoint(
+                date=record.recorded_at.date().isoformat(),
+                price=price,
+                lowest=float(record.lowest_price) if record.lowest_price else None,
+                highest=float(record.highest_price) if record.highest_price else None,
+                available=record.available_passengers,
+            ))
+
+        # Calculate stats
+        avg_price = sum(prices) / len(prices)
+        min_price = min(prices)
+        max_price = max(prices)
+
+        # Determine trend from recent data
+        if len(prices) >= 5:
+            first_avg = sum(prices[:5]) / 5
+            last_avg = sum(prices[-5:]) / 5
+            if last_avg > first_avg * 1.03:
+                trend = "rising"
+            elif last_avg < first_avg * 0.97:
+                trend = "falling"
+            else:
+                trend = "stable"
+        else:
+            trend = "stable"
+
+        return PriceHistoryResponse(
+            route_id=route_id,
+            departure_date=departure_date,
+            days_of_data=len(history),
+            history=history,
+            trend=trend,
+            average_price=round(avg_price, 2),
+            min_price=round(min_price, 2),
+            max_price=round(max_price, 2),
+        )
+
+    # Fallback to mock data
     base_prices = {
-        "marseille_tunis": 85,
-        "genoa_tunis": 95,
-        "civitavecchia_tunis": 90,
+        "marseille_tunis": 85, "mrs_tun": 85,
+        "genoa_tunis": 95, "goa_tun": 95,
+        "civitavecchia_tunis": 90, "civ_tun": 90,
     }
     base_price = base_prices.get(route_id, 85)
 
-    # Generate mock historical data
     history = []
     today = date.today()
     import random
 
-    # Create a trend
     trend_direction = random.choice([-1, 0, 1])
     trend_strength = random.uniform(0.001, 0.005)
 
@@ -423,15 +536,9 @@ async def get_price_history(
         if days_until < 0:
             continue
 
-        # Base price with trend
         price = base_price * (1 + trend_direction * trend_strength * (days - i))
-
-        # Add seasonal variation
         price *= 1 + 0.1 * (target_date.month - 6) / 6
-
-        # Add noise
         price *= 1 + random.uniform(-0.05, 0.05)
-
         price = round(price, 2)
         prices.append(price)
 
@@ -443,13 +550,11 @@ async def get_price_history(
             available=random.randint(20, 150),
         ))
 
-    # Calculate stats
     if prices:
         avg_price = sum(prices) / len(prices)
         min_price = min(prices)
         max_price = max(prices)
 
-        # Determine trend
         if len(prices) >= 5:
             first_avg = sum(prices[:5]) / 5
             last_avg = sum(prices[-5:]) / 5
@@ -621,64 +726,227 @@ async def get_price_insights(
 
     Returns statistics, trends, and recommendations in a nested format
     compatible with both web and mobile clients.
+
+    Uses FerryHopper synced RouteStatistics when available.
     """
     route_id = get_route_id(departure_port, arrival_port)
 
-    # Use prediction service for insights
-    service = PricePredictionService(db)
-    insights = service.get_price_insights(route_id, current_price)
+    # Try to get route statistics from database (FerryHopper sync)
+    db_stats = db.query(RouteStatistics).filter(
+        RouteStatistics.route_id == route_id
+    ).first()
+
+    if db_stats:
+        # Use real data from FerryHopper sync
+        avg_30d = float(db_stats.avg_price_30d) if db_stats.avg_price_30d else 85
+        min_30d = float(db_stats.min_price_30d) if db_stats.min_price_30d else 70
+        max_30d = float(db_stats.max_price_30d) if db_stats.max_price_30d else 120
+        avg_90d = float(db_stats.avg_price_90d) if db_stats.avg_price_90d else avg_30d
+        volatility = float(db_stats.price_volatility_30d) if db_stats.price_volatility_30d else 0
+
+        # Trend from database
+        trend = db_stats.price_trend_7d or "stable"
+        percentile = float(db_stats.current_price_percentile) if db_stats.current_price_percentile else 50
+
+        # Day patterns
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        best_day = day_names[db_stats.cheapest_day_of_week] if db_stats.cheapest_day_of_week is not None else "Tuesday"
+        worst_day = day_names[db_stats.most_expensive_day] if db_stats.most_expensive_day is not None else "Saturday"
+
+        weekday_avg = float(db_stats.weekday_avg_price) if db_stats.weekday_avg_price else avg_30d
+        weekend_avg = float(db_stats.weekend_avg_price) if db_stats.weekend_avg_price else avg_30d * 1.12
+        weekend_premium = (weekend_avg - weekday_avg) / weekday_avg if weekday_avg else 0.12
+
+        # All-time records
+        all_time_low = float(db_stats.all_time_low) if db_stats.all_time_low else min_30d
+        all_time_high = float(db_stats.all_time_high) if db_stats.all_time_high else max_30d
+
+        source = "ferryhopper_sync"
+    else:
+        # Fallback to prediction service for mock data
+        service = PricePredictionService(db)
+        insights = service.get_price_insights(route_id, current_price)
+
+        avg_30d = insights.avg_price_30d
+        min_30d = insights.min_price_30d
+        max_30d = insights.max_price_30d
+        avg_90d = avg_30d
+        volatility = round((max_30d - min_30d) / avg_30d * 100, 1) if avg_30d else 0
+        trend = insights.trend.value
+        percentile = insights.price_percentile
+        best_day = "Tuesday"
+        worst_day = "Saturday"
+        weekend_premium = 0.12
+        all_time_low = min_30d
+        all_time_high = max_30d
+        source = "mock"
 
     # Determine if it's a good deal based on percentile
-    is_good_deal = insights.price_percentile <= 30
+    is_good_deal = percentile <= 30
     deal_quality = (
-        "Great Deal" if insights.price_percentile <= 20
-        else "Good Price" if insights.price_percentile <= 40
-        else "Average" if insights.price_percentile <= 60
-        else "Above Average" if insights.price_percentile <= 80
+        "Great Deal" if percentile <= 20
+        else "Good Price" if percentile <= 40
+        else "Average" if percentile <= 60
+        else "Above Average" if percentile <= 80
         else "Expensive"
     )
+
+    # Trend description
+    trend_descriptions = {
+        "rising": "Prices are trending upward - consider booking soon",
+        "falling": "Prices are dropping - you might find a better deal if you wait",
+        "stable": "Prices are stable - book when ready"
+    }
+    trend_description = trend_descriptions.get(trend, "Prices are stable")
+
+    # Best booking window based on days until departure patterns
+    best_booking_window = "14-21 days before departure"
+
+    # Seasonal insight
+    current_month = datetime.now().month
+    if current_month in [6, 7, 8]:
+        seasonal_insight = "Peak summer season - expect higher prices"
+    elif current_month in [12, 1, 2]:
+        seasonal_insight = "Off-peak winter rates available"
+    else:
+        seasonal_insight = "Shoulder season - moderate pricing"
 
     # Return nested structure for mobile compatibility
     return {
         "route_id": route_id,
         "departure_port": departure_port,
         "arrival_port": arrival_port,
+        "source": source,
         # Flat fields (for web)
-        "current_price": insights.current_price,
-        "avg_price_30d": insights.avg_price_30d,
-        "min_price_30d": insights.min_price_30d,
-        "max_price_30d": insights.max_price_30d,
-        "price_percentile": insights.price_percentile,
-        "percentile_label": get_percentile_label(insights.price_percentile),
-        "trend": insights.trend.value,
-        "trend_description": insights.trend_description,
-        "best_booking_window": insights.best_booking_window,
-        "seasonal_insight": insights.seasonal_insight,
-        "savings_opportunity": insights.savings_opportunity,
+        "current_price": current_price,
+        "avg_price_30d": avg_30d,
+        "min_price_30d": min_30d,
+        "max_price_30d": max_30d,
+        "price_percentile": percentile,
+        "percentile_label": get_percentile_label(percentile),
+        "trend": trend,
+        "trend_description": trend_description,
+        "best_booking_window": best_booking_window,
+        "seasonal_insight": seasonal_insight,
+        "savings_opportunity": round(current_price - min_30d, 2) if current_price and min_30d else None,
         # Nested fields (for mobile)
         "statistics": {
-            "avg_price_30d": insights.avg_price_30d,
-            "min_price_30d": insights.min_price_30d,
-            "max_price_30d": insights.max_price_30d,
-            "price_volatility_30d": round((insights.max_price_30d - insights.min_price_30d) / insights.avg_price_30d * 100, 1) if insights.avg_price_30d else 0,
-            "avg_price_90d": insights.avg_price_30d,  # Using 30d as proxy
-            "all_time_low": insights.min_price_30d,
-            "all_time_high": insights.max_price_30d,
+            "avg_price_30d": avg_30d,
+            "min_price_30d": min_30d,
+            "max_price_30d": max_30d,
+            "price_volatility_30d": volatility,
+            "avg_price_90d": avg_90d,
+            "all_time_low": all_time_low,
+            "all_time_high": all_time_high,
         },
         "patterns": {
-            "best_day_of_week": "Tuesday",
-            "worst_day_of_week": "Saturday",
-            "best_booking_window": insights.best_booking_window,
-            "weekday_vs_weekend": 0.12,  # 12% weekend premium
+            "best_day_of_week": best_day,
+            "worst_day_of_week": worst_day,
+            "best_booking_window": best_booking_window,
+            "weekday_vs_weekend": round(weekend_premium, 2),
         },
         "current_status": {
-            "current_price": insights.current_price,
-            "percentile": insights.price_percentile,
-            "trend_7d": insights.trend.value,
+            "current_price": current_price,
+            "percentile": percentile,
+            "trend_7d": trend,
             "is_good_deal": is_good_deal,
             "deal_quality": deal_quality,
         },
     }
+
+
+@router.get("/route-statistics")
+async def get_route_statistics(
+    departure_port: str = Query(...),
+    arrival_port: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Get detailed route statistics from FerryHopper sync.
+
+    Returns comprehensive statistics including:
+    - 30/90-day price averages, min, max
+    - Price volatility
+    - Day-of-week patterns
+    - All-time records
+    - Price trends
+    """
+    route_id = get_route_id(departure_port, arrival_port)
+
+    db_stats = db.query(RouteStatistics).filter(
+        RouteStatistics.route_id == route_id
+    ).first()
+
+    if not db_stats:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No statistics found for route {departure_port} → {arrival_port}. Run the sync task first."
+        )
+
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+    return {
+        "route_id": route_id,
+        "departure_port": departure_port,
+        "arrival_port": arrival_port,
+        "updated_at": db_stats.updated_at.isoformat() if db_stats.updated_at else None,
+        "price_30d": {
+            "average": float(db_stats.avg_price_30d) if db_stats.avg_price_30d else None,
+            "minimum": float(db_stats.min_price_30d) if db_stats.min_price_30d else None,
+            "maximum": float(db_stats.max_price_30d) if db_stats.max_price_30d else None,
+            "volatility": float(db_stats.price_volatility_30d) if db_stats.price_volatility_30d else None,
+        },
+        "price_90d": {
+            "average": float(db_stats.avg_price_90d) if db_stats.avg_price_90d else None,
+            "minimum": float(db_stats.min_price_90d) if db_stats.min_price_90d else None,
+            "maximum": float(db_stats.max_price_90d) if db_stats.max_price_90d else None,
+        },
+        "all_time": {
+            "lowest_price": float(db_stats.all_time_low) if db_stats.all_time_low else None,
+            "lowest_date": db_stats.all_time_low_date.isoformat() if db_stats.all_time_low_date else None,
+            "highest_price": float(db_stats.all_time_high) if db_stats.all_time_high else None,
+            "highest_date": db_stats.all_time_high_date.isoformat() if db_stats.all_time_high_date else None,
+        },
+        "day_patterns": {
+            "weekday_average": float(db_stats.weekday_avg_price) if db_stats.weekday_avg_price else None,
+            "weekend_average": float(db_stats.weekend_avg_price) if db_stats.weekend_avg_price else None,
+            "cheapest_day": day_names[db_stats.cheapest_day_of_week] if db_stats.cheapest_day_of_week is not None else None,
+            "most_expensive_day": day_names[db_stats.most_expensive_day] if db_stats.most_expensive_day is not None else None,
+        },
+        "current_trend": {
+            "trend_7d": db_stats.price_trend_7d,
+            "current_percentile": float(db_stats.current_price_percentile) if db_stats.current_price_percentile else None,
+        },
+    }
+
+
+@router.post("/sync")
+async def trigger_price_sync():
+    """
+    Trigger FerryHopper price sync tasks.
+
+    Runs the daily sync which includes:
+    - Port synchronization
+    - Price history recording
+    - Route statistics aggregation
+    - Fare calendar pre-computation
+    """
+    try:
+        from app.tasks.ferryhopper_sync_tasks import daily_ferryhopper_sync_task
+
+        task = daily_ferryhopper_sync_task.delay()
+
+        return {
+            "status": "started",
+            "task_id": task.id,
+            "message": "FerryHopper sync task triggered. This includes ports, prices, statistics, and calendars."
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to trigger sync: {str(e)}"
+        )
 
 
 @router.get("/cheapest-in-month")

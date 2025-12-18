@@ -85,7 +85,11 @@ class Settings(BaseSettings):
     DANEL_USERNAME: str = ""
     DANEL_PASSWORD: str = ""
     DANEL_BASE_URL: str = "https://reservations.danel-casanova.fr/api/"
-    
+
+    # FerryHopper (Aggregator API)
+    FERRYHOPPER_API_KEY: str = ""
+    FERRYHOPPER_BASE_URL: str = "https://ferryhapi.uat.ferryhopper.com"
+
     # API Configuration
     API_TIMEOUT: int = 30
     MAX_RETRIES: int = 3

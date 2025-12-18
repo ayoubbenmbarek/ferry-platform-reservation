@@ -21,6 +21,7 @@ from app.services.ferry_integrations.gnv import GNVIntegration
 from app.services.ferry_integrations.corsica import CorsicaIntegration
 from app.services.ferry_integrations.danel import DanelIntegration
 from app.services.ferry_integrations.mock import MockFerryIntegration
+from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,8 @@ class FerryService:
         "GNV": "gnv",
         "Corsica Lines": "corsica",
         "Danel": "danel",
-        "Danel Casanova": "danel"
+        "Danel Casanova": "danel",
+        "FerryHopper": "ferryhopper",
     }
 
     def __init__(self, use_mock: bool = False):
@@ -47,65 +49,35 @@ class FerryService:
         Args:
             use_mock: If True, use mock integrations for development
         """
-        self.use_mock = use_mock or settings.ENVIRONMENT == "development" or settings.USE_MOCK_FERRIES
+        # Only use mock if explicitly set via USE_MOCK_FERRIES setting
+        self.use_mock = use_mock or settings.USE_MOCK_FERRIES
         self.integrations: Dict[str, BaseFerryIntegration] = {}
         self._initialize_integrations()
 
     def _initialize_integrations(self):
-        """Initialize all ferry operator integrations."""
-        if self.use_mock:
-            logger.info("Initializing MOCK ferry integrations for development")
-            self.integrations = {
-                "ctn": MockFerryIntegration(operator_name="CTN"),
-                "gnv": MockFerryIntegration(operator_name="GNV"),
-                "corsica": MockFerryIntegration(operator_name="Corsica Lines"),
-                "danel": MockFerryIntegration(operator_name="Danel")
-            }
-        else:
-            logger.info("Initializing REAL ferry integrations")
-            try:
-                # CTN Integration
-                if settings.CTN_API_KEY:
-                    self.integrations["ctn"] = CTNIntegration(
-                        api_key=settings.CTN_API_KEY,
-                        base_url=settings.CTN_BASE_URL
-                    )
-                    logger.info("CTN integration initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize CTN integration: {e}")
+        """Initialize ferry operator integrations.
 
-            try:
-                # GNV Integration
-                if settings.GNV_CLIENT_ID:
-                    self.integrations["gnv"] = GNVIntegration(
-                        api_key=settings.GNV_CLIENT_ID,  # Will need OAuth implementation
-                        base_url=settings.GNV_BASE_URL
-                    )
-                    logger.info("GNV integration initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize GNV integration: {e}")
+        Currently using FerryHopper as the primary aggregator API.
+        FerryHopper provides access to multiple Mediterranean ferry operators
+        through a unified API (CTN, GNV, Grimaldi, Blue Star, etc.)
+        """
+        logger.info("Initializing FerryHopper integration (aggregator API)")
 
-            try:
-                # Corsica Integration
-                if settings.CORSICA_API_KEY:
-                    self.integrations["corsica"] = CorsicaIntegration(
-                        api_key=settings.CORSICA_API_KEY,
-                        base_url=settings.CORSICA_BASE_URL
-                    )
-                    logger.info("Corsica integration initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Corsica integration: {e}")
+        try:
+            # FerryHopper Integration (Aggregator) - Primary integration
+            if settings.FERRYHOPPER_API_KEY:
+                self.integrations["ferryhopper"] = FerryHopperIntegration(
+                    api_key=settings.FERRYHOPPER_API_KEY,
+                    base_url=settings.FERRYHOPPER_BASE_URL
+                )
+                logger.info(f"✅ FerryHopper integration initialized (API: {settings.FERRYHOPPER_BASE_URL})")
+            else:
+                logger.error("❌ FERRYHOPPER_API_KEY not configured!")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize FerryHopper integration: {e}")
 
-            try:
-                # Danel Integration
-                if settings.DANEL_USERNAME:
-                    self.integrations["danel"] = DanelIntegration(
-                        api_key=settings.DANEL_USERNAME,  # Using username as key
-                        base_url=settings.DANEL_BASE_URL
-                    )
-                    logger.info("Danel integration initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Danel integration: {e}")
+        # Legacy integrations - disabled, using FerryHopper aggregator instead
+        # CTN, GNV, Corsica, Danel are all available through FerryHopper API
 
         logger.info(f"Initialized {len(self.integrations)} ferry integrations")
 
@@ -519,7 +491,8 @@ def get_ferry_service(use_mock: Optional[bool] = None) -> FerryService:
     global _ferry_service
 
     if _ferry_service is None or use_mock is not None:
-        use_mock_integrations = use_mock if use_mock is not None else settings.ENVIRONMENT == "development"
+        # Only use mock if explicitly set via USE_MOCK_FERRIES setting
+        use_mock_integrations = use_mock if use_mock is not None else settings.USE_MOCK_FERRIES
         _ferry_service = FerryService(use_mock=use_mock_integrations)
 
     return _ferry_service

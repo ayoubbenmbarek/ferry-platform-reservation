@@ -448,76 +448,349 @@ async def get_operators():
 
 
 @router.get("/ports")
-async def get_ports():
+async def get_ports(
+    language: str = Query("en", description="Language for port names"),
+    country: Optional[str] = Query(None, description="Filter by country code (e.g., TN, FR, IT)"),
+    source: str = Query("auto", description="Data source: 'db', 'api', or 'auto' (tries db first)")
+):
     """
     Get list of available ports.
 
-    Returns information about all ports available for ferry travel.
+    Returns information about all ports available for ferry travel,
+    including coordinates for map display.
+
+    By default, uses database if available, otherwise falls back to FerryHopper API.
+    Use source='api' to force fresh data from FerryHopper.
     """
     try:
-        supported_routes = ferry_service.get_supported_routes()
-
-        # Collect unique ports from all routes
-        ports_set = set()
-        for operator, routes in supported_routes.items():
-            for route in routes:
-                ports_set.add(route["departure"])
-                ports_set.add(route["arrival"])
-
-        # Port information mapping with coordinates
-        port_info = {
-            # Tunisia
-            "TUN": {"code": "TUN", "name": "Tunis", "country": "Tunisia", "coordinates": {"lat": 36.8065, "lng": 10.1815}},
-            "TUNIS": {"code": "TUNIS", "name": "Tunis", "country": "Tunisia", "coordinates": {"lat": 36.8065, "lng": 10.1815}},
-            "ZARZIS": {"code": "ZARZIS", "name": "Zarzis", "country": "Tunisia", "coordinates": {"lat": 33.5036, "lng": 11.1117}},
-            "ZAR": {"code": "ZAR", "name": "Zarzis", "country": "Tunisia", "coordinates": {"lat": 33.5036, "lng": 11.1117}},
-            "SFAX": {"code": "SFAX", "name": "Sfax", "country": "Tunisia", "coordinates": {"lat": 34.7478, "lng": 10.7661}},
-            "SFA": {"code": "SFA", "name": "Sfax", "country": "Tunisia", "coordinates": {"lat": 34.7478, "lng": 10.7661}},
-            # France
-            "MRS": {"code": "MRS", "name": "Marseille", "country": "France", "coordinates": {"lat": 43.2965, "lng": 5.3698}},
-            "MARSEILLE": {"code": "MARSEILLE", "name": "Marseille", "country": "France", "coordinates": {"lat": 43.2965, "lng": 5.3698}},
-            "NICE": {"code": "NICE", "name": "Nice", "country": "France", "coordinates": {"lat": 43.7102, "lng": 7.2620}},
-            "TOULON": {"code": "TOULON", "name": "Toulon", "country": "France", "coordinates": {"lat": 43.1242, "lng": 5.9280}},
-            "TLN": {"code": "TLN", "name": "Toulon", "country": "France", "coordinates": {"lat": 43.1242, "lng": 5.9280}},
-            # Italy
-            "GEN": {"code": "GEN", "name": "Genoa", "country": "Italy", "coordinates": {"lat": 44.4056, "lng": 8.9463}},
-            "GENOA": {"code": "GENOA", "name": "Genoa", "country": "Italy", "coordinates": {"lat": 44.4056, "lng": 8.9463}},
-            "CIV": {"code": "CIV", "name": "Civitavecchia", "country": "Italy", "coordinates": {"lat": 42.0930, "lng": 11.7969}},
-            "CIVITAVECCHIA": {"code": "CIVITAVECCHIA", "name": "Civitavecchia", "country": "Italy", "coordinates": {"lat": 42.0930, "lng": 11.7969}},
-            "PAL": {"code": "PAL", "name": "Palermo", "country": "Italy", "coordinates": {"lat": 38.1157, "lng": 13.3615}},
-            "PALERMO": {"code": "PALERMO", "name": "Palermo", "country": "Italy", "coordinates": {"lat": 38.1157, "lng": 13.3615}},
-            "TRAPANI": {"code": "TRAPANI", "name": "Trapani", "country": "Italy", "coordinates": {"lat": 38.0174, "lng": 12.5365}},
-            "TPS": {"code": "TPS", "name": "Trapani", "country": "Italy", "coordinates": {"lat": 38.0174, "lng": 12.5365}},
-            "NAP": {"code": "NAP", "name": "Naples", "country": "Italy", "coordinates": {"lat": 40.8518, "lng": 14.2681}},
-            "NAPLES": {"code": "NAPLES", "name": "Naples", "country": "Italy", "coordinates": {"lat": 40.8518, "lng": 14.2681}},
-            "LIV": {"code": "LIV", "name": "Livorno", "country": "Italy", "coordinates": {"lat": 43.5485, "lng": 10.3106}},
-            "LIVORNO": {"code": "LIVORNO", "name": "Livorno", "country": "Italy", "coordinates": {"lat": 43.5485, "lng": 10.3106}},
-            "SAL": {"code": "SAL", "name": "Salerno", "country": "Italy", "coordinates": {"lat": 40.6824, "lng": 14.7681}},
-            "SALERNO": {"code": "SALERNO", "name": "Salerno", "country": "Italy", "coordinates": {"lat": 40.6824, "lng": 14.7681}},
-            # Other
-            "ALG": {"code": "ALG", "name": "Algiers", "country": "Algeria", "coordinates": {"lat": 36.7538, "lng": 3.0588}},
-            "BAR": {"code": "BAR", "name": "Barcelona", "country": "Spain", "coordinates": {"lat": 41.3851, "lng": 2.1734}},
-            "BARCELONA": {"code": "BARCELONA", "name": "Barcelona", "country": "Spain", "coordinates": {"lat": 41.3851, "lng": 2.1734}},
-        }
+        from app.database import SessionLocal
+        from app.models.ferry import Port
+        from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+        from app.config import settings
 
         ports = []
-        for port_code in sorted(ports_set):
-            if port_code in port_info:
-                ports.append(port_info[port_code])
-            else:
-                # Default for unknown ports
+        data_source = "database"
+
+        # Try database first if source is 'db' or 'auto'
+        if source in ("db", "auto"):
+            db = SessionLocal()
+            try:
+                query = db.query(Port).filter(Port.is_active == True)
+                if country:
+                    query = query.filter(Port.country_code == country.upper())
+                db_ports = query.all()
+
+                if db_ports:
+                    for port in db_ports:
+                        coordinates = None
+                        if port.latitude and port.longitude:
+                            coordinates = {
+                                "lat": port.latitude,
+                                "lng": port.longitude
+                            }
+
+                        ports.append({
+                            "code": port.code,
+                            "name": port.name,
+                            "name_local": port.name_local,
+                            "country": port.country,
+                            "country_code": port.country_code,
+                            "region": port.region,
+                            "coordinates": coordinates,
+                            "timezone": port.timezone,
+                            "connected_ports": port.connected_ports,
+                            "is_featured": port.is_featured
+                        })
+
+                    # Sort by country then name
+                    ports.sort(key=lambda p: (p.get("country", ""), p.get("name", "")))
+                    logger.info(f"📍 Returning {len(ports)} ports from database")
+            finally:
+                db.close()
+
+        # Fallback to FerryHopper API if no ports in database or source is 'api'
+        if not ports or source == "api":
+            data_source = "ferryhopper_api"
+            integration = FerryHopperIntegration(
+                api_key=settings.FERRYHOPPER_API_KEY,
+                base_url=settings.FERRYHOPPER_BASE_URL
+            )
+
+            async with integration:
+                ferryhopper_ports = await integration.get_ports(language=language)
+
+            # Transform FerryHopper port format to our format
+            ports = []
+            for port in ferryhopper_ports:
+                # Filter by country if specified
+                port_country = port.get("country", {})
+                country_code = port_country.get("code", "")
+
+                if country and country_code.upper() != country.upper():
+                    continue
+
+                # Extract coordinates
+                coordinates = None
+                if port.get("latitude") and port.get("longitude"):
+                    coordinates = {
+                        "lat": port.get("latitude"),
+                        "lng": port.get("longitude")
+                    }
+
                 ports.append({
-                    "code": port_code,
-                    "name": port_code.title(),
-                    "country": "Unknown"
+                    "code": port.get("code", ""),
+                    "name": port.get("name", ""),
+                    "country": port_country.get("name", "Unknown"),
+                    "country_code": country_code,
+                    "coordinates": coordinates,
+                    "timezone": port.get("timezone"),
+                    "aliases": port.get("aliases", [])
                 })
 
-        return ports
+            # Sort by country then name
+            ports.sort(key=lambda p: (p.get("country", ""), p.get("name", "")))
+            logger.info(f"📍 Returning {len(ports)} ports from FerryHopper API")
+
+        return {
+            "ports": ports,
+            "total": len(ports),
+            "source": data_source
+        }
 
     except Exception as e:
+        logger.error(f"Failed to get ports: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get ports: {str(e)}"
+        )
+
+
+@router.get("/ports/tunisia")
+async def get_tunisia_routes(
+    source: str = Query("auto", description="Data source: 'db', 'api', or 'auto'")
+):
+    """
+    Get ports for Tunisia routes (from France and Italy).
+
+    Returns ports relevant for Tunisia ferry routes:
+    - Tunisia ports (Tunis, La Goulette)
+    - France ports (Marseille)
+    - Italy ports (Genoa, Civitavecchia, Palermo, etc.)
+    """
+    try:
+        from app.database import SessionLocal
+        from app.models.ferry import Port
+        from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+        from app.config import settings
+
+        relevant_countries = {"TN", "FR", "IT"}
+        filtered_ports = []
+        data_source = "database"
+
+        # Try database first if source is 'db' or 'auto'
+        if source in ("db", "auto"):
+            db = SessionLocal()
+            try:
+                db_ports = db.query(Port).filter(
+                    Port.is_active == True,
+                    Port.country_code.in_(relevant_countries)
+                ).all()
+
+                if db_ports:
+                    for port in db_ports:
+                        coordinates = None
+                        if port.latitude and port.longitude:
+                            coordinates = {
+                                "lat": port.latitude,
+                                "lng": port.longitude
+                            }
+
+                        filtered_ports.append({
+                            "code": port.code,
+                            "name": port.name,
+                            "country": port.country,
+                            "country_code": port.country_code,
+                            "coordinates": coordinates,
+                            "connected_ports": port.connected_ports
+                        })
+            finally:
+                db.close()
+
+        # Fallback to FerryHopper API if no ports in database or source is 'api'
+        if not filtered_ports or source == "api":
+            data_source = "ferryhopper_api"
+            integration = FerryHopperIntegration(
+                api_key=settings.FERRYHOPPER_API_KEY,
+                base_url=settings.FERRYHOPPER_BASE_URL
+            )
+
+            async with integration:
+                all_ports = await integration.get_ports(language="en")
+
+            filtered_ports = []
+            for port in all_ports:
+                country_code = port.get("country", {}).get("code", "")
+                if country_code in relevant_countries:
+                    coordinates = None
+                    if port.get("latitude") and port.get("longitude"):
+                        coordinates = {
+                            "lat": port.get("latitude"),
+                            "lng": port.get("longitude")
+                        }
+
+                    filtered_ports.append({
+                        "code": port.get("code", ""),
+                        "name": port.get("name", ""),
+                        "country": port.get("country", {}).get("name", "Unknown"),
+                        "country_code": country_code,
+                        "coordinates": coordinates
+                    })
+
+        # Group by country
+        result = {
+            "tunisia": [p for p in filtered_ports if p["country_code"] == "TN"],
+            "france": [p for p in filtered_ports if p["country_code"] == "FR"],
+            "italy": [p for p in filtered_ports if p["country_code"] == "IT"],
+            "total": len(filtered_ports),
+            "source": data_source
+        }
+
+        logger.info(f"📍 Tunisia routes: {len(result['tunisia'])} TN, {len(result['france'])} FR, {len(result['italy'])} IT ports (source: {data_source})")
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to get Tunisia route ports: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get ports: {str(e)}"
+        )
+
+
+@router.post("/ports/sync")
+async def sync_ports():
+    """
+    Trigger port synchronization from FerryHopper API.
+
+    This endpoint manually triggers the port sync task which:
+    - Fetches all ports from FerryHopper API
+    - Creates or updates ports in the database
+    - Updates sync metadata
+
+    Note: This runs as a Celery background task.
+    """
+    try:
+        from app.tasks.ferryhopper_sync_tasks import sync_ports_from_ferryhopper_task
+
+        # Trigger the sync task asynchronously
+        task = sync_ports_from_ferryhopper_task.delay()
+
+        logger.info(f"📍 Port sync task triggered: {task.id}")
+
+        return {
+            "status": "started",
+            "task_id": task.id,
+            "message": "Port sync task has been triggered. Check task status for progress."
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to trigger port sync: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to trigger port sync: {str(e)}"
+        )
+
+
+@router.get("/vehicles")
+async def get_vehicles(
+    language: str = Query("en", description="Language for descriptions")
+):
+    """
+    Get list of vehicle types from FerryHopper API.
+
+    Returns all vehicle types supported for ferry bookings
+    (cars, motorcycles, campers, etc.)
+    """
+    try:
+        from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+        from app.config import settings
+
+        integration = FerryHopperIntegration(
+            api_key=settings.FERRYHOPPER_API_KEY,
+            base_url=settings.FERRYHOPPER_BASE_URL
+        )
+
+        async with integration:
+            vehicles = await integration.get_vehicles(language=language)
+
+        logger.info(f"🚗 Returning {len(vehicles)} vehicle types from FerryHopper API")
+        return vehicles
+
+    except Exception as e:
+        logger.error(f"Failed to get vehicles from FerryHopper: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get vehicles: {str(e)}"
+        )
+
+
+@router.get("/accommodations")
+async def get_accommodations():
+    """
+    Get list of accommodation types from FerryHopper API.
+
+    Returns all accommodation types (deck, seat, cabin types, etc.)
+    """
+    try:
+        from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+        from app.config import settings
+
+        integration = FerryHopperIntegration(
+            api_key=settings.FERRYHOPPER_API_KEY,
+            base_url=settings.FERRYHOPPER_BASE_URL
+        )
+
+        async with integration:
+            accommodations = await integration.get_accommodations()
+
+        logger.info(f"🛏️ Returning {len(accommodations)} accommodation types from FerryHopper API")
+        return accommodations
+
+    except Exception as e:
+        logger.error(f"Failed to get accommodations from FerryHopper: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get accommodations: {str(e)}"
+        )
+
+
+@router.get("/companies")
+async def get_ferry_companies():
+    """
+    Get list of ferry companies/operators from FerryHopper API.
+
+    Returns all ferry operators available through FerryHopper
+    (CTN, GNV, Grimaldi, Blue Star, etc.)
+    """
+    try:
+        from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+        from app.config import settings
+
+        integration = FerryHopperIntegration(
+            api_key=settings.FERRYHOPPER_API_KEY,
+            base_url=settings.FERRYHOPPER_BASE_URL
+        )
+
+        async with integration:
+            companies = await integration.get_companies()
+
+        logger.info(f"🚢 Returning {len(companies)} ferry companies from FerryHopper API")
+        return companies
+
+    except Exception as e:
+        logger.error(f"Failed to get companies from FerryHopper: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get companies: {str(e)}"
         )
 
 

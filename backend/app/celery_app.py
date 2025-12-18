@@ -27,6 +27,7 @@ celery_app = Celery(
         "app.tasks.price_alert_tasks",
         "app.tasks.price_tracking_tasks",
         "app.tasks.availability_sync_tasks",
+        "app.tasks.ferryhopper_sync_tasks",  # FerryHopper data sync tasks
         "app.tasks.test_tasks",  # Test tasks for DLQ testing
     ]
 )
@@ -191,6 +192,38 @@ celery_app.conf.update(
             'schedule': 120,  # 2 minutes in seconds
             'options': {
                 'expires': 60,  # Task expires after 1 minute if not picked up
+            }
+        },
+        # FerryHopper: Sync ports daily
+        'ferryhopper-sync-ports': {
+            'task': 'app.tasks.ferryhopper_sync_tasks.sync_ports_from_ferryhopper',
+            'schedule': 86400,  # 24 hours in seconds
+            'options': {
+                'expires': 7200,  # Task expires after 2 hours if not picked up
+            }
+        },
+        # FerryHopper: Record price history daily
+        'ferryhopper-record-price-history': {
+            'task': 'app.tasks.ferryhopper_sync_tasks.record_price_history',
+            'schedule': 86400,  # 24 hours in seconds
+            'options': {
+                'expires': 14400,  # Task expires after 4 hours if not picked up
+            }
+        },
+        # FerryHopper: Aggregate route statistics weekly
+        'ferryhopper-aggregate-route-stats': {
+            'task': 'app.tasks.ferryhopper_sync_tasks.aggregate_route_statistics',
+            'schedule': 604800,  # 7 days in seconds
+            'options': {
+                'expires': 7200,  # Task expires after 2 hours if not picked up
+            }
+        },
+        # FerryHopper: Pre-compute fare calendars daily
+        'ferryhopper-precompute-fare-calendars': {
+            'task': 'app.tasks.ferryhopper_sync_tasks.precompute_fare_calendar',
+            'schedule': 86400,  # 24 hours in seconds
+            'options': {
+                'expires': 14400,  # Task expires after 4 hours if not picked up
             }
         },
     },

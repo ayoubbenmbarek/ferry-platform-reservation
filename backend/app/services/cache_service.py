@@ -389,5 +389,385 @@ class CacheService:
             return 0
 
 
+    # =========================================================================
+    # FerryHopper API Caching (Best Practices Implementation)
+    # =========================================================================
+
+    def get_ferryhopper_ports(self, language: str = "en") -> Optional[Dict[str, Any]]:
+        """
+        Get cached FerryHopper ports list.
+
+        Per FerryHopper best practices: Cache the Get Ports utility endpoint.
+        TTL: 24 hours (ports rarely change)
+
+        Args:
+            language: Language code
+
+        Returns:
+            Cached ports data or None
+        """
+        if not self.is_available():
+            return None
+
+        try:
+            cache_key = f"ferryhopper:ports:{language}"
+            cached_data = self.redis_client.get(cache_key)
+
+            if cached_data:
+                logger.debug(f"✅ Cache HIT for FerryHopper ports: {language}")
+                return json.loads(cached_data)
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting FerryHopper ports from cache: {str(e)}")
+            return None
+
+    def set_ferryhopper_ports(
+        self,
+        ports_data: Dict[str, Any],
+        language: str = "en",
+        ttl: int = 86400  # 24 hours
+    ) -> bool:
+        """
+        Cache FerryHopper ports list.
+
+        Args:
+            ports_data: Ports data from API
+            language: Language code
+            ttl: Time to live (default 24 hours)
+
+        Returns:
+            True if cached successfully
+        """
+        if not self.is_available():
+            return False
+
+        try:
+            cache_key = f"ferryhopper:ports:{language}"
+            self.redis_client.setex(
+                cache_key,
+                ttl,
+                json.dumps(ports_data, cls=DateTimeEncoder)
+            )
+            logger.info(f"✅ Cached FerryHopper ports (TTL: {ttl}s)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error caching FerryHopper ports: {str(e)}")
+            return False
+
+    def get_ferryhopper_vehicles(self, language: str = "en") -> Optional[Dict[str, Any]]:
+        """
+        Get cached FerryHopper vehicle types.
+
+        TTL: 24 hours (vehicle types rarely change)
+
+        Args:
+            language: Language code
+
+        Returns:
+            Cached vehicles data or None
+        """
+        if not self.is_available():
+            return None
+
+        try:
+            cache_key = f"ferryhopper:vehicles:{language}"
+            cached_data = self.redis_client.get(cache_key)
+
+            if cached_data:
+                logger.debug(f"✅ Cache HIT for FerryHopper vehicles")
+                return json.loads(cached_data)
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting FerryHopper vehicles from cache: {str(e)}")
+            return None
+
+    def set_ferryhopper_vehicles(
+        self,
+        vehicles_data: Dict[str, Any],
+        language: str = "en",
+        ttl: int = 86400  # 24 hours
+    ) -> bool:
+        """
+        Cache FerryHopper vehicle types.
+
+        Args:
+            vehicles_data: Vehicles data from API
+            language: Language code
+            ttl: Time to live (default 24 hours)
+
+        Returns:
+            True if cached successfully
+        """
+        if not self.is_available():
+            return False
+
+        try:
+            cache_key = f"ferryhopper:vehicles:{language}"
+            self.redis_client.setex(
+                cache_key,
+                ttl,
+                json.dumps(vehicles_data, cls=DateTimeEncoder)
+            )
+            logger.info(f"✅ Cached FerryHopper vehicles (TTL: {ttl}s)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error caching FerryHopper vehicles: {str(e)}")
+            return False
+
+    def get_ferryhopper_accommodations(self) -> Optional[Dict[str, Any]]:
+        """
+        Get cached FerryHopper accommodation types.
+
+        TTL: 24 hours
+
+        Returns:
+            Cached accommodations data or None
+        """
+        if not self.is_available():
+            return None
+
+        try:
+            cache_key = "ferryhopper:accommodations"
+            cached_data = self.redis_client.get(cache_key)
+
+            if cached_data:
+                logger.debug(f"✅ Cache HIT for FerryHopper accommodations")
+                return json.loads(cached_data)
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting FerryHopper accommodations from cache: {str(e)}")
+            return None
+
+    def set_ferryhopper_accommodations(
+        self,
+        accommodations_data: Dict[str, Any],
+        ttl: int = 86400  # 24 hours
+    ) -> bool:
+        """
+        Cache FerryHopper accommodation types.
+
+        Args:
+            accommodations_data: Accommodations data from API
+            ttl: Time to live (default 24 hours)
+
+        Returns:
+            True if cached successfully
+        """
+        if not self.is_available():
+            return False
+
+        try:
+            cache_key = "ferryhopper:accommodations"
+            self.redis_client.setex(
+                cache_key,
+                ttl,
+                json.dumps(accommodations_data, cls=DateTimeEncoder)
+            )
+            logger.info(f"✅ Cached FerryHopper accommodations (TTL: {ttl}s)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error caching FerryHopper accommodations: {str(e)}")
+            return False
+
+    def get_ferryhopper_search(
+        self,
+        departure_port: str,
+        arrival_port: str,
+        departure_date: str,
+        passengers: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get cached FerryHopper search results.
+
+        Per FerryHopper best practices: Cache results from Search Booking Solutions.
+        Note: Short TTL as availability changes frequently.
+
+        Args:
+            departure_port: Departure port code
+            arrival_port: Arrival port code
+            departure_date: Date string (YYYY-MM-DD)
+            passengers: Number of passengers
+
+        Returns:
+            Cached search results or None
+        """
+        if not self.is_available():
+            return None
+
+        try:
+            cache_key = f"ferryhopper:search:{departure_port}:{arrival_port}:{departure_date}:{passengers}"
+            cached_data = self.redis_client.get(cache_key)
+
+            if cached_data:
+                logger.debug(f"✅ Cache HIT for FerryHopper search: {departure_port}->{arrival_port}")
+                return json.loads(cached_data)
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting FerryHopper search from cache: {str(e)}")
+            return None
+
+    def set_ferryhopper_search(
+        self,
+        departure_port: str,
+        arrival_port: str,
+        departure_date: str,
+        passengers: int,
+        results: Dict[str, Any],
+        ttl: int = 300  # 5 minutes - short due to availability changes
+    ) -> bool:
+        """
+        Cache FerryHopper search results.
+
+        Per FerryHopper best practices: Be aware that caching for longer periods
+        increases chance of availability errors.
+
+        Args:
+            departure_port: Departure port code
+            arrival_port: Arrival port code
+            departure_date: Date string
+            passengers: Number of passengers
+            results: Search results
+            ttl: Time to live (default 5 minutes)
+
+        Returns:
+            True if cached successfully
+        """
+        if not self.is_available():
+            return False
+
+        try:
+            cache_key = f"ferryhopper:search:{departure_port}:{arrival_port}:{departure_date}:{passengers}"
+            self.redis_client.setex(
+                cache_key,
+                ttl,
+                json.dumps(results, cls=DateTimeEncoder)
+            )
+            logger.info(f"✅ Cached FerryHopper search: {departure_port}->{arrival_port} (TTL: {ttl}s)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error caching FerryHopper search: {str(e)}")
+            return False
+
+    def clear_ferryhopper_cache(self) -> int:
+        """
+        Clear all FerryHopper cached data.
+
+        Returns:
+            Number of keys deleted
+        """
+        if not self.is_available():
+            return 0
+
+        try:
+            keys = list(self.redis_client.scan_iter(match="ferryhopper:*"))
+            if keys:
+                deleted = self.redis_client.delete(*keys)
+                logger.info(f"🗑️ Cleared {deleted} FerryHopper cache entries")
+                return deleted
+            return 0
+
+        except Exception as e:
+            logger.error(f"Error clearing FerryHopper cache: {str(e)}")
+            return 0
+
+    # =========================================================================
+    # Distributed Locking (for preventing concurrent task execution)
+    # =========================================================================
+
+    def acquire_lock(self, lock_key: str, timeout: int = 3600) -> bool:
+        """
+        Acquire a distributed lock using Redis SETNX.
+
+        Args:
+            lock_key: Unique key for the lock
+            timeout: Lock timeout in seconds (auto-release after this time)
+
+        Returns:
+            True if lock acquired, False if already locked
+        """
+        if not self.is_available():
+            # If Redis is down, allow the operation (fail-open)
+            logger.warning(f"Redis unavailable, allowing operation without lock: {lock_key}")
+            return True
+
+        try:
+            full_key = f"lock:{lock_key}"
+            # SETNX + EXPIRE atomically using SET with NX and EX options
+            acquired = self.redis_client.set(
+                full_key,
+                "1",
+                nx=True,  # Only set if not exists
+                ex=timeout  # Expire after timeout seconds
+            )
+
+            if acquired:
+                logger.debug(f"🔒 Lock acquired: {lock_key} (timeout: {timeout}s)")
+                return True
+            else:
+                logger.debug(f"🔒 Lock already held: {lock_key}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error acquiring lock {lock_key}: {str(e)}")
+            # Fail-open: allow operation if Redis fails
+            return True
+
+    def release_lock(self, lock_key: str) -> bool:
+        """
+        Release a distributed lock.
+
+        Args:
+            lock_key: Lock key to release
+
+        Returns:
+            True if lock released successfully
+        """
+        if not self.is_available():
+            return True
+
+        try:
+            full_key = f"lock:{lock_key}"
+            self.redis_client.delete(full_key)
+            logger.debug(f"🔓 Lock released: {lock_key}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error releasing lock {lock_key}: {str(e)}")
+            return False
+
+    def is_locked(self, lock_key: str) -> bool:
+        """
+        Check if a lock is currently held.
+
+        Args:
+            lock_key: Lock key to check
+
+        Returns:
+            True if locked, False otherwise
+        """
+        if not self.is_available():
+            return False
+
+        try:
+            full_key = f"lock:{lock_key}"
+            return self.redis_client.exists(full_key) > 0
+
+        except Exception as e:
+            logger.error(f"Error checking lock {lock_key}: {str(e)}")
+            return False
+
+
 # Singleton instance
 cache_service = CacheService()

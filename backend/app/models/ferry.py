@@ -1,12 +1,108 @@
 """
-Ferry, route, schedule and cabin models.
+Ferry, route, schedule, cabin, and port models.
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, ForeignKey, Enum, Float, JSON, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
 import enum
+
+
+class Port(Base):
+    """
+    Ferry port model.
+
+    Stores port information synced from FerryHopper API.
+    Cached locally for fast lookups and custom metadata.
+    """
+
+    __tablename__ = "ports"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Port identification
+    code = Column(String(20), unique=True, nullable=False, index=True)  # Our internal code (e.g., "TUN", "MRS")
+    ferryhopper_code = Column(String(20), nullable=True, index=True)  # FerryHopper API code
+    name = Column(String(200), nullable=False)
+    name_local = Column(String(200), nullable=True)  # Local language name
+
+    # Location
+    country = Column(String(100), nullable=False)
+    country_code = Column(String(2), nullable=False, index=True)  # ISO 2-letter code (TN, FR, IT)
+    region = Column(String(100), nullable=True)  # e.g., "Sicily", "Corsica"
+    city = Column(String(100), nullable=True)
+
+    # Coordinates
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    timezone = Column(String(50), nullable=True)  # e.g., "Europe/Paris"
+
+    # Port details
+    description = Column(Text, nullable=True)  # Marketing description
+    facilities = Column(JSON, nullable=True)  # ["parking", "restaurant", "wifi", ...]
+    address = Column(Text, nullable=True)
+    phone = Column(String(50), nullable=True)
+    website = Column(String(255), nullable=True)
+
+    # Images
+    image_url = Column(String(500), nullable=True)  # Main port image
+    images = Column(JSON, nullable=True)  # Array of image URLs
+
+    # Connections
+    connected_ports = Column(JSON, nullable=True)  # Direct ferry connections ["GOA", "CIV", ...]
+    operators = Column(JSON, nullable=True)  # Operators serving this port ["GNV", "CTN", ...]
+
+    # FerryHopper specific
+    supports_search_quotes = Column(Boolean, default=True)
+    gates = Column(JSON, nullable=True)  # Gate information from FerryHopper
+
+    # Status
+    is_active = Column(Boolean, default=True)
+    is_featured = Column(Boolean, default=False)  # Featured on homepage
+
+    # Sync metadata
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    sync_source = Column(String(50), default="ferryhopper")  # Data source
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_port_country', 'country_code'),
+        Index('idx_port_active', 'is_active'),
+        Index('idx_port_featured', 'is_featured'),
+    )
+
+    def __repr__(self):
+        return f"<Port(code='{self.code}', name='{self.name}', country='{self.country}')>"
+
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            "code": self.code,
+            "ferryhopper_code": self.ferryhopper_code,
+            "name": self.name,
+            "name_local": self.name_local,
+            "country": self.country,
+            "country_code": self.country_code,
+            "region": self.region,
+            "city": self.city,
+            "coordinates": {
+                "lat": self.latitude,
+                "lng": self.longitude
+            } if self.latitude and self.longitude else None,
+            "timezone": self.timezone,
+            "description": self.description,
+            "facilities": self.facilities,
+            "image_url": self.image_url,
+            "connected_ports": self.connected_ports,
+            "operators": self.operators,
+            "is_active": self.is_active,
+            "is_featured": self.is_featured
+        }
 
 
 class OperatorEnum(enum.Enum):

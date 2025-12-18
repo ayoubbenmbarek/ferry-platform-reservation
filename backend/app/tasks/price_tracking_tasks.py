@@ -696,38 +696,141 @@ def update_fare_calendar_cache_task(self):
 
 @shared_task(
     name="app.tasks.price_tracking_tasks.cleanup_old_price_data",
-    bind=True
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60
 )
 def cleanup_old_price_data_task(self):
     """
     Cleanup old price history data to manage database size.
 
     Keeps last 180 days of data for analysis.
+
+    Uses batched deletes with separate transactions per table to avoid deadlocks.
+    Includes Redis lock to prevent concurrent execution.
     """
-    db = SessionLocal()
+    # Acquire a Redis lock to prevent concurrent cleanup tasks
+    from app.services.cache_service import cache_service
+
+    lock_key = "cleanup_price_data_lock"
+    lock_timeout = 3600  # 1 hour max lock duration
+
+    # Try to acquire lock
+    if not cache_service.acquire_lock(lock_key, timeout=lock_timeout):
+        logger.info("🔒 Cleanup task already running, skipping...")
+        return {"status": "skipped", "reason": "Another cleanup task is already running"}
+
     try:
         logger.info("🧹 Cleaning up old price data...")
 
         cleanup_date = datetime.now(timezone.utc) - timedelta(days=180)
+        batch_size = 1000  # Delete in batches to avoid long-running transactions
 
-        # Delete old price history
-        deleted_history = db.query(PriceHistory).filter(
-            PriceHistory.recorded_at < cleanup_date
-        ).delete()
+        deleted_history = 0
+        deleted_predictions = 0
+        deleted_cache = 0
 
-        # Delete old predictions
-        deleted_predictions = db.query(PricePrediction).filter(
-            PricePrediction.prediction_date < cleanup_date.date()
-        ).delete()
+        # 1. Delete expired cache entries FIRST (most likely to cause deadlocks)
+        # Use separate transaction with batched deletes
+        db = SessionLocal()
+        try:
+            while True:
+                # Select IDs to delete in a batch (avoids row-level locks during scan)
+                expired_ids = db.query(FareCalendarCache.id).filter(
+                    FareCalendarCache.expires_at < datetime.now(timezone.utc)
+                ).limit(batch_size).all()
 
-        # Delete expired cache entries
-        deleted_cache = db.query(FareCalendarCache).filter(
-            FareCalendarCache.expires_at < datetime.now(timezone.utc)
-        ).delete()
+                if not expired_ids:
+                    break
 
-        db.commit()
+                ids_to_delete = [row.id for row in expired_ids]
 
-        logger.info(f"✅ Cleanup complete: {deleted_history} history, {deleted_predictions} predictions, {deleted_cache} cache entries")
+                # Delete by ID (more predictable locking)
+                batch_deleted = db.query(FareCalendarCache).filter(
+                    FareCalendarCache.id.in_(ids_to_delete)
+                ).delete(synchronize_session=False)
+
+                db.commit()
+                deleted_cache += batch_deleted
+
+                if batch_deleted < batch_size:
+                    break
+
+            logger.debug(f"Deleted {deleted_cache} expired cache entries")
+
+        except Exception as e:
+            logger.warning(f"Error cleaning cache entries (will retry): {e}")
+            db.rollback()
+            # Continue with other cleanups, don't fail the whole task
+        finally:
+            db.close()
+
+        # 2. Delete old price history (separate transaction)
+        db = SessionLocal()
+        try:
+            while True:
+                expired_ids = db.query(PriceHistory.id).filter(
+                    PriceHistory.recorded_at < cleanup_date
+                ).limit(batch_size).all()
+
+                if not expired_ids:
+                    break
+
+                ids_to_delete = [row.id for row in expired_ids]
+
+                batch_deleted = db.query(PriceHistory).filter(
+                    PriceHistory.id.in_(ids_to_delete)
+                ).delete(synchronize_session=False)
+
+                db.commit()
+                deleted_history += batch_deleted
+
+                if batch_deleted < batch_size:
+                    break
+
+            logger.debug(f"Deleted {deleted_history} old price history records")
+
+        except Exception as e:
+            logger.warning(f"Error cleaning price history (will retry): {e}")
+            db.rollback()
+        finally:
+            db.close()
+
+        # 3. Delete old predictions (separate transaction)
+        db = SessionLocal()
+        try:
+            while True:
+                expired_ids = db.query(PricePrediction.id).filter(
+                    PricePrediction.prediction_date < cleanup_date.date()
+                ).limit(batch_size).all()
+
+                if not expired_ids:
+                    break
+
+                ids_to_delete = [row.id for row in expired_ids]
+
+                batch_deleted = db.query(PricePrediction).filter(
+                    PricePrediction.id.in_(ids_to_delete)
+                ).delete(synchronize_session=False)
+
+                db.commit()
+                deleted_predictions += batch_deleted
+
+                if batch_deleted < batch_size:
+                    break
+
+            logger.debug(f"Deleted {deleted_predictions} old predictions")
+
+        except Exception as e:
+            logger.warning(f"Error cleaning predictions (will retry): {e}")
+            db.rollback()
+        finally:
+            db.close()
+
+        logger.info(
+            f"✅ Cleanup complete: {deleted_history} history, "
+            f"{deleted_predictions} predictions, {deleted_cache} cache entries"
+        )
 
         return {
             "status": "success",
@@ -736,12 +839,9 @@ def cleanup_old_price_data_task(self):
             "deleted_cache": deleted_cache
         }
 
-    except Exception as e:
-        logger.error(f"Error cleaning up price data: {str(e)}", exc_info=True)
-        db.rollback()
-        raise
     finally:
-        db.close()
+        # Always release the lock
+        cache_service.release_lock(lock_key)
 
 
 def _is_holiday(check_date: date) -> bool:

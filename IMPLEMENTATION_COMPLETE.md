@@ -349,6 +349,7 @@ todo:add marron small bear run when loading the pages:done
 todo:recive email or notification for tasks in dead letter
 todo:add ticket to wallet
 todo:add loading bear on mobile:done
+todo:did we integrate all functionnalities, with ferryhopper, as we use on that for now, like price alert(drop, increase etc), cabin availaibility and all functionnalities that should be interated for it, do we need to add ferry ports to our db?
 
 
 

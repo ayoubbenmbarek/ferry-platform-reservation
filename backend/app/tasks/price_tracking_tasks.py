@@ -4,11 +4,10 @@ Generates mock data with realistic patterns for price predictions and insights.
 """
 import logging
 import random
-import math
 from datetime import datetime, timezone, timedelta, date
 from typing import List, Dict, Any, Optional
 from celery import shared_task
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 
 from app.database import SessionLocal
 from app.models.price_history import (
@@ -359,6 +358,7 @@ def update_route_statistics_task(self):
     Update aggregated route statistics for dashboard insights.
 
     Computes 30-day, 90-day, and all-time statistics for each route.
+    Uses batched queries to avoid N+1 query issues.
     """
     db = SessionLocal()
     try:
@@ -368,22 +368,121 @@ def update_route_statistics_task(self):
         today = now.date()
         routes_updated = 0
 
-        # Pre-fetch all route statistics in ONE query (fixes N+1)
         route_ids = [r["route_id"] for r in TRACKED_ROUTES]
+        route_info = {r["route_id"]: r for r in TRACKED_ROUTES}
+
+        # Pre-fetch all route statistics in ONE query
         existing_stats = db.query(RouteStatistics).filter(
             RouteStatistics.route_id.in_(route_ids)
         ).all()
         stats_by_route = {s.route_id: s for s in existing_stats}
 
-        for route in TRACKED_ROUTES:
-            route_id = route["route_id"]
+        # Batch query: 30-day statistics for all routes
+        thirty_days_ago = today - timedelta(days=30)
+        stats_30d_query = db.query(
+            PriceHistory.route_id,
+            func.avg(PriceHistory.lowest_price).label('avg_price'),
+            func.min(PriceHistory.lowest_price).label('min_price'),
+            func.max(PriceHistory.lowest_price).label('max_price'),
+            func.stddev(PriceHistory.lowest_price).label('stddev_price')
+        ).filter(
+            and_(
+                PriceHistory.route_id.in_(route_ids),
+                PriceHistory.recorded_at >= thirty_days_ago
+            )
+        ).group_by(PriceHistory.route_id).all()
+        stats_30d = {r.route_id: r for r in stats_30d_query}
+
+        # Batch query: 90-day statistics for all routes
+        ninety_days_ago = today - timedelta(days=90)
+        stats_90d_query = db.query(
+            PriceHistory.route_id,
+            func.avg(PriceHistory.lowest_price).label('avg_price'),
+            func.min(PriceHistory.lowest_price).label('min_price'),
+            func.max(PriceHistory.lowest_price).label('max_price')
+        ).filter(
+            and_(
+                PriceHistory.route_id.in_(route_ids),
+                PriceHistory.recorded_at >= ninety_days_ago
+            )
+        ).group_by(PriceHistory.route_id).all()
+        stats_90d = {r.route_id: r for r in stats_90d_query}
+
+        # Batch query: All-time low for all routes (using subquery for min price per route)
+        all_time_low_subq = db.query(
+            PriceHistory.route_id,
+            func.min(PriceHistory.lowest_price).label('min_price')
+        ).filter(
+            PriceHistory.route_id.in_(route_ids)
+        ).group_by(PriceHistory.route_id).subquery()
+
+        all_time_low_query = db.query(
+            PriceHistory.route_id,
+            PriceHistory.lowest_price,
+            PriceHistory.departure_date
+        ).join(
+            all_time_low_subq,
+            and_(
+                PriceHistory.route_id == all_time_low_subq.c.route_id,
+                PriceHistory.lowest_price == all_time_low_subq.c.min_price
+            )
+        ).all()
+        all_time_low = {r.route_id: (r.lowest_price, r.departure_date) for r in all_time_low_query}
+
+        # Batch query: All-time high for all routes
+        all_time_high_subq = db.query(
+            PriceHistory.route_id,
+            func.max(PriceHistory.highest_price).label('max_price')
+        ).filter(
+            PriceHistory.route_id.in_(route_ids)
+        ).group_by(PriceHistory.route_id).subquery()
+
+        all_time_high_query = db.query(
+            PriceHistory.route_id,
+            PriceHistory.highest_price,
+            PriceHistory.departure_date
+        ).join(
+            all_time_high_subq,
+            and_(
+                PriceHistory.route_id == all_time_high_subq.c.route_id,
+                PriceHistory.highest_price == all_time_high_subq.c.max_price
+            )
+        ).all()
+        all_time_high = {r.route_id: (r.highest_price, r.departure_date) for r in all_time_high_query}
+
+        # Batch query: Weekday averages for all routes
+        weekday_avg_query = db.query(
+            PriceHistory.route_id,
+            func.avg(PriceHistory.lowest_price).label('avg_price')
+        ).filter(
+            and_(
+                PriceHistory.route_id.in_(route_ids),
+                PriceHistory.is_weekend == False
+            )
+        ).group_by(PriceHistory.route_id).all()
+        weekday_avg = {r.route_id: r.avg_price for r in weekday_avg_query}
+
+        # Batch query: Weekend averages for all routes
+        weekend_avg_query = db.query(
+            PriceHistory.route_id,
+            func.avg(PriceHistory.lowest_price).label('avg_price')
+        ).filter(
+            and_(
+                PriceHistory.route_id.in_(route_ids),
+                PriceHistory.is_weekend == True
+            )
+        ).group_by(PriceHistory.route_id).all()
+        weekend_avg = {r.route_id: r.avg_price for r in weekend_avg_query}
+
+        # Now update all route statistics using pre-fetched data
+        for route_id in route_ids:
+            route = route_info[route_id]
             departure_port = route["departure_port"]
             arrival_port = route["arrival_port"]
 
             try:
-                # Get or create route statistics (using pre-fetched data)
+                # Get or create route statistics
                 stats = stats_by_route.get(route_id)
-
                 if not stats:
                     stats = RouteStatistics(
                         route_id=route_id,
@@ -391,90 +490,38 @@ def update_route_statistics_task(self):
                         arrival_port=arrival_port,
                     )
                     db.add(stats)
+                    stats_by_route[route_id] = stats
 
-                # Calculate 30-day statistics
-                thirty_days_ago = today - timedelta(days=30)
-                prices_30d = db.query(PriceHistory.lowest_price).filter(
-                    and_(
-                        PriceHistory.route_id == route_id,
-                        PriceHistory.recorded_at >= thirty_days_ago
-                    )
-                ).all()
+                # Apply 30-day statistics
+                if route_id in stats_30d:
+                    s = stats_30d[route_id]
+                    stats.avg_price_30d = round(s.avg_price, 2) if s.avg_price else None
+                    stats.min_price_30d = s.min_price
+                    stats.max_price_30d = s.max_price
+                    stats.price_volatility_30d = round(s.stddev_price, 2) if s.stddev_price else None
 
-                if prices_30d:
-                    prices = [p[0] for p in prices_30d if p[0]]
-                    if prices:
-                        stats.avg_price_30d = round(sum(prices) / len(prices), 2)
-                        stats.min_price_30d = min(prices)
-                        stats.max_price_30d = max(prices)
-                        # Standard deviation for volatility
-                        mean = stats.avg_price_30d
-                        variance = sum((p - mean) ** 2 for p in prices) / len(prices)
-                        stats.price_volatility_30d = round(math.sqrt(variance), 2)
+                # Apply 90-day statistics
+                if route_id in stats_90d:
+                    s = stats_90d[route_id]
+                    stats.avg_price_90d = round(s.avg_price, 2) if s.avg_price else None
+                    stats.min_price_90d = s.min_price
+                    stats.max_price_90d = s.max_price
 
-                # Calculate 90-day statistics
-                ninety_days_ago = today - timedelta(days=90)
-                prices_90d = db.query(PriceHistory.lowest_price).filter(
-                    and_(
-                        PriceHistory.route_id == route_id,
-                        PriceHistory.recorded_at >= ninety_days_ago
-                    )
-                ).all()
+                # Apply all-time low/high
+                if route_id in all_time_low:
+                    stats.all_time_low = all_time_low[route_id][0]
+                    stats.all_time_low_date = all_time_low[route_id][1]
 
-                if prices_90d:
-                    prices = [p[0] for p in prices_90d if p[0]]
-                    if prices:
-                        stats.avg_price_90d = round(sum(prices) / len(prices), 2)
-                        stats.min_price_90d = min(prices)
-                        stats.max_price_90d = max(prices)
+                if route_id in all_time_high:
+                    stats.all_time_high = all_time_high[route_id][0]
+                    stats.all_time_high_date = all_time_high[route_id][1]
 
-                # All-time low/high
-                all_time = db.query(
-                    PriceHistory.lowest_price,
-                    PriceHistory.departure_date
-                ).filter(
-                    PriceHistory.route_id == route_id
-                ).order_by(PriceHistory.lowest_price.asc()).first()
+                # Apply day of week averages
+                if route_id in weekday_avg:
+                    stats.weekday_avg_price = round(weekday_avg[route_id], 2) if weekday_avg[route_id] else None
 
-                if all_time:
-                    stats.all_time_low = all_time[0]
-                    stats.all_time_low_date = all_time[1]
-
-                all_time_high = db.query(
-                    PriceHistory.highest_price,
-                    PriceHistory.departure_date
-                ).filter(
-                    PriceHistory.route_id == route_id
-                ).order_by(PriceHistory.highest_price.desc()).first()
-
-                if all_time_high:
-                    stats.all_time_high = all_time_high[0]
-                    stats.all_time_high_date = all_time_high[1]
-
-                # Day of week averages
-                weekday_prices = db.query(PriceHistory.lowest_price).filter(
-                    and_(
-                        PriceHistory.route_id == route_id,
-                        PriceHistory.is_weekend == False
-                    )
-                ).all()
-
-                weekend_prices = db.query(PriceHistory.lowest_price).filter(
-                    and_(
-                        PriceHistory.route_id == route_id,
-                        PriceHistory.is_weekend == True
-                    )
-                ).all()
-
-                if weekday_prices:
-                    prices = [p[0] for p in weekday_prices if p[0]]
-                    if prices:
-                        stats.weekday_avg_price = round(sum(prices) / len(prices), 2)
-
-                if weekend_prices:
-                    prices = [p[0] for p in weekend_prices if p[0]]
-                    if prices:
-                        stats.weekend_avg_price = round(sum(prices) / len(prices), 2)
+                if route_id in weekend_avg:
+                    stats.weekend_avg_price = round(weekend_avg[route_id], 2) if weekend_avg[route_id] else None
 
                 # Best booking window (mock data for now)
                 stats.best_booking_window_start = 21

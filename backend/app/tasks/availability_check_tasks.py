@@ -341,11 +341,11 @@ def _send_availability_notification(alert: AvailabilityAlert, db):
                     logger.error(f"Failed to send push notification for alert {alert.id}: {e}")
                     # Continue with email even if push fails
         # Build complete search URL with all parameters
-        # Use FRONTEND_URL env var, or BASE_URL, or default to localhost with HTTPS
-        base_url = os.getenv('FRONTEND_URL', os.getenv('BASE_URL', 'https://localhost:3001'))
+        # Use FRONTEND_URL env var, or BASE_URL, or default to localhost
+        base_url = os.getenv('FRONTEND_URL', os.getenv('BASE_URL', 'http://localhost:3001'))
 
-        # Ensure HTTPS scheme for all URLs
-        if base_url.startswith('http://'):
+        # Only force HTTPS for production URLs (not localhost)
+        if base_url.startswith('http://') and 'localhost' not in base_url and '127.0.0.1' not in base_url:
             base_url = base_url.replace('http://', 'https://')
 
         # Build URL parameters

@@ -4,7 +4,7 @@ Database models for the maritime reservation platform.
 
 from .user import User
 from .booking import Booking, BookingPassenger, BookingVehicle
-from .ferry import Ferry, Route, Schedule, Cabin, CabinTypeEnum, BedTypeEnum
+from .ferry import Ferry, Route, Schedule, Cabin, Port, CabinTypeEnum, BedTypeEnum, OperatorEnum, VehicleTypeEnum
 from .payment import Payment, PaymentMethod
 from .meal import Meal, BookingMeal, MealTypeEnum, DietaryTypeEnum, JourneyTypeEnum
 from .promo_code import PromoCode, PromoCodeUsage, PromoCodeTypeEnum
@@ -30,8 +30,11 @@ __all__ = [
     "Route",
     "Schedule",
     "Cabin",
+    "Port",
     "CabinTypeEnum",
     "BedTypeEnum",
+    "OperatorEnum",
+    "VehicleTypeEnum",
     "Payment",
     "PaymentMethod",
     "Meal",

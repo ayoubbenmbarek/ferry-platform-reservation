@@ -17,11 +17,11 @@ def populate_cabins():
     db = SessionLocal()
 
     cabins = [
-        # Seats (cheapest)
+        # Deck passage / Seats (cheapest)
         Cabin(
             name="Aircraft-Style Reclining Seat",
             description="Comfortable reclining seat in the main lounge area. Perfect for short crossings.",
-            cabin_type=CabinTypeEnum.SEAT,
+            cabin_type=CabinTypeEnum.DECK,
             bed_type=BedTypeEnum.SINGLE,
             max_occupancy=1,
             has_private_bathroom=False,
@@ -35,11 +35,11 @@ def populate_cabins():
             is_available=True,
         ),
 
-        # Inside Cabins
+        # Interior Cabins (no window)
         Cabin(
-            name="Standard Inside Cabin - Twin Beds",
-            description="Cozy inside cabin with two single beds. Ideal for budget-conscious travelers.",
-            cabin_type=CabinTypeEnum.INSIDE,
+            name="Standard Interior Cabin - Twin Beds",
+            description="Cozy interior cabin with two single beds. Ideal for budget-conscious travelers.",
+            cabin_type=CabinTypeEnum.INTERIOR,
             bed_type=BedTypeEnum.TWIN,
             max_occupancy=2,
             has_private_bathroom=True,
@@ -53,9 +53,9 @@ def populate_cabins():
             is_available=True,
         ),
         Cabin(
-            name="Standard Inside Cabin - Double Bed",
-            description="Comfortable inside cabin with a double bed.",
-            cabin_type=CabinTypeEnum.INSIDE,
+            name="Standard Interior Cabin - Double Bed",
+            description="Comfortable interior cabin with a double bed.",
+            cabin_type=CabinTypeEnum.INTERIOR,
             bed_type=BedTypeEnum.DOUBLE,
             max_occupancy=2,
             has_private_bathroom=True,
@@ -69,9 +69,9 @@ def populate_cabins():
             is_available=True,
         ),
         Cabin(
-            name="Family Inside Cabin",
+            name="Family Interior Cabin",
             description="Spacious cabin with bunk beds, perfect for families.",
-            cabin_type=CabinTypeEnum.INSIDE,
+            cabin_type=CabinTypeEnum.INTERIOR,
             bed_type=BedTypeEnum.BUNK,
             max_occupancy=4,
             has_private_bathroom=True,
@@ -85,11 +85,11 @@ def populate_cabins():
             is_available=True,
         ),
 
-        # Outside Cabins (with window)
+        # Exterior Cabins (with window)
         Cabin(
-            name="Outside Cabin - Sea View",
+            name="Exterior Cabin - Sea View",
             description="Cabin with window offering beautiful sea views. Twin beds configuration.",
-            cabin_type=CabinTypeEnum.OUTSIDE,
+            cabin_type=CabinTypeEnum.EXTERIOR,
             bed_type=BedTypeEnum.TWIN,
             max_occupancy=2,
             has_private_bathroom=True,
@@ -103,9 +103,9 @@ def populate_cabins():
             is_available=True,
         ),
         Cabin(
-            name="Deluxe Outside Cabin",
+            name="Deluxe Exterior Cabin",
             description="Premium cabin with large window and double bed.",
-            cabin_type=CabinTypeEnum.OUTSIDE,
+            cabin_type=CabinTypeEnum.EXTERIOR,
             bed_type=BedTypeEnum.DOUBLE,
             max_occupancy=2,
             has_private_bathroom=True,

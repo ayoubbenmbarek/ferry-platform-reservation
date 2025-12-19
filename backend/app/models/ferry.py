@@ -106,24 +106,45 @@ class Port(Base):
 
 
 class OperatorEnum(enum.Enum):
-    """Ferry operators enum."""
+    """
+    Ferry operators enum.
+
+    Includes direct operator integrations and FerryHopper as an aggregator.
+    For FerryHopper results, the actual carrier name is stored in operator_name field.
+    """
+    # Direct integrations
     CTN = "ctn"
     GNV = "gnv"
     CORSICA = "corsica"
     DANEL = "danel"
+    # Aggregator
+    FERRYHOPPER = "ferryhopper"
 
 
 class CabinTypeEnum(enum.Enum):
-    """Cabin types enum."""
-    SEAT = "SEAT"  # Reclining seat
-    INSIDE = "INSIDE"  # Inside cabin (no window)
-    OUTSIDE = "OUTSIDE"  # Outside cabin (with window)
-    BALCONY = "BALCONY"  # Cabin with private balcony
-    SUITE = "SUITE"  # Suite accommodation
-    # Legacy values for backward compatibility
-    INTERIOR = "INTERIOR"
-    EXTERIOR = "EXTERIOR"
-    DECK = "DECK"
+    """
+    Cabin types enum.
+
+    Values aligned with FerryHopper accommodation mapping:
+    - deck: Deck passage, seats, reclining seats
+    - interior: Inside cabins without window
+    - exterior: Outside cabins with window/porthole
+    - balcony: Cabins with private balcony
+    - suite: Luxury suites and VIP accommodations
+
+    Legacy values (SEAT, INSIDE, OUTSIDE) are kept for backward compatibility.
+    """
+    # New normalized values (lowercase, FerryHopper compatible)
+    DECK = "deck"  # Deck passage, seats, economy
+    INTERIOR = "interior"  # Inside cabin (no window)
+    EXTERIOR = "exterior"  # Outside cabin (with window)
+    BALCONY = "balcony"  # Cabin with private balcony
+    SUITE = "suite"  # Suite/luxury accommodation
+
+    # Legacy values for backward compatibility with existing database records
+    SEAT = "SEAT"  # Legacy: maps to DECK
+    INSIDE = "INSIDE"  # Legacy: maps to INTERIOR
+    OUTSIDE = "OUTSIDE"  # Legacy: maps to EXTERIOR
 
 
 class BedTypeEnum(enum.Enum):
@@ -144,68 +165,139 @@ class VehicleTypeEnum(enum.Enum):
 
 
 class Ferry(Base):
-    """Ferry vessel model."""
-    
+    """
+    Ferry vessel model.
+
+    Supports both direct operator integrations and FerryHopper-sourced vessels.
+    """
+
     __tablename__ = "ferries"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     operator = Column(Enum(OperatorEnum), nullable=False)
     operator_vessel_id = Column(String(50), nullable=False)  # Operator's internal ID
-    
+
+    # FerryHopper integration
+    operator_name = Column(String(100), nullable=True)  # Actual operator/carrier name from FerryHopper (e.g., "ANEK LINES")
+    ferryhopper_vessel_id = Column(String(50), nullable=True)  # FerryHopper vessel ID
+
     # Vessel specifications
     capacity_passengers = Column(Integer, nullable=False)
     capacity_vehicles = Column(Integer, nullable=False)
     length_meters = Column(Numeric(8, 2), nullable=True)
-    
+    gross_tonnage = Column(Integer, nullable=True)  # Gross tonnage
+    year_built = Column(Integer, nullable=True)  # Year the vessel was built
+
+    # Vessel details
+    flag = Column(String(50), nullable=True)  # Flag state (e.g., "Greece")
+    imo_number = Column(String(20), nullable=True)  # IMO number for vessel identification
+
+    # Amenities
+    amenities = Column(JSON, nullable=True)  # ["restaurant", "bar", "pool", "wifi", ...]
+
     # Status
     is_active = Column(Boolean, default=True)
-    
+
+    # Sync metadata
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    sync_source = Column(String(50), default="manual")  # "manual", "ferryhopper", etc.
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     schedules = relationship("Schedule", back_populates="ferry")
     cabins = relationship("Cabin", back_populates="ferry")
-    
+
     def __repr__(self):
         return f"<Ferry(id={self.id}, name='{self.name}', operator='{self.operator.value}')>"
 
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "operator": self.operator.value if self.operator else None,
+            "operator_name": self.operator_name,
+            "capacity_passengers": self.capacity_passengers,
+            "capacity_vehicles": self.capacity_vehicles,
+            "length_meters": float(self.length_meters) if self.length_meters else None,
+            "gross_tonnage": self.gross_tonnage,
+            "year_built": self.year_built,
+            "flag": self.flag,
+            "amenities": self.amenities,
+            "is_active": self.is_active,
+        }
+
 
 class Route(Base):
-    """Ferry route model."""
-    
+    """
+    Ferry route model.
+
+    Stores route information from direct integrations and FerryHopper.
+    Routes from FerryHopper are discovered through port connections.
+    """
+
     __tablename__ = "routes"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    departure_port = Column(String(50), nullable=False)
-    arrival_port = Column(String(50), nullable=False)
+    departure_port = Column(String(50), nullable=False, index=True)
+    arrival_port = Column(String(50), nullable=False, index=True)
     operator = Column(Enum(OperatorEnum), nullable=False)
-    
+
+    # FerryHopper integration
+    operator_name = Column(String(100), nullable=True)  # Actual operator name for FerryHopper routes
+    route_id = Column(String(100), nullable=True, index=True)  # Unique route identifier (e.g., "tun_mrs")
+
     # Route details
     distance_nautical_miles = Column(Numeric(8, 2), nullable=True)
     estimated_duration_hours = Column(Numeric(4, 2), nullable=False)
-    
-    # Pricing
-    base_price_adult = Column(Numeric(10, 2), nullable=False)
-    base_price_child = Column(Numeric(10, 2), nullable=False)
+    estimated_duration_minutes = Column(Integer, nullable=True)  # More precise duration
+
+    # Pricing (base prices, actual prices come from search)
+    base_price_adult = Column(Numeric(10, 2), nullable=True)  # Made nullable for FerryHopper routes
+    base_price_child = Column(Numeric(10, 2), nullable=True)
     base_price_infant = Column(Numeric(10, 2), default=0.00)
-    base_price_vehicle = Column(Numeric(10, 2), nullable=False)
-    
+    base_price_vehicle = Column(Numeric(10, 2), nullable=True)
+
     # Status
     is_active = Column(Boolean, default=True)
     seasonal_route = Column(Boolean, default=False)
-    
+
+    # Sync metadata
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    sync_source = Column(String(50), default="manual")  # "manual", "ferryhopper", etc.
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     schedules = relationship("Schedule", back_populates="route")
-    
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_route_ports', 'departure_port', 'arrival_port'),
+    )
+
     def __repr__(self):
         return f"<Route(id={self.id}, {self.departure_port}->{self.arrival_port})>"
+
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "departure_port": self.departure_port,
+            "arrival_port": self.arrival_port,
+            "operator": self.operator.value if self.operator else None,
+            "operator_name": self.operator_name,
+            "distance_nautical_miles": float(self.distance_nautical_miles) if self.distance_nautical_miles else None,
+            "estimated_duration_hours": float(self.estimated_duration_hours) if self.estimated_duration_hours else None,
+            "is_active": self.is_active,
+            "seasonal_route": self.seasonal_route,
+        }
 
 
 class Schedule(Base):
@@ -253,7 +345,12 @@ class Schedule(Base):
 
 
 class Cabin(Base):
-    """Cabin model for ferry accommodations."""
+    """
+    Cabin model for ferry accommodations.
+
+    Supports both legacy operator data and FerryHopper-synced accommodations.
+    FerryHopper accommodation types are mapped to VoilaFerry cabin types.
+    """
 
     __tablename__ = "cabins"
     __table_args__ = {'extend_existing': True}
@@ -266,6 +363,11 @@ class Cabin(Base):
     description = Column(Text, nullable=True)
     cabin_number = Column(String(20), nullable=True)
     cabin_type = Column(Enum(CabinTypeEnum), nullable=False)
+
+    # FerryHopper integration
+    ferryhopper_code = Column(String(50), nullable=True, index=True)  # FerryHopper accommodation type code (e.g., "SEAT_NOTNUMBERED")
+    ferryhopper_name = Column(String(200), nullable=True)  # Original FerryHopper name
+    ferryhopper_category = Column(String(50), nullable=True)  # FerryHopper category if any
 
     # Bed configuration
     bed_type = Column(Enum(BedTypeEnum), nullable=False, default=BedTypeEnum.TWIN)
@@ -281,6 +383,7 @@ class Cabin(Base):
     has_minibar = Column(Boolean, default=False)
     has_wifi = Column(Boolean, default=False)
     is_accessible = Column(Boolean, default=False)  # Wheelchair accessible
+    allows_pets = Column(Boolean, default=False)  # Pet-friendly cabin
 
     # Pricing
     base_price = Column(Numeric(10, 2), nullable=False, default=0.00)  # Base price per crossing
@@ -294,6 +397,10 @@ class Cabin(Base):
     # Operator reference (for generic cabins not tied to specific ferry)
     operator = Column(String(50), nullable=True)
 
+    # Sync metadata
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    sync_source = Column(String(50), default="manual")  # "manual", "ferryhopper", etc.
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -302,4 +409,31 @@ class Cabin(Base):
     ferry = relationship("Ferry", back_populates="cabins")
 
     def __repr__(self):
-        return f"<Cabin(id={self.id}, type={self.cabin_type.value}, name='{self.name}')>" 
+        return f"<Cabin(id={self.id}, type={self.cabin_type.value}, name='{self.name}')>"
+
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "cabin_type": self.cabin_type.value if self.cabin_type else None,
+            "ferryhopper_code": self.ferryhopper_code,
+            "max_occupancy": self.max_occupancy,
+            "bed_type": self.bed_type.value if self.bed_type else None,
+            "amenities": {
+                "private_bathroom": self.has_private_bathroom,
+                "window": self.has_window,
+                "balcony": self.has_balcony,
+                "air_conditioning": self.has_air_conditioning,
+                "tv": self.has_tv,
+                "minibar": self.has_minibar,
+                "wifi": self.has_wifi,
+                "accessible": self.is_accessible,
+                "allows_pets": self.allows_pets,
+            },
+            "base_price": float(self.base_price) if self.base_price else 0.0,
+            "currency": self.currency,
+            "is_available": self.is_available,
+            "operator": self.operator,
+        } 

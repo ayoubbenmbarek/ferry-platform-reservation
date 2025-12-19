@@ -12,7 +12,7 @@ class CabinBase(BaseModel):
     """Base cabin schema."""
     name: str
     description: Optional[str] = None
-    cabin_type: str  # SEAT, INSIDE, OUTSIDE, BALCONY, SUITE
+    cabin_type: str  # deck, interior, exterior, balcony, suite
     bed_type: str  # SINGLE, DOUBLE, TWIN, BUNK, PULLMAN
     max_occupancy: int = 2
     has_private_bathroom: bool = True

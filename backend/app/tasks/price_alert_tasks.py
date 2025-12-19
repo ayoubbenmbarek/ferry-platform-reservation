@@ -346,8 +346,9 @@ def _send_price_alert_notification(
                 logger.error(f"Failed to send push notification for price alert {alert.id}: {e}")
 
         # Build search URL
-        base_url = os.getenv('FRONTEND_URL', os.getenv('BASE_URL', 'https://localhost:3001'))
-        if base_url.startswith('http://'):
+        base_url = os.getenv('FRONTEND_URL', os.getenv('BASE_URL', 'http://localhost:3001'))
+        # Only force HTTPS for production URLs (not localhost)
+        if base_url.startswith('http://') and 'localhost' not in base_url and '127.0.0.1' not in base_url:
             base_url = base_url.replace('http://', 'https://')
 
         url_params = [

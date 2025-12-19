@@ -155,8 +155,8 @@ def sample_user(db_session: Session) -> User:
 def sample_cabin(db_session: Session) -> Cabin:
     """Create a sample cabin for testing."""
     cabin = Cabin(
-        name="Inside Twin",
-        cabin_type=CabinTypeEnum.INSIDE,
+        name="Interior Twin",
+        cabin_type=CabinTypeEnum.INTERIOR,
         bed_type=BedTypeEnum.TWIN,
         max_occupancy=2,
         base_price=Decimal("50.00"),

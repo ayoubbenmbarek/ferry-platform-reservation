@@ -411,9 +411,10 @@ const NewSearchPage: React.FC = () => {
 
   // Redirect to homepage if no valid search params (e.g., on page reload)
   React.useEffect(() => {
-    // Check for URL params first (from email links)
+    // Check for URL params first (from email links or saved routes)
     const urlParams = new URLSearchParams(location.search);
-    const hasUrlParams = urlParams.get('from') && urlParams.get('to') && urlParams.get('date');
+    // Allow partial URL params (from saved routes without date)
+    const hasUrlParams = urlParams.get('from') && urlParams.get('to');
 
     if (!hasValidSearchParams && !hasUrlParams) {
       navigate('/');
@@ -484,7 +485,7 @@ const NewSearchPage: React.FC = () => {
     }
   }, [wsConnected, currentRoute]);
 
-  // Handle URL query parameters (from email notification links)
+  // Handle URL query parameters (from email notification links or saved routes)
   useEffect(() => {
     if (urlParamsProcessed) return;
 
@@ -494,6 +495,33 @@ const NewSearchPage: React.FC = () => {
     const dateUrl = urlParams.get('date');
 
     console.log('🔗 Checking URL params:', { from: fromUrl, to: toUrl, date: dateUrl, search: location.search });
+
+    // Handle case where we have from and to, but no date (from saved routes without date)
+    if (fromUrl && toUrl && !dateUrl) {
+      console.log('📍 URL params found without date - pre-filling route and opening editor');
+      setUrlParamsProcessed(true);
+
+      // Build partial search params with just the route
+      const urlSearchParams: SearchParams = {
+        departurePort: fromUrl.toUpperCase(),
+        arrivalPort: toUrl.toUpperCase(),
+        departureDate: '', // No date - user needs to select
+        passengers: {
+          adults: parseInt(urlParams.get('adults') || '1'),
+          children: parseInt(urlParams.get('children') || '0'),
+          infants: parseInt(urlParams.get('infants') || '0'),
+        },
+        vehicles: [],
+      };
+
+      // Set search params in Redux store
+      dispatch(setSearchParams(urlSearchParams));
+
+      // Open route editing mode so user can select a date
+      setIsEditingRoute(true);
+
+      return;
+    }
 
     if (fromUrl && toUrl && dateUrl) {
       console.log('✅ URL params found from email link, auto-searching...');

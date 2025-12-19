@@ -16,7 +16,7 @@ import statistics
 from celery import shared_task
 
 from app.database import SessionLocal
-from app.models.ferry import Port
+from app.models.ferry import Port, Cabin, CabinTypeEnum, BedTypeEnum
 from app.models.price_history import (
     PriceHistory,
     RouteStatistics,
@@ -146,6 +146,164 @@ def sync_ports_from_ferryhopper_task(self, language: str = "en"):
 
     except Exception as e:
         logger.error(f"Error syncing ports: {e}", exc_info=True)
+        db.rollback()
+        raise self.retry(exc=e)
+    finally:
+        db.close()
+
+
+# =============================================================================
+# Accommodation Synchronization Task
+# =============================================================================
+
+@shared_task(
+    name="app.tasks.ferryhopper_sync_tasks.sync_accommodations_from_ferryhopper",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=300
+)
+def sync_accommodations_from_ferryhopper_task(self, language: str = "en"):
+    """
+    Sync accommodation types from FerryHopper API to local database.
+
+    Runs daily to keep accommodation catalog fresh.
+    Creates cabin records for each FerryHopper accommodation type.
+    """
+    import asyncio
+    from app.services.ferry_integrations.ferryhopper_mappings import map_ferryhopper_cabin_type
+
+    logger.info("🛏️ Starting accommodation sync from FerryHopper...")
+
+    async def _fetch_accommodations():
+        from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+
+        integration = FerryHopperIntegration(
+            api_key=settings.FERRYHOPPER_API_KEY,
+            base_url=settings.FERRYHOPPER_BASE_URL
+        )
+
+        async with integration:
+            accommodations = await integration.get_accommodations()
+            logger.info(f"🛏️ Fetched {len(accommodations)} accommodations from FerryHopper")
+            return accommodations
+
+    try:
+        # Run async fetch
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        try:
+            ferryhopper_accommodations = loop.run_until_complete(_fetch_accommodations())
+        finally:
+            if loop.is_running():
+                pass  # Don't close if running
+            else:
+                pass  # Keep loop for potential reuse
+    except Exception as e:
+        logger.error(f"Failed to fetch accommodations: {e}")
+        raise self.retry(exc=e)
+
+    if not ferryhopper_accommodations:
+        logger.warning("No accommodations returned from FerryHopper API")
+        return {"status": "warning", "message": "No accommodations returned"}
+
+    db = SessionLocal()
+    created_count = 0
+    updated_count = 0
+
+    try:
+        for fh_acc in ferryhopper_accommodations:
+            acc_code = fh_acc.get("code", "")
+            if not acc_code:
+                continue
+
+            # Map to VoilaFerry cabin type
+            vf_type = map_ferryhopper_cabin_type(acc_code)
+            cabin_type_enum = CabinTypeEnum(vf_type)
+
+            # Determine amenities based on accommodation type
+            has_window = "WINDOW" in acc_code or "OUTSIDE" in acc_code or "EXTERIOR" in acc_code or "SEA_VIEW" in acc_code
+            has_balcony = "BALCONY" in acc_code
+            allows_pets = "PET" in acc_code
+            has_bathroom = "CABIN" in acc_code or "SUITE" in acc_code
+
+            # Determine bed type and occupancy based on accommodation type
+            bed_type = BedTypeEnum.SINGLE
+            max_occupancy = 1
+
+            if "2_BED" in acc_code:
+                bed_type = BedTypeEnum.TWIN
+                max_occupancy = 2
+            elif "4_BED" in acc_code:
+                bed_type = BedTypeEnum.BUNK
+                max_occupancy = 4
+            elif "6_BED" in acc_code:
+                bed_type = BedTypeEnum.BUNK
+                max_occupancy = 6
+            elif "DORM" in acc_code:
+                bed_type = BedTypeEnum.BUNK
+                max_occupancy = 6
+            elif "CABIN" in acc_code or "SUITE" in acc_code:
+                bed_type = BedTypeEnum.TWIN
+                max_occupancy = 2
+            elif "SEAT" in acc_code or "DECK" in acc_code:
+                bed_type = BedTypeEnum.SINGLE
+                max_occupancy = 1
+
+            # Check if accommodation exists
+            existing_cabin = db.query(Cabin).filter(
+                Cabin.ferryhopper_code == acc_code
+            ).first()
+
+            cabin_data = {
+                "ferryhopper_code": acc_code,
+                "ferryhopper_name": fh_acc.get("name", acc_code),
+                "ferryhopper_category": fh_acc.get("category"),
+                "name": fh_acc.get("name", acc_code),
+                "description": fh_acc.get("description"),
+                "cabin_type": cabin_type_enum,
+                "bed_type": bed_type,
+                "max_occupancy": max_occupancy,
+                "has_window": has_window,
+                "has_balcony": has_balcony,
+                "has_private_bathroom": has_bathroom,
+                "allows_pets": allows_pets,
+                "is_active": True,
+                "is_available": True,
+                "last_synced_at": datetime.now(timezone.utc),
+                "sync_source": "ferryhopper",
+            }
+
+            if existing_cabin:
+                # Update existing cabin
+                for key, value in cabin_data.items():
+                    if value is not None:
+                        setattr(existing_cabin, key, value)
+                updated_count += 1
+            else:
+                # Create new cabin
+                new_cabin = Cabin(
+                    operator="ferryhopper",
+                    **cabin_data
+                )
+                db.add(new_cabin)
+                created_count += 1
+
+        db.commit()
+        logger.info(f"✅ Accommodation sync complete: {created_count} created, {updated_count} updated")
+
+        return {
+            "status": "success",
+            "created": created_count,
+            "updated": updated_count,
+            "total": len(ferryhopper_accommodations)
+        }
+
+    except Exception as e:
+        logger.error(f"Error syncing accommodations: {e}", exc_info=True)
         db.rollback()
         raise self.retry(exc=e)
     finally:
@@ -685,9 +843,10 @@ def daily_ferryhopper_sync_task(self):
 
     Runs all sync tasks in sequence:
     1. Sync ports
-    2. Record price history
-    3. Aggregate route statistics
-    4. Pre-compute fare calendars
+    2. Sync accommodations
+    3. Record price history
+    4. Aggregate route statistics
+    5. Pre-compute fare calendars
     """
     logger.info("🔄 Starting daily FerryHopper sync...")
 
@@ -700,7 +859,14 @@ def daily_ferryhopper_sync_task(self):
         logger.error(f"Port sync failed: {e}")
         results["ports"] = {"status": "error", "message": str(e)}
 
-    # 2. Record price history
+    # 2. Sync accommodations
+    try:
+        results["accommodations"] = sync_accommodations_from_ferryhopper_task()
+    except Exception as e:
+        logger.error(f"Accommodation sync failed: {e}")
+        results["accommodations"] = {"status": "error", "message": str(e)}
+
+    # 3. Record price history
     try:
         results["price_history"] = record_price_history_task()
     except Exception as e:

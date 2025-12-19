@@ -19,6 +19,13 @@ def setup_logging() -> None:
         level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
     )
 
+    # Reduce verbose logging from httpx and httpcore
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+    logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
+    logging.getLogger("hpack").setLevel(logging.WARNING)
+
     # Pre-chain processors
     shared_processors = [
         structlog.contextvars.merge_contextvars,

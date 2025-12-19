@@ -84,7 +84,17 @@ export default function SavedRoutesPage() {
   };
 
   const handleSearch = (route: PriceAlert) => {
-    navigate(`/search?from=${route.departure_port}&to=${route.arrival_port}`);
+    const params = new URLSearchParams({
+      from: route.departure_port,
+      to: route.arrival_port,
+    });
+
+    // Add the date from the alert if set
+    if (route.date_from) {
+      params.set('date', route.date_from);
+    }
+
+    navigate(`/search?${params.toString()}`);
   };
 
   const formatPortName = (port: string) => {
@@ -247,8 +257,19 @@ export default function SavedRoutesPage() {
                         </div>
                       )}
 
-                      {/* Settings */}
+                      {/* Travel Date & Settings */}
                       <div className="flex flex-wrap gap-2 mt-2">
+                        {route.date_from && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-maritime-100 text-maritime-700 rounded font-medium">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {format(parseISO(route.date_from), 'MMM d, yyyy')}
+                            {route.date_to && route.date_to !== route.date_from && (
+                              <> - {format(parseISO(route.date_to), 'MMM d, yyyy')}</>
+                            )}
+                          </span>
+                        )}
                         {route.notify_on_drop && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -259,7 +280,7 @@ export default function SavedRoutesPage() {
                         )}
                         {route.target_price && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded">
-                            Target: {route.target_price}
+                            Target: €{route.target_price}
                           </span>
                         )}
                       </div>

@@ -22,7 +22,6 @@ import AvailabilityAlertButton from '../components/AvailabilityAlertButton';
 import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import SaveRouteButton from '../components/SaveRouteButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
-import RunningBear from '../components/UI/RunningBear';
 import FerryResultSkeleton from '../components/UI/FerryResultSkeleton';
 import DatePickerInput from '../components/DatePickerInput';
 

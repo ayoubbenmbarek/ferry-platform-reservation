@@ -6,6 +6,7 @@ Documentation: https://ferryhapi.uat.ferryhopper.com/documentation/
 
 import logging
 import asyncio
+import hashlib
 from typing import List, Dict, Optional, Any
 from datetime import datetime, date, timedelta
 from decimal import Decimal
@@ -215,6 +216,8 @@ class FerryHopperIntegration(BaseFerryIntegration):
         data = result.to_dict()
         if hasattr(result, 'route_info'):
             data['route_info'] = result.route_info
+        if hasattr(result, 'booking_solution'):
+            data['booking_solution'] = result.booking_solution
         return data
 
     def _reconstruct_ferry_result(self, data: Dict) -> Optional[FerryResult]:
@@ -237,6 +240,8 @@ class FerryHopperIntegration(BaseFerryIntegration):
             )
             if 'route_info' in data:
                 result.route_info = data['route_info']
+            if 'booking_solution' in data:
+                result.booking_solution = data['booking_solution']
             return result
         except Exception as e:
             logger.error(f"Error reconstructing FerryResult from cache: {e}")
@@ -251,7 +256,12 @@ class FerryHopperIntegration(BaseFerryIntegration):
         2. POST /booking/confirm - Confirms and charges
 
         Args:
-            booking_request: Booking details
+            booking_request: Booking details including:
+                - sailing_id: FerryHopper sailing ID from search
+                - passengers: List of passenger details
+                - cabin_selection: Selected accommodation (optional)
+                - vehicles: List of vehicles (optional)
+                - contact_info: Contact details
 
         Returns:
             BookingConfirmation with booking reference
@@ -259,21 +269,29 @@ class FerryHopperIntegration(BaseFerryIntegration):
         try:
             logger.info(f"FerryHopper booking for sailing: {booking_request.sailing_id}")
 
-            # Parse sailing_id to extract trip details
-            # Format: FH_{solution_id}_{segment_index}
-            sailing_parts = booking_request.sailing_id.split("_")
-            if len(sailing_parts) < 2:
-                raise FerryAPIError(f"Invalid sailing ID format: {booking_request.sailing_id}")
+            # Retrieve cached solution data
+            solution_data = cache_service.get(f"fh_solution:{booking_request.sailing_id}")
 
-            # Build booking request
-            booking_data = self._build_booking_request(booking_request)
+            if not solution_data:
+                raise FerryAPIError(
+                    f"Booking solution expired or not found for {booking_request.sailing_id}. "
+                    "Please search again."
+                )
+
+            logger.info(f"Retrieved solution data for booking: {solution_data.get('solution_hash')}")
+
+            # Build booking request with proper tripSelections
+            booking_data = self._build_booking_request(booking_request, solution_data)
+
+            logger.debug(f"Booking request data: {booking_data}")
 
             # Step 1: Create booking (PENDING state)
             create_response = await self.post("/booking", booking_data)
             booking_code = create_response.get("bookingCode")
 
             if not booking_code:
-                raise FerryAPIError("No booking code returned from FerryHopper")
+                error_msg = create_response.get("message", "No booking code returned")
+                raise FerryAPIError(f"FerryHopper booking creation failed: {error_msg}")
 
             logger.info(f"FerryHopper booking created: {booking_code} (PENDING)")
 
@@ -281,34 +299,37 @@ class FerryHopperIntegration(BaseFerryIntegration):
             price = create_response.get("price", {})
             total_cents = price.get("totalPriceInCents", 0)
 
-            # Step 2: Confirm booking
+            # Step 2: Confirm booking (this charges the customer)
             confirm_data = {
-                "lang": "en",
+                "language": "en",
                 "bookingCode": booking_code,
                 "price": {
                     "totalPriceInCents": total_cents,
-                    "currency": "EUR"
+                    "currency": price.get("currency", "EUR")
                 }
             }
 
             confirm_response = await self.post("/booking/confirm", confirm_data)
             logger.info(f"FerryHopper booking confirmed: {booking_code}")
 
-            # Step 3: Wait for successful status
+            # Step 3: Wait for successful status (poll until SUCCESSFUL or FAILED)
             booking_details = await self._wait_for_booking_success(booking_code)
+
+            booking_status = booking_details.get("bookingStatus", "UNKNOWN")
 
             return BookingConfirmation(
                 booking_reference=booking_code,
                 operator_reference=booking_code,
-                status="confirmed" if booking_details.get("bookingStatus") == "SUCCESSFUL" else "pending",
+                status="confirmed" if booking_status == "SUCCESSFUL" else "pending",
                 total_amount=total_cents / 100,  # Convert cents to EUR
-                currency="EUR",
+                currency=price.get("currency", "EUR"),
                 confirmation_details={
                     "ferryhopper_booking_code": booking_code,
                     "external_reference": create_response.get("externalBookingReference"),
                     "segments": create_response.get("segments", []),
-                    "booking_status": booking_details.get("bookingStatus"),
+                    "booking_status": booking_status,
                     "boarding_methods": self._extract_boarding_methods(booking_details),
+                    "price_breakdown": price,
                 }
             )
 
@@ -580,12 +601,29 @@ class FerryHopperIntegration(BaseFerryIntegration):
                     vehicle_is_mandatory = segment.get("vehicleIsMandatory", False)
                     vehicles_supported = len(solution.get("vehicles", [])) > 0
 
-                    # Create unique sailing ID
-                    sailing_id = f"FH_{trip_idx}_{seg_idx}_{vessel_id}_{departure_time.strftime('%Y%m%d%H%M')}"
+                    # Create unique sailing ID that encodes booking info
+                    # Format: FH_{solutionHash}_{tripIdx}_{segIdx}_{vesselId}_{datetime}
+                    solution_hash = hashlib.md5(str(solution).encode()).hexdigest()[:8]
+                    sailing_id = f"FH_{solution_hash}_{trip_idx}_{seg_idx}_{vessel_id}_{departure_time.strftime('%Y%m%d%H%M')}"
 
                     # Map ports back to VoilaFerry codes
                     vf_departure = REVERSE_PORT_MAP.get(departure_port, departure_port)
                     vf_arrival = REVERSE_PORT_MAP.get(arrival_port, arrival_port)
+
+                    # Store booking solution data for later use in booking
+                    # This includes all data needed to build tripSelections
+                    segment_accommodations = segment.get("accommodations", [])
+                    booking_solution = {
+                        "solution_hash": solution_hash,
+                        "trip_index": trip_idx,
+                        "segment_index": seg_idx,
+                        "segment": segment,  # Full segment data with accommodations
+                        "trip": trip,  # Full trip data
+                        "solution_vehicles": solution.get("vehicles", []),
+                        "accommodations": segment_accommodations,  # Available accommodations
+                        "departure_port_code": departure_port,
+                        "arrival_port_code": arrival_port,
+                    }
 
                     # Build route info for indirect trips (Mandatory if indirect)
                     route_info = {
@@ -637,6 +675,16 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
                     # Add route_info as additional attribute
                     result.route_info = route_info
+
+                    # Add booking solution data for later use
+                    result.booking_solution = booking_solution
+
+                    # Cache the booking solution by sailing_id for booking retrieval
+                    cache_service.set(
+                        f"fh_solution:{sailing_id}",
+                        booking_solution,
+                        ttl=1800  # 30 minutes (booking window)
+                    )
 
                     results.append(result)
 
@@ -789,44 +837,194 @@ class FerryHopperIntegration(BaseFerryIntegration):
         logger.warning(f"Could not parse datetime: {dt_str}")
         return None
 
-    def _build_booking_request(self, booking_request: BookingRequest) -> Dict:
-        """Build FerryHopper booking request from BookingRequest."""
-        # Build passenger list
+    def _build_booking_request(
+        self,
+        booking_request: BookingRequest,
+        solution_data: Dict
+    ) -> Dict:
+        """
+        Build FerryHopper booking request from BookingRequest and cached solution data.
+
+        FerryHopper booking request structure:
+        {
+            "language": "en",
+            "passengers": [...],
+            "tripSelections": [...],
+            "vehicle": {...},  // optional
+            "contactDetails": {...},
+            "externalBookingReference": "..."
+        }
+        """
+        # Build passenger list with refs
         passengers = []
+        passenger_refs = []
+
         for idx, pax in enumerate(booking_request.passengers):
+            ref = f"PAX{idx + 1}"
+            passenger_refs.append(ref)
+
             passenger = {
-                "ref": f"PAX{idx + 1}",
-                "firstName": pax.get("first_name", ""),
-                "lastName": pax.get("last_name", ""),
+                "ref": ref,
+                "firstName": pax.get("first_name", pax.get("firstName", "")),
+                "lastName": pax.get("last_name", pax.get("lastName", "")),
                 "age": pax.get("age", calculate_age_from_type(pax.get("type", "adult"))),
-                "sex": "MALE" if pax.get("gender", "male").lower() == "male" else "FEMALE",
+                "sex": "MALE" if pax.get("gender", pax.get("sex", "male")).upper() in ["MALE", "M"] else "FEMALE",
             }
 
             # Add optional fields
             if pax.get("nationality"):
                 passenger["nationality"] = pax["nationality"]
-            if pax.get("date_of_birth"):
-                passenger["birthdate"] = pax["date_of_birth"]
-            if pax.get("passport_number"):
-                passenger["document"] = pax["passport_number"]
+            if pax.get("date_of_birth") or pax.get("birthdate"):
+                passenger["birthdate"] = pax.get("date_of_birth") or pax.get("birthdate")
+            if pax.get("passport_number") or pax.get("document"):
+                passenger["document"] = pax.get("passport_number") or pax.get("document")
 
             passengers.append(passenger)
 
-        # Build trip selections (simplified - would need actual solution data)
-        trip_selections = []
+        # Build trip selections from solution data
+        trip_selections = self._build_trip_selections(
+            solution_data=solution_data,
+            passenger_refs=passenger_refs,
+            cabin_selection=booking_request.cabin_selection
+        )
 
         # Contact details
         contact = booking_request.contact_info or {}
 
-        return {
+        booking_data = {
             "language": "en",
             "passengers": passengers,
             "tripSelections": trip_selections,
             "contactDetails": {
                 "email": contact.get("email", ""),
                 "phone": contact.get("phone", ""),
+                "phoneCountryCode": contact.get("phone_country_code", "+33"),
             },
             "externalBookingReference": booking_request.sailing_id,
+        }
+
+        # Add vehicle if provided
+        if booking_request.vehicles:
+            vehicle = self._build_vehicle_selection(
+                booking_request.vehicles,
+                solution_data.get("solution_vehicles", [])
+            )
+            if vehicle:
+                booking_data["vehicle"] = vehicle
+
+        return booking_data
+
+    def _build_trip_selections(
+        self,
+        solution_data: Dict,
+        passenger_refs: List[str],
+        cabin_selection: Optional[Dict] = None
+    ) -> List[Dict]:
+        """
+        Build tripSelections array for FerryHopper booking.
+
+        Each trip selection contains:
+        - tripIndex: which trip (0 = outbound, 1 = return)
+        - segmentIndex: which segment within the trip
+        - passengerAccommodations: mapping of passenger refs to accommodation codes
+        """
+        trip_selections = []
+
+        segment = solution_data.get("segment", {})
+        accommodations = segment.get("accommodations", [])
+        trip_index = solution_data.get("trip_index", 0)
+        segment_index = solution_data.get("segment_index", 0)
+
+        if not accommodations:
+            logger.warning("No accommodations found in solution data")
+            return trip_selections
+
+        # Select accommodation - use cabin_selection if provided, else first available
+        selected_acc_code = None
+
+        if cabin_selection:
+            # User selected a specific accommodation
+            selected_acc_code = cabin_selection.get("code") or cabin_selection.get("accommodation_code")
+
+        if not selected_acc_code:
+            # Default to first (usually cheapest) accommodation
+            # Prefer deck/lounge for cheapest option
+            for acc in accommodations:
+                acc_type = acc.get("type", "").upper()
+                if acc_type in ["DECK", "LOUNGE", "AIRPLANE_SEAT"]:
+                    selected_acc_code = acc.get("code")
+                    break
+
+            # If no deck/lounge, use first accommodation
+            if not selected_acc_code and accommodations:
+                selected_acc_code = accommodations[0].get("code")
+
+        if not selected_acc_code:
+            raise FerryAPIError("No accommodation available for booking")
+
+        logger.info(f"Selected accommodation: {selected_acc_code}")
+
+        # Build passenger accommodations (all passengers in same accommodation)
+        passenger_accommodations = []
+        for ref in passenger_refs:
+            passenger_accommodations.append({
+                "passengerRef": ref,
+                "accommodationCode": selected_acc_code
+            })
+
+        trip_selection = {
+            "tripIndex": trip_index,
+            "segmentIndex": segment_index,
+            "passengerAccommodations": passenger_accommodations
+        }
+
+        trip_selections.append(trip_selection)
+
+        return trip_selections
+
+    def _build_vehicle_selection(
+        self,
+        vehicles: List[Dict],
+        available_vehicles: List[Dict]
+    ) -> Optional[Dict]:
+        """
+        Build vehicle selection for FerryHopper booking.
+
+        Args:
+            vehicles: List of vehicles from booking request
+            available_vehicles: Available vehicle types from solution
+
+        Returns:
+            Vehicle selection dict or None
+        """
+        if not vehicles or not available_vehicles:
+            return None
+
+        # Get first vehicle from request
+        vehicle = vehicles[0]
+        vehicle_type = vehicle.get("type", "CAR").upper()
+
+        # Find matching vehicle code from available options
+        vehicle_code = None
+        for av in available_vehicles:
+            av_type = av.get("type", "").upper()
+            if av_type == vehicle_type or (av_type == "CAR" and vehicle_type in ["CAR", "VEHICLE"]):
+                vehicle_code = av.get("code")
+                break
+
+        if not vehicle_code and available_vehicles:
+            # Default to first available
+            vehicle_code = available_vehicles[0].get("code")
+
+        if not vehicle_code:
+            logger.warning(f"No matching vehicle found for type: {vehicle_type}")
+            return None
+
+        return {
+            "code": vehicle_code,
+            "licensePlate": vehicle.get("license_plate", vehicle.get("licensePlate", "")),
+            "brand": vehicle.get("brand", ""),
+            "model": vehicle.get("model", ""),
         }
 
     async def _wait_for_booking_success(

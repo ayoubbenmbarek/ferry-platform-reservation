@@ -68,6 +68,89 @@ class CacheService:
         except:
             return False
 
+    # =========================================================================
+    # Generic Cache Methods (for arbitrary key-value storage)
+    # =========================================================================
+
+    def set(self, key: str, value: Any, ttl: int = 300) -> bool:
+        """
+        Set a value in cache with optional TTL.
+
+        Args:
+            key: Cache key
+            value: Value to cache (will be JSON serialized)
+            ttl: Time to live in seconds (default 5 minutes)
+
+        Returns:
+            True if cached successfully
+        """
+        if not self.is_available():
+            logger.warning(f"Redis not available, skipping cache set for key: {key}")
+            return False
+
+        try:
+            self.redis_client.setex(
+                key,
+                ttl,
+                json.dumps(value, cls=DateTimeEncoder)
+            )
+            logger.debug(f"✅ Cached key: {key} (TTL: {ttl}s)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error setting cache key {key}: {str(e)}")
+            return False
+
+    def get(self, key: str) -> Optional[Any]:
+        """
+        Get a value from cache.
+
+        Args:
+            key: Cache key
+
+        Returns:
+            Cached value or None if not found
+        """
+        if not self.is_available():
+            logger.warning(f"Redis not available, skipping cache get for key: {key}")
+            return None
+
+        try:
+            cached_data = self.redis_client.get(key)
+
+            if cached_data:
+                logger.debug(f"✅ Cache HIT for key: {key}")
+                return json.loads(cached_data)
+
+            logger.debug(f"❌ Cache MISS for key: {key}")
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting cache key {key}: {str(e)}")
+            return None
+
+    def delete(self, key: str) -> bool:
+        """
+        Delete a key from cache.
+
+        Args:
+            key: Cache key to delete
+
+        Returns:
+            True if deleted successfully
+        """
+        if not self.is_available():
+            return False
+
+        try:
+            self.redis_client.delete(key)
+            logger.debug(f"🗑️ Deleted cache key: {key}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error deleting cache key {key}: {str(e)}")
+            return False
+
     def _generate_cache_key(self, prefix: str, params: Dict[str, Any]) -> str:
         """
         Generate a cache key from parameters.

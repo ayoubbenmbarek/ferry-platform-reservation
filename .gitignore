@@ -107,3 +107,7 @@ backend/alembic/versions/*.py
 # OS
 Thumbs.db
 .DS_Store
+
+# Kubernetes secrets (never commit real secrets)
+k8s/overlays/*/secrets.yaml
+k8s/base/secrets-local.yaml

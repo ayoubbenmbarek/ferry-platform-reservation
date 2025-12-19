@@ -94,7 +94,17 @@ data:
   # ===========================================
   # FERRY OPERATOR API URLs (non-sensitive)
   # ===========================================
+  # Legacy direct integrations (disabled, using FerryHopper aggregator)
   CTN_BASE_URL: "https://api.ctn.com.tn/v1/"
   GNV_BASE_URL: "https://api.gnv.it/v2/"
   CORSICA_BASE_URL: "https://api.corsicalines.com/api/v1/"
   DANEL_BASE_URL: "https://api.danel-casanova.fr/api/"
+
+  # ===========================================
+  # FERRYHOPPER API (Primary Aggregator)
+  # ===========================================
+  # FerryHopper provides unified access to multiple Mediterranean ferry operators
+  # Production: https://ferryhapi.ferryhopper.com
+  # UAT/Staging: https://ferryhapi.uat.ferryhopper.com
+  FERRYHOPPER_BASE_URL: "https://ferryhapi.ferryhopper.com"
+  USE_MOCK_FERRIES: "false"

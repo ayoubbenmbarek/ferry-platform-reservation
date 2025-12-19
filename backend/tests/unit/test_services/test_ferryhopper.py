@@ -913,8 +913,9 @@ class TestFerryHopperMappingService:
     def test_reverse_port_map_exists(self):
         """Test that reverse port map exists and is populated."""
         assert len(REVERSE_PORT_MAP) > 0
-        assert "PIR" in REVERSE_PORT_MAP
-        assert REVERSE_PORT_MAP["PIR"] == "PIRAEUS"
+        # FerryHopper code -> VoilaFerry code
+        assert "PLE" in REVERSE_PORT_MAP  # Palermo
+        assert REVERSE_PORT_MAP["PLE"] == "PMO"  # FerryHopper PLE -> VoilaFerry PMO
 
 
 class TestMapPortCode:

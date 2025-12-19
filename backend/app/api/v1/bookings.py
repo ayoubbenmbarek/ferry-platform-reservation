@@ -434,42 +434,46 @@ async def create_booking(
         
         # Add cabin supplement if selected (outbound)
         # Priority: multi-cabin selections with pre-calculated prices > legacy single cabin
+        # NOTE: cabin_id is no longer used as FK - we store cabin details in extra_data instead
         cabin_supplement = 0.0
-        selected_cabin_id = None
+        cabin_selections_data = []  # Store for extra_data
 
         if hasattr(booking_data, 'total_cabin_price') and booking_data.total_cabin_price and booking_data.total_cabin_price > 0:
             # Use pre-calculated multi-cabin total from frontend
             cabin_supplement = float(booking_data.total_cabin_price)
             subtotal += cabin_supplement
-            # Store first cabin ID for backward compatibility (if any selections)
+            # Store cabin selections for extra_data (FerryHopper cabin codes, not DB IDs)
             if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
-                selected_cabin_id = booking_data.cabin_selections[0].cabin_id
-            elif booking_data.cabin_id:
-                selected_cabin_id = booking_data.cabin_id
+                cabin_selections_data = [
+                    {"cabin_id": s.cabin_id, "quantity": s.quantity, "price": s.price}
+                    for s in booking_data.cabin_selections
+                ]
             logger.info(f"Using multi-cabin total price: €{cabin_supplement}")
         elif booking_data.cabin_id:
-            # Legacy: single cabin lookup
+            # Legacy: try single cabin lookup from database
             from app.models.ferry import Cabin
             cabin = db.query(Cabin).filter(Cabin.id == booking_data.cabin_id).first()
             if cabin:
                 cabin_supplement = float(cabin.base_price)
                 subtotal += cabin_supplement
-                selected_cabin_id = cabin.id
+                cabin_selections_data = [{"cabin_id": cabin.id, "quantity": 1, "price": float(cabin.base_price)}]
 
         # Add return cabin supplement if selected
         # Priority: multi-cabin selections with pre-calculated prices > legacy single cabin
+        # NOTE: return_cabin_id is no longer used as FK - we store cabin details in extra_data instead
         return_cabin_supplement = 0.0
-        selected_return_cabin_id = None
+        return_cabin_selections_data = []  # Store for extra_data
 
         if hasattr(booking_data, 'total_return_cabin_price') and booking_data.total_return_cabin_price and booking_data.total_return_cabin_price > 0:
             # Use pre-calculated multi-cabin total from frontend
             return_cabin_supplement = float(booking_data.total_return_cabin_price)
             subtotal += return_cabin_supplement
-            # Store first cabin ID for backward compatibility (if any selections)
+            # Store return cabin selections for extra_data
             if hasattr(booking_data, 'return_cabin_selections') and booking_data.return_cabin_selections:
-                selected_return_cabin_id = booking_data.return_cabin_selections[0].cabin_id
-            elif hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
-                selected_return_cabin_id = booking_data.return_cabin_id
+                return_cabin_selections_data = [
+                    {"cabin_id": s.cabin_id, "quantity": s.quantity, "price": s.price}
+                    for s in booking_data.return_cabin_selections
+                ]
             logger.info(f"Using multi-cabin return total price: €{return_cabin_supplement}")
         elif hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
             # Legacy: single cabin lookup
@@ -477,8 +481,8 @@ async def create_booking(
             return_cabin = db.query(Cabin).filter(Cabin.id == booking_data.return_cabin_id).first()
             if return_cabin:
                 return_cabin_supplement = float(return_cabin.base_price)
+                return_cabin_selections_data = [{"cabin_id": return_cabin.id, "quantity": 1, "price": float(return_cabin.base_price)}]
                 subtotal += return_cabin_supplement
-                selected_return_cabin_id = return_cabin.id
 
         # Add meal costs if selected
         meals_total = 0.0
@@ -562,15 +566,17 @@ async def create_booking(
             total_amount=total_amount,
             currency="EUR",
             promo_code=promo_code_str,
-            cabin_id=selected_cabin_id,
+            cabin_id=None,  # No longer using FK - cabin details stored in extra_data
             cabin_supplement=cabin_supplement,
-            return_cabin_id=selected_return_cabin_id,
+            return_cabin_id=None,  # No longer using FK - cabin details stored in extra_data
             return_cabin_supplement=return_cabin_supplement,
             special_requests=booking_data.special_requests,
             status=BookingStatusEnum.PENDING,
             expires_at=expires_at,  # Expires 30 minutes from creation
             extra_data={
-                "has_cancellation_protection": getattr(booking_data, 'has_cancellation_protection', False)
+                "has_cancellation_protection": getattr(booking_data, 'has_cancellation_protection', False),
+                "cabin_selections": cabin_selections_data if cabin_selections_data else None,
+                "return_cabin_selections": return_cabin_selections_data if return_cabin_selections_data else None,
             }
         )
         

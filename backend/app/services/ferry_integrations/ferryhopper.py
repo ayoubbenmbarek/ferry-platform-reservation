@@ -75,37 +75,83 @@ class FerryHopperIntegration(BaseFerryIntegration):
         self.mapping_service = FerryHopperMappingService(self)
         return self
 
-    async def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
+    async def get(self, endpoint: str, params: Optional[Dict] = None, max_retries: int = 3) -> Dict:
         """
-        Make GET request to FerryHopper API.
+        Make GET request to FerryHopper API with retry logic for rate limiting.
 
         Args:
             endpoint: API endpoint (e.g., "/ports")
             params: Query parameters
+            max_retries: Maximum retry attempts for rate limiting
 
         Returns:
             Response JSON
         """
         url = f"{self.base_url}{endpoint}"
-        response = await self.session.get(url, params=params)
-        self._handle_api_error(response)
-        return response.json()
 
-    async def post(self, endpoint: str, data: Dict) -> Dict:
+        for attempt in range(max_retries):
+            try:
+                response = await self.session.get(url, params=params)
+
+                # Handle rate limiting with retry
+                if response.status_code == 429:
+                    if attempt < max_retries - 1:
+                        wait_time = (2 ** attempt) + 1  # Exponential backoff: 2, 3, 5 seconds
+                        logger.warning(f"FerryHopper rate limit hit, waiting {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(wait_time)
+                        continue
+
+                self._handle_api_error(response)
+                return response.json()
+
+            except httpx.ReadError as e:
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + 1
+                    logger.warning(f"FerryHopper ReadError, retrying in {wait_time}s: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise FerryAPIError(f"FerryHopper connection error: {str(e)}")
+
+        raise FerryAPIError("FerryHopper rate limit exceeded after retries")
+
+    async def post(self, endpoint: str, data: Dict, max_retries: int = 3) -> Dict:
         """
-        Make POST request to FerryHopper API.
+        Make POST request to FerryHopper API with retry logic for rate limiting.
 
         Args:
             endpoint: API endpoint (e.g., "/search")
             data: Request body
+            max_retries: Maximum retry attempts for rate limiting
 
         Returns:
             Response JSON
         """
         url = f"{self.base_url}{endpoint}"
-        response = await self.session.post(url, json=data)
-        self._handle_api_error(response)
-        return response.json()
+
+        for attempt in range(max_retries):
+            try:
+                response = await self.session.post(url, json=data)
+
+                # Handle rate limiting with retry
+                if response.status_code == 429:
+                    if attempt < max_retries - 1:
+                        wait_time = (2 ** attempt) + 1  # Exponential backoff: 2, 3, 5 seconds
+                        logger.warning(f"FerryHopper rate limit hit, waiting {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(wait_time)
+                        continue
+
+                self._handle_api_error(response)
+                return response.json()
+
+            except httpx.ReadError as e:
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + 1
+                    logger.warning(f"FerryHopper ReadError, retrying in {wait_time}s: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise FerryAPIError(f"FerryHopper connection error: {str(e)}")
+
+        raise FerryAPIError("FerryHopper rate limit exceeded after retries")
 
     async def search_ferries(self, search_request: SearchRequest) -> List[FerryResult]:
         """

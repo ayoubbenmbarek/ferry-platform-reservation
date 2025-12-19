@@ -1278,10 +1278,19 @@ async def get_date_prices(
                     "is_center_date": search_date == center_date
                 }
 
-        # Search all dates in parallel for much faster response
-        logger.info(f"🚀 Calendar searching {len(dates_to_search)} dates in parallel...")
+        # Search dates with limited concurrency to avoid FerryHopper rate limits
+        # Max 2 concurrent requests to prevent ThrottlerException (Too Many Requests)
+        semaphore = asyncio.Semaphore(2)
+
+        async def throttled_search(search_date: date) -> dict:
+            async with semaphore:
+                # Add small delay between requests to avoid burst
+                await asyncio.sleep(0.3)
+                return await search_single_date(search_date)
+
+        logger.info(f"🚀 Calendar searching {len(dates_to_search)} dates (max 2 concurrent)...")
         search_start = time.time()
-        date_prices = await asyncio.gather(*[search_single_date(d) for d in dates_to_search])
+        date_prices = await asyncio.gather(*[throttled_search(d) for d in dates_to_search])
         search_duration = (time.time() - search_start) * 1000
         logger.info(f"✅ Calendar search completed in {search_duration:.0f}ms for {len(dates_to_search)} dates")
 

@@ -25,6 +25,8 @@ from .ferryhopper_mappings import (
     calculate_age_from_type,
     FALLBACK_PORT_MAP,
     REVERSE_PORT_MAP,
+    VOILAFERRY_TO_FERRYHOPPER_PORT_MAP,
+    UNSUPPORTED_PORTS,
 )
 from app.services.cache_service import cache_service
 
@@ -452,14 +454,26 @@ class FerryHopperIntegration(BaseFerryIntegration):
         """Map VoilaFerry port code to FerryHopper code."""
         normalized = voilaferry_code.upper().strip()
 
-        # Use fallback map first (fastest)
+        # Check if port is unsupported
+        if normalized in UNSUPPORTED_PORTS:
+            logger.debug(f"Port {normalized} is not supported by FerryHopper")
+            return None
+
+        # Use VoilaFerry -> FerryHopper code map first (fastest)
+        if normalized in VOILAFERRY_TO_FERRYHOPPER_PORT_MAP:
+            mapped = VOILAFERRY_TO_FERRYHOPPER_PORT_MAP[normalized]
+            logger.debug(f"Mapped port code: {normalized} -> {mapped}")
+            return mapped
+
+        # Try name-based fallback map
         if normalized in FALLBACK_PORT_MAP:
             return FALLBACK_PORT_MAP[normalized]
 
-        # Try mapping service
+        # Try mapping service for API lookup
         if self.mapping_service:
             return await self.mapping_service.get_ferryhopper_port_code(voilaferry_code)
 
+        logger.warning(f"No FerryHopper mapping for port: {voilaferry_code}")
         return None
 
     def _build_passengers(self, search_request: SearchRequest) -> List[Dict]:

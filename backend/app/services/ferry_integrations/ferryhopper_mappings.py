@@ -11,41 +11,105 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 
-# Fallback port mappings for common Mediterranean ports
-# These are used when API port lookup fails
-FALLBACK_PORT_MAP = {
+# VoilaFerry port code -> FerryHopper port code mapping
+# This translates VoilaFerry's internal codes to FerryHopper API codes
+VOILAFERRY_TO_FERRYHOPPER_PORT_MAP = {
     # Tunisia
-    "TUNIS": "TUN",
-    "LA_GOULETTE": "LGO",
-    "SFAX": "SFA",
-    "ZARZIS": "ZAR",
+    "TUN": "TUN",       # Tunis
+    "LGO": "TUN",       # La Goulette -> maps to Tunis (same port area)
+    "ZAR": "TNZRZ",     # Zarzis
+    # NOTE: Sfax (SFA) is NOT available in FerryHopper
+
     # Italy
+    "GOA": "GOA",       # Genoa
+    "GEN": "GOA",       # Genoa alternate code
+    "CVV": "CIV",       # Civitavecchia -> FerryHopper uses CIV
+    "CIV": "CIV",       # Civitavecchia
+    "PMO": "PLE",       # Palermo -> FerryHopper uses PLE
+    "PAL": "PLE",       # Palermo alternate
+    "PLE": "PLE",       # Palermo FerryHopper code
+    "TPS": "TPS",       # Trapani
+    "SAL": "SAL",       # Salerno
+    "NAP": "NAP",       # Naples
+    "LIV": "LIV",       # Livorno
+
+    # France
+    "MRS": "MRS",       # Marseille
+    "MAR": "MRS",       # Marseille alternate
+    "NCE": "NCE",       # Nice
+    "TLN": "TLN",       # Toulon
+
+    # Greece (common FerryHopper routes)
+    "PIR": "PIR",       # Piraeus
+    "ATH": "ATH00",     # Athens (virtual)
+    "JTR": "JTR",       # Santorini
+    "JNX": "JNX",       # Naxos
+    "RAF": "RAF",       # Rafina
+    "HER": "HER",       # Heraklion
+    "GRA": "PAT",       # Patras -> FerryHopper uses PAT
+    "PAT": "PAT",       # Patras
+
+    # Spain
+    "BCN": "BCN",       # Barcelona
+    "IBZ": "IBZ",       # Ibiza
+
+    # Morocco
+    "TNG": "TNG",       # Tangier Med
+}
+
+# Ports NOT supported by FerryHopper (will return empty results)
+UNSUPPORTED_PORTS = {"SFA", "SFAX"}
+
+# Fallback for name-based lookups (legacy support)
+FALLBACK_PORT_MAP = {
+    "TUNIS": "TUN",
+    "LA_GOULETTE": "TUN",
+    "ZARZIS": "TNZRZ",
     "GENOA": "GOA",
-    "CIVITAVECCHIA": "CVV",
-    "PALERMO": "PMO",
+    "CIVITAVECCHIA": "CIV",
+    "PALERMO": "PLE",
     "TRAPANI": "TPS",
     "SALERNO": "SAL",
     "NAPOLI": "NAP",
     "LIVORNO": "LIV",
-    # France
     "MARSEILLE": "MRS",
     "NICE": "NCE",
     "TOULON": "TLN",
-    # Greece (common FerryHopper routes)
     "PIRAEUS": "PIR",
-    "ATHENS": "ATH",  # Virtual port
+    "ATHENS": "ATH00",
     "SANTORINI": "JTR",
     "NAXOS": "JNX",
     "RAFINA": "RAF",
     "HERAKLION": "HER",
-    "PATRAS": "GRA",
-    # Spain
+    "PATRAS": "PAT",
     "BARCELONA": "BCN",
     "IBIZA": "IBZ",
 }
 
 # Reverse mapping for FerryHopper -> VoilaFerry
-REVERSE_PORT_MAP = {v: k for k, v in FALLBACK_PORT_MAP.items()}
+REVERSE_PORT_MAP = {
+    "TUN": "TUN",
+    "TNZRZ": "ZAR",
+    "GOA": "GOA",
+    "CIV": "CVV",
+    "PLE": "PMO",
+    "TPS": "TPS",
+    "SAL": "SAL",
+    "NAP": "NAP",
+    "LIV": "LIV",
+    "MRS": "MRS",
+    "NCE": "NCE",
+    "TLN": "TLN",
+    "PIR": "PIR",
+    "ATH00": "ATH",
+    "JTR": "JTR",
+    "JNX": "JNX",
+    "RAF": "RAF",
+    "HER": "HER",
+    "PAT": "GRA",
+    "BCN": "BCN",
+    "IBZ": "IBZ",
+}
 
 # Vehicle type mapping: VoilaFerry -> FerryHopper
 VEHICLE_TYPE_MAP = {
@@ -176,14 +240,25 @@ class FerryHopperMappingService:
         Map VoilaFerry port code to FerryHopper port code.
 
         Args:
-            voilaferry_code: VoilaFerry port code (e.g., "TUNIS")
+            voilaferry_code: VoilaFerry port code (e.g., "PMO", "TUN")
 
         Returns:
-            FerryHopper port code or None if not found
+            FerryHopper port code or None if not found/unsupported
         """
         normalized_code = voilaferry_code.upper().strip()
 
-        # First try fallback map (fastest)
+        # Check if port is unsupported by FerryHopper
+        if normalized_code in UNSUPPORTED_PORTS:
+            logger.debug(f"Port {normalized_code} is not supported by FerryHopper")
+            return None
+
+        # First try direct VoilaFerry -> FerryHopper mapping (fastest)
+        if normalized_code in VOILAFERRY_TO_FERRYHOPPER_PORT_MAP:
+            fh_code = VOILAFERRY_TO_FERRYHOPPER_PORT_MAP[normalized_code]
+            logger.debug(f"Mapped port {normalized_code} -> {fh_code}")
+            return fh_code
+
+        # Try name-based fallback map
         if normalized_code in FALLBACK_PORT_MAP:
             return FALLBACK_PORT_MAP[normalized_code]
 

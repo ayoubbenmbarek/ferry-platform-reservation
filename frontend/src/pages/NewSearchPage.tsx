@@ -1193,7 +1193,7 @@ const NewSearchPage: React.FC = () => {
                           const passengerSpaces = ferry.availableSpaces?.passengers || (ferry as any).available_spaces?.passengers || 0;
                           const totalPassengers = (searchParams?.passengers?.adults || 1) + (searchParams?.passengers?.children || 0) + (searchParams?.passengers?.infants || 0);
                           const isUnavailable = passengerSpaces === 0 || passengerSpaces < totalPassengers;
-                          const isLimited = passengerSpaces > 0 && passengerSpaces <= 10;
+                          const isLimited = passengerSpaces > 0 && passengerSpaces <= 5; // Only show alert for ≤5 seats
 
                           let badgeContent;
                           let badgeClass;
@@ -1204,10 +1204,12 @@ const NewSearchPage: React.FC = () => {
                           } else if (passengerSpaces < totalPassengers) {
                             badgeClass = "bg-red-50 border border-red-300 text-red-700";
                             badgeContent = <><span>👥</span> {t('search:availability.notEnoughSeats')}</>;
-                          } else if (passengerSpaces <= 10) {
+                          } else if (passengerSpaces <= 5) {
+                            // Low availability warning (yellow)
                             badgeClass = "bg-yellow-50 border border-yellow-300 text-yellow-700";
                             badgeContent = <><span>👥</span> {t('search:availability.seatsLeft', { count: passengerSpaces })}</>;
                           } else {
+                            // Normal availability (green) - no alert button
                             badgeClass = "bg-green-50 border border-green-300 text-green-700";
                             badgeContent = <><span>👥</span> {t('search:availability.seats', { count: passengerSpaces })}</>;
                           }
@@ -1231,34 +1233,26 @@ const NewSearchPage: React.FC = () => {
                           );
                         })()}
 
-                        {/* Vehicle Availability - Always show */}
+                        {/* Vehicle Availability - Show Available/Not Available (FerryHopper only returns 1 or 0) */}
                         {(() => {
                           const vehicleSpaces = ferry.availableSpaces?.vehicles || (ferry as any).available_spaces?.vehicles || 0;
-                          const numVehicles = searchParams?.vehicles?.length || 0;
-                          const isUnavailable = vehicleSpaces === 0 || (numVehicles > 0 && vehicleSpaces < numVehicles);
-                          const isLimited = vehicleSpaces > 0 && vehicleSpaces <= 5;
+                          const isAvailable = vehicleSpaces > 0;
 
                           let badgeContent;
                           let badgeClass;
 
-                          if (vehicleSpaces === 0) {
-                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
-                            badgeContent = <><span>🚗</span> {t('search:availability.noVehicleSpace')}</>;
-                          } else if (numVehicles > 0 && vehicleSpaces < numVehicles) {
-                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
-                            badgeContent = <><span>🚗</span> {t('search:availability.notEnoughSpace')}</>;
-                          } else if (vehicleSpaces <= 5) {
-                            badgeClass = "bg-yellow-50 border border-yellow-300 text-yellow-700";
-                            badgeContent = <><span>🚗</span> {t('search:availability.spacesLeft', { count: vehicleSpaces })}</>;
-                          } else {
+                          if (isAvailable) {
                             badgeClass = "bg-green-50 border border-green-300 text-green-700";
-                            badgeContent = <><span>🚗</span> {t('search:availability.spaces', { count: vehicleSpaces })}</>;
+                            badgeContent = <><span>🚗</span> {t('search:availability.vehicleAvailable')}</>;
+                          } else {
+                            badgeClass = "bg-red-50 border border-red-300 text-red-700";
+                            badgeContent = <><span>🚗</span> {t('search:availability.vehicleNotAvailable')}</>;
                           }
 
                           return (
                             <div className={`${badgeClass} px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1.5`}>
                               {badgeContent}
-                              {(isUnavailable || isLimited) && (
+                              {!isAvailable && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

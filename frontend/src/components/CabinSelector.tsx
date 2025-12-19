@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import api from '../services/api';
 import { RootState } from '../store';
@@ -84,18 +84,27 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   };
 
   // Get ferry cabins for current journey - use FerryHopper cabin types directly
-  const getFerryCabins = (): FerryCabin[] => {
+  // Memoize to ensure stable codes across renders
+  const ferryCabins = useMemo((): FerryCabin[] => {
     const cabinData = selectedJourney === 'outbound' ? ferryCabinAvailability : returnFerryCabinAvailability;
     if (!cabinData || cabinData.length === 0) {
       return [];
     }
     // Filter to only show actual cabins (not deck seats) with availability
-    return cabinData.filter((cabin: FerryCabin) =>
-      cabin.available > 0 || cabin.type !== 'deck'
-    );
-  };
-
-  const ferryCabins = getFerryCabins();
+    // Also ensure each cabin has a unique code
+    const seenCodes = new Set<string>();
+    return cabinData
+      .filter((cabin: FerryCabin) => cabin.available > 0 || cabin.type !== 'deck')
+      .map((cabin: FerryCabin, index: number) => {
+        // Generate unique code if empty or duplicate
+        let uniqueCode = cabin.code;
+        if (!uniqueCode || seenCodes.has(uniqueCode)) {
+          uniqueCode = `${cabin.type}_${cabin.name}_${index}`;
+        }
+        seenCodes.add(uniqueCode);
+        return { ...cabin, code: uniqueCode };
+      });
+  }, [selectedJourney, ferryCabinAvailability, returnFerryCabinAvailability]);
 
   // Track quantity per cabin code for each journey - initialize from props
   const [outboundCabinQuantities, setOutboundCabinQuantities] = useState<Record<string, number>>(() => {
@@ -267,10 +276,11 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   };
 
   // After quantity change, notify parent
+  // Note: Only depend on quantities and journey - ferryCabins is derived and would cause infinite loop
   useEffect(() => {
     notifyParent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outboundCabinQuantities, returnCabinQuantities, ferryCabins]);
+  }, [outboundCabinQuantities, returnCabinQuantities, selectedJourney]);
 
   const { totalCabins, totalPrice } = getTotalCabinsAndPrice();
 

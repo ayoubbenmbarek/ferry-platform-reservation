@@ -811,7 +811,8 @@ class FerryHopperIntegration(BaseFerryIntegration):
         cabin_types = []
         accommodations = segment.get("accommodations", [])
 
-        for acc in accommodations:
+        seen_codes = set()
+        for idx, acc in enumerate(accommodations):
             expected_price = acc.get("expectedPrice", {})
             price_cents = expected_price.get("totalPriceInCents", 0)
             fh_type = acc.get("type", "DECK")
@@ -819,9 +820,15 @@ class FerryHopperIntegration(BaseFerryIntegration):
             # Map FerryHopper type to VoilaFerry CabinType enum value
             vf_type = map_ferryhopper_cabin_type(fh_type)
 
+            # Ensure unique cabin code - generate if empty or duplicate
+            cabin_code = acc.get("code", "")
+            if not cabin_code or cabin_code in seen_codes:
+                cabin_code = f"{fh_type}_{idx}"
+            seen_codes.add(cabin_code)
+
             cabin_types.append({
                 "type": vf_type,  # Now uses VoilaFerry enum values
-                "code": acc.get("code", ""),
+                "code": cabin_code,
                 "name": acc.get("description", "Unknown"),
                 "price": price_cents / 100,
                 "currency": expected_price.get("currency", "EUR"),

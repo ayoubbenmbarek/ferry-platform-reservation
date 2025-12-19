@@ -163,6 +163,8 @@
     "notEnoughSpace": "Not enough space",
     "spacesLeft": "{{count}} spaces left",
     "spaces": "{{count}} spaces",
+    "vehicleAvailable": "Vehicle available",
+    "vehicleNotAvailable": "No vehicle space",
     "noCabins": "No cabins",
     "cabinsLeft": "{{count}} cabins left",
     "cabins": "{{count}} cabins",

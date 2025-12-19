@@ -134,6 +134,87 @@ ACCOMMODATION_TYPE_MAP = {
     "seat": "SEAT",
 }
 
+# FerryHopper accommodation type -> VoilaFerry cabin type mapping
+# Maps all FerryHopper types to the 5 VoilaFerry CabinType values
+FERRYHOPPER_TO_VOILAFERRY_CABIN_MAP = {
+    # Deck/seat types -> deck
+    "DECK": "deck",
+    "SEAT": "deck",
+    "SEAT_NOTNUMBERED": "deck",
+    "SEAT_NUMBERED": "deck",
+    "ECONOMY": "deck",
+    "RECLINING_SEAT": "deck",
+    "RESERVED_SEAT": "deck",
+    "AIRPLANE_SEAT": "deck",
+    "BUS_SEAT": "deck",
+
+    # Interior cabin types -> interior
+    "CABIN": "interior",
+    "CABIN_FULL": "interior",
+    "CABIN_INSIDE": "interior",
+    "CABIN_INTERIOR": "interior",
+    "CABIN_2_BED": "interior",
+    "CABIN_4_BED": "interior",
+    "CABIN_6_BED": "interior",
+    "DORM": "interior",
+    "BERTH": "interior",
+    "COUCHETTE": "interior",
+    "PULLMAN": "interior",
+
+    # Exterior cabin types -> exterior
+    "CABIN_OUTSIDE": "exterior",
+    "CABIN_EXTERIOR": "exterior",
+    "CABIN_FULL_WINDOW": "exterior",
+    "CABIN_PORTHOLE": "exterior",
+    "CABIN_SEA_VIEW": "exterior",
+    "CABIN_WINDOW": "exterior",
+
+    # Pet cabins -> exterior (special category)
+    "PET_CABIN": "exterior",
+    "PET_CABIN_FULL_WINDOW": "exterior",
+    "PET_CABIN_INSIDE": "interior",
+
+    # Balcony types -> balcony
+    "CABIN_BALCONY": "balcony",
+    "BALCONY": "balcony",
+
+    # Suite types -> suite
+    "SUITE": "suite",
+    "CABIN_SUITE": "suite",
+    "DELUXE": "suite",
+    "LUXURY": "suite",
+    "VIP": "suite",
+}
+
+
+def map_ferryhopper_cabin_type(fh_type: str) -> str:
+    """
+    Map FerryHopper accommodation type to VoilaFerry cabin type.
+
+    Args:
+        fh_type: FerryHopper accommodation type (e.g., 'SEAT_NOTNUMBERED')
+
+    Returns:
+        VoilaFerry cabin type ('deck', 'interior', 'exterior', 'balcony', 'suite')
+    """
+    normalized = fh_type.upper().strip()
+
+    if normalized in FERRYHOPPER_TO_VOILAFERRY_CABIN_MAP:
+        return FERRYHOPPER_TO_VOILAFERRY_CABIN_MAP[normalized]
+
+    # Fallback logic based on keywords
+    if "SUITE" in normalized or "DELUXE" in normalized or "VIP" in normalized:
+        return "suite"
+    if "BALCONY" in normalized:
+        return "balcony"
+    if "WINDOW" in normalized or "OUTSIDE" in normalized or "EXTERIOR" in normalized or "SEA_VIEW" in normalized:
+        return "exterior"
+    if "CABIN" in normalized or "BERTH" in normalized or "DORM" in normalized:
+        return "interior"
+
+    # Default to deck for seats and unknown types
+    return "deck"
+
 
 class FerryHopperMappingService:
     """

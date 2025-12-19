@@ -23,6 +23,7 @@ from .base import (
 from .ferryhopper_mappings import (
     FerryHopperMappingService,
     calculate_age_from_type,
+    map_ferryhopper_cabin_type,
     FALLBACK_PORT_MAP,
     REVERSE_PORT_MAP,
     VOILAFERRY_TO_FERRYHOPPER_PORT_MAP,
@@ -592,9 +593,9 @@ class FerryHopperIntegration(BaseFerryIntegration):
                     # Extract prices with discounts applied (Mandatory)
                     prices = self._extract_prices_with_discounts(segment, solution, discount_rates)
 
-                    # Add vehicle prices to prices dict (Mandatory)
-                    if solution_vehicles:
-                        prices["vehicles"] = solution_vehicles
+                    # Note: Vehicle prices are not included in prices dict
+                    # They are available in route_info.available_vehicles for booking
+                    # prices dict must only contain float values
 
                     # Extract cabin/accommodation types (Mandatory)
                     cabin_types = self._extract_cabin_types(segment)
@@ -658,6 +659,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
                         "vehicle_mandatory": vehicle_is_mandatory,
                         "cancellation_policies": cancellation_policies,
                         "discount_rates": discount_rates,
+                        "available_vehicles": solution_vehicles,  # Vehicle types with prices
                     }
 
                     # For indirect trips, add connection info
@@ -808,9 +810,13 @@ class FerryHopperIntegration(BaseFerryIntegration):
         for acc in accommodations:
             expected_price = acc.get("expectedPrice", {})
             price_cents = expected_price.get("totalPriceInCents", 0)
+            fh_type = acc.get("type", "DECK")
+
+            # Map FerryHopper type to VoilaFerry CabinType enum value
+            vf_type = map_ferryhopper_cabin_type(fh_type)
 
             cabin_types.append({
-                "type": acc.get("type", "unknown"),
+                "type": vf_type,  # Now uses VoilaFerry enum values
                 "code": acc.get("code", ""),
                 "name": acc.get("description", "Unknown"),
                 "price": price_cents / 100,
@@ -819,6 +825,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 "capacity": acc.get("capacity", 1),
                 "refund_type": acc.get("refundType", ""),  # REFUNDABLE, NON_REFUNDABLE
                 "image_url": acc.get("imageUrl", ""),
+                "original_type": fh_type,  # Keep original for reference
             })
 
         return cabin_types

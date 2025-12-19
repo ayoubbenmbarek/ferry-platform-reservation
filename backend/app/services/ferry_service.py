@@ -33,13 +33,47 @@ class FerryService:
     """
 
     # Mapping from operator display names to integration keys
+    # Map operator names to integration keys
+    # FerryHopper returns full operator names, all go through "ferryhopper" integration
     OPERATOR_KEY_MAP = {
-        "CTN": "ctn",
-        "GNV": "gnv",
-        "Corsica Lines": "corsica",
-        "Danel": "danel",
-        "Danel Casanova": "danel",
+        # Short codes
+        "CTN": "ferryhopper",
+        "GNV": "ferryhopper",
+        "Corsica Lines": "ferryhopper",
+        "Danel": "ferryhopper",
+        "Danel Casanova": "ferryhopper",
         "FerryHopper": "ferryhopper",
+        # Full operator names from FerryHopper API
+        "GRANDI NAVI VELOCI": "ferryhopper",
+        "Grandi Navi Veloci": "ferryhopper",
+        "GRIMALDI LINES": "ferryhopper",
+        "Grimaldi Lines": "ferryhopper",
+        "CORSICA LINEA": "ferryhopper",
+        "Corsica Linea": "ferryhopper",
+        "CORSICA FERRIES": "ferryhopper",
+        "Corsica Ferries": "ferryhopper",
+        "TIRRENIA": "ferryhopper",
+        "Tirrenia": "ferryhopper",
+        "MOBY": "ferryhopper",
+        "Moby": "ferryhopper",
+        "LA MERIDIONALE": "ferryhopper",
+        "La Meridionale": "ferryhopper",
+        "BLUE STAR FERRIES": "ferryhopper",
+        "Blue Star Ferries": "ferryhopper",
+        "HELLENIC SEAWAYS": "ferryhopper",
+        "Hellenic Seaways": "ferryhopper",
+        "ANEK LINES": "ferryhopper",
+        "Anek Lines": "ferryhopper",
+        "SUPERFAST FERRIES": "ferryhopper",
+        "Superfast Ferries": "ferryhopper",
+        "MINOAN LINES": "ferryhopper",
+        "Minoan Lines": "ferryhopper",
+        "JADROLINIJA": "ferryhopper",
+        "Jadrolinija": "ferryhopper",
+        "BALEARIA": "ferryhopper",
+        "Balearia": "ferryhopper",
+        "TRASMEDITERRANEA": "ferryhopper",
+        "Trasmediterranea": "ferryhopper",
     }
 
     def __init__(self, use_mock: bool = False):
@@ -226,10 +260,15 @@ class FerryService:
             ValueError: If operator not found
         """
         # Map operator name to integration key
-        operator_key = self.OPERATOR_KEY_MAP.get(operator, operator.lower())
+        # Default to ferryhopper since it's our primary aggregator
+        operator_key = self.OPERATOR_KEY_MAP.get(operator)
+        if not operator_key:
+            # Fallback: use ferryhopper for any unknown operator
+            operator_key = "ferryhopper"
+            logger.info(f"Unknown operator '{operator}' - routing to FerryHopper integration")
         integration = self.integrations.get(operator_key)
         if not integration:
-            raise ValueError(f"Unknown operator: {operator}")
+            raise ValueError(f"No integration available for operator: {operator}")
 
         booking_request = BookingRequest(
             sailing_id=sailing_id,
@@ -264,10 +303,15 @@ class FerryService:
             Booking status information
         """
         # Map operator name to integration key
-        operator_key = self.OPERATOR_KEY_MAP.get(operator, operator.lower())
+        # Default to ferryhopper since it's our primary aggregator
+        operator_key = self.OPERATOR_KEY_MAP.get(operator)
+        if not operator_key:
+            # Fallback: use ferryhopper for any unknown operator
+            operator_key = "ferryhopper"
+            logger.info(f"Unknown operator '{operator}' - routing to FerryHopper integration")
         integration = self.integrations.get(operator_key)
         if not integration:
-            raise ValueError(f"Unknown operator: {operator}")
+            raise ValueError(f"No integration available for operator: {operator}")
 
         try:
             async with integration:
@@ -298,10 +342,15 @@ class FerryService:
             True if cancellation successful
         """
         # Map operator name to integration key
-        operator_key = self.OPERATOR_KEY_MAP.get(operator, operator.lower())
+        # Default to ferryhopper since it's our primary aggregator
+        operator_key = self.OPERATOR_KEY_MAP.get(operator)
+        if not operator_key:
+            # Fallback: use ferryhopper for any unknown operator
+            operator_key = "ferryhopper"
+            logger.info(f"Unknown operator '{operator}' - routing to FerryHopper integration")
         integration = self.integrations.get(operator_key)
         if not integration:
-            raise ValueError(f"Unknown operator: {operator}")
+            raise ValueError(f"No integration available for operator: {operator}")
 
         try:
             async with integration:

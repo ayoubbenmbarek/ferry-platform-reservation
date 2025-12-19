@@ -225,6 +225,14 @@ celery_app.conf.update(
                 'expires': 14400,  # Task expires after 4 hours if not picked up
             }
         },
+        # FerryHopper: Pre-warm search cache every 10 minutes
+        'ferryhopper-prewarm-search-cache': {
+            'task': 'app.tasks.ferryhopper_sync_tasks.prewarm_search_cache',
+            'schedule': 600,  # 10 minutes in seconds
+            'options': {
+                'expires': 300,  # Task expires after 5 minutes if not picked up
+            }
+        },
     },
 )
 

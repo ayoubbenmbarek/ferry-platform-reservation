@@ -93,7 +93,8 @@ class Settings(BaseSettings):
     # API Configuration
     API_TIMEOUT: int = 30
     MAX_RETRIES: int = 3
-    CACHE_TTL_MINUTES: int = 5
+    CACHE_TTL_MINUTES: int = 15  # Ferry search cache TTL (ferry schedules don't change often)
+    CACHE_TTL_SECONDS: int = 900  # 15 minutes in seconds
     
     # Logging
     LOG_LEVEL: str = "INFO"

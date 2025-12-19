@@ -340,8 +340,9 @@ async def search_ferries(
             "cached": False
         }
 
-        # Cache the RAW results for 5 minutes (adjustment happens on read)
-        cache_service.set_ferry_search(cache_params, response_dict, ttl=300)
+        # Cache the RAW results (adjustment happens on read)
+        # Use 15 minutes TTL - ferry schedules don't change that often
+        cache_service.set_ferry_search(cache_params, response_dict, ttl=settings.CACHE_TTL_SECONDS)
 
         logger.info(f"💾 Cached ferry search results ({search_time:.0f}ms)")
 
@@ -1213,7 +1214,7 @@ async def get_date_prices(
                             "search_time_ms": 0,
                             "cached": False
                         }
-                        cache_service.set_ferry_search(ferry_search_cache_params, cache_response, ttl=300)
+                        cache_service.set_ferry_search(ferry_search_cache_params, cache_response, ttl=settings.CACHE_TTL_SECONDS)
 
                 if results:
                     lowest_price = None
@@ -1277,10 +1278,10 @@ async def get_date_prices(
             "total_dates": len(date_prices)
         }
 
-        # Cache for 5 minutes to match ferry_search cache TTL
+        # Cache for 15 minutes to match ferry_search cache TTL
         # Individual dates check ferry_search cache first, so prices will be consistent
         # This whole response cache prevents re-querying when toggling week/month view
-        cache_service.set_date_prices(cache_params, response, ttl=300)
+        cache_service.set_date_prices(cache_params, response, ttl=settings.CACHE_TTL_SECONDS)
 
         return response
 

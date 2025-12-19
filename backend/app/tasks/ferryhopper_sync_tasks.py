@@ -889,3 +889,112 @@ def daily_ferryhopper_sync_task(self):
 
     logger.info(f"✅ Daily FerryHopper sync complete: {results}")
     return results
+
+
+# =============================================================================
+# Cache Pre-Warming Task
+# =============================================================================
+
+@shared_task(
+    name="app.tasks.ferryhopper_sync_tasks.prewarm_search_cache",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60
+)
+def prewarm_search_cache_task(self, days_ahead: int = 14):
+    """
+    Pre-warm the ferry search cache for popular routes.
+
+    Runs every 10 minutes to keep cache warm for popular routes.
+    Searches the next 14 days for each popular route to ensure fast response times.
+    """
+    import asyncio
+    from app.services.ferry_service import FerryService
+
+    logger.info(f"🔥 Pre-warming search cache for {len(TRACKED_ROUTES)} routes, {days_ahead} days ahead...")
+
+    ferry_service = FerryService()
+    warmed_count = 0
+    skipped_count = 0
+    error_count = 0
+
+    async def warm_route_date(dep: str, arr: str, search_date: date) -> bool:
+        """Warm cache for a single route/date."""
+        try:
+            results = await ferry_service.search_ferries(
+                departure_port=dep,
+                arrival_port=arr,
+                departure_date=search_date,
+                adults=1,
+                children=0,
+                infants=0
+            )
+            return True
+        except Exception as e:
+            logger.debug(f"Cache warm failed for {dep}->{arr} {search_date}: {e}")
+            return False
+
+    async def warm_all_routes():
+        nonlocal warmed_count, skipped_count, error_count
+
+        today = date.today()
+        from app.services.cache_service import cache_service
+
+        for dep_code, arr_code, route_name in TRACKED_ROUTES:
+            # Check if we should warm this route (skip if recently warmed)
+            for day_offset in range(0, days_ahead, 2):  # Every 2 days to reduce load
+                search_date = today + timedelta(days=day_offset)
+
+                # Check if already cached
+                cache_params = {
+                    "departure_port": dep_code,
+                    "arrival_port": arr_code,
+                    "departure_date": search_date.isoformat(),
+                    "passengers": 1
+                }
+
+                # Check FerryHopper-specific cache
+                cached = cache_service.get_ferryhopper_search(
+                    departure_port=dep_code,
+                    arrival_port=arr_code,
+                    departure_date=search_date.isoformat(),
+                    passengers=1
+                )
+
+                if cached:
+                    skipped_count += 1
+                    continue
+
+                # Warm the cache
+                success = await warm_route_date(dep_code, arr_code, search_date)
+                if success:
+                    warmed_count += 1
+                else:
+                    error_count += 1
+
+                # Small delay to avoid rate limiting
+                await asyncio.sleep(0.5)
+
+    try:
+        # Run async warming
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(warm_all_routes())
+
+        logger.info(f"✅ Cache pre-warm complete: {warmed_count} warmed, {skipped_count} skipped (cached), {error_count} errors")
+
+        return {
+            "status": "success",
+            "warmed": warmed_count,
+            "skipped": skipped_count,
+            "errors": error_count,
+            "routes": len(TRACKED_ROUTES)
+        }
+
+    except Exception as e:
+        logger.error(f"Error pre-warming cache: {e}", exc_info=True)
+        raise self.retry(exc=e)

@@ -30,6 +30,7 @@ from .ferryhopper_mappings import (
     UNSUPPORTED_PORTS,
 )
 from app.services.cache_service import cache_service
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 departure_date=search_request.departure_date.isoformat(),
                 passengers=total_passengers,
                 results=cache_data,
-                ttl=300  # 5 minutes (short due to availability changes)
+                ttl=settings.CACHE_TTL_SECONDS  # 15 minutes (ferry schedules don't change often)
             )
 
             logger.info(f"FerryHopper search returned {len(results)} results")

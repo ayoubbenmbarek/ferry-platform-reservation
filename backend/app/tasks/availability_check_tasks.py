@@ -99,10 +99,6 @@ def check_availability_alerts_task(self):
         notified_count = 0
         checked_count = 0
 
-        # Pre-fetch cabin count ONCE outside the loop (fixes N+1 query)
-        from app.models.ferry import Cabin
-        available_cabins_count = db.query(Cabin).filter(Cabin.is_available == True).count()
-
         # Group alerts by route+date to minimize API calls
         route_cache = {}  # Cache search results by route key
 
@@ -180,13 +176,7 @@ def check_availability_alerts_task(self):
                     # Check if route has cabin availability
                     # Note: cabin_required and cabin_type are not parameters of search_ferries()
                     # We'll search normally and filter results by cabin availability
-
-                    # IMPORTANT: Also check if cabins exist in database
-                    # The frontend shows cabins from DB, not from ferry search results
-                    # Using pre-fetched count from outside the loop (fixes N+1 query)
-                    if available_cabins_count == 0:
-                        logger.debug(f"🛏️ Alert {alert.id}: No cabins in database, skipping notification")
-                        continue  # Skip this alert - no cabins to show user
+                    # Cabin types are now returned directly from FerryHopper API in search results
 
                     # Check route cache first
                     if route_key in route_cache:

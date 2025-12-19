@@ -3,27 +3,24 @@ import { useSelector } from 'react-redux';
 import api from '../services/api';
 import { RootState } from '../store';
 
-interface Cabin {
-  id: number;
+// FerryHopper cabin type from search results
+interface FerryCabin {
+  type: string;
+  code: string;
   name: string;
-  description: string;
-  cabin_type: string;
-  bed_type: string;
-  max_occupancy: number;
-  has_private_bathroom: boolean;
-  has_tv: boolean;
-  has_minibar: boolean;
-  has_air_conditioning: boolean;
-  has_wifi: boolean;
-  is_accessible: boolean;
-  base_price: number;
+  price: number;
   currency: string;
-  is_available: boolean;
+  available: number;
+  capacity: number;
+  refund_type?: string;
+  image_url?: string;
+  original_type?: string;
 }
 
 // Selection for a single cabin type with quantity
 export interface CabinTypeSelection {
-  cabinId: number;
+  cabinId: number;  // Keep for backward compatibility (use hash of code)
+  cabinCode: string;  // FerryHopper cabin code
   cabinName: string;
   cabinType: string;
   quantity: number;
@@ -68,9 +65,6 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   operator,
 }) => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const [cabins, setCabins] = useState<Cabin[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedJourney, setSelectedJourney] = useState<'outbound' | 'return'>('outbound');
 
   // Notify me states
@@ -78,122 +72,105 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   const [alertCreated, setAlertCreated] = useState(false);
   const [alertEmail, setAlertEmail] = useState(user?.email || '');
 
-  // Track quantity per cabin ID for each journey - initialize from props
-  const [outboundCabinQuantities, setOutboundCabinQuantities] = useState<Record<number, number>>(() => {
-    const initial: Record<number, number> = {};
-    initialOutboundSelections.forEach(s => {
-      if (s.cabinId && s.quantity > 0) {
-        initial[s.cabinId] = s.quantity;
-      }
-    });
-    return initial;
-  });
-  const [returnCabinQuantities, setReturnCabinQuantities] = useState<Record<number, number>>(() => {
-    const initial: Record<number, number> = {};
-    initialReturnSelections.forEach(s => {
-      if (s.cabinId && s.quantity > 0) {
-        initial[s.cabinId] = s.quantity;
-      }
-    });
-    return initial;
-  });
-
-  useEffect(() => {
-    fetchCabins();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passengerCount]);
-
-  const fetchCabins = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/cabins', {
-        params: {
-          is_available: true,
-          min_occupancy: Math.min(passengerCount, 1),
-        },
-      });
-      setCabins(response.data);
-    } catch (err: any) {
-      setError('Failed to load cabin options');
-      console.error('Error fetching cabins:', err);
-    } finally {
-      setLoading(false);
+  // Helper to generate a numeric ID from cabin code (for backward compatibility)
+  const codeToId = (code: string): number => {
+    let hash = 0;
+    for (let i = 0; i < code.length; i++) {
+      const char = code.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
     }
+    return Math.abs(hash);
   };
 
+  // Get ferry cabins for current journey - use FerryHopper cabin types directly
+  const getFerryCabins = (): FerryCabin[] => {
+    const cabinData = selectedJourney === 'outbound' ? ferryCabinAvailability : returnFerryCabinAvailability;
+    if (!cabinData || cabinData.length === 0) {
+      return [];
+    }
+    // Filter to only show actual cabins (not deck seats) with availability
+    return cabinData.filter((cabin: FerryCabin) =>
+      cabin.available > 0 || cabin.type !== 'deck'
+    );
+  };
+
+  const ferryCabins = getFerryCabins();
+
+  // Track quantity per cabin code for each journey - initialize from props
+  const [outboundCabinQuantities, setOutboundCabinQuantities] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    initialOutboundSelections.forEach(s => {
+      // Try to match by cabinId (hash of code)
+      const matchingCabin = ferryCabinAvailability.find((c: FerryCabin) => codeToId(c.code) === s.cabinId);
+      if (matchingCabin && s.quantity > 0) {
+        initial[matchingCabin.code] = s.quantity;
+      }
+    });
+    return initial;
+  });
+  const [returnCabinQuantities, setReturnCabinQuantities] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    initialReturnSelections.forEach(s => {
+      const matchingCabin = returnFerryCabinAvailability.find((c: FerryCabin) => codeToId(c.code) === s.cabinId);
+      if (matchingCabin && s.quantity > 0) {
+        initial[matchingCabin.code] = s.quantity;
+      }
+    });
+    return initial;
+  });
+
   const getCabinIcon = (cabinType: string) => {
-    switch (cabinType) {
-      case 'SEAT':
+    const type = cabinType.toLowerCase();
+    switch (type) {
+      case 'deck':
+      case 'seat':
         return '🪑';
-      case 'INSIDE':
+      case 'interior':
+      case 'inside':
         return '🛏️';
-      case 'OUTSIDE':
+      case 'exterior':
+      case 'outside':
         return '🪟';
-      case 'BALCONY':
+      case 'balcony':
         return '🌊';
-      case 'SUITE':
+      case 'suite':
         return '👑';
       default:
-        return '🏠';
+        return '🛏️';
     }
   };
 
   const getCabinTypeName = (cabinType: string) => {
+    const type = cabinType.toLowerCase();
     const names: { [key: string]: string } = {
-      SEAT: 'Reclining Seat',
-      INSIDE: 'Inside Cabin',
-      OUTSIDE: 'Outside Cabin',
-      BALCONY: 'Balcony Cabin',
-      SUITE: 'Suite',
+      deck: 'Deck Passage',
+      seat: 'Reclining Seat',
+      interior: 'Inside Cabin',
+      inside: 'Inside Cabin',
+      exterior: 'Outside Cabin',
+      outside: 'Outside Cabin',
+      balcony: 'Balcony Cabin',
+      suite: 'Suite',
     };
-    return names[cabinType] || cabinType;
+    return names[type] || cabinType;
   };
 
   // Get current journey's cabin quantities
   const cabinQuantities = selectedJourney === 'outbound' ? outboundCabinQuantities : returnCabinQuantities;
   const setCabinQuantities = selectedJourney === 'outbound' ? setOutboundCabinQuantities : setReturnCabinQuantities;
 
-  // Check if a cabin type is available on the selected ferry
-  const getCabinAvailability = (cabinType: string) => {
-    const availabilityData = selectedJourney === 'outbound' ? ferryCabinAvailability : returnFerryCabinAvailability;
-
-    // If no availability data provided, assume all cabins are available (backward compatibility)
-    if (!availabilityData || availabilityData.length === 0) {
-      return { available: true, count: 999 };
-    }
-
-    // Map cabin types to ferry API types
-    const typeMapping: { [key: string]: string } = {
-      'INSIDE': 'interior',
-      'OUTSIDE': 'exterior',
-      'BALCONY': 'balcony',
-      'SUITE': 'suite',
-      'SEAT': 'deck',
-    };
-
-    const ferryType = typeMapping[cabinType];
-    if (!ferryType) return { available: false, count: 0 }; // Unknown type, treat as unavailable
-
-    const cabinInfo = availabilityData.find((c: any) => c.type === ferryType);
-    if (!cabinInfo) return { available: false, count: 0 }; // Not found in ferry data = unavailable
-
-    return {
-      available: cabinInfo.available > 0,
-      count: cabinInfo.available || 0
-    };
-  };
-
-  // Calculate total cabins and total price for current journey
+  // Calculate total cabins and total price for current journey using FerryHopper cabin data
   const getTotalCabinsAndPrice = () => {
     let totalCabins = 0;
     let totalPrice = 0;
 
-    Object.entries(cabinQuantities).forEach(([cabinId, qty]) => {
+    Object.entries(cabinQuantities).forEach(([cabinCode, qty]) => {
       if (qty > 0) {
-        const cabin = cabins.find(c => c.id === Number(cabinId));
+        const cabin = ferryCabins.find(c => c.code === cabinCode);
         if (cabin) {
           totalCabins += qty;
-          totalPrice += cabin.base_price * qty;
+          totalPrice += cabin.price * qty;
         }
       }
     });
@@ -201,20 +178,21 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
     return { totalCabins, totalPrice };
   };
 
-  // Get selections for multi-cabin callback
+  // Get selections for multi-cabin callback using FerryHopper cabin data
   const getSelections = (): CabinTypeSelection[] => {
     const selections: CabinTypeSelection[] = [];
-    Object.entries(cabinQuantities).forEach(([cabinId, qty]) => {
+    Object.entries(cabinQuantities).forEach(([cabinCode, qty]) => {
       if (qty > 0) {
-        const cabin = cabins.find(c => c.id === Number(cabinId));
+        const cabin = ferryCabins.find(c => c.code === cabinCode);
         if (cabin) {
           selections.push({
-            cabinId: cabin.id,
+            cabinId: codeToId(cabin.code),  // Generate numeric ID for backward compatibility
+            cabinCode: cabin.code,
             cabinName: cabin.name,
-            cabinType: cabin.cabin_type,
+            cabinType: cabin.type,
             quantity: qty,
-            pricePerCabin: cabin.base_price,
-            totalPrice: cabin.base_price * qty,
+            pricePerCabin: cabin.price,
+            totalPrice: cabin.price * qty,
           });
         }
       }
@@ -239,11 +217,11 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
     }
   };
 
-  const handleQuantityChange = (cabinId: number, quantity: number) => {
+  const handleQuantityChange = (cabinCode: string, quantity: number) => {
     setCabinQuantities(prev => {
       const newQuantities = {
         ...prev,
-        [cabinId]: quantity
+        [cabinCode]: quantity
       };
       return newQuantities;
     });
@@ -288,32 +266,13 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
     }
   };
 
-  // After quantity change, notify parent - MUST be before early returns
+  // After quantity change, notify parent
   useEffect(() => {
-    if (!loading && cabins.length > 0) {
-      notifyParent();
-    }
+    notifyParent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outboundCabinQuantities, returnCabinQuantities, cabins]);
+  }, [outboundCabinQuantities, returnCabinQuantities, ferryCabins]);
 
   const { totalCabins, totalPrice } = getTotalCabinsAndPrice();
-
-  if (loading) {
-    return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading cabin options...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-800">{error}</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -388,17 +347,16 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-        {/* Cabin Options */}
-        {cabins.map((cabin) => {
-          const quantity = cabinQuantities[cabin.id] || 0;
-          const cabinTotalPrice = cabin.base_price * quantity;
-          const availability = getCabinAvailability(cabin.cabin_type);
-          const isUnavailable = !availability.available;
-          const maxAvailable = Math.min(availability.count, 10); // Cap at 10 per type
+        {/* Cabin Options - Using FerryHopper cabin types directly */}
+        {ferryCabins.map((cabin) => {
+          const quantity = cabinQuantities[cabin.code] || 0;
+          const cabinTotalPrice = cabin.price * quantity;
+          const isUnavailable = cabin.available === 0;
+          const maxAvailable = Math.min(cabin.available, 10); // Cap at 10 per type
 
           return (
             <div
-              key={cabin.id}
+              key={cabin.code}
               className={`border-2 rounded-lg p-4 transition-all flex flex-col ${
                 isUnavailable
                   ? 'border-gray-200 bg-gray-50 opacity-60'
@@ -410,10 +368,15 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
               {/* Header with icon and price */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">{getCabinIcon(cabin.cabin_type)}</span>
+                  <span className="text-2xl">{getCabinIcon(cabin.type)}</span>
                   {isUnavailable && (
                     <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
                       Unavailable
+                    </span>
+                  )}
+                  {cabin.available > 0 && cabin.available <= 5 && (
+                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-medium">
+                      {cabin.available} left
                     </span>
                   )}
                   {quantity > 0 && (
@@ -424,7 +387,7 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
                 </div>
                 <div className="text-right">
                   <span className="text-lg font-bold text-blue-600">
-                    €{cabin.base_price.toFixed(2)}
+                    €{cabin.price.toFixed(2)}
                   </span>
                   <span className="text-xs text-gray-500 block">per cabin</span>
                 </div>
@@ -434,32 +397,19 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
               <div className="flex-1">
                 <h4 className="font-semibold">{cabin.name}</h4>
                 <p className="text-xs text-gray-500 mt-1">
-                  {getCabinTypeName(cabin.cabin_type)} • {cabin.bed_type.toLowerCase()} • Max{' '}
-                  {cabin.max_occupancy} persons
+                  {getCabinTypeName(cabin.type)} • Max {cabin.capacity} person{cabin.capacity > 1 ? 's' : ''}
                 </p>
 
-                {cabin.description && (
-                  <p className="text-sm text-gray-600 mt-2 line-clamp-2">{cabin.description}</p>
+                {/* Refund type badge */}
+                {cabin.refund_type && (
+                  <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded ${
+                    cabin.refund_type === 'REFUNDABLE'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {cabin.refund_type === 'REFUNDABLE' ? '✓ Refundable' : 'Non-refundable'}
+                  </span>
                 )}
-
-                {/* Amenities */}
-                <div className="flex flex-wrap gap-1 mt-3">
-                  {cabin.has_private_bathroom && (
-                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">🚿</span>
-                  )}
-                  {cabin.has_wifi && (
-                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">📶</span>
-                  )}
-                  {cabin.has_tv && (
-                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">📺</span>
-                  )}
-                  {cabin.has_minibar && (
-                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">🍾</span>
-                  )}
-                  {cabin.is_accessible && (
-                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">♿</span>
-                  )}
-                </div>
               </div>
 
               {/* Quantity Selector - Always at bottom */}
@@ -468,7 +418,7 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
                   <span className="text-sm font-medium text-gray-700">Quantity:</span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleQuantityChange(cabin.id, Math.max(0, quantity - 1))}
+                      onClick={() => handleQuantityChange(cabin.code, Math.max(0, quantity - 1))}
                       disabled={isUnavailable || quantity === 0}
                       className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
                     >
@@ -476,7 +426,7 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
                     </button>
                     <span className="w-8 text-center font-semibold text-lg">{quantity}</span>
                     <button
-                      onClick={() => handleQuantityChange(cabin.id, Math.min(maxAvailable, quantity + 1))}
+                      onClick={() => handleQuantityChange(cabin.code, Math.min(maxAvailable, quantity + 1))}
                       disabled={isUnavailable || quantity >= maxAvailable}
                       className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
                     >
@@ -495,8 +445,8 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
         })}
       </div>
 
-      {/* Show Notify Me when no cabins in DB OR when all cabins are unavailable on ferry */}
-      {(cabins.length === 0 || (cabins.length > 0 && cabins.every(cabin => !getCabinAvailability(cabin.cabin_type).available))) && (
+      {/* Show Notify Me when no cabins available on the ferry */}
+      {ferryCabins.length === 0 && (
         <div className="text-center py-8">
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 max-w-md mx-auto">
             <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">

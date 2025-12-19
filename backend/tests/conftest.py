@@ -73,6 +73,9 @@ set_env_if_empty("GOOGLE_CLIENT_ID", "test-google-client-id")
 set_env_if_empty("GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 set_env_if_empty("GOOGLE_REDIRECT_URI", "http://localhost:3001/auth/google/callback")
 
+# Enable mock ferry integrations for testing (no real API calls)
+set_env_if_empty("USE_MOCK_FERRIES", "true")
+
 import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal

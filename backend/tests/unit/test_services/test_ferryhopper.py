@@ -400,13 +400,17 @@ class TestParseSolution:
         result = results[0]
         assert len(result.cabin_types) == 2
 
-        deck = next(c for c in result.cabin_types if c["type"] == "DECK")
+        # FerryHopper types are mapped to VoilaFerry lowercase types:
+        # "DECK" -> "deck", "CABIN" -> "interior"
+        deck = next(c for c in result.cabin_types if c["type"] == "deck")
         assert deck["price"] == 45.0
         assert deck["name"] == "Deck Passage"
+        assert deck["original_type"] == "DECK"  # Original type preserved
 
-        cabin = next(c for c in result.cabin_types if c["type"] == "CABIN")
+        cabin = next(c for c in result.cabin_types if c["type"] == "interior")
         assert cabin["price"] == 120.0
         assert cabin["name"] == "2-Bed Cabin"
+        assert cabin["original_type"] == "CABIN"  # Original type preserved
 
     def test_parse_solution_extracts_route_info(self, ferryhopper_integration, mock_search_response, sample_search_request):
         """Test that route info is correctly extracted."""

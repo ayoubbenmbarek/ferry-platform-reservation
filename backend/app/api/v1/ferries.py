@@ -7,6 +7,8 @@ import logging
 from typing import Optional
 from datetime import datetime, date
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -1144,15 +1146,33 @@ async def get_date_prices(
 
         import asyncio
 
+        # Calculate date range
         start_date = center_date - timedelta(days=days_before)
         end_date = center_date + timedelta(days=days_after)
 
-        # Generate list of dates to search
+        # Get today's date - FerryHopper requires departure dates to be in the future
+        today = date.today()
+        tomorrow = today + timedelta(days=1)  # Start from tomorrow to be safe
+
+        # Generate list of dates to search (only future dates)
         dates_to_search = []
         current_date = start_date
         while current_date <= end_date:
-            dates_to_search.append(current_date)
+            # Only search future dates (tomorrow onwards)
+            if current_date >= tomorrow:
+                dates_to_search.append(current_date)
             current_date += timedelta(days=1)
+
+        if not dates_to_search:
+            logger.info(f"No future dates to search for {departure_port}→{arrival_port}")
+            return {
+                "departure_port": departure_port,
+                "arrival_port": arrival_port,
+                "center_date": center_date.isoformat(),
+                "dates": [],
+                "cached": False,
+                "message": "All requested dates are in the past"
+            }
 
         async def search_single_date(search_date: date) -> dict:
             """Search ferries for a single date and return date price info."""

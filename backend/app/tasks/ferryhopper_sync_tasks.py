@@ -898,18 +898,26 @@ def daily_ferryhopper_sync_task(self):
 @shared_task(
     name="app.tasks.ferryhopper_sync_tasks.prewarm_search_cache",
     bind=True,
-    max_retries=2,
-    default_retry_delay=60
+    max_retries=1,
+    default_retry_delay=60,
+    soft_time_limit=240,  # 4 minutes soft limit
+    time_limit=300  # 5 minutes hard limit
 )
-def prewarm_search_cache_task(self, days_ahead: int = 14):
+def prewarm_search_cache_task(self, days_ahead: int = 7):
     """
     Pre-warm the ferry search cache for popular routes.
 
     Runs every 10 minutes to keep cache warm for popular routes.
-    Searches the next 14 days for each popular route to ensure fast response times.
+    Searches the next 7 days for each popular route to ensure fast response times.
+    Limited to avoid timeout - processes only uncached routes.
     """
     import asyncio
+    import time
     from app.services.ferry_service import FerryService
+    from celery.exceptions import SoftTimeLimitExceeded
+
+    start_time = time.time()
+    max_runtime = 180  # Stop after 3 minutes to leave buffer
 
     logger.info(f"🔥 Pre-warming search cache for {len(TRACKED_ROUTES)} routes, {days_ahead} days ahead...")
 
@@ -917,6 +925,7 @@ def prewarm_search_cache_task(self, days_ahead: int = 14):
     warmed_count = 0
     skipped_count = 0
     error_count = 0
+    stopped_early = False
 
     async def warm_route_date(dep: str, arr: str, search_date: date) -> bool:
         """Warm cache for a single route/date."""
@@ -935,23 +944,23 @@ def prewarm_search_cache_task(self, days_ahead: int = 14):
             return False
 
     async def warm_all_routes():
-        nonlocal warmed_count, skipped_count, error_count
+        nonlocal warmed_count, skipped_count, error_count, stopped_early
 
         today = date.today()
+        tomorrow = today + timedelta(days=1)  # Start from tomorrow to avoid "past date" errors
         from app.services.cache_service import cache_service
 
         for dep_code, arr_code, route_name in TRACKED_ROUTES:
-            # Check if we should warm this route (skip if recently warmed)
-            for day_offset in range(0, days_ahead, 2):  # Every 2 days to reduce load
-                search_date = today + timedelta(days=day_offset)
+            # Check if we're running out of time
+            elapsed = time.time() - start_time
+            if elapsed > max_runtime:
+                logger.info(f"⏰ Stopping early after {elapsed:.0f}s to avoid timeout")
+                stopped_early = True
+                return
 
-                # Check if already cached
-                cache_params = {
-                    "departure_port": dep_code,
-                    "arrival_port": arr_code,
-                    "departure_date": search_date.isoformat(),
-                    "passengers": 1
-                }
+            # Check every 2 days for the next week (starting from tomorrow)
+            for day_offset in range(1, days_ahead + 1, 2):
+                search_date = today + timedelta(days=day_offset)
 
                 # Check FerryHopper-specific cache
                 cached = cache_service.get_ferryhopper_search(
@@ -973,7 +982,7 @@ def prewarm_search_cache_task(self, days_ahead: int = 14):
                     error_count += 1
 
                 # Small delay to avoid rate limiting
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.3)
 
     try:
         # Run async warming
@@ -985,16 +994,39 @@ def prewarm_search_cache_task(self, days_ahead: int = 14):
 
         loop.run_until_complete(warm_all_routes())
 
-        logger.info(f"✅ Cache pre-warm complete: {warmed_count} warmed, {skipped_count} skipped (cached), {error_count} errors")
+        elapsed = time.time() - start_time
+        status_msg = "partial" if stopped_early else "success"
+        logger.info(f"✅ Cache pre-warm {status_msg}: {warmed_count} warmed, {skipped_count} skipped (cached), {error_count} errors in {elapsed:.0f}s")
 
         return {
-            "status": "success",
+            "status": status_msg,
             "warmed": warmed_count,
             "skipped": skipped_count,
             "errors": error_count,
-            "routes": len(TRACKED_ROUTES)
+            "routes": len(TRACKED_ROUTES),
+            "stopped_early": stopped_early,
+            "elapsed_seconds": round(elapsed, 1)
+        }
+
+    except SoftTimeLimitExceeded:
+        elapsed = time.time() - start_time
+        logger.warning(f"⏰ Cache pre-warm soft time limit exceeded after {elapsed:.0f}s")
+        return {
+            "status": "timeout",
+            "warmed": warmed_count,
+            "skipped": skipped_count,
+            "errors": error_count,
+            "routes": len(TRACKED_ROUTES),
+            "stopped_early": True,
+            "elapsed_seconds": round(elapsed, 1)
         }
 
     except Exception as e:
         logger.error(f"Error pre-warming cache: {e}", exc_info=True)
-        raise self.retry(exc=e)
+        return {
+            "status": "error",
+            "error": str(e),
+            "warmed": warmed_count,
+            "skipped": skipped_count,
+            "errors": error_count
+        }

@@ -684,10 +684,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
                         vessel_name=vessel_name,
                         prices=prices,
                         cabin_types=cabin_types,
-                        available_spaces={
-                            "passengers": 100,
-                            "vehicles": 50 if vehicles_supported else 0,
-                        }
+                        available_spaces=self._calculate_available_spaces(cabin_types, vehicles_supported)
                     )
 
                     # Add route_info as additional attribute
@@ -830,6 +827,47 @@ class FerryHopperIntegration(BaseFerryIntegration):
             })
 
         return cabin_types
+
+    def _calculate_available_spaces(self, cabin_types: List[Dict], vehicles_supported: bool) -> Dict:
+        """
+        Calculate available passenger and vehicle spaces from cabin types.
+
+        Uses actual availability data from FerryHopper instead of hardcoded values.
+        Deck/seat types indicate passenger capacity, cabin types indicate cabin capacity.
+
+        For vehicles: FerryHopper doesn't return exact vehicle capacity counts.
+        However, if a search with a vehicle returns results, it means vehicle space exists.
+        We use vehicles_supported (True if solution has vehicle types) as the indicator.
+        """
+        # Calculate passenger availability from deck/seat types
+        passengers_available = 0
+        for cabin in cabin_types:
+            cabin_type = cabin.get("type", "").lower()
+            available = cabin.get("available", 0)
+            capacity = cabin.get("capacity", 1)
+
+            # Deck seats count towards passenger availability
+            if cabin_type in ("deck", "seat", "deck_seat", "reclining_seat"):
+                passengers_available += available * capacity
+
+        # If no deck seats found, sum all accommodation availability
+        # (some ferries only have cabins, no deck passage)
+        if passengers_available == 0:
+            for cabin in cabin_types:
+                available = cabin.get("available", 0)
+                capacity = cabin.get("capacity", 1)
+                passengers_available += available * capacity
+
+        # Vehicle availability from FerryHopper:
+        # - If solution includes vehicle types, vehicles ARE available (at least 1 slot)
+        # - FerryHopper wouldn't return vehicle options if no capacity existed
+        # - We use 1 to indicate "available" since exact count isn't provided
+        vehicles_available = 1 if vehicles_supported else 0
+
+        return {
+            "passengers": passengers_available,
+            "vehicles": vehicles_available,
+        }
 
     def _parse_datetime(self, dt_str: str) -> Optional[datetime]:
         """Parse FerryHopper datetime string (ISO 8601 with timezone)."""

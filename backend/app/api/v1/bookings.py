@@ -6,10 +6,25 @@ import uuid
 import os
 import logging
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+def make_aware(dt: datetime) -> datetime:
+    """Ensure datetime is timezone-aware (UTC). Handles both naive and aware datetimes."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def utc_now() -> datetime:
+    """Get current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
+
 
 try:
     from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -311,16 +326,18 @@ async def create_booking(
     try:
         # Validate departure time is not in the past
         if booking_data.departure_time:
-            now = datetime.utcnow()
+            now = utc_now()
             # Add 1 hour buffer before departure for check-in
             min_booking_time = now + timedelta(hours=1)
+            # Ensure departure_time is timezone-aware for comparison
+            departure = make_aware(booking_data.departure_time)
 
-            if booking_data.departure_time < now:
+            if departure < now:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Cannot book a ferry that has already departed"
                 )
-            elif booking_data.departure_time < min_booking_time:
+            elif departure < min_booking_time:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Bookings must be made at least 1 hour before departure"
@@ -328,15 +345,17 @@ async def create_booking(
 
         # Validate return departure time if round trip
         if booking_data.is_round_trip and booking_data.return_departure_time:
-            now = datetime.utcnow()
+            now = utc_now()
             min_booking_time = now + timedelta(hours=1)
+            # Ensure return_departure_time is timezone-aware for comparison
+            return_departure = make_aware(booking_data.return_departure_time)
 
-            if booking_data.return_departure_time < now:
+            if return_departure < now:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Cannot book a return ferry that has already departed"
                 )
-            elif booking_data.return_departure_time < min_booking_time:
+            elif return_departure < min_booking_time:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Return bookings must be made at least 1 hour before departure"
@@ -352,7 +371,7 @@ async def create_booking(
                 Booking.arrival_port == booking_data.arrival_port,
                 Booking.departure_time == booking_data.departure_time,
                 Booking.status == BookingStatusEnum.PENDING.value,
-                Booking.expires_at > datetime.utcnow()  # Not expired
+                Booking.expires_at > utc_now()  # Not expired
             ).first()
 
             if existing_pending:
@@ -508,7 +527,7 @@ async def create_booking(
         total_amount = discounted_subtotal + tax_amount
 
         # Calculate expiration time (30 minutes from now for pending bookings)
-        expires_at = datetime.utcnow() + timedelta(minutes=30)
+        expires_at = utc_now() + timedelta(minutes=30)
 
         # Create booking record
         db_booking = Booking(
@@ -1144,7 +1163,7 @@ async def update_booking(
             # For now, just update the supplement
             booking.cabin_supplement = booking_update.cabin_selection.supplement_price or 0.0
         
-        booking.updated_at = datetime.utcnow()
+        booking.updated_at = utc_now()
         db.commit()
         db.refresh(booking)
 
@@ -1237,7 +1256,7 @@ async def quick_update_booking(
                     if 'hasBikeRack' in vehicle_update:
                         vehicle.has_bike_rack = vehicle_update['hasBikeRack']
 
-        booking.updated_at = datetime.utcnow()
+        booking.updated_at = utc_now()
         db.commit()
 
         return {"success": True, "message": "Booking updated successfully"}
@@ -1384,7 +1403,7 @@ async def add_cabin_to_booking(
 
         booking.tax_amount = tax_amount
         booking.total_amount = total_amount_new
-        booking.updated_at = datetime.utcnow()
+        booking.updated_at = utc_now()
 
         # Mark alert as fulfilled if provided
         if cabin_request.alert_id:
@@ -1392,7 +1411,7 @@ async def add_cabin_to_booking(
             alert = db.query(AvailabilityAlert).filter(AvailabilityAlert.id == cabin_request.alert_id).first()
             if alert:
                 alert.status = "fulfilled"
-                alert.notified_at = datetime.utcnow()
+                alert.notified_at = utc_now()
                 logger.info(f"Marked alert {cabin_request.alert_id} as fulfilled")
 
         db.commit()
@@ -1602,8 +1621,8 @@ async def cancel_booking(
         # Update booking status
         booking.status = BookingStatusEnum.CANCELLED
         booking.cancellation_reason = cancellation_data.reason
-        booking.cancelled_at = datetime.utcnow()
-        booking.updated_at = datetime.utcnow()
+        booking.cancelled_at = utc_now()
+        booking.updated_at = utc_now()
         if total_refund_amount > 0:
             booking.refund_amount = total_refund_amount
             booking.refund_processed = refunds_processed > 0
@@ -1832,14 +1851,14 @@ async def expire_pending_bookings(
         expired_bookings = db.query(Booking).filter(
             Booking.status == BookingStatusEnum.PENDING,
             Booking.expires_at != None,
-            Booking.expires_at < datetime.utcnow()
+            Booking.expires_at < utc_now()
         ).all()
 
         expired_count = 0
         for booking in expired_bookings:
             booking.status = BookingStatusEnum.CANCELLED
             booking.cancellation_reason = "Booking expired - payment not received within 3 days"
-            booking.cancelled_at = datetime.utcnow()
+            booking.cancelled_at = utc_now()
             expired_count += 1
 
         db.commit()

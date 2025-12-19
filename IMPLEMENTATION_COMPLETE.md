@@ -350,6 +350,11 @@ todo:recive email or notification for tasks in dead letter
 todo:add ticket to wallet
 todo:add loading bear on mobile:done
 todo:did we integrate all functionnalities, with ferryhopper, as we use on that for now, like price alert(drop, increase etc), cabin availaibility and all functionnalities that should be interated for it, do we need to add ferry ports to our db?
+May Need Testing:                                                           
+  1. E-Ticket/Boarding Pass - FerryHopper returns boarding method info, but need
+   to verify ticket retrieval flow                                              
+  2. Booking Confirmation Email - Verify all FerryHopper data is included       
+  3. Round-trip booking - Test with FerryHopper for both legs
 
 
 

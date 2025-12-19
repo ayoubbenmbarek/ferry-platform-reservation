@@ -73,7 +73,8 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   const [alertEmail, setAlertEmail] = useState(user?.email || '');
 
   // Helper to generate a numeric ID from cabin code (for backward compatibility)
-  const codeToId = (code: string): number => {
+  const codeToId = (code: string | undefined): number => {
+    if (!code) return 0;
     let hash = 0;
     for (let i = 0; i < code.length; i++) {
       const char = code.charCodeAt(i);
@@ -109,10 +110,11 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   // Track quantity per cabin code for each journey - initialize from props
   const [outboundCabinQuantities, setOutboundCabinQuantities] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
+    if (!ferryCabinAvailability || !Array.isArray(ferryCabinAvailability)) return initial;
     initialOutboundSelections.forEach(s => {
       // Try to match by cabinId (hash of code)
-      const matchingCabin = ferryCabinAvailability.find((c: FerryCabin) => codeToId(c.code) === s.cabinId);
-      if (matchingCabin && s.quantity > 0) {
+      const matchingCabin = ferryCabinAvailability.find((c: FerryCabin) => c?.code && codeToId(c.code) === s.cabinId);
+      if (matchingCabin?.code && s.quantity > 0) {
         initial[matchingCabin.code] = s.quantity;
       }
     });
@@ -120,9 +122,10 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   });
   const [returnCabinQuantities, setReturnCabinQuantities] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
+    if (!returnFerryCabinAvailability || !Array.isArray(returnFerryCabinAvailability)) return initial;
     initialReturnSelections.forEach(s => {
-      const matchingCabin = returnFerryCabinAvailability.find((c: FerryCabin) => codeToId(c.code) === s.cabinId);
-      if (matchingCabin && s.quantity > 0) {
+      const matchingCabin = returnFerryCabinAvailability.find((c: FerryCabin) => c?.code && codeToId(c.code) === s.cabinId);
+      if (matchingCabin?.code && s.quantity > 0) {
         initial[matchingCabin.code] = s.quantity;
       }
     });

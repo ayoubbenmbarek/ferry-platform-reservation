@@ -1175,12 +1175,16 @@ async def get_date_prices(
         async def search_single_date(search_date: date) -> dict:
             """Search ferries for a single date and return date price info."""
             try:
+                # For calendar searches, only include return_date if search_date <= return_date
+                # Otherwise FerryHopper will reject with "Departure date must be before the arrival date"
+                effective_return_date = return_date if (return_date and search_date <= return_date) else None
+
                 # Try to get cached ferry search results first (5-min cache)
                 ferry_search_cache_params = {
                     "departure_port": departure_port,
                     "arrival_port": arrival_port,
                     "departure_date": search_date.isoformat(),
-                    "return_date": return_date.isoformat() if return_date else None,
+                    "return_date": effective_return_date.isoformat() if effective_return_date else None,
                     "return_departure_port": None,
                     "return_arrival_port": None,
                     "adults": adults,
@@ -1200,7 +1204,7 @@ async def get_date_prices(
                         departure_port=departure_port,
                         arrival_port=arrival_port,
                         departure_date=search_date,
-                        return_date=return_date,
+                        return_date=effective_return_date,  # Use effective_return_date to avoid date validation error
                         adults=adults,
                         children=children,
                         infants=infants
@@ -1214,7 +1218,7 @@ async def get_date_prices(
                             "departure_port": departure_port,
                             "arrival_port": arrival_port,
                             "departure_date": search_date.isoformat(),
-                            "return_date": return_date.isoformat() if return_date else None,
+                            "return_date": effective_return_date.isoformat() if effective_return_date else None,
                             "return_departure_port": None,
                             "return_arrival_port": None,
                             "adults": adults,

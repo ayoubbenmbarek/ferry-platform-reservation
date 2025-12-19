@@ -681,39 +681,57 @@ async def create_booking(
                 db.add(db_vehicle)
 
         # Add cabin selections if any
+        # Note: For FerryHopper bookings, cabin_ids are hash-based and may not exist in our cabins table
+        # In that case, we rely on the extra_data field to store cabin selections
+        # Only create BookingCabin records if the cabin_id exists in our database
         if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
             from app.models.booking import BookingCabin, JourneyTypeEnum as CabinJourneyTypeEnum
+            from app.models.ferry import Cabin
             for cabin_selection in booking_data.cabin_selections:
-                # price is total price, calculate unit price
-                unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
-                db_booking_cabin = BookingCabin(
-                    booking_id=db_booking.id,
-                    cabin_id=cabin_selection.cabin_id,
-                    journey_type=CabinJourneyTypeEnum.OUTBOUND,
-                    quantity=cabin_selection.quantity,
-                    unit_price=unit_price,
-                    total_price=cabin_selection.price,
-                    is_paid=False
-                )
-                db.add(db_booking_cabin)
-                logger.info(f"Added BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
+                # Check if cabin_id exists in our cabins table
+                cabin_exists = db.query(Cabin).filter(Cabin.id == cabin_selection.cabin_id).first() is not None
+                if cabin_exists:
+                    # price is total price, calculate unit price
+                    unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
+                    db_booking_cabin = BookingCabin(
+                        booking_id=db_booking.id,
+                        cabin_id=cabin_selection.cabin_id,
+                        journey_type=CabinJourneyTypeEnum.OUTBOUND,
+                        quantity=cabin_selection.quantity,
+                        unit_price=unit_price,
+                        total_price=cabin_selection.price,
+                        is_paid=False
+                    )
+                    db.add(db_booking_cabin)
+                    logger.info(f"Added BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
+                else:
+                    # FerryHopper cabin - cabin details stored in extra_data
+                    logger.info(f"Skipping BookingCabin for FerryHopper cabin (id={cabin_selection.cabin_id}) - stored in extra_data")
 
         # Add return cabin selections if any (round trip)
+        # Same as outbound - only create BookingCabin if cabin_id exists in our database
         if hasattr(booking_data, 'return_cabin_selections') and booking_data.return_cabin_selections:
             from app.models.booking import BookingCabin, JourneyTypeEnum as CabinJourneyTypeEnum
+            from app.models.ferry import Cabin
             for cabin_selection in booking_data.return_cabin_selections:
-                unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
-                db_booking_cabin = BookingCabin(
-                    booking_id=db_booking.id,
-                    cabin_id=cabin_selection.cabin_id,
-                    journey_type=CabinJourneyTypeEnum.RETURN,
-                    quantity=cabin_selection.quantity,
-                    unit_price=unit_price,
-                    total_price=cabin_selection.price,
-                    is_paid=False
-                )
-                db.add(db_booking_cabin)
-                logger.info(f"Added return BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
+                # Check if cabin_id exists in our cabins table
+                cabin_exists = db.query(Cabin).filter(Cabin.id == cabin_selection.cabin_id).first() is not None
+                if cabin_exists:
+                    unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
+                    db_booking_cabin = BookingCabin(
+                        booking_id=db_booking.id,
+                        cabin_id=cabin_selection.cabin_id,
+                        journey_type=CabinJourneyTypeEnum.RETURN,
+                        quantity=cabin_selection.quantity,
+                        unit_price=unit_price,
+                        total_price=cabin_selection.price,
+                        is_paid=False
+                    )
+                    db.add(db_booking_cabin)
+                    logger.info(f"Added return BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
+                else:
+                    # FerryHopper cabin - cabin details stored in extra_data
+                    logger.info(f"Skipping return BookingCabin for FerryHopper cabin (id={cabin_selection.cabin_id}) - stored in extra_data")
 
         # Add meals if any
         if booking_data.meals:

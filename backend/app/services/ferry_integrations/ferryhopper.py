@@ -65,15 +65,42 @@ class FerryHopperIntegration(BaseFerryIntegration):
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+        # Track concurrent users for session management
+        self._session_ref_count = 0
+        self._session_lock = asyncio.Lock()
 
     async def __aenter__(self):
-        """Async context manager entry."""
-        self.session = httpx.AsyncClient(
-            timeout=self.timeout,
-            headers=self._headers
-        )
-        self.mapping_service = FerryHopperMappingService(self)
+        """
+        Async context manager entry.
+
+        Uses reference counting to safely handle concurrent requests.
+        The session is created on first enter and kept open until all
+        concurrent users have exited.
+        """
+        async with self._session_lock:
+            self._session_ref_count += 1
+            if self.session is None:
+                self.session = httpx.AsyncClient(
+                    timeout=self.timeout,
+                    headers=self._headers
+                )
+                self.mapping_service = FerryHopperMappingService(self)
+                logger.debug("FerryHopper session created")
         return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Async context manager exit.
+
+        Only closes the session when the last concurrent user exits.
+        """
+        async with self._session_lock:
+            self._session_ref_count -= 1
+            # Only close session when no more users
+            if self._session_ref_count == 0 and self.session is not None:
+                await self.session.aclose()
+                self.session = None
+                logger.debug("FerryHopper session closed")
 
     async def get(self, endpoint: str, params: Optional[Dict] = None, max_retries: int = 3) -> Dict:
         """

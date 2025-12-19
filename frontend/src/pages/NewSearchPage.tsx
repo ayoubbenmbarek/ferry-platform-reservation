@@ -23,6 +23,7 @@ import AvailabilityAlertModal from '../components/AvailabilityAlertModal';
 import SaveRouteButton from '../components/SaveRouteButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
 import RunningBear from '../components/UI/RunningBear';
+import FerryResultSkeleton from '../components/UI/FerryResultSkeleton';
 import DatePickerInput from '../components/DatePickerInput';
 
 // Search Form Component
@@ -1091,13 +1092,19 @@ const NewSearchPage: React.FC = () => {
             </div>
           )}
 
-          {/* Loading State */}
+          {/* Loading State - Progressive skeleton loading */}
           {(isSearching || isSearchingReturn) && (
-            <RunningBear
-              message={isSelectingReturn ? t('search:searchingReturn') : t('search:searchingFerries')}
-              size="medium"
-              fullScreen={false}
-            />
+            <div className="mb-6">
+              {/* Loading header with animated message */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-center gap-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                <p className="text-blue-800 font-medium">
+                  {isSelectingReturn ? t('search:searchingReturn') : t('search:searchingFerries')}
+                </p>
+              </div>
+              {/* Skeleton placeholders for results */}
+              <FerryResultSkeleton count={3} />
+            </div>
           )}
 
           {/* Error State */}

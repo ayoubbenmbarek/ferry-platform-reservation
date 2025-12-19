@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 from collections import defaultdict
 from sqlalchemy import and_, or_
+import httpx  # For timeout exception handling
 
 from app.database import SessionLocal
 from app.models.availability_alert import AvailabilityAlert, AlertStatusEnum
@@ -282,6 +283,14 @@ def check_availability_alerts_task(self):
                 else:
                     logger.debug(f"❌ No availability yet for alert {alert.id}")
 
+            except httpx.ReadTimeout:
+                logger.warning(f"⏱️ Timeout checking alert {alert.id} ({alert.departure_port}→{alert.arrival_port})")
+                # Continue with next alert - timeout is expected for some routes
+                continue
+            except httpx.ConnectError as e:
+                logger.warning(f"🔌 Connection error for alert {alert.id}: {str(e)}")
+                # Continue with next alert
+                continue
             except Exception as e:
                 logger.error(f"Error checking alert {alert.id}: {str(e)}", exc_info=True)
                 # Continue with next alert

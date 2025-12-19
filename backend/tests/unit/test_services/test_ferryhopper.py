@@ -300,7 +300,7 @@ class TestFerryHopperIntegrationInit:
 
         assert integration.api_key == ""
         assert integration.base_url == "https://ferryhapi.uat.ferryhopper.com"
-        assert integration.timeout == 30
+        assert integration.timeout == 60
 
     def test_headers_include_required_fields(self, ferryhopper_integration):
         """Test that headers include all required fields."""

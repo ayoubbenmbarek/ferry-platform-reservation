@@ -47,7 +47,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
         self,
         api_key: str = "",
         base_url: str = "https://ferryhapi.uat.ferryhopper.com",
-        timeout: int = 30
+        timeout: int = 60  # Increased from 30 to 60 for slower API responses
     ):
         """
         Initialize FerryHopper integration.
@@ -55,7 +55,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
         Args:
             api_key: FerryHopper API key (x-api-key header)
             base_url: API base URL (UAT or production)
-            timeout: Request timeout in seconds
+            timeout: Request timeout in seconds (default 60s for FerryHopper)
         """
         super().__init__(api_key, base_url, timeout)
         self.operator_name = "FerryHopper"
@@ -211,6 +211,12 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
         except FerryAPIError:
             raise
+        except httpx.ReadTimeout:
+            logger.warning(f"FerryHopper search timeout: {search_request.departure_port}->{search_request.arrival_port}")
+            raise  # Re-raise for caller to handle
+        except httpx.ConnectError as e:
+            logger.warning(f"FerryHopper connection error: {e}")
+            raise FerryAPIError(f"FerryHopper connection failed: {str(e)}")
         except Exception as e:
             logger.error(f"FerryHopper search failed: {e}", exc_info=True)
             raise FerryAPIError(f"FerryHopper search failed: {str(e)}")

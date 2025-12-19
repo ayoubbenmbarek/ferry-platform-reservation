@@ -85,6 +85,59 @@ def sample_booking_request():
 
 
 @pytest.fixture
+def sample_solution_data():
+    """Create sample solution data for booking request building."""
+    return {
+        "solution_hash": "abc123",
+        "trip_index": 0,
+        "segment_index": 0,
+        "segment": {
+            "departurePort": {"code": "PIR", "name": "Athens (Piraeus)"},
+            "arrivalPort": {"code": "JTR", "name": "Santorini (Thira)"},
+            "departureDateTime": "2025-02-15T08:00:00+02:00",
+            "arrivalDateTime": "2025-02-15T16:00:00+02:00",
+            "vessel": {"name": "Blue Star Delos", "vesselID": "V123"},
+            "accommodations": [
+                {
+                    "type": "DECK",
+                    "code": "DK",
+                    "description": "Deck Passage",
+                    "expectedPrice": {"totalPriceInCents": 4500, "currency": "EUR"},
+                    "availability": 100,
+                    "capacity": 1
+                }
+            ]
+        },
+        "trip": {
+            "type": "DIRECT",
+            "segments": [
+                {
+                    "departurePort": {"code": "PIR"},
+                    "arrivalPort": {"code": "JTR"},
+                    "departureDateTime": "2025-02-15T08:00:00+02:00",
+                    "arrivalDateTime": "2025-02-15T16:00:00+02:00"
+                }
+            ]
+        },
+        "solution_vehicles": [
+            {"code": "CAR", "type": "CAR", "description": "Car up to 4.5m"}
+        ],
+        "accommodations": [
+            {
+                "type": "DECK",
+                "code": "DK",
+                "description": "Deck Passage",
+                "expectedPrice": {"totalPriceInCents": 4500, "currency": "EUR"},
+                "availability": 100,
+                "capacity": 1
+            }
+        ],
+        "departure_port_code": "PIR",
+        "arrival_port_code": "JTR"
+    }
+
+
+@pytest.fixture
 def mock_search_response():
     """Create a mock FerryHopper search response."""
     return {
@@ -542,18 +595,18 @@ class TestMapBookingStatus:
 class TestBuildBookingRequest:
     """Tests for booking request building."""
 
-    def test_build_booking_request_basic(self, ferryhopper_integration, sample_booking_request):
+    def test_build_booking_request_basic(self, ferryhopper_integration, sample_booking_request, sample_solution_data):
         """Test building a basic booking request."""
-        result = ferryhopper_integration._build_booking_request(sample_booking_request)
+        result = ferryhopper_integration._build_booking_request(sample_booking_request, sample_solution_data)
 
         assert result["language"] == "en"
         assert len(result["passengers"]) == 2
         assert result["contactDetails"]["email"] == "john.doe@example.com"
         assert result["contactDetails"]["phone"] == "+1234567890"
 
-    def test_build_booking_request_passenger_details(self, ferryhopper_integration, sample_booking_request):
+    def test_build_booking_request_passenger_details(self, ferryhopper_integration, sample_booking_request, sample_solution_data):
         """Test that passenger details are correctly built."""
-        result = ferryhopper_integration._build_booking_request(sample_booking_request)
+        result = ferryhopper_integration._build_booking_request(sample_booking_request, sample_solution_data)
 
         pax1 = result["passengers"][0]
         assert pax1["firstName"] == "John"

@@ -20,9 +20,8 @@ export interface ParsedSearchQuery {
 // Port name aliases in multiple languages
 // IMPORTANT: Only include ports that exist in frontend/src/types/ferry.ts PORTS array
 const PORT_ALIASES: Record<string, string[]> = {
-  // Tunisia (all available ports)
+  // Tunisia (FerryHopper supported ports only)
   'tunis': ['tunis', 'تونس', 'tunisie', 'tunisia', 'la goulette', 'goulette', 'tunus'],
-  'sfax': ['sfax', 'صفاقس', 'sfacks'],
   'zarzis': ['zarzis', 'جرجيس', 'djerba'],
 
   // Italy (available ports only)

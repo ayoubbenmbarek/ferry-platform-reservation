@@ -195,10 +195,10 @@ export const PORTS: Port[] = [
   { code: 'nice', name: 'Nice', city: 'Nice', country: 'France', countryCode: 'FR' },
   { code: 'toulon', name: 'Toulon', city: 'Toulon', country: 'France', countryCode: 'FR' },
 
-  // Tunisia
+  // Tunisia (FerryHopper supported ports only)
   { code: 'tunis', name: 'La Goulette (Tunis)', city: 'Tunis', country: 'Tunisia', countryCode: 'TN' },
-  { code: 'sfax', name: 'Sfax', city: 'Sfax', country: 'Tunisia', countryCode: 'TN' },
   { code: 'zarzis', name: 'Zarzis', city: 'Zarzis', country: 'Tunisia', countryCode: 'TN' },
+  // Note: Sfax removed - not supported by FerryHopper for passenger ferries
 ];
 
 // Passenger age limits

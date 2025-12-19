@@ -808,11 +808,12 @@ async def get_active_ferries():
     from datetime import timedelta
     import random
 
-    # Port coordinates for reference
+    # Port coordinates for reference (FerryHopper supported ports)
     port_coords = {
+        # Tunisia
         "TUNIS": {"lat": 36.8065, "lng": 10.1815},
-        "SFAX": {"lat": 34.7478, "lng": 10.7661},
         "ZARZIS": {"lat": 33.5036, "lng": 11.1117},
+        # Italy
         "GENOA": {"lat": 44.4056, "lng": 8.9463},
         "CIVITAVECCHIA": {"lat": 42.0930, "lng": 11.7969},
         "PALERMO": {"lat": 38.1157, "lng": 13.3615},
@@ -820,11 +821,11 @@ async def get_active_ferries():
         "NAPLES": {"lat": 40.8518, "lng": 14.2681},
         "LIVORNO": {"lat": 43.5485, "lng": 10.3106},
         "SALERNO": {"lat": 40.6824, "lng": 14.7681},
+        # France
         "MARSEILLE": {"lat": 43.2965, "lng": 5.3698},
         "NICE": {"lat": 43.7102, "lng": 7.2620},
         "TOULON": {"lat": 43.1242, "lng": 5.9280},
-        "ALGIERS": {"lat": 36.7538, "lng": 3.0588},
-        "BARCELONA": {"lat": 41.3851, "lng": 2.1734},
+        # Note: Sfax removed - not supported by FerryHopper
     }
 
     # Real vessel data with MMSI numbers for live tracking
@@ -883,17 +884,14 @@ async def get_active_ferries():
                 "route_duration_hours": route["duration_hours"]
             })
 
-    # Define all routes for map display (lines between ports)
+    # Define all routes for map display (FerryHopper supported routes)
     routes_for_map = [
         {"from": "TUNIS", "to": "GENOA", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["GENOA"]},
         {"from": "TUNIS", "to": "MARSEILLE", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["MARSEILLE"]},
         {"from": "TUNIS", "to": "CIVITAVECCHIA", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["CIVITAVECCHIA"]},
         {"from": "TUNIS", "to": "PALERMO", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["PALERMO"]},
-        {"from": "TUNIS", "to": "TRAPANI", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["TRAPANI"]},
-        {"from": "TUNIS", "to": "NAPLES", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["NAPLES"]},
-        {"from": "TUNIS", "to": "LIVORNO", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["LIVORNO"]},
-        {"from": "SFAX", "to": "TRAPANI", "from_coords": port_coords["SFAX"], "to_coords": port_coords["TRAPANI"]},
-        {"from": "ZARZIS", "to": "TRAPANI", "from_coords": port_coords["ZARZIS"], "to_coords": port_coords["TRAPANI"]},
+        {"from": "TUNIS", "to": "SALERNO", "from_coords": port_coords["TUNIS"], "to_coords": port_coords["SALERNO"]},
+        {"from": "ZARZIS", "to": "MARSEILLE", "from_coords": port_coords["ZARZIS"], "to_coords": port_coords["MARSEILLE"]},
     ]
 
     return {
@@ -1279,16 +1277,15 @@ async def get_date_prices(
                 }
 
         # Search dates with limited concurrency to avoid FerryHopper rate limits
-        # Max 2 concurrent requests to prevent ThrottlerException (Too Many Requests)
-        semaphore = asyncio.Semaphore(2)
+        # Max 3 concurrent requests - balance between speed and rate limiting
+        # The retry logic in ferryhopper.py handles any 429 errors with backoff
+        semaphore = asyncio.Semaphore(3)
 
         async def throttled_search(search_date: date) -> dict:
             async with semaphore:
-                # Add small delay between requests to avoid burst
-                await asyncio.sleep(0.3)
                 return await search_single_date(search_date)
 
-        logger.info(f"🚀 Calendar searching {len(dates_to_search)} dates (max 2 concurrent)...")
+        logger.info(f"🚀 Calendar searching {len(dates_to_search)} dates (max 3 concurrent)...")
         search_start = time.time()
         date_prices = await asyncio.gather(*[throttled_search(d) for d in dates_to_search])
         search_duration = (time.time() - search_start) * 1000

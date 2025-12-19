@@ -37,7 +37,7 @@ Base URL: https://api.voilaferry.com/api/v1
 
 ## Routes Covered
 
-Tunisia: Tunis, Sfax, Zarzis
+Tunisia: Tunis (La Goulette), Zarzis
 Italy: Genoa, Civitavecchia, Palermo, Trapani, Salerno
 France: Marseille, Nice
 

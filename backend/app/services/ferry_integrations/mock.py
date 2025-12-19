@@ -56,11 +56,9 @@ class MockFerryIntegration(BaseFerryIntegration):
             ("TRAPANI", "ZARZIS"): {"duration_hours": 8, "distance": 180},
             ("ZARZIS", "PALERMO"): {"duration_hours": 10, "distance": 220},
             ("PALERMO", "ZARZIS"): {"duration_hours": 10, "distance": 220},
-            # Sfax routes
-            ("SFAX", "TRAPANI"): {"duration_hours": 9, "distance": 200},
-            ("TRAPANI", "SFAX"): {"duration_hours": 9, "distance": 200},
-            ("SFAX", "PALERMO"): {"duration_hours": 12, "distance": 250},
-            ("PALERMO", "SFAX"): {"duration_hours": 12, "distance": 250},
+            ("ZARZIS", "MARSEILLE"): {"duration_hours": 24, "distance": 600},
+            ("MARSEILLE", "ZARZIS"): {"duration_hours": 24, "distance": 600},
+            # Note: Sfax routes removed - not supported by FerryHopper
         }
 
     async def search_ferries(self, search_request: SearchRequest) -> List[FerryResult]:

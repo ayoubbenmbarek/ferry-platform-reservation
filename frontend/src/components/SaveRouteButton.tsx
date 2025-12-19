@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { priceAlertAPI } from '../services/api';
 import { RootState } from '../store';
 import { format, addDays, addMonths } from 'date-fns';
+
+// Simple in-memory cache for route check results
+const routeCheckCache = new Map<string, { isSaved: boolean; alertId: number | null; timestamp: number }>();
+const CACHE_TTL = 60000; // 1 minute cache
 
 interface SaveRouteButtonProps {
   departurePort: string;
@@ -31,7 +35,6 @@ export default function SaveRouteButton({
   const [isSaved, setIsSaved] = useState(false);
   const [alertId, setAlertId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
 
   // Modal state for date range selection
   const [showModal, setShowModal] = useState(false);
@@ -46,11 +49,16 @@ export default function SaveRouteButton({
   // Ref to prevent duplicate API calls in React 18 Strict Mode
   const checkingRef = useRef(false);
 
-  // Check if route is already saved
+  // Cache key for this route
+  const cacheKey = useMemo(() =>
+    `${departurePort?.toLowerCase()}_${arrivalPort?.toLowerCase()}_${user?.email || 'guest'}`,
+    [departurePort, arrivalPort, user?.email]
+  );
+
+  // Check if route is already saved - runs in background without blocking UI
   useEffect(() => {
     const checkSaved = async () => {
       if (!departurePort || !arrivalPort) {
-        setIsChecking(false);
         return;
       }
 
@@ -58,7 +66,14 @@ export default function SaveRouteButton({
       if (!isAuthenticated) {
         setIsSaved(false);
         setAlertId(null);
-        setIsChecking(false);
+        return;
+      }
+
+      // Check cache first
+      const cached = routeCheckCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setIsSaved(cached.isSaved);
+        setAlertId(cached.alertId);
         return;
       }
 
@@ -76,17 +91,22 @@ export default function SaveRouteButton({
         );
         setIsSaved(result.is_saved);
         setAlertId(result.alert_id);
+        // Update cache
+        routeCheckCache.set(cacheKey, {
+          isSaved: result.is_saved,
+          alertId: result.alert_id,
+          timestamp: Date.now()
+        });
       } catch (error) {
         setIsSaved(false);
         setAlertId(null);
       } finally {
-        setIsChecking(false);
         checkingRef.current = false;
       }
     };
 
     checkSaved();
-  }, [departurePort, arrivalPort, user?.email, isAuthenticated]);
+  }, [departurePort, arrivalPort, user?.email, isAuthenticated, cacheKey]);
 
   // State for options dropdown when already saved
   const [showOptions, setShowOptions] = useState(false);
@@ -112,6 +132,8 @@ export default function SaveRouteButton({
       await priceAlertAPI.delete(alertId);
       setIsSaved(false);
       setAlertId(null);
+      // Clear cache
+      routeCheckCache.delete(cacheKey);
       setIsLoading(false);
       // Show modal to save with new dates
       setShowModal(true);
@@ -131,6 +153,8 @@ export default function SaveRouteButton({
       await priceAlertAPI.delete(alertId);
       setIsSaved(false);
       setAlertId(null);
+      // Clear cache
+      routeCheckCache.delete(cacheKey);
       onRemoveSuccess?.();
     } catch (error: any) {
       const message = error.response?.data?.detail || error.message || 'Failed to remove route';
@@ -210,6 +234,12 @@ export default function SaveRouteButton({
       });
       setIsSaved(true);
       setAlertId(alert.id);
+      // Update cache
+      routeCheckCache.set(cacheKey, {
+        isSaved: true,
+        alertId: alert.id,
+        timestamp: Date.now()
+      });
       onSaveSuccess?.();
     } catch (error: any) {
       const message = error.response?.data?.detail || error.message || 'Failed to save route';
@@ -349,14 +379,6 @@ export default function SaveRouteButton({
       </div>
     );
   };
-
-  if (isChecking) {
-    return (
-      <div className={`inline-flex items-center ${className}`}>
-        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-400" />
-      </div>
-    );
-  }
 
   // Icon-only variant (heart icon)
   if (variant === 'icon') {

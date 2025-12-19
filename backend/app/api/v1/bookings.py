@@ -152,6 +152,175 @@ def generate_booking_reference() -> str:
     return f"MR{uuid.uuid4().hex[:8].upper()}"
 
 
+def _get_booking_cabins(db_booking: Booking) -> list:
+    """
+    Get booking cabins from both BookingCabin records and extra_data (for FerryHopper).
+    Combines database cabins with FerryHopper cabin selections/upgrades stored in extra_data.
+
+    extra_data keys:
+    - cabin_selections: Initial cabin selections during booking (outbound)
+    - return_cabin_selections: Initial cabin selections during booking (return)
+    - cabin_upgrades: Cabin upgrades added after booking (outbound)
+    - return_cabin_upgrades: Cabin upgrades added after booking (return)
+    """
+    cabins = []
+
+    # Get cabins from BookingCabin table (database cabins)
+    if hasattr(db_booking, 'booking_cabins') and db_booking.booking_cabins:
+        for bc in db_booking.booking_cabins:
+            cabins.append({
+                "id": bc.id,
+                "booking_id": bc.booking_id,
+                "cabin_id": bc.cabin_id,
+                "journey_type": bc.journey_type.value if hasattr(bc.journey_type, 'value') else str(bc.journey_type),
+                "quantity": bc.quantity,
+                "unit_price": float(bc.unit_price),
+                "total_price": float(bc.total_price),
+                "is_paid": bc.is_paid or False,
+                "created_at": bc.created_at,
+                # Include cabin details from relationship
+                "cabin_name": bc.cabin.name if bc.cabin else None,
+                "cabin_type": bc.cabin.cabin_type.value if bc.cabin and hasattr(bc.cabin.cabin_type, 'value') else (str(bc.cabin.cabin_type) if bc.cabin else None),
+                "cabin_capacity": bc.cabin.max_occupancy if bc.cabin else None,
+                # Build amenities list from boolean fields
+                "cabin_amenities": [
+                    a for a in [
+                        "Private Bathroom" if bc.cabin and bc.cabin.has_private_bathroom else None,
+                        "Window" if bc.cabin and bc.cabin.has_window else None,
+                        "Balcony" if bc.cabin and bc.cabin.has_balcony else None,
+                        "Air Conditioning" if bc.cabin and bc.cabin.has_air_conditioning else None,
+                        "TV" if bc.cabin and bc.cabin.has_tv else None,
+                        "Minibar" if bc.cabin and bc.cabin.has_minibar else None,
+                        "WiFi" if bc.cabin and bc.cabin.has_wifi else None,
+                        "Accessible" if bc.cabin and bc.cabin.is_accessible else None,
+                    ] if a is not None
+                ] if bc.cabin else None,
+                "source": "database"
+            })
+
+    # Get FerryHopper cabins from extra_data
+    if db_booking.extra_data:
+        # Initial cabin selections (from booking creation) - outbound
+        for selection in db_booking.extra_data.get("cabin_selections", []) or []:
+            if selection:
+                cabin_code = str(selection.get("cabin_id", ""))
+                cabins.append({
+                    "id": None,
+                    "booking_id": db_booking.id,
+                    "cabin_id": None,
+                    "cabin_code": cabin_code,
+                    "journey_type": "outbound",
+                    "quantity": selection.get("quantity", 1),
+                    "unit_price": selection.get("price", 0) / max(selection.get("quantity", 1), 1),
+                    "total_price": selection.get("price", 0),
+                    "is_paid": True,
+                    "created_at": db_booking.created_at,
+                    "cabin_name": selection.get("name") or _infer_cabin_name_from_code(cabin_code),
+                    "cabin_type": _infer_cabin_type_from_code(cabin_code),
+                    "cabin_capacity": 2,
+                    "cabin_amenities": ["Private Bathroom", "Air Conditioning"],
+                    "source": "ferryhopper_initial"
+                })
+
+        # Initial cabin selections (from booking creation) - return
+        for selection in db_booking.extra_data.get("return_cabin_selections", []) or []:
+            if selection:
+                cabin_code = str(selection.get("cabin_id", ""))
+                cabins.append({
+                    "id": None,
+                    "booking_id": db_booking.id,
+                    "cabin_id": None,
+                    "cabin_code": cabin_code,
+                    "journey_type": "return",
+                    "quantity": selection.get("quantity", 1),
+                    "unit_price": selection.get("price", 0) / max(selection.get("quantity", 1), 1),
+                    "total_price": selection.get("price", 0),
+                    "is_paid": True,
+                    "created_at": db_booking.created_at,
+                    "cabin_name": selection.get("name") or _infer_cabin_name_from_code(cabin_code),
+                    "cabin_type": _infer_cabin_type_from_code(cabin_code),
+                    "cabin_capacity": 2,
+                    "cabin_amenities": ["Private Bathroom", "Air Conditioning"],
+                    "source": "ferryhopper_initial"
+                })
+
+        # Cabin upgrades (added after booking) - outbound
+        for upgrade in db_booking.extra_data.get("cabin_upgrades", []) or []:
+            if upgrade:
+                cabins.append({
+                    "id": None,
+                    "booking_id": db_booking.id,
+                    "cabin_id": None,
+                    "cabin_code": upgrade.get("code"),
+                    "journey_type": upgrade.get("journey_type", "outbound"),
+                    "quantity": upgrade.get("quantity", 1),
+                    "unit_price": upgrade.get("unit_price", 0),
+                    "total_price": upgrade.get("total_price", 0),
+                    "is_paid": True,
+                    "created_at": upgrade.get("added_at"),
+                    "cabin_name": upgrade.get("name"),
+                    "cabin_type": _infer_cabin_type_from_code(upgrade.get("code", "")),
+                    "cabin_capacity": 2,
+                    "cabin_amenities": ["Private Bathroom", "Air Conditioning"],
+                    "source": "ferryhopper_upgrade"
+                })
+
+        # Cabin upgrades (added after booking) - return
+        for upgrade in db_booking.extra_data.get("return_cabin_upgrades", []) or []:
+            if upgrade:
+                cabins.append({
+                    "id": None,
+                    "booking_id": db_booking.id,
+                    "cabin_id": None,
+                    "cabin_code": upgrade.get("code"),
+                    "journey_type": upgrade.get("journey_type", "return"),
+                    "quantity": upgrade.get("quantity", 1),
+                    "unit_price": upgrade.get("unit_price", 0),
+                    "total_price": upgrade.get("total_price", 0),
+                    "is_paid": True,
+                    "created_at": upgrade.get("added_at"),
+                    "cabin_name": upgrade.get("name"),
+                    "cabin_type": _infer_cabin_type_from_code(upgrade.get("code", "")),
+                    "cabin_capacity": 2,
+                    "cabin_amenities": ["Private Bathroom", "Air Conditioning"],
+                    "source": "ferryhopper_upgrade"
+                })
+
+    return cabins
+
+
+def _infer_cabin_name_from_code(code: str) -> str:
+    """Generate a human-readable cabin name from FerryHopper accommodation code."""
+    if not code:
+        return "Cabin"
+    # Replace underscores and dashes with spaces, title case
+    name = code.replace("_", " ").replace("-", " ")
+    # Handle common codes
+    name = name.replace("CABIN", "Cabin")
+    name = name.replace("INSIDE", "Inside")
+    name = name.replace("OUTSIDE", "Outside")
+    name = name.replace("SUITE", "Suite")
+    name = name.replace("DECK", "Deck")
+    return name.title() if name else "Cabin"
+
+
+def _infer_cabin_type_from_code(code: str) -> str:
+    """Infer cabin type from FerryHopper accommodation code."""
+    code_lower = code.lower()
+    if "suite" in code_lower:
+        return "suite"
+    elif "balcony" in code_lower:
+        return "balcony"
+    elif "outside" in code_lower or "exterior" in code_lower or "window" in code_lower:
+        return "exterior"
+    elif "inside" in code_lower or "interior" in code_lower or "cabin" in code_lower:
+        return "interior"
+    elif "deck" in code_lower or "seat" in code_lower or "lounge" in code_lower:
+        return "deck"
+    else:
+        return "interior"
+
+
 def booking_to_response(db_booking: Booking) -> BookingResponse:
     """Convert a Booking model to BookingResponse, handling enum conversions."""
     return BookingResponse(
@@ -277,37 +446,7 @@ def booking_to_response(db_booking: Booking) -> BookingResponse:
             }
             for m in db_booking.meals
         ] if hasattr(db_booking, 'meals') and db_booking.meals else [],
-        booking_cabins=[
-            {
-                "id": bc.id,
-                "booking_id": bc.booking_id,
-                "cabin_id": bc.cabin_id,
-                "journey_type": bc.journey_type.value if hasattr(bc.journey_type, 'value') else str(bc.journey_type),
-                "quantity": bc.quantity,
-                "unit_price": float(bc.unit_price),
-                "total_price": float(bc.total_price),
-                "is_paid": bc.is_paid or False,
-                "created_at": bc.created_at,
-                # Include cabin details from relationship
-                "cabin_name": bc.cabin.name if bc.cabin else None,
-                "cabin_type": bc.cabin.cabin_type.value if bc.cabin and hasattr(bc.cabin.cabin_type, 'value') else (str(bc.cabin.cabin_type) if bc.cabin else None),
-                "cabin_capacity": bc.cabin.max_occupancy if bc.cabin else None,
-                # Build amenities list from boolean fields
-                "cabin_amenities": [
-                    a for a in [
-                        "Private Bathroom" if bc.cabin and bc.cabin.has_private_bathroom else None,
-                        "Window" if bc.cabin and bc.cabin.has_window else None,
-                        "Balcony" if bc.cabin and bc.cabin.has_balcony else None,
-                        "Air Conditioning" if bc.cabin and bc.cabin.has_air_conditioning else None,
-                        "TV" if bc.cabin and bc.cabin.has_tv else None,
-                        "Minibar" if bc.cabin and bc.cabin.has_minibar else None,
-                        "WiFi" if bc.cabin and bc.cabin.has_wifi else None,
-                        "Accessible" if bc.cabin and bc.cabin.is_accessible else None,
-                    ] if a is not None
-                ] if bc.cabin else None,
-            }
-            for bc in db_booking.booking_cabins
-        ] if hasattr(db_booking, 'booking_cabins') and db_booking.booking_cabins else []
+        booking_cabins=_get_booking_cabins(db_booking)
     )
 
 
@@ -1296,9 +1435,213 @@ async def quick_update_booking(
         )
 
 
+class AvailableCabinResponse(BaseModel):
+    """Response schema for available cabins from FerryHopper."""
+    code: str
+    name: str
+    cabin_type: str
+    description: Optional[str] = None
+    price: float
+    max_occupancy: int = 2
+    available: int = 0
+    has_bathroom: bool = True
+    has_tv: bool = False
+    has_wifi: bool = False
+    has_air_conditioning: bool = True
+    is_accessible: bool = False
+
+
+@router.get("/{booking_id}/available-cabins")
+async def get_available_cabins(
+    booking_id: int,
+    journey_type: str = Query("outbound", description="Journey type: outbound or return"),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """
+    Get available cabins from FerryHopper for a booking.
+
+    This fetches real-time cabin availability from the cached FerryHopper solution
+    for the booking's sailing. If the cache has expired, it will search again.
+    """
+    try:
+        from app.services.cache_service import cache_service
+        from app.services.ferry_service import FerryService
+
+        # Get the booking
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Determine which sailing_id to use
+        sailing_id = booking.return_sailing_id if journey_type == "return" else booking.sailing_id
+
+        if not sailing_id:
+            logger.warning(f"No sailing_id for booking {booking_id}, journey_type={journey_type}")
+            return {"cabins": [], "message": "No sailing information available"}
+
+        # Try to get cached solution data
+        solution_data = cache_service.get(f"fh_solution:{sailing_id}")
+
+        cabins = []
+
+        if solution_data:
+            # Extract accommodations from cached solution
+            segment = solution_data.get("segment", {})
+            accommodations = solution_data.get("accommodations") or segment.get("accommodations", [])
+
+            logger.info(f"Found {len(accommodations)} accommodations in cached solution for {sailing_id}")
+
+            for acc in accommodations:
+                acc_type = acc.get("type", "CABIN").upper()
+                # Use "code" if available, fallback to "type" as the accommodation code
+                acc_code = acc.get("code") or acc.get("type", "")
+                acc_name = acc.get("name") or acc.get("description", "")
+
+                # Get price
+                expected_price = acc.get("expectedPrice", {})
+                price_cents = expected_price.get("totalPriceInCents", 0)
+                price = price_cents / 100
+
+                # Skip free deck/lounge options for cabin upgrades
+                if acc_type in ["DECK", "LOUNGE", "AIRPLANE_SEAT"] and price == 0:
+                    continue
+
+                # Map FerryHopper type to our cabin type
+                cabin_type = "interior"
+                if "OUTSIDE" in acc_type or "EXTERIOR" in acc_type:
+                    cabin_type = "exterior"
+                elif "BALCONY" in acc_type:
+                    cabin_type = "balcony"
+                elif "SUITE" in acc_type:
+                    cabin_type = "suite"
+                elif "DECK" in acc_type or "LOUNGE" in acc_type:
+                    cabin_type = "deck"
+
+                # Get availability
+                available = acc.get("availability", 0)
+                if available == 0:
+                    available = acc.get("availableQuantity", 0)
+
+                # Build description from amenities if available
+                amenities = acc.get("amenities", [])
+                description = acc.get("description", "")
+                if amenities and not description:
+                    description = ", ".join(amenities)
+
+                # Check amenities for features
+                amenities_lower = [a.lower() for a in amenities] if amenities else []
+                has_bathroom = any("bathroom" in a or "shower" in a for a in amenities_lower) or cabin_type != "deck"
+                has_tv = any("tv" in a or "television" in a for a in amenities_lower)
+                has_wifi = any("wifi" in a or "internet" in a for a in amenities_lower)
+                is_accessible = any("accessible" in a or "disability" in a for a in amenities_lower)
+
+                # Get max occupancy
+                max_occupancy = acc.get("maxOccupancy", acc.get("capacity", 2))
+
+                cabin = {
+                    "code": acc_code,
+                    "name": acc_name or f"{cabin_type.title()} Cabin",
+                    "cabin_type": cabin_type,
+                    "description": description,
+                    "price": price,
+                    "max_occupancy": max_occupancy,
+                    "available": available if available > 0 else 1,  # Default to 1 if unknown
+                    "has_bathroom": has_bathroom,
+                    "has_tv": has_tv,
+                    "has_wifi": has_wifi,
+                    "has_air_conditioning": True,  # Most cabins have AC
+                    "is_accessible": is_accessible,
+                }
+                cabins.append(cabin)
+
+            # Sort by price (cheapest first)
+            cabins.sort(key=lambda x: x["price"])
+
+        else:
+            # Solution expired - try to search again with timeout
+            logger.info(f"Solution cache expired for {sailing_id}, searching again...")
+
+            # Parse sailing_id to get route info
+            # Format: FH_{hash}_{tripIdx}_{segIdx}_{vesselId}_{datetime}
+            if sailing_id.startswith("FH_"):
+                try:
+                    import asyncio
+                    ferry_service = FerryService()
+
+                    # Use booking info to search
+                    from datetime import date
+                    departure_date = booking.return_departure_time.date() if journey_type == "return" else booking.departure_time.date()
+                    departure_port = booking.return_departure_port if journey_type == "return" else booking.departure_port
+                    arrival_port = booking.return_arrival_port if journey_type == "return" else booking.arrival_port
+
+                    # Search with 15 second timeout to avoid hanging
+                    try:
+                        results = await asyncio.wait_for(
+                            ferry_service.search_ferries(
+                                departure_port=departure_port,
+                                arrival_port=arrival_port,
+                                departure_date=departure_date,
+                                adults=1
+                            ),
+                            timeout=15.0
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Search timeout for cabins on {departure_port}->{arrival_port}")
+                        return {
+                            "cabins": [],
+                            "sailing_id": sailing_id,
+                            "journey_type": journey_type,
+                            "message": "Search timed out. Please try refreshing the page."
+                        }
+
+                    # Find matching sailing and extract cabins
+                    for result in results:
+                        if hasattr(result, 'cabin_types') and result.cabin_types:
+                            for cabin in result.cabin_types:
+                                if cabin.get("price", 0) > 0:  # Only paid cabins
+                                    cabins.append({
+                                        "code": cabin.get("code", cabin.get("type", "")),
+                                        "name": cabin.get("name", "Cabin"),
+                                        "cabin_type": cabin.get("type", "interior"),
+                                        "description": cabin.get("description", ""),
+                                        "price": cabin.get("price", 0),
+                                        "max_occupancy": cabin.get("max_occupancy", 2),
+                                        "available": cabin.get("available", 1),
+                                        "has_bathroom": True,
+                                        "has_tv": False,
+                                        "has_wifi": False,
+                                        "has_air_conditioning": True,
+                                        "is_accessible": False,
+                                    })
+                            break  # Use first result with cabins
+
+                except Exception as e:
+                    logger.error(f"Error searching for cabins: {e}")
+
+        logger.info(f"Returning {len(cabins)} available cabins for booking {booking_id}")
+        return {"cabins": cabins, "sailing_id": sailing_id, "journey_type": journey_type}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching available cabins: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch available cabins: {str(e)}"
+        )
+
+
 class AddCabinRequest(BaseModel):
     """Request schema for adding a cabin to an existing booking."""
-    cabin_id: int
+    # Support both database cabin_id (legacy) and FerryHopper cabin_code
+    cabin_id: Optional[int] = None  # Legacy: database cabin ID
+    cabin_code: Optional[str] = None  # FerryHopper accommodation code
+    cabin_name: Optional[str] = None  # Cabin name for display
+    price: Optional[float] = None  # Price per cabin (required for FerryHopper)
     quantity: int = 1
     journey_type: Optional[str] = "outbound"  # 'outbound' or 'return'
     alert_id: Optional[int] = None  # Optional alert to mark as fulfilled
@@ -1335,6 +1678,18 @@ async def add_cabin_to_booking(
                 detail=f"Cannot add cabin to booking with status '{booking.status.value if hasattr(booking.status, 'value') else booking.status}'"
             )
 
+        # IMPORTANT: Check if alert is already fulfilled to prevent double cabin additions
+        if cabin_request.alert_id:
+            from app.models.availability_alert import AvailabilityAlert
+            alert = db.query(AvailabilityAlert).filter(
+                AvailabilityAlert.id == cabin_request.alert_id
+            ).first()
+            if alert and alert.status == 'fulfilled':
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This cabin upgrade has already been completed. Please check your booking details."
+                )
+
         # Validate journey type for return cabins
         if cabin_request.journey_type == 'return' and not booking.is_round_trip:
             raise HTTPException(
@@ -1342,79 +1697,122 @@ async def add_cabin_to_booking(
                 detail="Cannot add return cabin to one-way booking"
             )
 
-        # Get the cabin
+        from decimal import Decimal
         from app.models.ferry import Cabin
-        cabin = db.query(Cabin).filter(Cabin.id == cabin_request.cabin_id).first()
-        if not cabin:
+
+        # Handle FerryHopper cabins (cabin_code) vs database cabins (cabin_id)
+        cabin_id_to_store = None
+        cabin_code_to_store = None
+
+        if cabin_request.cabin_code:
+            # FerryHopper cabin - use provided price
+            if cabin_request.price is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Price is required for FerryHopper cabin upgrades"
+                )
+            unit_price = Decimal(str(cabin_request.price))
+            cabin_code_to_store = cabin_request.cabin_code
+            logger.info(f"Adding FerryHopper cabin {cabin_request.cabin_code} at €{unit_price} x {cabin_request.quantity}")
+        elif cabin_request.cabin_id:
+            # Legacy database cabin lookup
+            cabin = db.query(Cabin).filter(Cabin.id == cabin_request.cabin_id).first()
+            if not cabin:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cabin not found"
+                )
+            unit_price = Decimal(str(cabin.base_price))
+            cabin_id_to_store = cabin_request.cabin_id
+        else:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cabin not found"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Either cabin_id or cabin_code must be provided"
             )
 
-        # Calculate cabin price
-        from decimal import Decimal
-        unit_price = Decimal(str(cabin.base_price))
         total_price = unit_price * cabin_request.quantity
 
         # Determine journey type enum
         journey_type_enum = JourneyTypeEnum.RETURN if cabin_request.journey_type == 'return' else JourneyTypeEnum.OUTBOUND
 
-        # Create BookingCabin record
-        booking_cabin = BookingCabin(
-            booking_id=booking_id,
-            cabin_id=cabin_request.cabin_id,
-            journey_type=journey_type_enum,
-            quantity=cabin_request.quantity,
-            unit_price=unit_price,
-            total_price=total_price,
-            is_paid=False  # Will be marked as paid after payment confirmation
-        )
-        db.add(booking_cabin)
-        db.flush()  # Get the ID
+        # For database cabins, create BookingCabin record
+        # For FerryHopper cabins (cabin_code), skip BookingCabin creation to avoid foreign key issues
+        if cabin_id_to_store:
+            booking_cabin = BookingCabin(
+                booking_id=booking_id,
+                cabin_id=cabin_id_to_store,
+                journey_type=journey_type_enum,
+                quantity=cabin_request.quantity,
+                unit_price=unit_price,
+                total_price=total_price,
+                is_paid=False  # Will be marked as paid after payment confirmation
+            )
+            db.add(booking_cabin)
+            db.flush()  # Get the ID
 
         # Update booking's cabin supplement totals
-        # Keep original cabin supplement and ADD the upgrade totals from bookingCabins
-        # Original cabin supplement = cabins selected during initial booking
-        # bookingCabins = cabin upgrades added after initial booking
+        # For FerryHopper cabins, just add to existing supplement
+        # For database cabins, calculate from BookingCabin records
 
-        # Calculate upgrade totals from bookingCabins (including the new one being added)
-        outbound_upgrades = sum(
-            float(bc.total_price) for bc in booking.booking_cabins
-            if bc.journey_type == JourneyTypeEnum.OUTBOUND
-        ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.OUTBOUND else 0)
+        if cabin_code_to_store:
+            # FerryHopper cabin - directly add to supplement
+            if journey_type_enum == JourneyTypeEnum.RETURN:
+                booking.return_cabin_supplement = Decimal(str(float(booking.return_cabin_supplement or 0) + float(total_price)))
+            else:
+                booking.cabin_supplement = Decimal(str(float(booking.cabin_supplement or 0) + float(total_price)))
 
-        return_upgrades = sum(
-            float(bc.total_price) for bc in booking.booking_cabins
-            if bc.journey_type == JourneyTypeEnum.RETURN
-        ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.RETURN else 0)
+            # Store FerryHopper cabin details in extra_data for display
+            extra_data = booking.extra_data or {}
+            cabin_upgrades_key = "return_cabin_upgrades" if journey_type_enum == JourneyTypeEnum.RETURN else "cabin_upgrades"
+            cabin_upgrades = extra_data.get(cabin_upgrades_key, [])
+            cabin_upgrades.append({
+                "code": cabin_code_to_store,
+                "name": cabin_request.cabin_name or cabin_code_to_store,
+                "quantity": cabin_request.quantity,
+                "unit_price": float(unit_price),
+                "total_price": float(total_price),
+                "journey_type": cabin_request.journey_type,
+                "added_at": utc_now().isoformat()
+            })
+            extra_data[cabin_upgrades_key] = cabin_upgrades
+            booking.extra_data = extra_data
 
-        # Get original cabin costs (if any) - these are cabins from initial booking
-        # If cabin_supplement was not previously set from upgrades, it contains the original cabin cost
-        # We need to track original vs upgrade separately
-
-        # For now, add upgrade amount to existing supplement
-        # (This means cabin_supplement = original_cabin + all_upgrades)
-        original_outbound = float(booking.cabin_supplement or 0) - sum(
-            float(bc.total_price) for bc in booking.booking_cabins
-            if bc.journey_type == JourneyTypeEnum.OUTBOUND
-        )
-        original_return = float(booking.return_cabin_supplement or 0) - sum(
-            float(bc.total_price) for bc in booking.booking_cabins
-            if bc.journey_type == JourneyTypeEnum.RETURN
-        )
-
-        # Ensure originals are not negative (in case of data issues)
-        original_outbound = max(0, original_outbound)
-        original_return = max(0, original_return)
-
-        booking.cabin_supplement = Decimal(str(original_outbound + outbound_upgrades))
-        booking.return_cabin_supplement = Decimal(str(original_return + return_upgrades))
-
-        # Keep cabin_id for backward compatibility (store latest cabin)
-        if journey_type_enum == JourneyTypeEnum.RETURN:
-            booking.return_cabin_id = cabin_request.cabin_id
+            logger.info(f"Updated booking {booking_id} cabin_supplement for FerryHopper cabin: +€{total_price}")
         else:
-            booking.cabin_id = cabin_request.cabin_id
+            # Database cabin - calculate from BookingCabin records
+            outbound_upgrades = sum(
+                float(bc.total_price) for bc in booking.booking_cabins
+                if bc.journey_type == JourneyTypeEnum.OUTBOUND
+            ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.OUTBOUND else 0)
+
+            return_upgrades = sum(
+                float(bc.total_price) for bc in booking.booking_cabins
+                if bc.journey_type == JourneyTypeEnum.RETURN
+            ) + (float(total_price) if journey_type_enum == JourneyTypeEnum.RETURN else 0)
+
+            # Get original cabin costs (if any)
+            original_outbound = float(booking.cabin_supplement or 0) - sum(
+                float(bc.total_price) for bc in booking.booking_cabins
+                if bc.journey_type == JourneyTypeEnum.OUTBOUND
+            )
+            original_return = float(booking.return_cabin_supplement or 0) - sum(
+                float(bc.total_price) for bc in booking.booking_cabins
+                if bc.journey_type == JourneyTypeEnum.RETURN
+            )
+
+            # Ensure originals are not negative
+            original_outbound = max(0, original_outbound)
+            original_return = max(0, original_return)
+
+            booking.cabin_supplement = Decimal(str(original_outbound + outbound_upgrades))
+            booking.return_cabin_supplement = Decimal(str(original_return + return_upgrades))
+
+        # Keep cabin_id for backward compatibility (only for database cabins)
+        if cabin_id_to_store:
+            if journey_type_enum == JourneyTypeEnum.RETURN:
+                booking.return_cabin_id = cabin_id_to_store
+            else:
+                booking.cabin_id = cabin_id_to_store
 
         # Recalculate total amount
         subtotal = Decimal(str(booking.subtotal or 0))

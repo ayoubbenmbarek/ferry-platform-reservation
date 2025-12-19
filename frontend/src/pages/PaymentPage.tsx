@@ -27,19 +27,28 @@ const PaymentPage: React.FC = () => {
   const paymentType = searchParams.get('type');
   const isCabinUpgrade = paymentType === 'cabin_upgrade';
 
-  // Parse cabin selections from URL (format: "cabinId:qty,cabinId:qty")
-  const parseCabinSelections = (selectionsStr: string | null): { cabinId: number; quantity: number }[] => {
+  // Parse cabin selections from URL (format: "cabinCode:qty:price:name,cabinCode:qty:price:name")
+  const parseCabinSelections = (selectionsStr: string | null): { cabinCode: string; quantity: number; price: number; cabinName: string }[] => {
     if (!selectionsStr) return [];
     return selectionsStr.split(',').map(item => {
-      const [cabinId, qty] = item.split(':');
-      return { cabinId: parseInt(cabinId), quantity: parseInt(qty) };
-    }).filter(s => s.cabinId && s.quantity);
+      const parts = item.split(':');
+      // Support new format: cabinCode:qty:price:name
+      // Also support legacy format: cabinCode:qty:price (without name)
+      if (parts.length >= 4) {
+        return { cabinCode: parts[0], quantity: parseInt(parts[1]), price: parseFloat(parts[2]), cabinName: decodeURIComponent(parts[3]) };
+      } else if (parts.length >= 3) {
+        return { cabinCode: parts[0], quantity: parseInt(parts[1]), price: parseFloat(parts[2]), cabinName: parts[0] };
+      } else if (parts.length === 2) {
+        // Legacy format without price
+        return { cabinCode: parts[0], quantity: parseInt(parts[1]), price: 0, cabinName: parts[0] };
+      }
+      return null;
+    }).filter((s): s is { cabinCode: string; quantity: number; price: number; cabinName: string } => s !== null && !!s.cabinCode && s.quantity > 0);
   };
 
   const cabinUpgradeData = isCabinUpgrade ? {
-    // Support both old format (cabin_id) and new format (cabin_selections)
+    // Support new format with cabin_code:qty:price
     cabinSelections: parseCabinSelections(searchParams.get('cabin_selections')),
-    cabinId: parseInt(searchParams.get('cabin_id') || '0'), // Legacy support
     totalCabins: parseInt(searchParams.get('total_cabins') || searchParams.get('quantity') || '1'),
     journeyType: searchParams.get('journey_type') || 'outbound',
     amount: parseFloat(searchParams.get('amount') || '0'),
@@ -54,8 +63,6 @@ const PaymentPage: React.FC = () => {
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [bookingTotal, setBookingTotal] = useState<number>(0);
   const [bookingDetails, setBookingDetails] = useState<any>(null);
-  // Store cabin details for display in summary
-  const [cabinDetails, setCabinDetails] = useState<Record<number, { name: string; price: number }>>({});
   const [isOrderSummaryExpanded, setIsOrderSummaryExpanded] = useState(false);
 
   // Use ref to prevent double initialization in React StrictMode
@@ -130,6 +137,26 @@ const PaymentPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
+      // IMPORTANT: For cabin upgrades, check if alert is already fulfilled
+      // This prevents double payments when user navigates back
+      if (isCabinUpgrade && cabinUpgradeData?.alertId) {
+        try {
+          const alertResponse = await api.get(`/availability-alerts/${cabinUpgradeData.alertId}`);
+          if (alertResponse.data.status === 'fulfilled') {
+            setError(t('payment:errors.alreadyPaid', 'This cabin upgrade has already been paid for. Redirecting to your booking...'));
+            setIsLoading(false);
+            // Redirect to booking after a short delay
+            setTimeout(() => {
+              navigate(`/booking/${existingBookingId}`, { replace: true });
+            }, 2000);
+            return;
+          }
+        } catch (alertErr) {
+          console.warn('Could not check alert status:', alertErr);
+          // Continue with payment if we can't check - backend will validate
+        }
+      }
+
       // Get Stripe configuration
       const config = await paymentAPI.getStripeConfig();
       stripePromise = loadStripe(config.publishableKey);
@@ -203,20 +230,6 @@ const PaymentPage: React.FC = () => {
         return;
       }
 
-      // Fetch cabin details for cabin upgrade summary display
-      if (isCabinUpgrade && cabinUpgradeData && cabinUpgradeData.cabinSelections.length > 0) {
-        try {
-          const cabinsResponse = await api.get('/cabins');
-          const cabinsMap: Record<number, { name: string; price: number }> = {};
-          (cabinsResponse.data || []).forEach((c: any) => {
-            cabinsMap[c.id] = { name: c.name, price: c.base_price };
-          });
-          setCabinDetails(cabinsMap);
-        } catch (err) {
-          console.warn('Could not fetch cabin details:', err);
-        }
-      }
-
       // Calculate amount based on payment type
       let totalAmount: number;
       if (isCabinUpgrade && cabinUpgradeData) {
@@ -245,7 +258,7 @@ const PaymentPage: React.FC = () => {
       if (isCabinUpgrade && cabinUpgradeData) {
         paymentIntentData.metadata = {
           type: 'cabin_upgrade',
-          cabin_selections: cabinUpgradeData.cabinSelections.map(s => `${s.cabinId}:${s.quantity}`).join(','),
+          cabin_selections: cabinUpgradeData.cabinSelections.map(s => `${s.cabinCode}:${s.quantity}:${s.price}`).join(','),
           total_cabins: cabinUpgradeData.totalCabins,
           journey_type: cabinUpgradeData.journeyType,
           alert_id: cabinUpgradeData.alertId
@@ -350,23 +363,18 @@ const PaymentPage: React.FC = () => {
       // If this is a cabin upgrade payment, add the cabins to the booking
       if (isCabinUpgrade && cabinUpgradeData && bookingId) {
         try {
-          // Handle multi-cabin selections
+          // Handle multi-cabin selections with FerryHopper cabin codes
           if (cabinUpgradeData.cabinSelections.length > 0) {
             // Add each cabin selection
             for (const selection of cabinUpgradeData.cabinSelections) {
               await api.post(`/bookings/${bookingId}/add-cabin`, {
-                cabin_id: selection.cabinId,
+                cabin_code: selection.cabinCode,
+                cabin_name: selection.cabinName,
+                price: selection.price,
                 quantity: selection.quantity,
                 journey_type: cabinUpgradeData.journeyType
               });
             }
-          } else if (cabinUpgradeData.cabinId) {
-            // Legacy: single cabin
-            await api.post(`/bookings/${bookingId}/add-cabin`, {
-              cabin_id: cabinUpgradeData.cabinId,
-              quantity: cabinUpgradeData.totalCabins,
-              journey_type: cabinUpgradeData.journeyType
-            });
           }
 
           // Mark alert as fulfilled if there was one
@@ -637,12 +645,12 @@ const PaymentPage: React.FC = () => {
                     {cabinUpgradeData.cabinSelections.length > 0 ? (
                       <div className="space-y-2 border-l-2 border-purple-200 pl-3 mb-3">
                         {cabinUpgradeData.cabinSelections.map((selection, idx) => {
-                          const cabin = cabinDetails[selection.cabinId];
-                          const cabinPrice = cabin ? cabin.price * selection.quantity : 0;
+                          // Use price from selection (FerryHopper format)
+                          const cabinPrice = selection.price * selection.quantity;
                           return (
                             <div key={idx} className="flex justify-between text-sm">
                               <span className="text-gray-600">
-                                {cabin?.name || `Cabin #${selection.cabinId}`} × {selection.quantity}
+                                Cabin ({selection.cabinCode}) × {selection.quantity}
                               </span>
                               <span className="font-medium">€{cabinPrice.toFixed(2)}</span>
                             </div>

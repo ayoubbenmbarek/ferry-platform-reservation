@@ -127,9 +127,10 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
       setError(null);
 
       // Always fetch full month (±15 days) to avoid refetching when toggling view
-      // The display will be filtered based on showFullMonth state
-      const daysBefore = 15;
-      const daysAfter = 15;
+      // Reduced date range to avoid timeout (was 15+15=31 dates, now 7+7=15 dates)
+      // Each date requires a FerryHopper API call which can take 2-5s
+      const daysBefore = 7;
+      const daysAfter = 7;
 
       // Use fetchCenterDate so prices don't change when user clicks different dates
       // Include returnDate for round-trip pricing context

@@ -1281,15 +1281,33 @@ async def get_date_prices(
                 }
 
         # Search dates with limited concurrency to avoid FerryHopper rate limits
-        # Max 3 concurrent requests - balance between speed and rate limiting
+        # Max 5 concurrent requests (increased from 3 since we reduced date range)
         # The retry logic in ferryhopper.py handles any 429 errors with backoff
-        semaphore = asyncio.Semaphore(3)
+        semaphore = asyncio.Semaphore(5)
 
         async def throttled_search(search_date: date) -> dict:
             async with semaphore:
-                return await search_single_date(search_date)
+                try:
+                    # Add per-date timeout to fail fast (10s per date)
+                    return await asyncio.wait_for(
+                        search_single_date(search_date),
+                        timeout=10.0
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Timeout fetching price for {search_date}")
+                    return {
+                        "date": search_date.isoformat(),
+                        "day_of_week": search_date.strftime("%a"),
+                        "day_of_month": search_date.day,
+                        "month": search_date.strftime("%b"),
+                        "lowest_price": None,
+                        "available": False,
+                        "num_ferries": 0,
+                        "is_center_date": search_date == center_date,
+                        "timeout": True
+                    }
 
-        logger.info(f"🚀 Calendar searching {len(dates_to_search)} dates (max 3 concurrent)...")
+        logger.info(f"🚀 Calendar searching {len(dates_to_search)} dates (max 5 concurrent, 10s timeout each)...")
         search_start = time.time()
         date_prices = await asyncio.gather(*[throttled_search(d) for d in dates_to_search])
         search_duration = (time.time() - search_start) * 1000

@@ -4,22 +4,22 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import api, { bookingAPI } from '../services/api';
 
 interface Cabin {
-  id: number;
+  uid: string;   // Unique identifier (code_price_index)
+  code: string;  // FerryHopper accommodation code
   name: string;
   cabin_type: string;
   description?: string;
   max_occupancy: number;
-  base_price: number;
-  has_private_bathroom: boolean;
+  price: number;  // Real price from FerryHopper
+  has_bathroom: boolean;
   has_tv: boolean;
-  has_minibar: boolean;
-  has_air_conditioning: boolean;
   has_wifi: boolean;
+  has_air_conditioning: boolean;
   is_accessible: boolean;
-  available?: number;
+  available: number;
 }
 
-// Track quantity per cabin type
+// Track quantity per cabin uid (unique identifier)
 interface CabinSelection {
   cabin: Cabin;
   quantity: number;
@@ -52,8 +52,8 @@ const AddCabinPage: React.FC = () => {
 
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [cabins, setCabins] = useState<Cabin[]>([]);
-  // Multi-cabin selection: track quantity per cabin
-  const [cabinQuantities, setCabinQuantities] = useState<Record<number, number>>({});
+  // Multi-cabin selection: track quantity per cabin uid (unique identifier)
+  const [cabinQuantities, setCabinQuantities] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,21 +62,23 @@ const AddCabinPage: React.FC = () => {
   const getSelections = (): CabinSelection[] => {
     return Object.entries(cabinQuantities)
       .filter(([_, qty]) => qty > 0)
-      .map(([cabinId, qty]) => ({
-        cabin: cabins.find(c => c.id === parseInt(cabinId))!,
+      .map(([cabinUid, qty]) => ({
+        cabin: cabins.find(c => c.uid === cabinUid)!,
         quantity: qty
       }))
       .filter(s => s.cabin); // Filter out any undefined cabins
   };
 
   const totalCabins = Object.values(cabinQuantities).reduce((sum, qty) => sum + qty, 0);
-  const totalPrice = getSelections().reduce((sum, s) => sum + (s.cabin.base_price * s.quantity), 0);
+  const totalPrice = getSelections().reduce((sum, s) => sum + (s.cabin.price * s.quantity), 0);
 
-  const handleQuantityChange = (cabinId: number, delta: number) => {
+  const handleQuantityChange = (cabinUid: string, delta: number) => {
     setCabinQuantities(prev => {
-      const currentQty = prev[cabinId] || 0;
-      const newQty = Math.max(0, Math.min(10, currentQty + delta));
-      return { ...prev, [cabinId]: newQty };
+      const currentQty = prev[cabinUid] || 0;
+      const cabin = cabins.find(c => c.uid === cabinUid);
+      const maxQty = cabin?.available || 10;
+      const newQty = Math.max(0, Math.min(maxQty, currentQty + delta));
+      return { ...prev, [cabinUid]: newQty };
     });
   };
 
@@ -96,18 +98,29 @@ const AddCabinPage: React.FC = () => {
         const bookingData = await bookingAPI.getById(parseInt(bookingId));
         setBooking(bookingData as unknown as BookingDetails);
 
-        // Fetch available cabins (generic cabin types, not operator-specific)
-        const cabinsResponse = await api.get('/cabins', {
+        // Fetch available cabins from FerryHopper via new endpoint
+        const cabinsResponse = await api.get(`/bookings/${bookingId}/available-cabins`, {
           params: {
-            is_available: true
+            journey_type: journeyType
           }
         });
 
-        // Filter out deck/seat types and sort by price (highest first)
-        const realCabins = (cabinsResponse.data || [])
-          .filter((c: Cabin) => !['seat', 'deck', 'reclining_seat'].includes(c.cabin_type?.toLowerCase()))
-          .sort((a: Cabin, b: Cabin) => b.base_price - a.base_price);
-        setCabins(realCabins);
+        // Get cabins from response, filter out deck/seat types, and add unique IDs
+        const rawCabins = (cabinsResponse.data.cabins || [])
+          .filter((c: any) => !['seat', 'deck', 'reclining_seat'].includes(c.cabin_type?.toLowerCase()))
+          .sort((a: any, b: any) => b.price - a.price);  // Sort by price (highest first)
+
+        // Generate unique UIDs to avoid key collisions when cabins share the same code
+        const availableCabins: Cabin[] = rawCabins.map((c: any, index: number) => ({
+          ...c,
+          uid: `${c.code}_${c.price}_${index}` // Unique identifier
+        }));
+
+        setCabins(availableCabins);
+
+        if (availableCabins.length === 0) {
+          setError(t('booking:cabinAlert.noCabinsAvailable', 'No cabins available for this sailing. The cache may have expired - please try again later.'));
+        }
 
       } catch (err: any) {
         console.error('Failed to load data:', err);
@@ -118,7 +131,7 @@ const AddCabinPage: React.FC = () => {
     };
 
     fetchData();
-  }, [bookingId]);
+  }, [bookingId, journeyType, t]);
 
   const handleAddCabin = async () => {
     const selections = getSelections();
@@ -128,9 +141,10 @@ const AddCabinPage: React.FC = () => {
     setError(null);
 
     try {
-      // Build cabin selections string: "cabinId:qty,cabinId:qty"
+      // Build cabin selections string: "cabinCode:qty:price:name,cabinCode:qty:price:name"
+      // Include price and name so payment page can display and store cabin details
       const cabinSelectionsStr = selections
-        .map(s => `${s.cabin.id}:${s.quantity}`)
+        .map(s => `${s.cabin.code}:${s.quantity}:${s.cabin.price}:${encodeURIComponent(s.cabin.name)}`)
         .join(',');
 
       // Redirect to payment page with cabin upgrade details
@@ -319,12 +333,12 @@ const AddCabinPage: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {cabins.map((cabin) => {
-                const quantity = cabinQuantities[cabin.id] || 0;
-                const cabinTotal = cabin.base_price * quantity;
+                const quantity = cabinQuantities[cabin.uid] || 0;
+                const cabinTotal = cabin.price * quantity;
 
                 return (
                   <div
-                    key={cabin.id}
+                    key={cabin.uid}
                     className={`border-2 rounded-lg p-4 transition-all ${
                       quantity > 0
                         ? 'border-green-500 bg-green-50'
@@ -352,7 +366,7 @@ const AddCabinPage: React.FC = () => {
                         )}
 
                         <div className="flex flex-wrap gap-2 ml-12">
-                          {cabin.has_private_bathroom && (
+                          {cabin.has_bathroom && (
                             <span className="text-xs bg-gray-100 px-2 py-1 rounded">🚿 Bathroom</span>
                           )}
                           {cabin.has_tv && (
@@ -376,13 +390,13 @@ const AddCabinPage: React.FC = () => {
                       {/* Price and Quantity Controls */}
                       <div className="text-right ml-4">
                         <div className="text-lg font-bold text-blue-600 mb-2">
-                          €{cabin.base_price.toFixed(2)}
+                          €{cabin.price.toFixed(2)}
                           <span className="text-xs text-gray-500 font-normal block">per cabin</span>
                         </div>
 
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleQuantityChange(cabin.id, -1)}
+                            onClick={() => handleQuantityChange(cabin.uid, -1)}
                             disabled={quantity === 0}
                             className="w-9 h-9 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-lg"
                           >
@@ -390,7 +404,7 @@ const AddCabinPage: React.FC = () => {
                           </button>
                           <span className="w-8 text-center font-semibold text-lg">{quantity}</span>
                           <button
-                            onClick={() => handleQuantityChange(cabin.id, 1)}
+                            onClick={() => handleQuantityChange(cabin.uid, 1)}
                             disabled={quantity >= 10}
                             className="w-9 h-9 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-lg"
                           >
@@ -421,14 +435,14 @@ const AddCabinPage: React.FC = () => {
 
             <div className="space-y-3 border-b pb-4 mb-4">
               {getSelections().map((selection) => (
-                <div key={selection.cabin.id} className="flex items-center justify-between">
+                <div key={selection.cabin.uid} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">{getCabinIcon(selection.cabin.cabin_type)}</span>
                     <span className="text-gray-700">
                       {selection.cabin.name} × {selection.quantity}
                     </span>
                   </div>
-                  <span className="font-medium">€{(selection.cabin.base_price * selection.quantity).toFixed(2)}</span>
+                  <span className="font-medium">€{(selection.cabin.price * selection.quantity).toFixed(2)}</span>
                 </div>
               ))}
             </div>

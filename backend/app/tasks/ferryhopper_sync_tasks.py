@@ -336,7 +336,9 @@ TRACKED_ROUTES = [
     name="app.tasks.ferryhopper_sync_tasks.record_price_history",
     bind=True,
     max_retries=3,
-    default_retry_delay=600
+    default_retry_delay=600,
+    soft_time_limit=540,  # 9 minutes soft limit
+    time_limit=600  # 10 minutes hard limit
 )
 def record_price_history_task(self, days_ahead: int = 90):
     """
@@ -346,50 +348,60 @@ def record_price_history_task(self, days_ahead: int = 90):
     Records prices for the next X days for each tracked route.
     """
     import asyncio
+    import time as time_module
+    from datetime import date as date_type, datetime as datetime_type, timezone as tz, timedelta as td
     from app.services.ferry_service import FerryService
+    from celery.exceptions import SoftTimeLimitExceeded
+
+    start_time = time_module.time()
+    max_runtime = 480  # Stop after 8 minutes to leave buffer
 
     logger.info(f"📊 Recording price history for {len(TRACKED_ROUTES)} routes...")
 
-    ferry_service = FerryService()
     db = SessionLocal()
     recorded_count = 0
     error_count = 0
+    stopped_early = False
 
-    async def search_route(dep: str, arr: str, search_date: date) -> Optional[Dict]:
-        """Search a single route and date."""
-        try:
-            results = await ferry_service.search_ferries(
-                departure_port=dep,
-                arrival_port=arr,
-                departure_date=search_date,
-                adults=1,
-                children=0,
-                infants=0
-            )
-            return results
-        except Exception as e:
-            logger.warning(f"Search failed for {dep}->{arr} on {search_date}: {e}")
-            return None
+    async def run_all_searches():
+        """Run all searches in a single async context to keep httpx session alive."""
+        nonlocal recorded_count, error_count, stopped_early
 
-    try:
-        # Dates to search
-        today = date.today()
-        search_dates = [today + timedelta(days=d) for d in range(7, days_ahead, 7)]  # Every week
+        ferry_service = FerryService()
+        today = date_type.today()
+        # Search every 14 days instead of 7 to reduce API calls
+        search_dates = [today + td(days=d) for d in range(7, days_ahead, 14)]
 
         for dep_code, arr_code, route_name in TRACKED_ROUTES:
+            # Check if we're running out of time
+            elapsed = time_module.time() - start_time
+            if elapsed > max_runtime:
+                logger.info(f"⏰ Stopping early after {elapsed:.0f}s to avoid timeout")
+                stopped_early = True
+                return
+
             route_id = f"{dep_code}_{arr_code}".lower()
             logger.debug(f"Recording prices for {route_name}")
 
             for search_date in search_dates:
-                try:
-                    # Run async search
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
+                # Check time again for inner loop
+                if time_module.time() - start_time > max_runtime:
+                    stopped_early = True
+                    return
 
-                    results = loop.run_until_complete(search_route(dep_code, arr_code, search_date))
+                try:
+                    # Add per-search timeout
+                    results = await asyncio.wait_for(
+                        ferry_service.search_ferries(
+                            departure_port=dep_code,
+                            arrival_port=arr_code,
+                            departure_date=search_date,
+                            adults=1,
+                            children=0,
+                            infants=0
+                        ),
+                        timeout=15.0
+                    )
 
                     if not results:
                         continue
@@ -428,7 +440,7 @@ def record_price_history_task(self, days_ahead: int = 90):
                         departure_port=dep_code,
                         arrival_port=arr_code,
                         operator=None,  # Aggregate across operators
-                        recorded_at=datetime.now(timezone.utc),
+                        recorded_at=datetime_type.now(tz.utc),
                         departure_date=search_date,
                         days_until_departure=days_until,
                         price_adult=lowest_price,  # Use lowest as reference
@@ -449,6 +461,10 @@ def record_price_history_task(self, days_ahead: int = 90):
                     db.add(price_record)
                     recorded_count += 1
 
+                except asyncio.TimeoutError:
+                    logger.warning(f"Timeout recording price for {route_name} on {search_date}")
+                    error_count += 1
+                    continue
                 except Exception as e:
                     logger.warning(f"Error recording price for {route_name} on {search_date}: {e}")
                     error_count += 1
@@ -457,13 +473,27 @@ def record_price_history_task(self, days_ahead: int = 90):
             # Commit per route to avoid losing all data on error
             db.commit()
 
-        logger.info(f"✅ Price history recorded: {recorded_count} records, {error_count} errors")
+    try:
+        # Run all searches in a single async context
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(run_all_searches())
+
+        elapsed = time_module.time() - start_time
+        status = "partial" if stopped_early else "success"
+        logger.info(f"✅ Price history recorded: {recorded_count} records, {error_count} errors in {elapsed:.0f}s")
 
         return {
-            "status": "success",
+            "status": status,
             "recorded": recorded_count,
             "errors": error_count,
-            "routes": len(TRACKED_ROUTES)
+            "routes": len(TRACKED_ROUTES),
+            "stopped_early": stopped_early,
+            "elapsed_seconds": round(elapsed, 1)
         }
 
     except Exception as e:
@@ -666,63 +696,91 @@ def aggregate_route_statistics_task(self):
     name="app.tasks.ferryhopper_sync_tasks.precompute_fare_calendar",
     bind=True,
     max_retries=3,
-    default_retry_delay=600
+    default_retry_delay=600,
+    soft_time_limit=540,  # 9 minutes soft limit
+    time_limit=600  # 10 minutes hard limit
 )
-def precompute_fare_calendar_task(self, months_ahead: int = 3):
+def precompute_fare_calendar_task(self, months_ahead: int = 2):
     """
     Pre-compute fare calendar data for popular routes.
 
     Runs daily to keep calendar fresh.
     Computes monthly calendar data with prices, availability, trends.
+    Searches every 3rd day to reduce API calls.
     """
     import asyncio
+    import time as time_module
+    from datetime import date as date_type, datetime as datetime_type, timezone as tz, timedelta as td
     from app.services.ferry_service import FerryService
+
+    start_time = time_module.time()
+    max_runtime = 480  # Stop after 8 minutes to leave buffer
 
     logger.info(f"📅 Pre-computing fare calendars for {len(TRACKED_ROUTES)} routes, {months_ahead} months ahead...")
 
-    ferry_service = FerryService()
     db = SessionLocal()
     computed_count = 0
+    stopped_early = False
 
-    async def search_date(dep: str, arr: str, search_date: date) -> Optional[Dict]:
-        """Search a single date."""
-        try:
-            results = await ferry_service.search_ferries(
-                departure_port=dep,
-                arrival_port=arr,
-                departure_date=search_date,
-                adults=1,
-                children=0,
-                infants=0
-            )
+    async def run_all_calendar_computations():
+        """Run all calendar computations in a single async context."""
+        nonlocal computed_count, stopped_early
 
-            if not results:
+        ferry_service = FerryService()
+        today = date_type.today()
+        now = datetime_type.now(tz.utc)
+
+        async def fetch_date_price(dep: str, arr: str, target_date) -> Optional[Dict]:
+            """Search a single date for price data with timeout."""
+            try:
+                results = await asyncio.wait_for(
+                    ferry_service.search_ferries(
+                        departure_port=dep,
+                        arrival_port=arr,
+                        departure_date=target_date,
+                        adults=1,
+                        children=0,
+                        infants=0
+                    ),
+                    timeout=15.0
+                )
+
+                if not results:
+                    return None
+
+                adult_prices = [r.prices.get("adult", 0) for r in results if r.prices.get("adult", 0) > 0]
+                if not adult_prices:
+                    return None
+
+                return {
+                    "price": min(adult_prices),
+                    "available": True,
+                    "ferries": len(results),
+                    "trend": "stable"
+                }
+            except asyncio.TimeoutError:
                 return None
-
-            adult_prices = [r.prices.get("adult", 0) for r in results if r.prices.get("adult", 0) > 0]
-            if not adult_prices:
+            except Exception:
                 return None
-
-            return {
-                "price": min(adult_prices),
-                "available": True,
-                "ferries": len(results),
-                "trend": "stable"
-            }
-        except Exception:
-            return None
-
-    try:
-        today = date.today()
-        now = datetime.now(timezone.utc)
 
         for dep_code, arr_code, route_name in TRACKED_ROUTES:
+            # Check if we're running out of time
+            if time_module.time() - start_time > max_runtime:
+                logger.info(f"⏰ Stopping early to avoid timeout")
+                stopped_early = True
+                return
+
             route_id = f"{dep_code}_{arr_code}".lower()
             logger.debug(f"Computing calendar for {route_name}")
 
             # Generate months to compute
             for month_offset in range(months_ahead):
-                target_month = today.replace(day=1) + timedelta(days=32 * month_offset)
+                # Check time again
+                if time_module.time() - start_time > max_runtime:
+                    stopped_early = True
+                    return
+
+                target_month = today.replace(day=1) + td(days=32 * month_offset)
                 target_month = target_month.replace(day=1)
                 year_month = target_month.strftime("%Y-%m")
 
@@ -745,35 +803,54 @@ def precompute_fare_calendar_task(self, months_ahead: int = 3):
                     next_month = target_month.replace(month=target_month.month + 1)
                 days_in_month = (next_month - target_month).days
 
-                # Search each day
+                # Search every 3rd day to reduce API calls (interpolate others)
                 calendar_data = {}
                 prices = []
+                sampled_prices = {}
 
-                for day in range(1, days_in_month + 1):
+                # First pass: fetch every 3rd day
+                for day in range(1, days_in_month + 1, 3):
+                    if time_module.time() - start_time > max_runtime:
+                        stopped_early = True
+                        return
+
                     search_date = target_month.replace(day=day)
 
                     # Skip past dates
                     if search_date < today:
                         continue
 
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-
-                    result = loop.run_until_complete(search_date(dep_code, arr_code, search_date))
-
+                    result = await fetch_date_price(dep_code, arr_code, search_date)
                     if result:
-                        calendar_data[str(day)] = result
-                        prices.append(result["price"])
+                        sampled_prices[day] = result["price"]
+
+                # Second pass: fill in all days (interpolate or use nearest)
+                for day in range(1, days_in_month + 1):
+                    search_date = target_month.replace(day=day)
+
+                    if search_date < today:
+                        calendar_data[str(day)] = {"price": None, "available": False, "ferries": 0, "trend": "stable"}
+                        continue
+
+                    if day in sampled_prices:
+                        price = sampled_prices[day]
+                        calendar_data[str(day)] = {"price": price, "available": True, "ferries": 1, "trend": "stable"}
+                        prices.append(price)
                     else:
-                        calendar_data[str(day)] = {
-                            "price": None,
-                            "available": False,
-                            "ferries": 0,
-                            "trend": "stable"
-                        }
+                        # Find nearest sampled price
+                        nearest_price = None
+                        for offset in range(1, 4):
+                            if day - offset in sampled_prices:
+                                nearest_price = sampled_prices[day - offset]
+                                break
+                            if day + offset in sampled_prices:
+                                nearest_price = sampled_prices[day + offset]
+                                break
+                        if nearest_price:
+                            calendar_data[str(day)] = {"price": nearest_price, "available": True, "ferries": 1, "trend": "stable"}
+                            prices.append(nearest_price)
+                        else:
+                            calendar_data[str(day)] = {"price": None, "available": False, "ferries": 0, "trend": "stable"}
 
                 # Calculate month summary
                 month_lowest = min(prices) if prices else None
@@ -800,7 +877,7 @@ def precompute_fare_calendar_task(self, months_ahead: int = 3):
                     year_month=year_month,
                     passengers=1,
                     created_at=now,
-                    expires_at=now + timedelta(hours=24),  # 24 hour cache
+                    expires_at=now + td(hours=24),  # 24 hour cache
                     calendar_data=calendar_data,
                     month_lowest=month_lowest,
                     month_highest=month_highest,
@@ -813,12 +890,26 @@ def precompute_fare_calendar_task(self, months_ahead: int = 3):
             # Commit per route
             db.commit()
 
-        logger.info(f"✅ Fare calendars pre-computed: {computed_count} calendars")
+    try:
+        # Run all computations in a single async context
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(run_all_calendar_computations())
+
+        elapsed = round(time_module.time() - start_time, 1)
+        status = "partial" if stopped_early else "success"
+        logger.info(f"✅ Fare calendars pre-computed: {computed_count} calendars ({status}, {elapsed}s)")
 
         return {
-            "status": "success",
+            "status": status,
             "calendars_computed": computed_count,
-            "routes": len(TRACKED_ROUTES)
+            "routes": len(TRACKED_ROUTES),
+            "stopped_early": stopped_early,
+            "elapsed_seconds": elapsed
         }
 
     except Exception as e:
@@ -913,6 +1004,7 @@ def prewarm_search_cache_task(self, days_ahead: int = 7):
     """
     import asyncio
     import time
+    from datetime import date as date_type, timedelta as td
     from app.services.ferry_service import FerryService
     from celery.exceptions import SoftTimeLimitExceeded
 
@@ -921,33 +1013,36 @@ def prewarm_search_cache_task(self, days_ahead: int = 7):
 
     logger.info(f"🔥 Pre-warming search cache for {len(TRACKED_ROUTES)} routes, {days_ahead} days ahead...")
 
-    ferry_service = FerryService()
     warmed_count = 0
     skipped_count = 0
     error_count = 0
     stopped_early = False
 
-    async def warm_route_date(dep: str, arr: str, search_date: date) -> bool:
-        """Warm cache for a single route/date."""
-        try:
-            results = await ferry_service.search_ferries(
-                departure_port=dep,
-                arrival_port=arr,
-                departure_date=search_date,
-                adults=1,
-                children=0,
-                infants=0
-            )
-            return True
-        except Exception as e:
-            logger.debug(f"Cache warm failed for {dep}->{arr} {search_date}: {e}")
-            return False
-
     async def warm_all_routes():
+        """Run all cache warming in a single async context."""
         nonlocal warmed_count, skipped_count, error_count, stopped_early
 
-        today = date.today()
-        tomorrow = today + timedelta(days=1)  # Start from tomorrow to avoid "past date" errors
+        # Create FerryService inside async context to keep httpx session alive
+        ferry_service = FerryService()
+
+        async def warm_route_date(dep: str, arr: str, search_date) -> bool:
+            """Warm cache for a single route/date."""
+            try:
+                results = await ferry_service.search_ferries(
+                    departure_port=dep,
+                    arrival_port=arr,
+                    departure_date=search_date,
+                    adults=1,
+                    children=0,
+                    infants=0
+                )
+                return True
+            except Exception as e:
+                logger.debug(f"Cache warm failed for {dep}->{arr} {search_date}: {e}")
+                return False
+
+        today = date_type.today()
+        tomorrow = today + td(days=1)  # Start from tomorrow to avoid "past date" errors
         from app.services.cache_service import cache_service
 
         for dep_code, arr_code, route_name in TRACKED_ROUTES:
@@ -960,7 +1055,7 @@ def prewarm_search_cache_task(self, days_ahead: int = 7):
 
             # Check every 2 days for the next week (starting from tomorrow)
             for day_offset in range(1, days_ahead + 1, 2):
-                search_date = today + timedelta(days=day_offset)
+                search_date = today + td(days=day_offset)
 
                 # Check FerryHopper-specific cache
                 cached = cache_service.get_ferryhopper_search(

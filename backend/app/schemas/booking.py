@@ -187,21 +187,26 @@ class BookingVehicleResponse(BaseModel):
 
 class BookingCabinResponse(BaseModel):
     """Booking cabin response schema for tracking multiple cabins."""
-    id: int
-    booking_id: int
-    cabin_id: int
+    # These can be None for FerryHopper cabins (no database record)
+    id: Optional[int] = None
+    booking_id: Optional[int] = None
+    cabin_id: Optional[int] = None
+    cabin_code: Optional[str] = None  # FerryHopper accommodation code
     journey_type: str  # 'OUTBOUND' or 'RETURN'
-    quantity: int
-    unit_price: float
-    total_price: float
+    quantity: int = 1
+    unit_price: float = 0
+    total_price: float = 0
     is_paid: bool = False
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
-    # Cabin details (populated from relationship)
+    # Cabin details (populated from relationship or inferred)
     cabin_name: Optional[str] = None
     cabin_type: Optional[str] = None
     cabin_capacity: Optional[int] = None
     cabin_amenities: Optional[List[str]] = None
+
+    # Source of cabin data
+    source: Optional[str] = None  # 'database', 'ferryhopper_initial', 'ferryhopper_upgrade'
 
     model_config = ConfigDict(from_attributes=True)
 

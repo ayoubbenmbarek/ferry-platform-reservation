@@ -361,7 +361,18 @@ class FerryHopperIntegration(BaseFerryIntegration):
                     "Please search again."
                 )
 
-            logger.info(f"Retrieved solution data for booking: {solution_data.get('solution_hash')}")
+            # Log solution data details for debugging
+            segment = solution_data.get("segment", {})
+            accommodations = solution_data.get("accommodations") or segment.get("accommodations", [])
+            logger.info(f"Retrieved solution data for booking: hash={solution_data.get('solution_hash')}, "
+                       f"accommodations_count={len(accommodations)}, "
+                       f"segment_keys={list(segment.keys()) if segment else 'NO_SEGMENT'}")
+
+            if accommodations:
+                acc_info = [(a.get("code") or a.get("type", "NO_CODE"), a.get("type", "NO_TYPE")) for a in accommodations[:5]]
+                logger.info(f"Available accommodations (code/type): {acc_info}")
+            else:
+                logger.warning(f"NO ACCOMMODATIONS in solution data! Full keys: {list(solution_data.keys())}")
 
             # Build booking request with proper tripSelections
             booking_data = self._build_booking_request(booking_request, solution_data)
@@ -773,10 +784,24 @@ class FerryHopperIntegration(BaseFerryIntegration):
                     result.booking_solution = booking_solution
 
                     # Cache the booking solution by sailing_id for booking retrieval
+                    # Log accommodation info for debugging booking issues
+                    acc_count = len(segment_accommodations)
+                    acc_info = [(a.get("code") or a.get("type", "NO_CODE"), a.get("type")) for a in segment_accommodations[:3]]
+                    logger.info(f"Caching solution {sailing_id} for {owner_company}: {acc_count} accommodations, codes/types: {acc_info}")
+
+                    # CRITICAL: If no accommodations, log full segment for debugging
+                    if acc_count == 0:
+                        logger.warning(f"NO ACCOMMODATIONS for {owner_company}! Segment keys: {list(segment.keys())}")
+                        # Check if accommodations might be elsewhere
+                        if "accommodations" in segment:
+                            logger.warning(f"Segment has 'accommodations' key but empty: {segment.get('accommodations')}")
+                        else:
+                            logger.warning(f"Segment missing 'accommodations' key entirely")
+
                     cache_service.set(
                         f"fh_solution:{sailing_id}",
                         booking_solution,
-                        ttl=1800  # 30 minutes (booking window)
+                        ttl=7200  # 2 hours (extended for cabin alerts)
                     )
 
                     results.append(result)
@@ -893,8 +918,8 @@ class FerryHopperIntegration(BaseFerryIntegration):
             # Map FerryHopper type to VoilaFerry CabinType enum value
             vf_type = map_ferryhopper_cabin_type(fh_type)
 
-            # Ensure unique cabin code - generate if empty or duplicate
-            cabin_code = acc.get("code", "")
+            # Ensure unique cabin code - use "code" if available, else "type", else generate
+            cabin_code = acc.get("code") or acc.get("type") or ""
             if not cabin_code or cabin_code in seen_codes:
                 cabin_code = f"{fh_type}_{idx}"
             seen_codes.add(cabin_code)
@@ -1077,13 +1102,20 @@ class FerryHopperIntegration(BaseFerryIntegration):
         trip_selections = []
 
         segment = solution_data.get("segment", {})
-        accommodations = segment.get("accommodations", [])
+        # Try both locations where accommodations might be stored
+        accommodations = solution_data.get("accommodations") or segment.get("accommodations", [])
         trip_index = solution_data.get("trip_index", 0)
         segment_index = solution_data.get("segment_index", 0)
 
+        logger.info(f"Building trip selections - trip_index: {trip_index}, segment_index: {segment_index}")
+        logger.info(f"Accommodations count: {len(accommodations)}, cabin_selection: {cabin_selection}")
+
         if not accommodations:
-            logger.warning("No accommodations found in solution data")
-            return trip_selections
+            logger.warning(f"No accommodations found in solution data. Keys: {list(solution_data.keys())}")
+            logger.warning(f"Segment keys: {list(segment.keys()) if segment else 'No segment'}")
+            # Try to extract from segment accommodations array
+            if segment:
+                logger.warning(f"Segment accommodations raw: {segment.get('accommodations', 'NOT FOUND')}")
 
         # Select accommodation - use cabin_selection if provided, else first available
         selected_acc_code = None
@@ -1091,22 +1123,49 @@ class FerryHopperIntegration(BaseFerryIntegration):
         if cabin_selection:
             # User selected a specific accommodation
             selected_acc_code = cabin_selection.get("code") or cabin_selection.get("accommodation_code")
+            logger.info(f"User selected accommodation code: {selected_acc_code}")
 
-        if not selected_acc_code:
+        if not selected_acc_code and accommodations:
+            # Helper function to get accommodation code - try "code" first, then "type" as fallback
+            def get_acc_code(acc):
+                return acc.get("code") or acc.get("type")
+
             # Default to first (usually cheapest) accommodation
-            # Prefer deck/lounge for cheapest option
+            # Prefer deck/lounge/seat for cheapest option
             for acc in accommodations:
                 acc_type = acc.get("type", "").upper()
-                if acc_type in ["DECK", "LOUNGE", "AIRPLANE_SEAT"]:
-                    selected_acc_code = acc.get("code")
+                if acc_type in ["DECK", "LOUNGE", "AIRPLANE_SEAT", "SEAT_NOTNUMBERED", "SEAT_NUMBERED"]:
+                    selected_acc_code = get_acc_code(acc)
+                    logger.info(f"Auto-selected deck/seat accommodation: {selected_acc_code} (type: {acc_type})")
                     break
 
-            # If no deck/lounge, use first accommodation
+            # If no deck/seat, use first accommodation
             if not selected_acc_code and accommodations:
-                selected_acc_code = accommodations[0].get("code")
+                selected_acc_code = get_acc_code(accommodations[0])
+                logger.info(f"Auto-selected first accommodation: {selected_acc_code}")
 
         if not selected_acc_code:
-            raise FerryAPIError("No accommodation available for booking")
+            # Log all available accommodations for debugging
+            if accommodations:
+                acc_details = [{"code": a.get("code"), "type": a.get("type"), "name": a.get("name")} for a in accommodations]
+                logger.error(f"Could not select accommodation code. Available: {acc_details}")
+                # Try harder - look for any accommodation with a code or type
+                for acc in accommodations:
+                    code = acc.get("code") or acc.get("type")
+                    if code:
+                        selected_acc_code = code
+                        logger.info(f"Fallback: selected accommodation with code/type: {selected_acc_code}")
+                        break
+
+            if not selected_acc_code:
+                # FerryHopper REQUIRES tripSelections - cannot be empty
+                # This means the solution data is missing accommodations
+                logger.error(f"CRITICAL: No accommodation available. Solution data keys: {list(solution_data.keys())}")
+                logger.error(f"Segment data: {segment.get('accommodations', 'NO_ACCOMMODATIONS_KEY')}")
+                raise FerryAPIError(
+                    "No accommodation available for this ferry. "
+                    "Please search again and select a different sailing."
+                )
 
         logger.info(f"Selected accommodation: {selected_acc_code}")
 

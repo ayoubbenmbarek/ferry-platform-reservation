@@ -792,36 +792,41 @@ class TestCreateBookingAsync:
         self,
         ferryhopper_integration,
         sample_booking_request,
+        sample_solution_data,
         mock_booking_create_response,
         mock_booking_status_response
     ):
         """Test that booking follows two-step flow (create + confirm)."""
         ferryhopper_integration.session = AsyncMock()
 
-        # Setup mock responses for different endpoints
-        async def mock_post(url, json=None):
-            mock_resp = MagicMock()
-            mock_resp.status_code = 200
-            if "/booking/confirm" in url:
-                mock_resp.json.return_value = {"status": "confirmed"}
-            else:
-                mock_resp.json.return_value = mock_booking_create_response
-            return mock_resp
+        # Mock cache service to return solution data
+        with patch('app.services.ferry_integrations.ferryhopper.cache_service') as mock_cache:
+            mock_cache.get.return_value = sample_solution_data
 
-        async def mock_get(url, params=None):
-            mock_resp = MagicMock()
-            mock_resp.status_code = 200
-            mock_resp.json.return_value = mock_booking_status_response
-            return mock_resp
+            # Setup mock responses for different endpoints
+            async def mock_post(url, json=None):
+                mock_resp = MagicMock()
+                mock_resp.status_code = 200
+                if "/booking/confirm" in url:
+                    mock_resp.json.return_value = {"status": "confirmed"}
+                else:
+                    mock_resp.json.return_value = mock_booking_create_response
+                return mock_resp
 
-        ferryhopper_integration.session.post = mock_post
-        ferryhopper_integration.session.get = mock_get
+            async def mock_get(url, params=None):
+                mock_resp = MagicMock()
+                mock_resp.status_code = 200
+                mock_resp.json.return_value = mock_booking_status_response
+                return mock_resp
 
-        result = await ferryhopper_integration.create_booking(sample_booking_request)
+            ferryhopper_integration.session.post = mock_post
+            ferryhopper_integration.session.get = mock_get
 
-        assert result.booking_reference == "BK-TEST-12345"
-        assert result.status == "confirmed"
-        assert result.total_amount == 135.0  # 13500 cents
+            result = await ferryhopper_integration.create_booking(sample_booking_request)
+
+            assert result.booking_reference == "BK-TEST-12345"
+            assert result.status == "confirmed"
+            assert result.total_amount == 135.0  # 13500 cents
 
 
 class TestCancelBookingAsync:

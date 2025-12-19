@@ -6,8 +6,10 @@ Failed tasks are stored in dead-letter queue (Redis + PostgreSQL) for recovery.
 import os
 import logging
 import asyncio
+import time
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
+from collections import defaultdict
 from sqlalchemy import and_, or_
 
 from app.database import SessionLocal
@@ -72,9 +74,8 @@ def check_availability_alerts_task(self):
 
         # 3. Get active alerts that need checking
         # Only check alerts for future dates
-        # Cooldown to avoid excessive API calls (5 minutes for real-time notifications)
-        # Increase to hours=1 or hours=2 if hitting rate limits
-        cooldown_period = now - timedelta(minutes=5)
+        # Cooldown: 30 minutes to avoid FerryHopper rate limits (429 errors)
+        cooldown_period = now - timedelta(minutes=30)
 
         alerts = db.query(AvailabilityAlert).filter(
             and_(
@@ -85,7 +86,7 @@ def check_availability_alerts_task(self):
                     AvailabilityAlert.last_checked_at < cooldown_period
                 )
             )
-        ).limit(100).all()  # Process max 100 alerts per run
+        ).limit(50).all()  # Process max 50 alerts per run (reduced for rate limits)
 
         if not alerts:
             logger.info("✅ No active alerts to check")
@@ -101,6 +102,12 @@ def check_availability_alerts_task(self):
         # Pre-fetch cabin count ONCE outside the loop (fixes N+1 query)
         from app.models.ferry import Cabin
         available_cabins_count = db.query(Cabin).filter(Cabin.is_available == True).count()
+
+        # Group alerts by route+date to minimize API calls
+        route_cache = {}  # Cache search results by route key
+
+        # Rate limiting: delay between API calls (3 seconds)
+        API_CALL_DELAY = 3
 
         for alert in alerts:
             try:
@@ -124,6 +131,9 @@ def check_availability_alerts_task(self):
                 # Check availability based on alert type
                 availability_found = False
 
+                # Build route cache key (without vehicle info for basic searches)
+                route_key = f"{alert.departure_port}:{alert.arrival_port}:{alert.departure_date}:{alert.num_adults}:{alert.num_children}:{alert.num_infants}"
+
                 if alert.alert_type == "vehicle":
                     # Check if route has vehicle capacity
                     search_params["vehicles"] = [{
@@ -132,9 +142,19 @@ def check_availability_alerts_task(self):
                         "width": 180,
                         "height": 150
                     }]
+                    # Vehicle searches have unique cache keys
+                    route_key = f"{route_key}:vehicle:{alert.vehicle_type}"
 
-                    # Call async ferry search (run in sync context)
-                    results = asyncio.run(ferry_service.search_ferries(**search_params))
+                    # Check route cache first
+                    if route_key in route_cache:
+                        results = route_cache[route_key]
+                        logger.debug(f"📦 Using cached results for {route_key}")
+                    else:
+                        # Rate limit: add delay before API call
+                        time.sleep(API_CALL_DELAY)
+                        # Call async ferry search (run in sync context)
+                        results = asyncio.run(ferry_service.search_ferries(**search_params))
+                        route_cache[route_key] = results
 
                     # Check if any sailing has vehicle space
                     # Results are FerryResult objects with available_spaces attribute
@@ -168,8 +188,16 @@ def check_availability_alerts_task(self):
                         logger.debug(f"🛏️ Alert {alert.id}: No cabins in database, skipping notification")
                         continue  # Skip this alert - no cabins to show user
 
-                    # Call async ferry search (run in sync context)
-                    results = asyncio.run(ferry_service.search_ferries(**search_params))
+                    # Check route cache first
+                    if route_key in route_cache:
+                        results = route_cache[route_key]
+                        logger.debug(f"📦 Using cached results for {route_key}")
+                    else:
+                        # Rate limit: add delay before API call
+                        time.sleep(API_CALL_DELAY)
+                        # Call async ferry search (run in sync context)
+                        results = asyncio.run(ferry_service.search_ferries(**search_params))
+                        route_cache[route_key] = results
 
                     # Check if any sailing has cabin space
                     for result in results:
@@ -218,8 +246,16 @@ def check_availability_alerts_task(self):
 
                 elif alert.alert_type == "passenger":
                     # Check if route has passenger capacity
-                    # Call async ferry search (run in sync context)
-                    results = asyncio.run(ferry_service.search_ferries(**search_params))
+                    # Check route cache first
+                    if route_key in route_cache:
+                        results = route_cache[route_key]
+                        logger.debug(f"📦 Using cached results for {route_key}")
+                    else:
+                        # Rate limit: add delay before API call
+                        time.sleep(API_CALL_DELAY)
+                        # Call async ferry search (run in sync context)
+                        results = asyncio.run(ferry_service.search_ferries(**search_params))
+                        route_cache[route_key] = results
 
                     # Check if any sailing has passenger space
                     total_passengers = alert.num_adults + alert.num_children + alert.num_infants
@@ -264,13 +300,15 @@ def check_availability_alerts_task(self):
         # Commit all updates
         db.commit()
 
-        logger.info(f"🎉 Availability check complete: checked {checked_count}, notified {notified_count}")
+        api_calls_made = len(route_cache)
+        logger.info(f"🎉 Availability check complete: checked {checked_count}, notified {notified_count}, API calls: {api_calls_made}")
 
         return {
             "status": "success",
             "checked": checked_count,
             "notified": notified_count,
-            "expired": expired_count
+            "expired": expired_count,
+            "api_calls": api_calls_made
         }
 
     except Exception as e:

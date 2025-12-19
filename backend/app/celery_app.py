@@ -95,9 +95,8 @@ celery_app.conf.update(
         # Production: Change to 3600 (1 hour) or 7200 (2 hours)
         'check-availability-alerts': {
             'task': 'app.tasks.availability_check_tasks.check_availability_alerts',
-            'schedule': 60,  # 60 seconds = 1 minute for testing
-            # 'schedule': 3600,  # Uncomment for 1 hour in production
-            # 'schedule': 7200,  # Uncomment for 2 hours in production
+            'schedule': 1800,  # 30 minutes - balanced for FerryHopper rate limits
+            # 'schedule': 3600,  # 1 hour for production if still hitting limits
             'options': {
                 'expires': 300,  # Task expires after 5 minutes if not picked up (shorter for frequent checks)
             }

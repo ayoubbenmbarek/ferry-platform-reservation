@@ -405,6 +405,9 @@ todo:check refund_type in ferryhopper and how to work with it
 tdo:check health integration list in doc
 todo:try maybe to show day per day in search calendar and when click view month or more dates it will search for other dates or after shwoing the searched day in background it will search for other dates
 todo:continue with vehicule choice and price, meals too
+todo: update this on email Maritime Reservation Platform
+Your trusted ferry booking service
+© 2025 Maritime Reservation Platform. All rights reserved.
 
 todo:Tests charge (Locust, k6)
 todo:Mentions légales claires

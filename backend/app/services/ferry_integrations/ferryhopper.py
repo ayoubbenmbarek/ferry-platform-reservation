@@ -1094,10 +1094,20 @@ class FerryHopperIntegration(BaseFerryIntegration):
         """
         Build tripSelections array for FerryHopper booking.
 
-        Each trip selection contains:
-        - tripIndex: which trip (0 = outbound, 1 = return)
-        - segmentIndex: which segment within the trip
-        - passengerAccommodations: mapping of passenger refs to accommodation codes
+        FerryHopper expects tripSelections in this format:
+        [
+            {
+                "type": "DIRECT",  // DIRECT, FH_INDIRECT, or PROVIDER_INDIRECT
+                "segments": [
+                    {
+                        "segmentIndex": 0,
+                        "passengerAccommodations": [
+                            {"passengerRef": "PAX1", "accommodationCode": "DK"}
+                        ]
+                    }
+                ]
+            }
+        ]
         """
         trip_selections = []
 
@@ -1177,10 +1187,30 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 "accommodationCode": selected_acc_code
             })
 
-        trip_selection = {
-            "tripIndex": trip_index,
+        # Get trip type from solution data (DIRECT, FH_INDIRECT, or PROVIDER_INDIRECT)
+        trip = solution_data.get("trip", {})
+        trip_type = trip.get("type", "DIRECT")
+
+        # Map internal type names to FerryHopper expected values
+        # FerryHopper expects: DIRECT, FH_INDIRECT, PROVIDER_INDIRECT
+        if trip_type == "INDIRECT":
+            # Determine if it's FH_INDIRECT or PROVIDER_INDIRECT
+            # FH_INDIRECT: FerryHopper-managed connection
+            # PROVIDER_INDIRECT: Operator-managed connection
+            trip_type = "FH_INDIRECT"  # Default to FH_INDIRECT for indirect trips
+
+        logger.info(f"Trip type: {trip_type}")
+
+        # Build segment selection
+        segment_selection = {
             "segmentIndex": segment_index,
             "passengerAccommodations": passenger_accommodations
+        }
+
+        # FerryHopper expects tripSelections with type and segments array
+        trip_selection = {
+            "type": trip_type,
+            "segments": [segment_selection]
         }
 
         trip_selections.append(trip_selection)

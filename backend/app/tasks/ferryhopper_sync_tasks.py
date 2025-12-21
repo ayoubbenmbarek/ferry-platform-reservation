@@ -1026,17 +1026,23 @@ def prewarm_search_cache_task(self, days_ahead: int = 7):
         ferry_service = FerryService()
 
         async def warm_route_date(dep: str, arr: str, search_date) -> bool:
-            """Warm cache for a single route/date."""
+            """Warm cache for a single route/date with timeout."""
             try:
-                results = await ferry_service.search_ferries(
-                    departure_port=dep,
-                    arrival_port=arr,
-                    departure_date=search_date,
-                    adults=1,
-                    children=0,
-                    infants=0
+                results = await asyncio.wait_for(
+                    ferry_service.search_ferries(
+                        departure_port=dep,
+                        arrival_port=arr,
+                        departure_date=search_date,
+                        adults=1,
+                        children=0,
+                        infants=0
+                    ),
+                    timeout=20.0  # 20 second timeout per search
                 )
                 return True
+            except asyncio.TimeoutError:
+                logger.debug(f"Cache warm timeout for {dep}->{arr} {search_date}")
+                return False
             except Exception as e:
                 logger.debug(f"Cache warm failed for {dep}->{arr} {search_date}: {e}")
                 return False

@@ -577,14 +577,7 @@ async def create_booking(
                     for s in booking_data.cabin_selections
                 ]
             logger.info(f"Using multi-cabin total price: €{cabin_supplement}")
-        elif booking_data.cabin_id:
-            # Legacy: try single cabin lookup from database
-            from app.models.ferry import Cabin
-            cabin = db.query(Cabin).filter(Cabin.id == booking_data.cabin_id).first()
-            if cabin:
-                cabin_supplement = float(cabin.base_price)
-                subtotal += cabin_supplement
-                cabin_selections_data = [{"cabin_id": cabin.id, "quantity": 1, "price": float(cabin.base_price)}]
+        # Note: Legacy cabin_id lookup removed - all cabins now use FerryHopper API via cabin_selections
 
         # Add return cabin supplement if selected
         # Priority: multi-cabin selections with pre-calculated prices > legacy single cabin
@@ -603,14 +596,7 @@ async def create_booking(
                     for s in booking_data.return_cabin_selections
                 ]
             logger.info(f"Using multi-cabin return total price: €{return_cabin_supplement}")
-        elif hasattr(booking_data, 'return_cabin_id') and booking_data.return_cabin_id:
-            # Legacy: single cabin lookup
-            from app.models.ferry import Cabin
-            return_cabin = db.query(Cabin).filter(Cabin.id == booking_data.return_cabin_id).first()
-            if return_cabin:
-                return_cabin_supplement = float(return_cabin.base_price)
-                return_cabin_selections_data = [{"cabin_id": return_cabin.id, "quantity": 1, "price": float(return_cabin.base_price)}]
-                subtotal += return_cabin_supplement
+        # Note: Legacy return_cabin_id lookup removed - all cabins now use FerryHopper API via return_cabin_selections
 
         # Add meal costs if selected
         meals_total = 0.0
@@ -808,58 +794,13 @@ async def create_booking(
                 )
                 db.add(db_vehicle)
 
-        # Add cabin selections if any
-        # Note: For FerryHopper bookings, cabin_ids are hash-based and may not exist in our cabins table
-        # In that case, we rely on the extra_data field to store cabin selections
-        # Only create BookingCabin records if the cabin_id exists in our database
+        # Cabin selections are stored in extra_data (FerryHopper API cabins)
+        # No need to create BookingCabin records - all cabin data is in extra_data
         if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
-            from app.models.booking import BookingCabin, JourneyTypeEnum as CabinJourneyTypeEnum
-            from app.models.ferry import Cabin
-            for cabin_selection in booking_data.cabin_selections:
-                # Check if cabin_id exists in our cabins table
-                cabin_exists = db.query(Cabin).filter(Cabin.id == cabin_selection.cabin_id).first() is not None
-                if cabin_exists:
-                    # price is total price, calculate unit price
-                    unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
-                    db_booking_cabin = BookingCabin(
-                        booking_id=db_booking.id,
-                        cabin_id=cabin_selection.cabin_id,
-                        journey_type=CabinJourneyTypeEnum.OUTBOUND,
-                        quantity=cabin_selection.quantity,
-                        unit_price=unit_price,
-                        total_price=cabin_selection.price,
-                        is_paid=False
-                    )
-                    db.add(db_booking_cabin)
-                    logger.info(f"Added BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
-                else:
-                    # FerryHopper cabin - cabin details stored in extra_data
-                    logger.info(f"Skipping BookingCabin for FerryHopper cabin (id={cabin_selection.cabin_id}) - stored in extra_data")
+            logger.info(f"Cabin selections stored in extra_data: {len(booking_data.cabin_selections)} cabins")
 
-        # Add return cabin selections if any (round trip)
-        # Same as outbound - only create BookingCabin if cabin_id exists in our database
         if hasattr(booking_data, 'return_cabin_selections') and booking_data.return_cabin_selections:
-            from app.models.booking import BookingCabin, JourneyTypeEnum as CabinJourneyTypeEnum
-            from app.models.ferry import Cabin
-            for cabin_selection in booking_data.return_cabin_selections:
-                # Check if cabin_id exists in our cabins table
-                cabin_exists = db.query(Cabin).filter(Cabin.id == cabin_selection.cabin_id).first() is not None
-                if cabin_exists:
-                    unit_price = cabin_selection.price / cabin_selection.quantity if cabin_selection.quantity > 0 else cabin_selection.price
-                    db_booking_cabin = BookingCabin(
-                        booking_id=db_booking.id,
-                        cabin_id=cabin_selection.cabin_id,
-                        journey_type=CabinJourneyTypeEnum.RETURN,
-                        quantity=cabin_selection.quantity,
-                        unit_price=unit_price,
-                        total_price=cabin_selection.price,
-                        is_paid=False
-                    )
-                    db.add(db_booking_cabin)
-                    logger.info(f"Added return BookingCabin: cabin_id={cabin_selection.cabin_id}, qty={cabin_selection.quantity}, total={cabin_selection.price}")
-                else:
-                    # FerryHopper cabin - cabin details stored in extra_data
-                    logger.info(f"Skipping return BookingCabin for FerryHopper cabin (id={cabin_selection.cabin_id}) - stored in extra_data")
+            logger.info(f"Return cabin selections stored in extra_data: {len(booking_data.return_cabin_selections)} cabins")
 
         # Add meals if any
         if booking_data.meals:
@@ -907,16 +848,16 @@ async def create_booking(
 
         # Create booking with ferry operator
         try:
-            # Prepare cabin data for operator if cabin_id is provided
+            # Prepare cabin data for operator from cabin_selections (FerryHopper API)
             cabin_data = None
-            if booking_data.cabin_id:
-                from app.models.ferry import Cabin
-                cabin = db.query(Cabin).filter(Cabin.id == booking_data.cabin_id).first()
-                if cabin:
-                    cabin_data = {
-                        "type": cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type),
-                        "supplement_price": float(cabin.base_price)
-                    }
+            if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
+                # Use first cabin selection for operator booking
+                first_cabin = booking_data.cabin_selections[0]
+                cabin_data = {
+                    "code": str(first_cabin.cabin_id),  # FerryHopper accommodation code
+                    "quantity": first_cabin.quantity,
+                    "price": first_cabin.price
+                }
 
             operator_confirmation = await ferry_service.create_booking(
                 operator=booking_data.operator,
@@ -934,16 +875,15 @@ async def create_booking(
             # Create booking with return operator if different return ferry selected
             if db_booking.return_sailing_id and db_booking.return_operator:
                 try:
-                    # Prepare return cabin data
+                    # Prepare return cabin data from return_cabin_selections (FerryHopper API)
                     return_cabin_data = None
-                    if booking_data.return_cabin_id:
-                        from app.models.ferry import Cabin
-                        return_cabin = db.query(Cabin).filter(Cabin.id == booking_data.return_cabin_id).first()
-                        if return_cabin:
-                            return_cabin_data = {
-                                "type": return_cabin.cabin_type.value if hasattr(return_cabin.cabin_type, 'value') else str(return_cabin.cabin_type),
-                                "supplement_price": float(return_cabin.base_price)
-                            }
+                    if hasattr(booking_data, 'return_cabin_selections') and booking_data.return_cabin_selections:
+                        first_return_cabin = booking_data.return_cabin_selections[0]
+                        return_cabin_data = {
+                            "code": str(first_return_cabin.cabin_id),
+                            "quantity": first_return_cabin.quantity,
+                            "price": first_return_cabin.price
+                        }
 
                     return_confirmation = await ferry_service.create_booking(
                         operator=db_booking.return_operator,
@@ -2476,14 +2416,9 @@ async def get_cabin_upgrade_invoice(
 
         # If no booking_cabins but has legacy supplements, create legacy entry
         if not cabins_list and (cabin_supplement > 0 or return_cabin_supplement > 0):
-            from app.models.ferry import Cabin
+            # Use default cabin info - no longer querying Cabin table
             cabin_name = "Cabin"
             cabin_type = "Standard"
-            if booking.cabin_id:
-                cabin = db.query(Cabin).filter(Cabin.id == booking.cabin_id).first()
-                if cabin:
-                    cabin_name = cabin.name
-                    cabin_type = cabin.cabin_type.value if hasattr(cabin.cabin_type, 'value') else str(cabin.cabin_type)
 
             total_cabin_price = cabin_supplement + return_cabin_supplement
             journey_type = 'outbound'

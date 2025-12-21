@@ -4,6 +4,10 @@
       "type": "http",
       "url": "https://mcp.sentry.dev/mcp"
     },
+    "ferryhopper": {
+      "type": "http",
+      "url": "https://mcp.ferryhopper.com/mcp"
+    },
     "github": {
       "type": "stdio",
       "command": "npx",

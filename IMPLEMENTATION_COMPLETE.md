@@ -393,6 +393,7 @@ todo:Postgres logical backups (pg_dump) + WAL archive to object storage (S3/Back
 todo:Logs: fluent-bit -> Loki + Grafana for recherch
 todo:check if thisis done: Redis distributed lock per ferry+date key (short TTL) pour serialiser réservations.
 todo:cloudflare security and custom rules:done
+todo:need to add vehicule from ferryhopper api and price and roof also
 todo:Generate sitemap.xml and robots.txt automatically at build.
 	•	Use <Head> for meta tags + JSON-LD structured data (schema.org/Flight? Or TravelAgency/Offer).
 	•	Set canonical URLs and hreflang if multi-lang (fr/it/en).

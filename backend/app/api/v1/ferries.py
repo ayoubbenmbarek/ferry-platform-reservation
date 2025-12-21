@@ -1281,17 +1281,24 @@ async def get_date_prices(
                 }
 
         # Search dates with limited concurrency to avoid FerryHopper rate limits
-        # Max 5 concurrent requests (increased from 3 since we reduced date range)
+        # Max 2 concurrent requests to be gentle on FerryHopper UAT server
         # The retry logic in ferryhopper.py handles any 429 errors with backoff
-        semaphore = asyncio.Semaphore(5)
+        semaphore = asyncio.Semaphore(2)
+        request_count = 0
 
         async def throttled_search(search_date: date) -> dict:
+            nonlocal request_count
             async with semaphore:
                 try:
-                    # Add per-date timeout to fail fast (10s per date)
+                    # Add delay between requests to avoid rate limiting
+                    request_count += 1
+                    if request_count > 1:
+                        await asyncio.sleep(0.5)  # 500ms between requests
+
+                    # Add per-date timeout to fail fast (15s per date)
                     return await asyncio.wait_for(
                         search_single_date(search_date),
-                        timeout=10.0
+                        timeout=15.0
                     )
                 except asyncio.TimeoutError:
                     logger.warning(f"Timeout fetching price for {search_date}")

@@ -80,9 +80,17 @@ class FerryHopperIntegration(BaseFerryIntegration):
         async with self._session_lock:
             self._session_ref_count += 1
             if self.session is None:
+                # Configure connection limits to avoid overwhelming FerryHopper server
+                limits = httpx.Limits(
+                    max_keepalive_connections=5,
+                    max_connections=10,
+                    keepalive_expiry=30.0  # Close idle connections after 30s
+                )
                 self.session = httpx.AsyncClient(
                     timeout=self.timeout,
-                    headers=self._headers
+                    headers=self._headers,
+                    limits=limits,
+                    http2=False  # Use HTTP/1.1 for better compatibility
                 )
                 self.mapping_service = FerryHopperMappingService(self)
                 logger.debug("FerryHopper session created")
@@ -131,13 +139,13 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 self._handle_api_error(response)
                 return response.json()
 
-            except httpx.ReadError as e:
+            except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
                 if attempt < max_retries - 1:
                     wait_time = (2 ** attempt) + 1
-                    logger.warning(f"FerryHopper ReadError, retrying in {wait_time}s: {e}")
+                    logger.warning(f"FerryHopper connection error, retrying in {wait_time}s: {e}")
                     await asyncio.sleep(wait_time)
                     continue
-                raise FerryAPIError(f"FerryHopper connection error: {str(e)}")
+                raise FerryAPIError(f"FerryHopper request failed: {str(e)}")
 
         raise FerryAPIError("FerryHopper rate limit exceeded after retries")
 
@@ -170,13 +178,13 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 self._handle_api_error(response)
                 return response.json()
 
-            except httpx.ReadError as e:
+            except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
                 if attempt < max_retries - 1:
                     wait_time = (2 ** attempt) + 1
-                    logger.warning(f"FerryHopper ReadError, retrying in {wait_time}s: {e}")
+                    logger.warning(f"FerryHopper connection error, retrying in {wait_time}s: {e}")
                     await asyncio.sleep(wait_time)
                     continue
-                raise FerryAPIError(f"FerryHopper connection error: {str(e)}")
+                raise FerryAPIError(f"FerryHopper search failed: {str(e)}")
 
         raise FerryAPIError("FerryHopper rate limit exceeded after retries")
 

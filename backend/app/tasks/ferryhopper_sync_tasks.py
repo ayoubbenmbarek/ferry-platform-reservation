@@ -1075,15 +1075,18 @@ def prewarm_search_cache_task(self, days_ahead: int = 7):
                     skipped_count += 1
                     continue
 
-                # Warm the cache
+                # Warm the cache with retry on connection errors
                 success = await warm_route_date(dep_code, arr_code, search_date)
                 if success:
                     warmed_count += 1
                 else:
                     error_count += 1
+                    # On error, wait longer before next request
+                    await asyncio.sleep(2.0)
+                    continue
 
-                # Small delay to avoid rate limiting
-                await asyncio.sleep(0.3)
+                # Delay between requests to avoid overwhelming FerryHopper UAT server
+                await asyncio.sleep(1.0)
 
     try:
         # Run async warming

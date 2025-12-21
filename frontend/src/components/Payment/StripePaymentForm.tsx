@@ -180,7 +180,7 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
       )}
 
       {/* Express Checkout (Apple Pay, Google Pay, Link) */}
-      <div className="mb-4">
+      <div className="mb-4" style={{ minHeight: '48px' }}>
         <ExpressCheckoutElement
           onConfirm={handleExpressCheckoutConfirm}
           onReady={({ availablePaymentMethods }) => {
@@ -195,6 +195,11 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
             wallets: {
               applePay: 'auto',
               googlePay: 'auto',
+            },
+            buttonHeight: 48,
+            layout: {
+              maxColumns: 1,
+              maxRows: 2,
             },
           }}
         />

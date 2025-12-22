@@ -408,9 +408,9 @@ Code postal
 Numéro de TVA
 
 
-
-toddoUtiliser Helm charts officiels (Bitnami, ingress-nginx, cert-manager) pour robustesse.
-todo:add stripe webhook with staging
+todo:check if email that we sent an email for cabin or vehicule or any alert is booked the route, if not try to relance them
+toddo:Utiliser Helm charts officiels (Bitnami, ingress-nginx, cert-manager) pour robustesse.
+todo:add stripe webhook with staging:done
 todo:should add possibility for people to get notified for cabin in specific route they already reserved even in other company or website, just get alerted for cabin availability
 todo:check refund_type in ferryhopper and how to work with it
 tdo:check health integration list in doc

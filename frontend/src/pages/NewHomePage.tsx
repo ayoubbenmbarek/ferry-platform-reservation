@@ -363,7 +363,7 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
-                        {ports.filter(p => p.countryCode === 'TN' || p.code.toUpperCase().startsWith('TN')).map(port => (
+                        {ports.filter(p => p.countryCode === 'TN' || ['TN00', 'TUN', 'TNZRZ'].includes(p.code.toUpperCase())).map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -378,6 +378,13 @@ const NewHomePage: React.FC = () => {
                       </optgroup>
                       <optgroup label="🇫🇷 France">
                         {ports.filter(p => p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')).map(port => (
+                          <option key={port.code} value={port.code}>
+                            {port.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🇲🇦 Morocco">
+                        {ports.filter(p => p.countryCode === 'MA' || p.code.toUpperCase() === 'TNG').map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -428,6 +435,11 @@ const NewHomePage: React.FC = () => {
                             </optgroup>
                             <optgroup label="🇫🇷 France">
                               {ports.filter(p => (p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')) && p.code !== form.departurePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇲🇦 Morocco">
+                              {ports.filter(p => (p.countryCode === 'MA' || p.code.toUpperCase() === 'TNG') && p.code !== form.departurePort).map(port => (
                                 <option key={port.code} value={port.code}>{port.name}</option>
                               ))}
                             </optgroup>

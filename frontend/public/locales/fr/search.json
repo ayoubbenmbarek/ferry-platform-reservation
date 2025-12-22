@@ -149,6 +149,7 @@
     "subtitle": "Comparez les prix pour les dates proches",
     "priceNote": "Les prix affichés sont approximatifs. Le prix final sera affiché après la sélection.",
     "unavailable": "N/D",
+    "past": "Passé",
     "selected": "Sélectionné",
     "scrollHint": "Balayez pour voir plus de dates"
   },

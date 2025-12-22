@@ -364,6 +364,9 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
 
               const isAvailable = datePrice.available && !isPast && !isBeforeMin;
 
+              // Past dates can show prices but are not selectable
+              const hasPrice = datePrice.lowestPrice !== null;
+
             return (
               <button
                 key={datePrice.date}
@@ -372,16 +375,27 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
                 onClick={() => isAvailable && handleDateClick(datePrice.date)}
                 disabled={!isAvailable}
                 className={`
-                  flex-shrink-0 min-w-[80px] p-2 rounded-lg border transition-all
+                  flex-shrink-0 min-w-[80px] p-2 rounded-lg border transition-all relative
                   ${
                     isSelected
                       ? 'border-maritime-600 bg-maritime-50 shadow-sm'
                       : isAvailable
                       ? 'border-gray-200 bg-white hover:border-maritime-400 hover:shadow-sm cursor-pointer'
+                      : isPast
+                      ? 'border-gray-200 bg-gray-100 opacity-50 cursor-not-allowed grayscale'
                       : 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
                   }
                 `}
               >
+                {/* Past date indicator */}
+                {isPast && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                )}
+
                 {/* Day of Week */}
                 <div
                   className={`text-[10px] font-medium uppercase tracking-wide ${
@@ -421,18 +435,24 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
                   {datePrice.month.slice(0, 3)}
                 </div>
 
-                {/* Price or Status */}
-                {isAvailable && datePrice.lowestPrice ? (
+                {/* Price or Status - show prices for past dates too (greyed) */}
+                {hasPrice ? (
                   <div
                     className={`text-xs font-bold ${
-                      isSelected ? 'text-maritime-700' : 'text-maritime-600'
+                      isSelected
+                        ? 'text-maritime-700'
+                        : isAvailable
+                        ? 'text-maritime-600'
+                        : isPast
+                        ? 'text-gray-400 line-through'
+                        : 'text-gray-400'
                     }`}
                   >
                     {formatPrice(datePrice.lowestPrice)}
                   </div>
                 ) : (
                   <div className="text-[10px] text-gray-400">
-                    {t('search:datePriceSelector.unavailable', 'N/A')}
+                    {isPast ? t('search:datePriceSelector.past', 'Past') : t('search:datePriceSelector.unavailable', 'N/A')}
                   </div>
                 )}
               </button>

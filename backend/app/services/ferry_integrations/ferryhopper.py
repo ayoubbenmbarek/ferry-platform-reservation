@@ -781,14 +781,17 @@ class FerryHopperIntegration(BaseFerryIntegration):
                     discount_rates = segment.get("discountRates", [])
 
                     # Extract prices with discounts applied (Mandatory)
-                    prices = self._extract_prices_with_discounts(segment, solution, discount_rates)
+                    # Pass total passengers to correctly calculate per-person prices
+                    total_passengers = search_request.adults + search_request.children + search_request.infants
+                    prices = self._extract_prices_with_discounts(segment, solution, discount_rates, total_passengers)
 
                     # Note: Vehicle prices are not included in prices dict
                     # They are available in route_info.available_vehicles for booking
                     # prices dict must only contain float values
 
                     # Extract cabin/accommodation types (Mandatory)
-                    cabin_types = self._extract_cabin_types(segment)
+                    # Pass total_passengers to correctly calculate per-person cabin prices
+                    cabin_types = self._extract_cabin_types(segment, total_passengers)
 
                     # Extract cancellation policies (Recommended)
                     cancellation_policies = segment.get("cancellationPolicies", [])
@@ -951,12 +954,22 @@ class FerryHopperIntegration(BaseFerryIntegration):
         self,
         segment: Dict,
         solution: Dict,
-        discount_rates: List[Dict]
+        discount_rates: List[Dict],
+        total_passengers: int = 1
     ) -> Dict[str, float]:
         """
         Extract prices with discount rates applied for child/infant.
 
+        FerryHopper's /search endpoint returns TOTAL prices for all passengers searched,
+        NOT per-person prices. We divide by total_passengers to get per-person pricing.
+
         Implements Integration Health Check: Price per passenger type (Mandatory)
+
+        Args:
+            segment: The trip segment with accommodations
+            solution: The full solution data
+            discount_rates: Discount rates for different age groups
+            total_passengers: Total number of passengers in search (to divide total price)
         """
         prices = {
             "adult": 0.0,
@@ -964,6 +977,10 @@ class FerryHopperIntegration(BaseFerryIntegration):
             "infant": 0.0,
             "vehicle": 0.0,
         }
+
+        # Ensure we have at least 1 passenger to avoid division by zero
+        if total_passengers < 1:
+            total_passengers = 1
 
         accommodations = segment.get("accommodations", [])
 
@@ -977,8 +994,13 @@ class FerryHopperIntegration(BaseFerryIntegration):
                     lowest_price = price_cents
 
             if lowest_price < float("inf"):
-                adult_price = lowest_price / 100
-                prices["adult"] = adult_price
+                # FerryHopper returns TOTAL price for all passengers
+                # Divide by total passengers to get per-person adult price
+                total_price_eur = lowest_price / 100
+                adult_price = total_price_eur / total_passengers
+                prices["adult"] = round(adult_price, 2)
+
+                logger.debug(f"Price calculation: total={total_price_eur}€, passengers={total_passengers}, per_adult={adult_price}€")
 
                 # Apply discount rates for child/infant
                 child_discount = 0
@@ -1012,16 +1034,27 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
         return prices
 
-    def _extract_cabin_types(self, segment: Dict) -> List[Dict]:
+    def _extract_cabin_types(self, segment: Dict, total_passengers: int = 1) -> List[Dict]:
         """
         Extract cabin/accommodation types from segment.
+
+        FerryHopper's /search endpoint returns TOTAL prices for all passengers searched.
+        We divide by total_passengers to get per-person pricing for cabin upgrades.
 
         Implements Integration Health Check:
         - Price per accommodation type (Mandatory)
         - Fare classes (Highly recommended)
+
+        Args:
+            segment: The trip segment with accommodations
+            total_passengers: Total number of passengers in search (to divide total price)
         """
         cabin_types = []
         accommodations = segment.get("accommodations", [])
+
+        # Ensure we have at least 1 passenger to avoid division by zero
+        if total_passengers < 1:
+            total_passengers = 1
 
         # Log all accommodation types for debugging
         acc_types = [acc.get("type", "UNKNOWN") for acc in accommodations]
@@ -1032,31 +1065,44 @@ class FerryHopperIntegration(BaseFerryIntegration):
             expected_price = acc.get("expectedPrice", {})
             price_cents = expected_price.get("totalPriceInCents", 0)
             fh_type = acc.get("type", "DECK")
+            capacity = acc.get("capacity", 1)
+            description = acc.get("description", "Unknown")
 
             # Map FerryHopper type to VoilaFerry CabinType enum value
             vf_type = map_ferryhopper_cabin_type(fh_type)
             if vf_type == "shared":
-                logger.info(f"Mapped shared cabin: {fh_type} -> {vf_type}, desc: {acc.get('description', 'N/A')}")
+                logger.info(f"Mapped shared cabin: {fh_type} -> {vf_type}, desc: {description}")
 
-            # Ensure unique cabin code - use "code" if available, else "type", else generate
-            cabin_code = acc.get("code") or acc.get("type") or ""
-            if not cabin_code or cabin_code in seen_codes:
-                cabin_code = f"{fh_type}_{idx}"
+            # Generate unique cabin code that includes capacity to distinguish variants
+            # This ensures 1-bed, 2-bed, 3-bed, 4-bed cabins are all kept
+            cabin_code = acc.get("code") or ""
+            if not cabin_code:
+                # Create code from type + capacity + index for uniqueness
+                cabin_code = f"{fh_type}_{capacity}bed_{idx}"
+            elif cabin_code in seen_codes:
+                # If duplicate code, append capacity and index
+                cabin_code = f"{cabin_code}_{capacity}_{idx}"
             seen_codes.add(cabin_code)
+
+            # FerryHopper returns TOTAL price for all passengers
+            # Divide by total passengers to get per-person cabin price
+            total_price_eur = price_cents / 100
+            per_person_price = round(total_price_eur / total_passengers, 2)
 
             cabin_types.append({
                 "type": vf_type,  # Now uses VoilaFerry enum values
                 "code": cabin_code,
-                "name": acc.get("description", "Unknown"),
-                "price": price_cents / 100,
+                "name": description,
+                "price": per_person_price,  # Per-person price, not total
                 "currency": expected_price.get("currency", "EUR"),
                 "available": acc.get("availability", 0),
-                "capacity": acc.get("capacity", 1),
+                "capacity": capacity,
                 "refund_type": acc.get("refundType", ""),  # REFUNDABLE, NON_REFUNDABLE
                 "image_url": acc.get("imageUrl", ""),
                 "original_type": fh_type,  # Keep original for reference
             })
 
+        logger.debug(f"Extracted {len(cabin_types)} cabin types (passengers: {total_passengers})")
         return cabin_types
 
     def _calculate_available_spaces(self, cabin_types: List[Dict], vehicles_supported: bool) -> Dict:

@@ -77,6 +77,19 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
     if (form.departurePort === form.arrivalPort) {
       newErrors.arrivalPort = 'Arrival port must be different';
     }
+    // Check for same-country search only for Tunisia (no domestic routes)
+    // Italy/France have domestic ferry routes so allow same-country
+    // Known Tunisia port codes (TN00 is virtual "all ports")
+    const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+    const isTunisiaPort = (code: string) => {
+      if (!code) return false;
+      if (TUNISIA_PORTS.includes(code.toUpperCase())) return true;
+      const port = ports.find(p => p.code.toUpperCase() === code.toUpperCase());
+      return port?.countryCode === 'TN';
+    };
+    if (isTunisiaPort(form.departurePort) && isTunisiaPort(form.arrivalPort)) {
+      newErrors.arrivalPort = 'Tunisia only has international ferry routes';
+    }
     // Validate different return route if enabled
     if (form.returnDate && form.differentReturnRoute) {
       if (!form.returnDeparturePort) newErrors.returnDeparturePort = 'Please select return departure port';
@@ -141,16 +154,21 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       value={form.departurePort}
                       onChange={(e) => {
                         const newDeparture = e.target.value;
-                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
-                        // Region codes are longer (e.g., ITAEO00 for Aeolian Islands)
-                        const isCountryAllPorts = newDeparture.length === 4 && newDeparture.toUpperCase().endsWith('00');
-                        const newDepartureCountry = ports.find(p => p.code === newDeparture)?.countryCode;
-                        const arrivalCountry = ports.find(p => p.code === form.arrivalPort)?.countryCode;
+                        // Known Tunisia port codes (TN00 is virtual "all ports")
+                        const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+                        const isTunisiaPort = (code: string) => {
+                          if (!code) return false;
+                          if (TUNISIA_PORTS.includes(code.toUpperCase())) return true;
+                          const port = ports.find(p => p.code.toUpperCase() === code.toUpperCase());
+                          return port?.countryCode === 'TN';
+                        };
+                        const newDepartureIsTunisia = isTunisiaPort(newDeparture);
+                        const arrivalIsTunisia = isTunisiaPort(form.arrivalPort);
                         // Clear arrival port if:
                         // - Same port selected, OR
-                        // - Country-level "all ports" and arrival is in same country
+                        // - Both in Tunisia (TN has no domestic routes, only international)
                         const shouldClearArrival = form.arrivalPort === newDeparture ||
-                          (isCountryAllPorts && arrivalCountry === newDepartureCountry);
+                          (newDepartureIsTunisia && arrivalIsTunisia);
                         const newArrival = shouldClearArrival ? '' : form.arrivalPort;
                         setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
                       }}
@@ -158,17 +176,17 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
-                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                        {ports.filter(p => p.countryCode === 'TN' || p.code.toUpperCase().startsWith('TN')).map(port => (
                           <option key={port.code} value={port.code}>{port.name}</option>
                         ))}
                       </optgroup>
                       <optgroup label="🇮🇹 Italy">
-                        {ports.filter(p => p.countryCode === 'IT').map(port => (
+                        {ports.filter(p => p.countryCode === 'IT' || p.code.toUpperCase().startsWith('IT')).map(port => (
                           <option key={port.code} value={port.code}>{port.name}</option>
                         ))}
                       </optgroup>
                       <optgroup label="🇫🇷 France">
-                        {ports.filter(p => p.countryCode === 'FR').map(port => (
+                        {ports.filter(p => p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')).map(port => (
                           <option key={port.code} value={port.code}>{port.name}</option>
                         ))}
                       </optgroup>
@@ -184,35 +202,40 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
                       {/* Filter arrival ports based on departure selection */}
+                      {/* Only hide same-country for Tunisia (international routes only) */}
+                      {/* Italy/France have domestic routes, so allow same-country but not same port */}
                       {(() => {
-                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
-                        const isCountryAllPorts = form.departurePort.length === 4 && form.departurePort.toUpperCase().endsWith('00');
-                        const departureCountry = ports.find(p => p.code === form.departurePort)?.countryCode;
-                        // Only hide entire country if departure is country-level "all ports"
-                        const hideCountry = (country: string) => isCountryAllPorts && departureCountry === country;
+                        // Known Tunisia port codes (TN00 is virtual "all ports")
+                        const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+
+                        const isTunisiaPort = (portCode: string): boolean => {
+                          if (!portCode) return false;
+                          if (TUNISIA_PORTS.includes(portCode.toUpperCase())) return true;
+                          const port = ports.find(p => p.code.toUpperCase() === portCode.toUpperCase());
+                          return port?.countryCode === 'TN';
+                        };
+
+                        // Only hide Tunisia ports if departing from Tunisia (TN has no domestic ferry routes)
+                        const hideTunisia = isTunisiaPort(form.departurePort);
                         return (
                           <>
-                            {!hideCountry('TN') && (
+                            {!hideTunisia && (
                               <optgroup label="🇹🇳 Tunisia">
-                                {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                                {ports.filter(p => isTunisiaPort(p.code) && p.code !== form.departurePort).map(port => (
                                   <option key={port.code} value={port.code}>{port.name}</option>
                                 ))}
                               </optgroup>
                             )}
-                            {!hideCountry('IT') && (
-                              <optgroup label="🇮🇹 Italy">
-                                {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
-                                  <option key={port.code} value={port.code}>{port.name}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                            {!hideCountry('FR') && (
-                              <optgroup label="🇫🇷 France">
-                                {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
-                                  <option key={port.code} value={port.code}>{port.name}</option>
-                                ))}
-                              </optgroup>
-                            )}
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => (p.countryCode === 'IT' || p.code.toUpperCase().startsWith('IT')) && p.code !== form.departurePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => (p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')) && p.code !== form.departurePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </>
                         );
                       })()}
@@ -452,6 +475,31 @@ const NewSearchPage: React.FC = () => {
     ports,
   } = useSelector((state: RootState) => state.ferry);
 
+  // Helper to check if ferry departure port matches search departure port
+  // Handles virtual port codes (TN00 for Tunisia, IT00 for Italy, FR00 for France)
+  const portMatchesSearch = useCallback((ferryPort: string, searchPort: string): boolean => {
+    const ferry = ferryPort.toUpperCase();
+    const search = searchPort.toUpperCase();
+
+    // Direct match
+    if (ferry === search) return true;
+
+    // Virtual port matching - search port is virtual, ferry port is actual
+    // TN00 matches any Tunisia port, IT00 matches any Italy port, FR00 matches any France port
+    const virtualPortMappings: Record<string, string[]> = {
+      'TN00': ['TUN', 'SUS', 'SFA', 'GAB', 'ZAR'], // Tunisia ports
+      'IT00': ['GOA', 'CIV', 'GEN', 'LIV', 'NAP', 'PAL', 'SAL', 'TRP'], // Italy ports
+      'FR00': ['MRS', 'TLN', 'NCE', 'BST', 'AJA'], // France ports
+    };
+
+    // Check if search port is virtual and ferry port is one of the actual ports
+    if (virtualPortMappings[search]?.includes(ferry)) {
+      return true;
+    }
+
+    return false;
+  }, []);
+
   // Filter to only show outbound ferries
   // Check both journey_type field AND route direction (departure port should match search departure)
   const outboundResults = useMemo(() => {
@@ -463,18 +511,19 @@ const NewSearchPage: React.FC = () => {
 
       // Also filter by route direction as a fallback (in case journey_type is not set in cached data)
       // Outbound ferry should depart from the search's departure port
-      const ferryDeparture = (ferry.departurePort || ferry.departure_port || '').toUpperCase();
-      const searchDeparture = (searchParams.departurePort || '').toUpperCase();
+      const ferryDeparture = ferry.departurePort || ferry.departure_port || '';
+      const searchDeparture = searchParams.departurePort || '';
 
       // If we have both ports, compare them - outbound should depart from search departure
+      // Use portMatchesSearch to handle virtual port codes
       if (ferryDeparture && searchDeparture) {
-        return ferryDeparture === searchDeparture;
+        return portMatchesSearch(ferryDeparture, searchDeparture);
       }
 
       // If journey_type is 'outbound' or not set, include it
       return !ferry.journey_type || ferry.journey_type === 'outbound' || ferry.journeyType === 'outbound';
     });
-  }, [searchResults, searchParams.departurePort]);
+  }, [searchResults, searchParams.departurePort, portMatchesSearch]);
 
   // Check if we have valid search params from Redux
   const hasValidSearchParams = Boolean(
@@ -570,6 +619,23 @@ const NewSearchPage: React.FC = () => {
 
     console.log('🔗 Checking URL params:', { from: fromUrl, to: toUrl, date: dateUrl, search: location.search });
 
+    // Validate same-country search for Tunisia (no domestic ferry routes)
+    // Tunisia ports have null countryCode from API, so check by port code
+    const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+    if (fromUrl && toUrl) {
+      const fromUpper = fromUrl.toUpperCase();
+      const toUpper = toUrl.toUpperCase();
+      const fromIsTunisia = TUNISIA_PORTS.includes(fromUpper);
+      const toIsTunisia = TUNISIA_PORTS.includes(toUpper);
+      if (fromIsTunisia && toIsTunisia) {
+        console.warn('⚠️ Clearing Tunisia arrival from URL params:', fromUrl, '->', toUrl);
+        // Clear the arrival port from URL and redirect to home to re-select
+        setUrlParamsProcessed(true);
+        navigate('/', { replace: true });
+        return;
+      }
+    }
+
     // Handle case where we have from and to, but no date (from saved routes without date)
     if (fromUrl && toUrl && !dateUrl) {
       console.log('📍 URL params found without date - pre-filling route and opening editor');
@@ -642,7 +708,7 @@ const NewSearchPage: React.FC = () => {
 
       console.log('🚀 Auto-search triggered with params:', urlSearchParams);
     }
-  }, [location.search, urlParamsProcessed, dispatch]);
+  }, [location.search, urlParamsProcessed, dispatch, ports, navigate]);
 
   // Scroll to results when coming from email link and results are loaded
   useEffect(() => {
@@ -759,13 +825,24 @@ const NewSearchPage: React.FC = () => {
     // Create a unique key for current search params
     const paramsKey = `${searchParams.departurePort}-${searchParams.arrivalPort}-${searchParams.departureDate}`;
 
+    // Validate: block Tunisia-to-Tunisia searches (no domestic routes)
+    const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+    const fromTunisia = TUNISIA_PORTS.includes(searchParams.departurePort?.toUpperCase() || '');
+    const toTunisia = TUNISIA_PORTS.includes(searchParams.arrivalPort?.toUpperCase() || '');
+    if (fromTunisia && toTunisia) {
+      console.warn('⚠️ Clearing Tunisia arrival port - no domestic routes:', searchParams.departurePort, '->', searchParams.arrivalPort);
+      // Clear the arrival port - Tunisia only has international ferry routes
+      dispatch(setSearchParams({ ...searchParams, arrivalPort: '' }));
+      return;
+    }
+
     // Only search if params changed and we don't have results for these params
     if (outboundResults.length === 0 && !isSearching && searchedParamsRef.current !== paramsKey) {
       searchedParamsRef.current = paramsKey;
       dispatch(searchFerries(searchParams as any));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, outboundResults.length, isSearching, dispatch]);
+  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, outboundResults.length, isSearching, dispatch, navigate]);
 
   // Warn user before leaving if they have an active booking in progress
   useEffect(() => {

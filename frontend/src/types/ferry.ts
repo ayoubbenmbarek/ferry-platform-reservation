@@ -243,10 +243,12 @@ export const VEHICLE_PRESETS: Record<VehicleType, { length: number; width: numbe
 // Note: Ports are fetched from API, this is just a fallback
 export const PORTS: Port[] = [
   // Tunisia - Official FerryHopper codes
+  { code: 'tn00', name: 'Tunisia (all ports)', city: 'Tunisia', country: 'Tunisia', countryCode: 'TN' },
   { code: 'tun', name: 'Tunis (La Goulette)', city: 'Tunis', country: 'Tunisia', countryCode: 'TN' },
   { code: 'tnzrz', name: 'Zarzis', city: 'Zarzis', country: 'Tunisia', countryCode: 'TN' },
 
   // Italy - Official FerryHopper codes
+  { code: 'it00', name: 'Italy (all ports)', city: 'Italy', country: 'Italy', countryCode: 'IT' },
   { code: 'goa', name: 'Genoa', city: 'Genoa', country: 'Italy', countryCode: 'IT' },
   { code: 'civ', name: 'Civitavecchia (Rome)', city: 'Rome', country: 'Italy', countryCode: 'IT' },
   { code: 'ple', name: 'Palermo', city: 'Palermo', country: 'Italy', countryCode: 'IT' },
@@ -260,6 +262,7 @@ export const PORTS: Port[] = [
   { code: 'msn', name: 'Messina', city: 'Messina', country: 'Italy', countryCode: 'IT' },
 
   // France - Official FerryHopper codes
+  { code: 'fr00', name: 'France (all ports)', city: 'France', country: 'France', countryCode: 'FR' },
   { code: 'mrs', name: 'Marseille', city: 'Marseille', country: 'France', countryCode: 'FR' },
   { code: 'nce', name: 'Nice', city: 'Nice', country: 'France', countryCode: 'FR' },
   { code: 'tln', name: 'Toulon', city: 'Toulon', country: 'France', countryCode: 'FR' },

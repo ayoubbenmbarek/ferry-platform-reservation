@@ -138,16 +138,26 @@ export const fetchPorts = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await ferryAPI.getPorts();
+      // Known port code prefixes for country detection
+      const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+      const getCountryFromCode = (code: string): string => {
+        const upperCode = code.toUpperCase();
+        if (TUNISIA_PORTS.includes(upperCode) || upperCode.startsWith('TN')) return 'TN';
+        if (upperCode.startsWith('IT') || ['GOA', 'CIV', 'PLE', 'TPS', 'SAL', 'NAP', 'LIV', 'ANC', 'BAR', 'MLZ', 'MSN', 'AEL00'].includes(upperCode)) return 'IT';
+        if (upperCode.startsWith('FR') || ['MRS', 'NCE', 'TLN', 'AJA', 'BIA', 'COR00'].includes(upperCode)) return 'FR';
+        if (['BRC', 'ALG'].includes(upperCode)) return 'ES';
+        if (['TNG'].includes(upperCode)) return 'MA';
+        if (['DZALG'].includes(upperCode)) return 'DZ';
+        return 'XX';
+      };
       // Transform API response to match Port type
       return response.map((port: any) => ({
         code: port.code.toLowerCase(),
         name: port.name,
         city: port.name,
         country: port.country,
-        countryCode: port.country === 'Tunisia' ? 'TN' :
-                     port.country === 'Italy' ? 'IT' :
-                     port.country === 'France' ? 'FR' :
-                     port.country === 'Spain' ? 'ES' : 'XX'
+        // Use country_code from API, fallback to code-based detection
+        countryCode: port.country_code || port.countryCode || getCountryFromCode(port.code)
       }));
     } catch (error: any) {
       console.warn('Failed to fetch ports from API, using static data');

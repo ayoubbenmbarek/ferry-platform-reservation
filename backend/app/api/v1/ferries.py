@@ -426,8 +426,8 @@ async def search_ferries(
         results_dict = [result.to_dict() for result in results]
 
         # Filter out departures that have already passed (with 1 hour buffer for check-in)
-        from datetime import datetime, timedelta
-        now = datetime.utcnow()
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
         min_departure_time = now + timedelta(hours=1)
 
         filtered_results = []
@@ -437,9 +437,15 @@ async def search_ferries(
                 try:
                     # Parse departure time (handle both ISO format and datetime string)
                     if "T" in departure_time_str:
-                        departure_time = datetime.fromisoformat(departure_time_str.replace("Z", "+00:00").replace("+00:00", ""))
+                        # Handle timezone-aware ISO format (e.g., 2025-12-25T23:45:00+01:00)
+                        departure_time = datetime.fromisoformat(departure_time_str.replace("Z", "+00:00"))
+                        # Convert to UTC for comparison if it has timezone info
+                        if departure_time.tzinfo is None:
+                            departure_time = departure_time.replace(tzinfo=timezone.utc)
                     else:
+                        # Assume naive datetime is UTC
                         departure_time = datetime.strptime(departure_time_str, "%Y-%m-%d %H:%M:%S")
+                        departure_time = departure_time.replace(tzinfo=timezone.utc)
 
                     # Only include future departures (with 1 hour buffer)
                     if departure_time >= min_departure_time:

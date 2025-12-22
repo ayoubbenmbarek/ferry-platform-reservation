@@ -189,6 +189,17 @@ const NewHomePage: React.FC = () => {
       newErrors.arrivalPort = t('search:validation.portsMustDiffer');
     }
 
+    // Validate Tunisia-to-Tunisia (no domestic ferry routes)
+    const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+    const isTunisiaPort = (code: string) => {
+      if (!code) return false;
+      return TUNISIA_PORTS.includes(code.toUpperCase()) ||
+             ports.find(p => p.code.toUpperCase() === code.toUpperCase())?.countryCode === 'TN';
+    };
+    if (isTunisiaPort(form.departurePort) && isTunisiaPort(form.arrivalPort)) {
+      newErrors.arrivalPort = 'Tunisia only has international ferry routes';
+    }
+
     if (form.returnDate && form.returnDate <= form.departureDate) {
       newErrors.returnDate = 'Return date must be after departure date';
     }
@@ -331,13 +342,18 @@ const NewHomePage: React.FC = () => {
                       value={form.departurePort}
                       onChange={(e) => {
                         const newDeparture = e.target.value;
-                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
-                        const isCountryAllPorts = newDeparture.length === 4 && newDeparture.toUpperCase().endsWith('00');
-                        const newDepartureCountry = ports.find(p => p.code === newDeparture)?.countryCode;
-                        const arrivalCountry = ports.find(p => p.code === form.arrivalPort)?.countryCode;
-                        // Clear arrival port if same port OR (country-level all ports and same country)
+                        // Known Tunisia port codes - Tunisia has no domestic ferry routes
+                        const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+                        const isTunisiaPort = (code: string) => {
+                          if (!code) return false;
+                          return TUNISIA_PORTS.includes(code.toUpperCase()) ||
+                                 ports.find(p => p.code.toUpperCase() === code.toUpperCase())?.countryCode === 'TN';
+                        };
+                        const newDepartureIsTunisia = isTunisiaPort(newDeparture);
+                        const arrivalIsTunisia = isTunisiaPort(form.arrivalPort);
+                        // Clear arrival port if same port OR both Tunisia (no domestic routes)
                         const shouldClear = form.arrivalPort === newDeparture ||
-                          (isCountryAllPorts && arrivalCountry === newDepartureCountry);
+                          (newDepartureIsTunisia && arrivalIsTunisia);
                         const newArrival = shouldClear ? '' : form.arrivalPort;
                         setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
                       }}
@@ -347,21 +363,21 @@ const NewHomePage: React.FC = () => {
                     >
                       <option value="">{t('search:form.selectDeparturePort')}</option>
                       <optgroup label="🇹🇳 Tunisia">
-                        {ports.filter(p => p.countryCode === 'TN').map(port => (
+                        {ports.filter(p => p.countryCode === 'TN' || p.code.toUpperCase().startsWith('TN')).map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
                         ))}
                       </optgroup>
                       <optgroup label="🇮🇹 Italy">
-                        {ports.filter(p => p.countryCode === 'IT').map(port => (
+                        {ports.filter(p => p.countryCode === 'IT' || p.code.toUpperCase().startsWith('IT')).map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
                         ))}
                       </optgroup>
                       <optgroup label="🇫🇷 France">
-                        {ports.filter(p => p.countryCode === 'FR').map(port => (
+                        {ports.filter(p => p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')).map(port => (
                           <option key={port.code} value={port.code}>
                             {port.name}
                           </option>
@@ -385,35 +401,36 @@ const NewHomePage: React.FC = () => {
                       }`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      {/* Filter arrival ports - only hide entire country for country-level "all ports" */}
+                      {/* Filter arrival ports - hide Tunisia for any Tunisia departure (no domestic routes) */}
                       {(() => {
-                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
-                        const isCountryAllPorts = form.departurePort.length === 4 && form.departurePort.toUpperCase().endsWith('00');
-                        const departureCountry = ports.find(p => p.code === form.departurePort)?.countryCode;
-                        const hideCountry = (country: string) => isCountryAllPorts && departureCountry === country;
+                        // Known Tunisia port codes - Tunisia has no domestic ferry routes
+                        const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+                        const isTunisiaPort = (code: string) => {
+                          if (!code) return false;
+                          return TUNISIA_PORTS.includes(code.toUpperCase()) ||
+                                 ports.find(p => p.code.toUpperCase() === code.toUpperCase())?.countryCode === 'TN';
+                        };
+                        // Hide Tunisia if departing from any Tunisia port
+                        const hideTunisia = isTunisiaPort(form.departurePort);
                         return (
                           <>
-                            {!hideCountry('TN') && (
+                            {!hideTunisia && (
                               <optgroup label="🇹🇳 Tunisia">
-                                {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                                {ports.filter(p => isTunisiaPort(p.code) && p.code !== form.departurePort).map(port => (
                                   <option key={port.code} value={port.code}>{port.name}</option>
                                 ))}
                               </optgroup>
                             )}
-                            {!hideCountry('IT') && (
-                              <optgroup label="🇮🇹 Italy">
-                                {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
-                                  <option key={port.code} value={port.code}>{port.name}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                            {!hideCountry('FR') && (
-                              <optgroup label="🇫🇷 France">
-                                {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
-                                  <option key={port.code} value={port.code}>{port.name}</option>
-                                ))}
-                              </optgroup>
-                            )}
+                            <optgroup label="🇮🇹 Italy">
+                              {ports.filter(p => (p.countryCode === 'IT' || p.code.toUpperCase().startsWith('IT')) && p.code !== form.departurePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🇫🇷 France">
+                              {ports.filter(p => (p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')) && p.code !== form.departurePort).map(port => (
+                                <option key={port.code} value={port.code}>{port.name}</option>
+                              ))}
+                            </optgroup>
                           </>
                         );
                       })()}

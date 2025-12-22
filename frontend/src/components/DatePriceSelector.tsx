@@ -63,6 +63,15 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
 
   // Fetch date prices when route, passengers, or return date changes
   useEffect(() => {
+    // Block Tunisia-to-Tunisia searches (no domestic ferry routes)
+    const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+    const fromTunisia = TUNISIA_PORTS.includes(departurePort?.toUpperCase() || '');
+    const toTunisia = TUNISIA_PORTS.includes(arrivalPort?.toUpperCase() || '');
+    if (fromTunisia && toTunisia) {
+      console.warn('⚠️ Skipping date prices fetch for Tunisia-to-Tunisia route');
+      return;
+    }
+
     const fetchKey = `${departurePort}-${arrivalPort}-${fetchCenterDate}-${returnDate || 'oneway'}-${adults}-${children}-${infants}`;
 
     // Only fetch if this is a new combination

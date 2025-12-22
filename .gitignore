@@ -111,3 +111,6 @@ Thumbs.db
 # Kubernetes secrets (never commit real secrets)
 k8s/overlays/*/secrets.yaml
 k8s/base/secrets-local.yaml
+
+# API documentation with keys (for traceability)
+curls-docs

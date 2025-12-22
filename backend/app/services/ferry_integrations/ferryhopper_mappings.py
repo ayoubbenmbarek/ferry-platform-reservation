@@ -201,6 +201,195 @@ VEHICLE_TYPE_MAP = {
     "bicycle": "BICYCLE",
 }
 
+# Official FerryHopper Vehicle Codes (from /vehicles endpoint - fetched 2025-12-23)
+# Use these codes when building booking requests
+FERRYHOPPER_VEHICLE_CODES = {
+    # Cars
+    "1": {"type": "CAR", "description": "MEDIUM_CAR", "details": "Medium car < 4.25m"},
+    "2": {"type": "CAR", "description": "FAMILY_CAR", "details": "Large car < 5m"},
+    "5": {"type": "CAR", "description": "SMALL_CAR", "details": "Small car < 3.7m"},
+    "20": {"type": "CAR", "description": "VAN", "details": "Small van < 4.5m"},
+    "21": {"type": "CAR", "description": "SUV_JEEP", "details": "SUV / Jeep"},
+    "22": {"type": "CAR", "description": "CAR_ROOF_BOX", "details": "Car with roof box"},
+    "24": {"type": "CAR", "description": "VAN_XL", "details": "Large van < 6m"},
+
+    # Motorbikes
+    "3": {"type": "MOTORBIKE", "description": "MOTORBIKE", "details": "Motorbike > 250cc"},
+    "4": {"type": "MOTORBIKE", "description": "SMALL_MOTORBIKE", "details": "Motorbike < 250cc"},
+    "17": {"type": "MOTORBIKE", "description": "MOTORCYCLE", "details": "Motorbike < 125cc"},
+    "18": {"type": "MOTORBIKE", "description": "SCOOTER", "details": "Moped < 50cc"},
+    "23": {"type": "MOTORBIKE", "description": "MOTO_34_WHEELS", "details": "Moto 3-4 wheels"},
+
+    # Motorhomes/Campers
+    "6": {"type": "MOTORHOME", "description": "MOTORHOME_LT_6M", "details": "Motorhome < 6m"},
+    "7": {"type": "MOTORHOME", "description": "MOTORHOME_LT_7M", "details": "Motorhome < 7m"},
+    "8": {"type": "MOTORHOME", "description": "MOTORHOME_LT_8M", "details": "Motorhome < 8m"},
+    "9": {"type": "MOTORHOME", "description": "MOTORHOME_LT_9M", "details": "Motorhome < 9m"},
+    "10": {"type": "MOTORHOME", "description": "MOTORHOME_LT_10M", "details": "Motorhome < 10m"},
+    "16": {"type": "MOTORHOME", "description": "MOTORHOME_LT_5M", "details": "Motorhome < 5m"},
+
+    # Bicycle
+    "15": {"type": "BICYCLE", "description": "BICYCLE", "details": "Bicycle"},
+}
+
+# Map VoilaFerry vehicle selection to FerryHopper vehicle code
+VOILAFERRY_TO_FERRYHOPPER_VEHICLE = {
+    # Cars by size
+    "small_car": "5",       # Small car < 3.7m
+    "medium_car": "1",      # Medium car < 4.25m
+    "large_car": "2",       # Large car < 5m
+    "family_car": "2",      # Large car < 5m
+    "suv": "21",            # SUV / Jeep
+    "van": "20",            # Small van < 4.5m
+    "large_van": "24",      # Large van < 6m
+    "car_roof_box": "22",   # Car with roof box
+
+    # Motorbikes
+    "scooter": "18",        # Moped < 50cc
+    "small_motorcycle": "17",  # Motorbike < 125cc
+    "motorcycle": "4",      # Motorbike < 250cc
+    "large_motorcycle": "3",   # Motorbike > 250cc
+    "trike": "23",          # Moto 3-4 wheels
+
+    # Motorhomes/Campers
+    "camper_small": "16",   # Motorhome < 5m
+    "camper": "6",          # Motorhome < 6m
+    "camper_medium": "7",   # Motorhome < 7m
+    "camper_large": "8",    # Motorhome < 8m
+    "camper_xl": "9",       # Motorhome < 9m
+    "motorhome": "6",       # Motorhome < 6m (default)
+
+    # Bicycle
+    "bicycle": "15",
+    "bike": "15",
+}
+
+# Official FerryHopper Accommodation Codes (from /accommodations endpoint - fetched 2025-12-23)
+FERRYHOPPER_ACCOMMODATION_CODES = [
+    # Lounge
+    "LOUNGE_DECK", "LOUNGE_STANDARD", "LOUNGE_VIP",
+
+    # Seats (non-numbered)
+    "SEAT_NOTNUMBERED", "SEAT_NOTNUMBERED_EXTRA_HANDBAG", "SEAT_NOTNUMBERED_EXTRA_LUGGAGE",
+
+    # Seats (numbered)
+    "SEAT_NUMBERED_STANDARD", "SEAT_NUMBERED_STANDARD_EXTRA_HANDBAG", "SEAT_NUMBERED_STANDARD_EXTRA_LUGGAGE",
+    "SEAT_NUMBERED_BUSINESS", "SEAT_NUMBERED_BUSINESS_TABLE",
+    "SEAT_NUMBERED_VIP", "SEAT_NUMBERED_VIP_TABLE", "SEAT_NUMBERED_TABLE",
+
+    # Cabins
+    "CABIN_FULL", "CABIN_FULL_WINDOW",
+    "FAMILY_CABIN_FULL", "FAMILY_CABIN_FULL_WINDOW",
+    "LUX_CABIN_FULL", "LUX_CABIN_FULL_WINDOW",
+    "SUITE_CABIN_FULL", "SUITE_CABIN_FULL_WINDOW",
+    "SLEEPINGPOD_ONEBED",
+
+    # Pet Cabins
+    "PET_CABIN_FULL", "PET_CABIN_FULL_WINDOW",
+    "PET_LUX_CABIN_FULL", "PET_LUX_CABIN_FULL_WINDOW",
+    "PET_SUITE_CABIN_FULL", "PET_SUITE_CABIN_FULL_WINDOW",
+]
+
+# Official FerryHopper Nationalities (from /nationalities endpoint - fetched 2025-12-23)
+# ISO 3166-1 alpha-2 codes - 249 countries
+FERRYHOPPER_NATIONALITIES = {
+    # Priority countries for Tunisia routes (shown first in dropdown)
+    "TN": "Tunisia",
+    "IT": "Italy",
+    "FR": "France",
+    "DE": "Germany",
+    "GB": "United Kingdom (UK)",
+    "US": "United States (USA)",
+    "DZ": "Algeria",
+    "MA": "Morocco",
+    "LY": "Libya",
+    "ES": "Spain",
+
+    # European countries
+    "AT": "Austria", "BE": "Belgium", "BG": "Bulgaria", "HR": "Croatia",
+    "CY": "Cyprus", "CZ": "Czech Republic", "DK": "Denmark", "EE": "Estonia",
+    "FI": "Finland", "GR": "Greece", "HU": "Hungary", "IE": "Ireland",
+    "LV": "Latvia", "LT": "Lithuania", "LU": "Luxembourg", "MT": "Malta",
+    "NL": "Netherlands", "PL": "Poland", "PT": "Portugal", "RO": "Romania",
+    "SK": "Slovakia", "SI": "Slovenia", "SE": "Sweden", "CH": "Switzerland",
+    "NO": "Norway", "IS": "Iceland", "AL": "Albania", "AD": "Andorra",
+    "BY": "Belarus", "BA": "Bosnia and Herzegovina", "GI": "Gibraltar",
+    "XK": "Kosovo", "LI": "Liechtenstein", "MC": "Monaco", "ME": "Montenegro",
+    "MK": "North Macedonia", "RU": "Russia", "SM": "San Marino", "RS": "Serbia",
+    "UA": "Ukraine", "VA": "Vatican City State",
+
+    # Middle East & North Africa
+    "EG": "Egypt", "JO": "Jordan", "LB": "Lebanon", "PS": "Palestine",
+    "SA": "Saudi Arabia", "AE": "United Arab Emirates", "QA": "Qatar",
+    "KW": "Kuwait", "BH": "Bahrain", "OM": "Oman", "YE": "Yemen",
+    "IQ": "Iraq", "IR": "Iran", "SY": "Syria", "IL": "Israel", "TR": "Turkey",
+
+    # Africa
+    "ZA": "South Africa", "NG": "Nigeria", "KE": "Kenya", "GH": "Ghana",
+    "SN": "Senegal", "CI": "Ivory Coast", "CM": "Cameroon", "ET": "Ethiopia",
+    "TZ": "Tanzania", "UG": "Uganda", "SD": "Sudan", "MU": "Mauritius",
+    "MR": "Mauritania", "ML": "Mali", "NE": "Niger", "BF": "Burkina Faso",
+    "BJ": "Benin", "TG": "Togo", "DJ": "Djibouti", "ER": "Eritrea",
+    "SO": "Somalia", "SS": "South Sudan", "GA": "Gabon", "CG": "Congo",
+    "CD": "DR Congo", "RW": "Rwanda", "BI": "Burundi", "AO": "Angola",
+    "MZ": "Mozambique", "ZM": "Zambia", "ZW": "Zimbabwe", "BW": "Botswana",
+    "NA": "Namibia", "MW": "Malawi", "LS": "Lesotho", "SZ": "Eswatini",
+    "MG": "Madagascar", "SC": "Seychelles", "GM": "The Gambia", "GN": "Guinea",
+    "GW": "Guinea Bissau", "SL": "Sierra Leone", "LR": "Liberia", "CV": "Cape Verde Islands",
+    "ST": "Sao Tome And Principe", "GQ": "Equatorial Guinea", "CF": "Central African Republic",
+    "TD": "Chad",
+
+    # Americas
+    "CA": "Canada", "MX": "Mexico", "BR": "Brazil", "AR": "Argentina",
+    "CL": "Chile", "CO": "Colombia", "PE": "Peru", "VE": "Venezuela",
+    "EC": "Ecuador", "BO": "Bolivia", "PY": "Paraguay", "UY": "Uruguay",
+    "CR": "Costa Rica", "PA": "Panama", "CU": "Cuba", "DO": "Dominican Republic",
+    "HT": "Haiti", "JM": "Jamaica", "TT": "Trinidad and Tobago", "BB": "Barbados",
+    "BS": "The Bahamas", "GT": "Guatemala", "HN": "Honduras", "SV": "El Salvador",
+    "NI": "Nicaragua", "BZ": "Belize", "GY": "Guyana", "SR": "Suriname",
+    "PR": "Puerto Rico", "VI": "U.S. Virgin Islands", "AG": "Antigua and Barbuda",
+    "DM": "Dominica", "GD": "Grenada", "KN": "Saint Kitts and Nevis",
+    "LC": "Saint Lucia", "VC": "St. Vincent And Grenadines",
+
+    # Asia
+    "CN": "China", "JP": "Japan", "KR": "South Korea", "KP": "North Korea",
+    "IN": "India", "PK": "Pakistan", "BD": "Bangladesh", "LK": "Sri Lanka",
+    "NP": "Nepal", "BT": "Bhutan", "MM": "Myanmar", "TH": "Thailand",
+    "VN": "Vietnam", "KH": "Cambodia", "LA": "Laos", "MY": "Malaysia",
+    "SG": "Singapore", "ID": "Indonesia", "PH": "Philippines", "TW": "Taiwan",
+    "HK": "Hong Kong", "MO": "Macau", "MN": "Mongolia", "KZ": "Kazakhstan",
+    "UZ": "Uzbekistan", "TM": "Turkmenistan", "TJ": "Tajikistan", "KG": "Kyrgyzstan",
+    "AF": "Afghanistan", "MV": "Maldives", "BN": "Brunei Darussalam",
+
+    # Oceania
+    "AU": "Australia", "NZ": "New Zealand", "FJ": "Fiji", "PG": "Papua New Guinea",
+    "WS": "Samoa", "TO": "Tonga", "VU": "Vanuatu", "SB": "Solomon Islands",
+    "KI": "Kiribati", "MH": "Marshall Islands", "FM": "Micronesia",
+    "PW": "Palau", "NR": "Nauru", "TV": "Tuvalu",
+
+    # Territories & Special
+    "GF": "French Guiana", "GP": "Guadeloupe", "MQ": "Martinique", "RE": "Reunion Island",
+    "YT": "Mayotte", "NC": "New Caledonia", "PF": "French Polynesia",
+    "PM": "Saint Pierre and Miquelon", "WF": "Wallis And Futuna Islands",
+    "BL": "Saint Bartelemey", "MF": "Saint Martin", "AW": "Aruba",
+    "CW": "Curacao", "SX": "Sint Maarten", "BQ": "Bonaire, St Eustatius and Saba",
+    "AI": "Anguilla", "BM": "Bermuda", "VG": "British Virgin Islands",
+    "KY": "Cayman Islands", "MS": "Montserrat", "TC": "Turks And Caicos Islands",
+    "FK": "Falkland Islands", "SH": "St.Helena", "GS": "South Georgia And The South Sandwich Island",
+    "IO": "British Indian Ocean Territory", "GG": "Guernsey", "JE": "Jersey",
+    "IM": "Isle of Man", "FO": "Faroe Islands", "GL": "Greenland",
+    "SJ": "Svalbard And Jan Mayen Islands", "AX": "Åland Island",
+    "AS": "American Samoa", "GU": "Guam", "MP": "Northern Mariana Islands",
+    "AQ": "Antarctica", "BV": "Bouvet Island", "CX": "Christmas Island",
+    "CC": "Cocos (Keeling) Islands", "HM": "Heard Island And McDonald Islands",
+    "NF": "Norfolk Island", "PN": "Pitcairn", "TF": "French Southern Territories",
+    "TK": "Tokelau", "NU": "Niue Island", "CK": "Cook Islands",
+    "TL": "Timor", "EH": "Western Sahara",
+}
+
+# Priority nationalities for Tunisia ferry routes (displayed first in dropdown)
+PRIORITY_NATIONALITIES = ["TN", "IT", "FR", "DE", "DZ", "MA", "LY", "GB", "ES", "BE", "NL", "CH"]
+
 # Accommodation type mapping: VoilaFerry -> FerryHopper
 ACCOMMODATION_TYPE_MAP = {
     "deck": "DECK",
@@ -575,3 +764,170 @@ def calculate_age_from_type(passenger_type: str) -> int:
         "infant": 1,
     }
     return type_ages.get(passenger_type.lower(), 30)
+
+
+# =============================================================================
+# Helper Functions for Vehicles, Nationalities, and Accommodations
+# =============================================================================
+
+def get_ferryhopper_vehicle_code(voilaferry_type: str) -> str:
+    """
+    Get the official FerryHopper vehicle code for a VoilaFerry vehicle type.
+
+    Args:
+        voilaferry_type: VoilaFerry vehicle type (e.g., 'medium_car', 'motorcycle')
+
+    Returns:
+        FerryHopper vehicle code (e.g., '1', '4') or '1' (medium car) as default
+    """
+    normalized = voilaferry_type.lower().strip().replace(" ", "_").replace("-", "_")
+    return VOILAFERRY_TO_FERRYHOPPER_VEHICLE.get(normalized, "1")
+
+
+def get_vehicle_details(code: str) -> Optional[Dict[str, str]]:
+    """
+    Get details for a FerryHopper vehicle code.
+
+    Args:
+        code: FerryHopper vehicle code (e.g., '1', '21')
+
+    Returns:
+        Dict with type, description, and details, or None if not found
+    """
+    return FERRYHOPPER_VEHICLE_CODES.get(code)
+
+
+def get_nationality_name(iso_code: str) -> Optional[str]:
+    """
+    Get nationality name from ISO 3166-1 alpha-2 code.
+
+    Args:
+        iso_code: Two-letter ISO country code (e.g., 'TN', 'IT')
+
+    Returns:
+        Country name or None if not found
+    """
+    return FERRYHOPPER_NATIONALITIES.get(iso_code.upper())
+
+
+def get_priority_nationalities_list() -> List[Dict[str, str]]:
+    """
+    Get list of priority nationalities with code and name.
+    These are commonly used nationalities for Tunisia ferry routes.
+
+    Returns:
+        List of dicts with 'code' and 'name' keys
+    """
+    result = []
+    for code in PRIORITY_NATIONALITIES:
+        name = FERRYHOPPER_NATIONALITIES.get(code)
+        if name:
+            result.append({"code": code, "name": name})
+    return result
+
+
+def get_all_nationalities_sorted() -> List[Dict[str, str]]:
+    """
+    Get all nationalities sorted with priority countries first.
+
+    Returns:
+        List of dicts with 'code' and 'name' keys
+    """
+    # Start with priority nationalities
+    result = get_priority_nationalities_list()
+    priority_codes = set(PRIORITY_NATIONALITIES)
+
+    # Add remaining nationalities sorted alphabetically by name
+    remaining = []
+    for code, name in FERRYHOPPER_NATIONALITIES.items():
+        if code not in priority_codes:
+            remaining.append({"code": code, "name": name})
+
+    remaining.sort(key=lambda x: x["name"])
+    result.extend(remaining)
+    return result
+
+
+def get_vehicles_for_frontend() -> List[Dict[str, Any]]:
+    """
+    Get vehicle options formatted for frontend dropdown.
+
+    Returns:
+        List of vehicle options with value, label, type, and details
+    """
+    vehicles = []
+    # Group by type for better organization
+    type_order = ["CAR", "MOTORBIKE", "MOTORHOME", "BICYCLE"]
+
+    for vehicle_type in type_order:
+        for code, details in FERRYHOPPER_VEHICLE_CODES.items():
+            if details["type"] == vehicle_type:
+                vehicles.append({
+                    "value": code,
+                    "label": details["description"].replace("_", " ").title(),
+                    "type": details["type"],
+                    "details": details["details"],
+                })
+
+    return vehicles
+
+
+def get_voilaferry_vehicle_options() -> List[Dict[str, str]]:
+    """
+    Get VoilaFerry vehicle options for frontend selection.
+    These are user-friendly options that map to FerryHopper codes.
+
+    Returns:
+        List of vehicle options with value and label
+    """
+    return [
+        # Cars
+        {"value": "small_car", "label": "Small Car (< 3.7m)", "type": "CAR"},
+        {"value": "medium_car", "label": "Medium Car (< 4.25m)", "type": "CAR"},
+        {"value": "large_car", "label": "Large Car (< 5m)", "type": "CAR"},
+        {"value": "suv", "label": "SUV / Jeep", "type": "CAR"},
+        {"value": "van", "label": "Small Van (< 4.5m)", "type": "CAR"},
+        {"value": "large_van", "label": "Large Van (< 6m)", "type": "CAR"},
+        {"value": "car_roof_box", "label": "Car with Roof Box", "type": "CAR"},
+        # Motorbikes
+        {"value": "scooter", "label": "Scooter / Moped (< 50cc)", "type": "MOTORBIKE"},
+        {"value": "small_motorcycle", "label": "Small Motorcycle (< 125cc)", "type": "MOTORBIKE"},
+        {"value": "motorcycle", "label": "Motorcycle (< 250cc)", "type": "MOTORBIKE"},
+        {"value": "large_motorcycle", "label": "Large Motorcycle (> 250cc)", "type": "MOTORBIKE"},
+        {"value": "trike", "label": "Trike / Quad (3-4 wheels)", "type": "MOTORBIKE"},
+        # Motorhomes
+        {"value": "camper_small", "label": "Motorhome (< 5m)", "type": "MOTORHOME"},
+        {"value": "camper", "label": "Motorhome (< 6m)", "type": "MOTORHOME"},
+        {"value": "camper_medium", "label": "Motorhome (< 7m)", "type": "MOTORHOME"},
+        {"value": "camper_large", "label": "Motorhome (< 8m)", "type": "MOTORHOME"},
+        {"value": "camper_xl", "label": "Motorhome (< 9m)", "type": "MOTORHOME"},
+        # Bicycle
+        {"value": "bicycle", "label": "Bicycle", "type": "BICYCLE"},
+    ]
+
+
+def is_valid_accommodation_code(code: str) -> bool:
+    """
+    Check if a code is a valid FerryHopper accommodation code.
+
+    Args:
+        code: Accommodation code to validate
+
+    Returns:
+        True if valid, False otherwise
+    """
+    return code in FERRYHOPPER_ACCOMMODATION_CODES
+
+
+def is_cabin_accommodation(code: str) -> bool:
+    """
+    Check if an accommodation code is a cabin type (not a seat/deck).
+
+    Args:
+        code: FerryHopper accommodation code
+
+    Returns:
+        True if it's a cabin type
+    """
+    cabin_keywords = ["CABIN", "SUITE", "SLEEPINGPOD", "LUX"]
+    return any(kw in code.upper() for kw in cabin_keywords)

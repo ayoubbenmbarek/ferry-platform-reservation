@@ -980,3 +980,155 @@ class TestFerryHopperInFerryService:
         from app.services.ferry_service import FerryHopperIntegration
 
         assert FerryHopperIntegration is not None
+
+
+# ============================================================================
+# Helper Function Tests
+# ============================================================================
+
+class TestHelperFunctions:
+    """Tests for mapping helper functions."""
+
+    def test_get_ferryhopper_vehicle_code(self):
+        """Test vehicle code lookup from VoilaFerry type."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_ferryhopper_vehicle_code
+        )
+
+        # Test car types
+        assert get_ferryhopper_vehicle_code("small_car") == "5"
+        assert get_ferryhopper_vehicle_code("medium_car") == "1"
+        assert get_ferryhopper_vehicle_code("large_car") == "2"
+        assert get_ferryhopper_vehicle_code("suv") == "21"
+
+        # Test motorbike types
+        assert get_ferryhopper_vehicle_code("scooter") == "18"
+        assert get_ferryhopper_vehicle_code("motorcycle") == "4"
+        assert get_ferryhopper_vehicle_code("large_motorcycle") == "3"
+
+        # Test default (unknown type returns medium car)
+        assert get_ferryhopper_vehicle_code("unknown") == "1"
+
+    def test_get_vehicle_details(self):
+        """Test vehicle details lookup by FerryHopper code."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_vehicle_details
+        )
+
+        # Test known code
+        details = get_vehicle_details("1")
+        assert details is not None
+        assert details["type"] == "CAR"
+        assert details["description"] == "MEDIUM_CAR"
+        assert "4.25m" in details["details"]
+
+        # Test SUV
+        suv = get_vehicle_details("21")
+        assert suv is not None
+        assert suv["type"] == "CAR"
+        assert "SUV" in suv["description"]
+
+        # Test unknown code
+        assert get_vehicle_details("999") is None
+
+    def test_get_nationality_name(self):
+        """Test nationality name lookup by ISO code."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_nationality_name
+        )
+
+        assert get_nationality_name("TN") == "Tunisia"
+        assert get_nationality_name("IT") == "Italy"
+        assert get_nationality_name("FR") == "France"
+        assert get_nationality_name("US") == "United States (USA)"
+
+        # Test case insensitivity
+        assert get_nationality_name("tn") == "Tunisia"
+
+        # Test unknown code
+        assert get_nationality_name("XX") is None
+
+    def test_get_priority_nationalities_list(self):
+        """Test priority nationalities returns correct structure."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_priority_nationalities_list
+        )
+
+        priorities = get_priority_nationalities_list()
+
+        assert len(priorities) >= 10
+        assert priorities[0]["code"] == "TN"
+        assert priorities[0]["name"] == "Tunisia"
+        assert priorities[1]["code"] == "IT"
+
+        # Check structure
+        for item in priorities:
+            assert "code" in item
+            assert "name" in item
+
+    def test_get_all_nationalities_sorted(self):
+        """Test all nationalities are returned with priority first."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_all_nationalities_sorted,
+            PRIORITY_NATIONALITIES
+        )
+
+        all_nationalities = get_all_nationalities_sorted()
+
+        # Should have 249 countries
+        assert len(all_nationalities) >= 200
+
+        # First ones should be priority nationalities
+        for i, priority_code in enumerate(PRIORITY_NATIONALITIES):
+            assert all_nationalities[i]["code"] == priority_code
+
+    def test_get_voilaferry_vehicle_options(self):
+        """Test VoilaFerry vehicle options for frontend."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_voilaferry_vehicle_options
+        )
+
+        options = get_voilaferry_vehicle_options()
+
+        assert len(options) >= 15
+
+        # Check structure
+        for opt in options:
+            assert "value" in opt
+            assert "label" in opt
+            assert "type" in opt
+
+        # Check specific options exist
+        values = [o["value"] for o in options]
+        assert "small_car" in values
+        assert "medium_car" in values
+        assert "motorcycle" in values
+        assert "bicycle" in values
+
+    def test_is_valid_accommodation_code(self):
+        """Test accommodation code validation."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            is_valid_accommodation_code
+        )
+
+        assert is_valid_accommodation_code("SEAT_NOTNUMBERED") is True
+        assert is_valid_accommodation_code("CABIN_FULL") is True
+        assert is_valid_accommodation_code("SUITE_CABIN_FULL_WINDOW") is True
+        assert is_valid_accommodation_code("INVALID_CODE") is False
+
+    def test_is_cabin_accommodation(self):
+        """Test cabin accommodation detection."""
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            is_cabin_accommodation
+        )
+
+        # Cabin types
+        assert is_cabin_accommodation("CABIN_FULL") is True
+        assert is_cabin_accommodation("SUITE_CABIN_FULL_WINDOW") is True
+        assert is_cabin_accommodation("LUX_CABIN_FULL") is True
+        assert is_cabin_accommodation("PET_CABIN_FULL") is True
+
+        # Non-cabin types
+        assert is_cabin_accommodation("SEAT_NOTNUMBERED") is False
+        assert is_cabin_accommodation("LOUNGE_DECK") is False
+        assert is_cabin_accommodation("LOUNGE_VIP") is False

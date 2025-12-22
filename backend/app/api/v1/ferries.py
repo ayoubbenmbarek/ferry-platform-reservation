@@ -1231,6 +1231,84 @@ async def get_vessel_position(mmsi: str):
     }
 
 
+@router.get("/nationalities")
+async def get_nationalities(
+    priority_only: bool = Query(False, description="Return only priority nationalities for Tunisia routes")
+):
+    """
+    Get list of nationalities for passenger details.
+
+    Returns all nationalities (249 countries) sorted with priority countries first.
+    Priority countries are those commonly used for Tunisia ferry routes:
+    Tunisia, Italy, France, Germany, Algeria, Morocco, Libya, etc.
+
+    Use priority_only=true to get just the 12 priority nationalities.
+    """
+    try:
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_priority_nationalities_list,
+            get_all_nationalities_sorted
+        )
+
+        if priority_only:
+            nationalities = get_priority_nationalities_list()
+        else:
+            nationalities = get_all_nationalities_sorted()
+
+        logger.info(f"🌍 Returning {len(nationalities)} nationalities (priority_only={priority_only})")
+        return {
+            "nationalities": nationalities,
+            "total": len(nationalities),
+            "source": "ferryhopper_official"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get nationalities: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get nationalities: {str(e)}"
+        )
+
+
+@router.get("/vehicle-types")
+async def get_vehicle_types():
+    """
+    Get list of vehicle types for ferry bookings.
+
+    Returns all vehicle types with user-friendly labels that map
+    to official FerryHopper vehicle codes. Use these values when
+    creating bookings with vehicles.
+
+    Types include:
+    - Cars (small, medium, large, SUV, van)
+    - Motorbikes (scooter, motorcycle, large motorcycle)
+    - Motorhomes/Campers (various sizes)
+    - Bicycle
+    """
+    try:
+        from app.services.ferry_integrations.ferryhopper_mappings import (
+            get_voilaferry_vehicle_options,
+            FERRYHOPPER_VEHICLE_CODES
+        )
+
+        vehicles = get_voilaferry_vehicle_options()
+
+        logger.info(f"🚗 Returning {len(vehicles)} vehicle types")
+        return {
+            "vehicles": vehicles,
+            "total": len(vehicles),
+            "ferryhopper_codes": FERRYHOPPER_VEHICLE_CODES,
+            "source": "ferryhopper_official"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get vehicle types: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get vehicle types: {str(e)}"
+        )
+
+
 @router.get("/health", response_model=HealthCheckResponse)
 async def check_ferry_apis():
     """

@@ -1,7 +1,7 @@
-# Async Architecture Documentation
+# Async Architecture Documentationdxqsqs;,: bsxqh qs vqsxw
 
 ## Overview
-
+kjnhzshq
 This document describes the asynchronous architecture for the Maritime Reservation System, including Redis caching, Celery task queues, and decoupled email processing.
 
 ## Architecture Components
@@ -11,12 +11,12 @@ This document describes the asynchronous architecture for the Maritime Reservati
 - **TTL**: 5 minutes for search results, 1 minute for availability data
 - **Location**: `app/services/cache_service.py`
 
-### 2. Celery Task Queues
+### 2. Celery Task Queuesqsx n
 - **Email Queue**: Handles all email sending asynchronously
 - **Payment Queue**: Processes payment webhooks and verification
 - **Booking Queue**: Handles ferry availability checks and operator confirmations
 
-### 3. Async Workers
+### 3. Async Workerssq n cxwvbkhccvv
 - **Worker 1 (Emails)**: Sends booking confirmations, payment success, refunds
 - **Worker 2 (Payments)**: Processes Stripe webhooks, updates payment status
 - **Worker 3 (Bookings)**: Checks availability, confirms with operators

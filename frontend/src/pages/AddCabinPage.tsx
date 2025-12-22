@@ -52,13 +52,35 @@ const AddCabinPage: React.FC = () => {
 
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [cabins, setCabins] = useState<Cabin[]>([]);
+  const [baseFarePrice, setBaseFarePrice] = useState<number>(0); // Base deck/seat price
   // Multi-cabin selection: track quantity per cabin uid (unique identifier)
   const [cabinQuantities, setCabinQuantities] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Calculate total cabins and total price
+  // Check if a cabin type is base fare (deck/seat - already included in route price)
+  const isBaseFareType = (cabinType: string, cabinName?: string): boolean => {
+    const type = cabinType?.toLowerCase() || '';
+    const name = cabinName?.toLowerCase() || '';
+
+    // Check type first
+    if (['deck', 'seat', 'deck_seat', 'standard_seat', 'reclining_seat'].includes(type)) {
+      return true;
+    }
+
+    // Also check name for keywords indicating base fare
+    // But only if the cabin doesn't have luxury features (bathroom, etc.)
+    const baseFareKeywords = ['deck', 'passage', 'pont', 'fauteuil', 'poltrona'];
+    return baseFareKeywords.some(kw => name.includes(kw));
+  };
+
+  // Calculate supplement for a cabin (upgrade cost over base fare)
+  const getCabinSupplement = (cabin: Cabin): number => {
+    return Math.max(0, cabin.price - baseFarePrice);
+  };
+
+  // Calculate total cabins and total supplement
   const getSelections = (): CabinSelection[] => {
     return Object.entries(cabinQuantities)
       .filter(([_, qty]) => qty > 0)
@@ -70,7 +92,8 @@ const AddCabinPage: React.FC = () => {
   };
 
   const totalCabins = Object.values(cabinQuantities).reduce((sum, qty) => sum + qty, 0);
-  const totalPrice = getSelections().reduce((sum, s) => sum + (s.cabin.price * s.quantity), 0);
+  // Use supplement (upgrade cost) instead of full price
+  const totalPrice = getSelections().reduce((sum, s) => sum + (getCabinSupplement(s.cabin) * s.quantity), 0);
 
   const handleQuantityChange = (cabinUid: string, delta: number) => {
     setCabinQuantities(prev => {
@@ -105,9 +128,18 @@ const AddCabinPage: React.FC = () => {
           }
         });
 
-        // Get cabins from response, filter out deck/seat types, and add unique IDs
-        const rawCabins = (cabinsResponse.data.cabins || [])
-          .filter((c: any) => !['seat', 'deck', 'reclining_seat'].includes(c.cabin_type?.toLowerCase()))
+        const allCabins = cabinsResponse.data.cabins || [];
+
+        // Find the base fare price (deck/seat price - already included in route)
+        const baseFareCabin = allCabins.find((c: any) =>
+          isBaseFareType(c.cabin_type, c.name)
+        );
+        const basePrice = baseFareCabin?.price || 0;
+        setBaseFarePrice(basePrice);
+
+        // Filter out deck/seat types (user already has deck passage) and sort by price
+        const rawCabins = allCabins
+          .filter((c: any) => !isBaseFareType(c.cabin_type, c.name))
           .sort((a: any, b: any) => b.price - a.price);  // Sort by price (highest first)
 
         // Generate unique UIDs to avoid key collisions when cabins share the same code
@@ -141,10 +173,10 @@ const AddCabinPage: React.FC = () => {
     setError(null);
 
     try {
-      // Build cabin selections string: "cabinCode:qty:price:name,cabinCode:qty:price:name"
-      // Include price and name so payment page can display and store cabin details
+      // Build cabin selections string: "cabinCode:qty:supplement:name,cabinCode:qty:supplement:name"
+      // Use supplement (upgrade cost) not full price
       const cabinSelectionsStr = selections
-        .map(s => `${s.cabin.code}:${s.quantity}:${s.cabin.price}:${encodeURIComponent(s.cabin.name)}`)
+        .map(s => `${s.cabin.code}:${s.quantity}:${getCabinSupplement(s.cabin)}:${encodeURIComponent(s.cabin.name)}`)
         .join(',');
 
       // Redirect to payment page with cabin upgrade details
@@ -196,6 +228,13 @@ const AddCabinPage: React.FC = () => {
         return '🌅';
       case 'suite':
         return '👑';
+      case 'shared':
+      case 'berth':
+      case 'dorm':
+      case 'couchette':
+        return '🛌';
+      case 'pet':
+        return '🐾';
       default:
         return '🛏️';
     }
@@ -213,9 +252,27 @@ const AddCabinPage: React.FC = () => {
         return t('booking:cabinAlert.cabinTypes.balcony', 'Balcony Cabin');
       case 'suite':
         return t('booking:cabinAlert.cabinTypes.suite', 'Suite');
+      case 'shared':
+      case 'berth':
+      case 'dorm':
+      case 'couchette':
+        return t('booking:cabinAlert.cabinTypes.shared', 'Bed in Shared Cabin');
+      case 'pet':
+        return t('booking:cabinAlert.cabinTypes.pet', 'Pet-Friendly Cabin');
       default:
         return cabinType;
     }
+  };
+
+  // Check if cabin type allows pets
+  const isPetCabinType = (cabinType: string): boolean => {
+    return cabinType?.toLowerCase() === 'pet';
+  };
+
+  // Check if cabin type is a shared bed (not private cabin)
+  const isSharedCabinType = (cabinType: string): boolean => {
+    const type = cabinType?.toLowerCase() || '';
+    return ['shared', 'berth', 'dorm', 'couchette', 'dormitory'].includes(type);
   };
 
   if (isLoading) {
@@ -334,7 +391,8 @@ const AddCabinPage: React.FC = () => {
             <div className="space-y-4">
               {cabins.map((cabin) => {
                 const quantity = cabinQuantities[cabin.uid] || 0;
-                const cabinTotal = cabin.price * quantity;
+                const supplement = getCabinSupplement(cabin);
+                const supplementTotal = supplement * quantity;
 
                 return (
                   <div
@@ -365,6 +423,22 @@ const AddCabinPage: React.FC = () => {
                           <p className="text-sm text-gray-600 mb-2 ml-12">{cabin.description}</p>
                         )}
 
+                        {/* Shared cabin note */}
+                        {isSharedCabinType(cabin.cabin_type) && (
+                          <p className="text-xs text-blue-600 mb-2 ml-12 flex items-center gap-1">
+                            <span>👥</span>
+                            <span>{t('booking:cabinAlert.sharedNote', "You'll share with other passengers of the same sex")}</span>
+                          </p>
+                        )}
+
+                        {/* Pet cabin note */}
+                        {isPetCabinType(cabin.cabin_type) && (
+                          <p className="text-xs text-green-600 mb-2 ml-12 flex items-center gap-1">
+                            <span>🐾</span>
+                            <span>{t('booking:cabinAlert.petNote', 'This cabin allows pets - required if traveling with a pet')}</span>
+                          </p>
+                        )}
+
                         <div className="flex flex-wrap gap-2 ml-12">
                           {cabin.has_bathroom && (
                             <span className="text-xs bg-gray-100 px-2 py-1 rounded">🚿 Bathroom</span>
@@ -390,8 +464,10 @@ const AddCabinPage: React.FC = () => {
                       {/* Price and Quantity Controls */}
                       <div className="text-right ml-4">
                         <div className="text-lg font-bold text-blue-600 mb-2">
-                          €{cabin.price.toFixed(2)}
-                          <span className="text-xs text-gray-500 font-normal block">per cabin</span>
+                          +€{supplement.toFixed(2)}
+                          <span className="text-xs text-gray-500 font-normal block">
+                            {isSharedCabinType(cabin.cabin_type) ? 'upgrade per bed' : 'upgrade per cabin'}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -414,7 +490,7 @@ const AddCabinPage: React.FC = () => {
 
                         {quantity > 0 && (
                           <p className="text-sm text-green-700 font-medium mt-2">
-                            Subtotal: €{cabinTotal.toFixed(2)}
+                            Upgrade: +€{supplementTotal.toFixed(2)}
                           </p>
                         )}
                       </div>
@@ -434,25 +510,28 @@ const AddCabinPage: React.FC = () => {
             </h2>
 
             <div className="space-y-3 border-b pb-4 mb-4">
-              {getSelections().map((selection) => (
-                <div key={selection.cabin.uid} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{getCabinIcon(selection.cabin.cabin_type)}</span>
-                    <span className="text-gray-700">
-                      {selection.cabin.name} × {selection.quantity}
-                    </span>
+              {getSelections().map((selection) => {
+                const supplement = getCabinSupplement(selection.cabin);
+                return (
+                  <div key={selection.cabin.uid} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{getCabinIcon(selection.cabin.cabin_type)}</span>
+                      <span className="text-gray-700">
+                        {selection.cabin.name} × {selection.quantity}
+                      </span>
+                    </div>
+                    <span className="font-medium">+€{(supplement * selection.quantity).toFixed(2)}</span>
                   </div>
-                  <span className="font-medium">€{(selection.cabin.price * selection.quantity).toFixed(2)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-lg font-bold">{t('booking:pricing.total', 'Total')}</span>
+                <span className="text-lg font-bold">{t('booking:pricing.upgradeTotal', 'Upgrade Total')}</span>
                 <span className="text-sm text-gray-500 block">{totalCabins} cabin{totalCabins > 1 ? 's' : ''}</span>
               </div>
-              <span className="text-2xl font-bold text-blue-600">€{totalPrice.toFixed(2)}</span>
+              <span className="text-2xl font-bold text-blue-600">+€{totalPrice.toFixed(2)}</span>
             </div>
           </div>
         )}
@@ -481,7 +560,7 @@ const AddCabinPage: React.FC = () => {
               </>
             ) : (
               <>
-                🛏️ {t('booking:addCabin.addCabins', 'Add')} {totalCabins} {totalCabins === 1 ? 'Cabin' : 'Cabins'} - €{totalPrice.toFixed(2)}
+                🛏️ {t('booking:addCabin.addCabins', 'Add')} {totalCabins} {totalCabins === 1 ? 'Cabin' : 'Cabins'} - +€{totalPrice.toFixed(2)}
               </>
             )}
           </button>

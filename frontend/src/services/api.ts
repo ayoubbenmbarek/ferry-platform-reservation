@@ -81,6 +81,19 @@ export interface RegisterData {
   preferredCurrency?: string;
 }
 
+export interface VehicleSearchParams {
+  type: string;
+  length?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface PetSearchParams {
+  id?: string;
+  type?: string;
+  weight_kg?: number;
+}
+
 export interface SearchParams {
   departurePort: string;
   arrivalPort: string;
@@ -90,7 +103,8 @@ export interface SearchParams {
   returnDeparturePort?: string;
   returnArrivalPort?: string;
   passengers: number;
-  vehicles?: number;
+  vehicles?: VehicleSearchParams[];
+  pets?: PetSearchParams[];
   operator?: string;
 }
 
@@ -276,6 +290,10 @@ export const ferryAPI = {
       adults: params.passengers || 1,
       children: 0,
       infants: 0,
+      // Pass vehicles array for proper pricing (FerryHopper includes vehicle cost only if in search)
+      vehicles: params.vehicles,
+      // Pass pets array for pricing (uses /search-quote endpoint when pets provided)
+      pets: params.pets,
       operators: params.operator ? [params.operator] : undefined
     }, {
       timeout: 60000, // 60 second timeout for search (queries multiple operators)
@@ -284,13 +302,25 @@ export const ferryAPI = {
   },
 
   getRoutes: async (): Promise<any[]> => {
-    const response: AxiosResponse<any[]> = await api.get('/ferries/routes');
-    return response.data;
+    try {
+      const response: AxiosResponse<any[]> = await api.get('/ferries/routes');
+      return response.data;
+    } catch (error) {
+      console.warn('Failed to fetch routes from API, using empty list');
+      return [];
+    }
   },
 
   getPorts: async (): Promise<any[]> => {
-    const response: AxiosResponse<any[]> = await api.get('/ferries/ports');
-    return response.data;
+    try {
+      const response: AxiosResponse<{ ports: any[] }> = await api.get('/ferries/ports');
+      return response.data.ports || response.data;
+    } catch (error) {
+      console.warn('Failed to fetch ports from API, using fallback data');
+      // Fallback to static port data
+      const { PORTS } = await import('../types/ferry');
+      return PORTS;
+    }
   },
 
   getOperators: async (): Promise<any[]> => {

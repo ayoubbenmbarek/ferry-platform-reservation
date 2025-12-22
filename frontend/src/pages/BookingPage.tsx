@@ -26,14 +26,17 @@ const BookingPage: React.FC = () => {
     totalReturnCabinPrice: reduxTotalReturnCabinPrice,
     selectedMeals: reduxSelectedMeals,
     hasCancellationProtection: reduxHasCancellationProtection,
+    // Get contact info from Redux to persist across navigation
+    contactInfo: reduxContactInfo,
   } = useSelector((state: RootState) => state.ferry);
   const { user } = useSelector((state: RootState) => state.auth);
 
+  // Initialize contact info from Redux first (persists across navigation), fall back to user profile
   const [localContactInfo, setLocalContactInfo] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
+    firstName: reduxContactInfo?.first_name || user?.firstName || '',
+    lastName: reduxContactInfo?.last_name || user?.lastName || '',
+    email: reduxContactInfo?.email || user?.email || '',
+    phone: reduxContactInfo?.phone || user?.phone || '',
   });
 
   // Initialize cabin state from Redux (persists across navigation)
@@ -353,18 +356,60 @@ const BookingPage: React.FC = () => {
   const adultPrice = selectedFerry.prices?.adult || 0;
   const childPrice = selectedFerry.prices?.child || 0;
   const infantPrice = selectedFerry.prices?.infant || 0;
-  const vehiclePrice = selectedFerry.prices?.vehicle || 0;
+
+  // Get vehicle price from available_vehicles (FerryHopper) or fall back to prices.vehicle
+  const getVehiclePrice = (ferry: any): number => {
+    // First try available_vehicles from FerryHopper
+    const availableVehicles = ferry?.availableVehicles || ferry?.available_vehicles || [];
+    if (availableVehicles.length > 0) {
+      // Get user's selected vehicle type
+      const userVehicleType = vehicles[0]?.type?.toUpperCase() || 'CAR';
+
+      // Map our vehicle types to FerryHopper types
+      const typeMap: Record<string, string[]> = {
+        'CAR': ['CAR'],
+        'SUV': ['CAR', 'SUV'],  // SUVs often use CAR category
+        'VAN': ['VAN', 'CAR'],
+        'MOTORCYCLE': ['MOTORBIKE', 'MOTORCYCLE'],
+        'CAMPER': ['CAMPERVAN', 'CAMPER', 'MOTORHOME'],
+        'CARAVAN': ['CARAVAN'],
+        'TRUCK': ['TRUCK'],
+        'BICYCLE': ['BICYCLE', 'BIKE'],
+      };
+
+      const matchTypes = typeMap[userVehicleType] || [userVehicleType, 'CAR'];
+
+      // Find matching vehicle type
+      for (const matchType of matchTypes) {
+        const vehicle = availableVehicles.find((v: any) =>
+          v.type?.toUpperCase() === matchType ||
+          v.code?.toUpperCase().includes(matchType)
+        );
+        if (vehicle?.price) return vehicle.price;
+      }
+
+      // Return first vehicle price if no match
+      if (availableVehicles[0]?.price) return availableVehicles[0].price;
+    }
+    // Fall back to prices.vehicle
+    return ferry?.prices?.vehicle || 0;
+  };
+
+  const vehiclePrice = getVehiclePrice(selectedFerry);
 
   // Return ferry prices (if round trip)
   const returnAdultPrice = selectedReturnFerry?.prices?.adult || 0;
   const returnChildPrice = selectedReturnFerry?.prices?.child || 0;
   const returnInfantPrice = selectedReturnFerry?.prices?.infant || 0;
-  const returnVehiclePrice = selectedReturnFerry?.prices?.vehicle || 0;
+  const returnVehiclePrice = getVehiclePrice(selectedReturnFerry);
 
   // Count passengers by type
   const adultsCount = passengers.filter(p => p.type === 'adult').length;
   const childrenCount = passengers.filter(p => p.type === 'child').length;
   const infantsCount = passengers.filter(p => p.type === 'infant').length;
+
+  // Count passengers traveling with pets
+  const petsCount = passengers.filter(p => p.hasPet).length;
 
   // Calculate passenger total (including return journey if round trip)
   const passengersTotal = passengers.reduce((sum, p) => {
@@ -948,9 +993,20 @@ const BookingPage: React.FC = () => {
                     {totalVehicles > 0 && (
                       <div className="flex justify-between text-sm pl-3">
                         <span className="text-gray-600">
-                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''}
+                          {vehiclePrice > 0 ? ` × €${vehiclePrice.toFixed(2)}` : ''}
                         </span>
-                        <span>€{outboundVehiclesTotal.toFixed(2)}</span>
+                        <span className={vehiclePrice === 0 ? 'text-amber-600 text-xs italic' : ''}>
+                          {vehiclePrice > 0 ? `€${outboundVehiclesTotal.toFixed(2)}` : 'Price at checkout'}
+                        </span>
+                      </div>
+                    )}
+                    {petsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {petsCount} Pet{petsCount > 1 ? 's' : ''}
+                        </span>
+                        <span className="text-amber-600 text-xs italic">Price at checkout</span>
                       </div>
                     )}
 
@@ -983,9 +1039,20 @@ const BookingPage: React.FC = () => {
                     {totalVehicles > 0 && (
                       <div className="flex justify-between text-sm pl-3">
                         <span className="text-gray-600">
-                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{returnVehiclePrice.toFixed(2)}
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''}
+                          {returnVehiclePrice > 0 ? ` × €${returnVehiclePrice.toFixed(2)}` : ''}
                         </span>
-                        <span>€{returnVehiclesTotal.toFixed(2)}</span>
+                        <span className={returnVehiclePrice === 0 ? 'text-amber-600 text-xs italic' : ''}>
+                          {returnVehiclePrice > 0 ? `€${returnVehiclesTotal.toFixed(2)}` : 'Price at checkout'}
+                        </span>
+                      </div>
+                    )}
+                    {petsCount > 0 && (
+                      <div className="flex justify-between text-sm pl-3">
+                        <span className="text-gray-600">
+                          {petsCount} Pet{petsCount > 1 ? 's' : ''}
+                        </span>
+                        <span className="text-amber-600 text-xs italic">Price at checkout</span>
                       </div>
                     )}
                   </>
@@ -1019,9 +1086,20 @@ const BookingPage: React.FC = () => {
                     {totalVehicles > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">
-                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''} × €{vehiclePrice.toFixed(2)}
+                          {totalVehicles} Vehicle{totalVehicles > 1 ? 's' : ''}
+                          {vehiclePrice > 0 ? ` × €${vehiclePrice.toFixed(2)}` : ''}
                         </span>
-                        <span>€{vehiclesTotal.toFixed(2)}</span>
+                        <span className={vehiclePrice === 0 ? 'text-amber-600 text-xs italic' : ''}>
+                          {vehiclePrice > 0 ? `€${vehiclesTotal.toFixed(2)}` : 'Price at checkout'}
+                        </span>
+                      </div>
+                    )}
+                    {petsCount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {petsCount} Pet{petsCount > 1 ? 's' : ''}
+                        </span>
+                        <span className="text-amber-600 text-xs italic">Price at checkout</span>
                       </div>
                     )}
                   </>

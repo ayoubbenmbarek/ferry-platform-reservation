@@ -49,6 +49,18 @@ const AvailabilityAlertModal: React.FC<AlertModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [selectedCabinType, setSelectedCabinType] = useState<string>('any');
+
+  // Available cabin types for alerts
+  const cabinTypeOptions = [
+    { value: 'any', label: 'Any cabin type', icon: '🛏️' },
+    { value: 'shared', label: 'Bed in shared cabin', icon: '🛌', note: 'Share with same-sex passengers' },
+    { value: 'interior', label: 'Inside cabin (private)', icon: '🛏️' },
+    { value: 'exterior', label: 'Outside cabin (private)', icon: '🪟' },
+    { value: 'pet', label: 'Pet-friendly cabin', icon: '🐾', note: 'Required if traveling with a pet' },
+    { value: 'balcony', label: 'Balcony cabin', icon: '🌊' },
+    { value: 'suite', label: 'Suite', icon: '👑' },
+  ];
 
   // Auto-fill email if user is logged in
   useEffect(() => {
@@ -62,6 +74,7 @@ const AvailabilityAlertModal: React.FC<AlertModalProps> = ({
     if (!isOpen) {
       setError(null);
       setSuccess(false);
+      setSelectedCabinType('any');
       if (!isAuthenticated) {
         setEmail('');
       }
@@ -112,7 +125,8 @@ const AvailabilityAlertModal: React.FC<AlertModalProps> = ({
         alertData.vehicle_type = searchParams.vehicles[0].type || 'car';
         alertData.vehicle_length_cm = searchParams.vehicles[0].length || 450;
       } else if (alertType === 'cabin') {
-        alertData.cabin_type = 'inside';
+        // Use selected cabin type, or null for "any"
+        alertData.cabin_type = selectedCabinType === 'any' ? null : selectedCabinType;
         alertData.num_cabins = 1;
       }
 
@@ -248,6 +262,51 @@ const AvailabilityAlertModal: React.FC<AlertModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* Cabin Type Selector - only for cabin alerts */}
+          {alertType === 'cabin' && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Preferred Cabin Type
+              </label>
+              <div className="space-y-2">
+                {cabinTypeOptions.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${
+                      selectedCabinType === option.value
+                        ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="cabinType"
+                      value={option.value}
+                      checked={selectedCabinType === option.value}
+                      onChange={(e) => setSelectedCabinType(e.target.value)}
+                      className="sr-only"
+                      disabled={loading || success}
+                    />
+                    <span className="text-lg mr-2">{option.icon}</span>
+                    <div className="flex-1">
+                      <span className={`font-medium ${selectedCabinType === option.value ? 'text-blue-700' : 'text-gray-900'}`}>
+                        {option.label}
+                      </span>
+                      {option.note && (
+                        <p className="text-xs text-gray-500 mt-0.5">{option.note}</p>
+                      )}
+                    </div>
+                    {selectedCabinType === option.value && (
+                      <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Email Input */}
           <div>

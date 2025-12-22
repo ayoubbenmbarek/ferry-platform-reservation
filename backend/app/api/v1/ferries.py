@@ -4,12 +4,136 @@ Ferry API endpoints for searching ferries, routes, and schedules.
 
 import time
 import logging
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, date
 
+from pydantic import BaseModel
+from fastapi import HTTPException
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Import port mapping to validate ports resolve to different locations
+try:
+    from app.services.ferry_integrations.ferryhopper_mappings import (
+        VOILAFERRY_TO_FERRYHOPPER_PORT_MAP,
+        FALLBACK_PORT_MAP,
+        VIRTUAL_ALL_PORTS_CODES,
+        VIRTUAL_PORT_TO_COUNTRY,
+        VIRTUAL_PORT_TO_DEFAULT,
+    )
+except ImportError:
+    VOILAFERRY_TO_FERRYHOPPER_PORT_MAP = {}
+    FALLBACK_PORT_MAP = {}
+    VIRTUAL_ALL_PORTS_CODES = set()
+    VIRTUAL_PORT_TO_COUNTRY = {}
+    VIRTUAL_PORT_TO_DEFAULT = {}
+
+
+def get_ferryhopper_port_code(port_code: str) -> str:
+    """Map a VoilaFerry port code to FerryHopper port code."""
+    normalized = port_code.upper().strip()
+    # Check virtual "all ports" codes first - map to default port for that country
+    if normalized in VIRTUAL_PORT_TO_DEFAULT:
+        return VIRTUAL_PORT_TO_DEFAULT[normalized]
+    # Check direct mapping
+    if normalized in VOILAFERRY_TO_FERRYHOPPER_PORT_MAP:
+        return VOILAFERRY_TO_FERRYHOPPER_PORT_MAP[normalized]
+    # Check fallback mapping
+    if normalized in FALLBACK_PORT_MAP:
+        return FALLBACK_PORT_MAP[normalized]
+    return normalized
+
+
+def get_port_country(port_code: str) -> str:
+    """Get the country code for a port based on official FerryHopper codes."""
+    port_upper = port_code.upper().strip()
+
+    # Check virtual all-ports codes first
+    if port_upper in VIRTUAL_PORT_TO_COUNTRY:
+        return VIRTUAL_PORT_TO_COUNTRY[port_upper]
+
+    # Tunisia ports (official FerryHopper codes)
+    if port_upper in {"TUN", "TNZRZ"} or port_upper.startswith("TN"):
+        return "TN"
+    # Italy ports (official FerryHopper codes)
+    if port_upper in {"GOA", "CIV", "PLE", "TPS", "SAL", "NAP", "LIV", "AEL00", "ANC", "BAR", "MLZ", "MSN"}:
+        return "IT"
+    # France ports (official FerryHopper codes)
+    if port_upper in {"MRS", "NCE", "TLN", "AJA", "BIA", "COR00"}:
+        return "FR"
+    # Morocco ports (official FerryHopper codes)
+    if port_upper in {"TNG"}:
+        return "MA"
+    # Spain ports (official FerryHopper codes)
+    if port_upper in {"BRC", "ALG"}:
+        return "ES"
+    # Algeria ports (official FerryHopper codes)
+    if port_upper in {"DZALG"} or port_upper.startswith("DZ"):
+        return "DZ"
+
+    return port_upper
+
+
+def validate_different_ports(departure_port: str, arrival_port: str) -> None:
+    """
+    Validate that departure and arrival ports resolve to different FerryHopper locations.
+    Raises HTTPException if they resolve to the same port.
+    """
+    dep = departure_port.upper().strip()
+    arr = arrival_port.upper().strip()
+
+    logger.info(f"🔍 Validating ports: departure={dep}, arrival={arr}")
+
+    # Check for exact same port code
+    if dep == arr:
+        logger.warning(f"⚠️ Same port code: {dep} == {arr}")
+        raise HTTPException(
+            status_code=400,
+            detail="Departure and arrival ports cannot be the same. Please select a different destination."
+        )
+
+    # Check if either port is a virtual "all ports" code (e.g., TN00, IT00)
+    dep_is_virtual = dep in VIRTUAL_ALL_PORTS_CODES
+    arr_is_virtual = arr in VIRTUAL_ALL_PORTS_CODES
+
+    # Get countries for both ports
+    dep_country = get_port_country(dep)
+    arr_country = get_port_country(arr)
+
+    logger.info(f"🔍 Port countries: {dep} ({dep_country}), {arr} ({arr_country})")
+
+    # If either is a virtual code, check if they're in the same country
+    if dep_is_virtual or arr_is_virtual:
+        if dep_country == arr_country:
+            logger.warning(f"⚠️ Virtual code with same country: {dep} ({dep_country}) -> {arr} ({arr_country})")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot search from '{departure_port}' to '{arrival_port}' - both are in the same country. Please select a destination in a different country."
+            )
+        # Virtual codes are valid for cross-country searches - they get mapped to default ports
+        logger.info(f"✅ Virtual port code allowed for cross-country search: {dep} ({dep_country}) -> {arr} ({arr_country})")
+
+    # Check if both map to the same FerryHopper port code
+    fh_departure = get_ferryhopper_port_code(departure_port)
+    fh_arrival = get_ferryhopper_port_code(arrival_port)
+
+    logger.info(f"🔍 FerryHopper mapping: {dep} -> {fh_departure}, {arr} -> {fh_arrival}")
+
+    if fh_departure == fh_arrival:
+        logger.warning(f"⚠️ Ports map to same FerryHopper code: {fh_departure}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Departure port ({departure_port}) and arrival port ({arrival_port}) resolve to the same location. Please select a different destination."
+        )
+
+    # Check if both ports are in the same country (additional safety check)
+    if dep_country == arr_country and len(dep_country) == 2:
+        logger.warning(f"⚠️ Same country: {dep_country}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Departure and arrival ports are both in the same country ({dep_country}). Please select a destination in a different country."
+        )
 
 try:
     from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -207,6 +331,9 @@ async def search_ferries(
 
     Results are cached for 5 minutes to improve performance.
     """
+    # Validate departure and arrival resolve to different FerryHopper locations
+    validate_different_ports(search_params.departure_port, search_params.arrival_port)
+
     try:
         start_time = time.time()
 
@@ -224,6 +351,7 @@ async def search_ferries(
             "children": search_params.children,
             "infants": search_params.infants,
             "vehicles": len(search_params.vehicles) if search_params.vehicles else 0,
+            "pets": len(search_params.pets) if search_params.pets else 0,
             "operators": sorted(search_params.operators) if search_params.operators else None
         }
 
@@ -285,6 +413,7 @@ async def search_ferries(
             children=search_params.children,
             infants=search_params.infants,
             vehicles=[v.dict() for v in search_params.vehicles] if search_params.vehicles else None,
+            pets=[p.dict() for p in search_params.pets] if search_params.pets else None,
             operators=search_params.operators
         )
 
@@ -703,6 +832,60 @@ async def sync_ports():
         )
 
 
+@router.post("/cache/clear")
+async def clear_cache(
+    cache_type: str = Query("all", description="Type of cache to clear: 'all', 'searches', 'ferryhopper', 'date_prices'")
+):
+    """
+    Clear cached data to refresh with new port mappings or search results.
+
+    Cache types:
+    - all: Clear all ferry-related caches
+    - searches: Clear only ferry search results cache
+    - ferryhopper: Clear FerryHopper API response cache
+    - date_prices: Clear date price calendar cache
+    """
+    try:
+        from app.services.cache_service import cache_service
+
+        results = {}
+
+        if cache_type in ("all", "searches"):
+            deleted = cache_service.clear_all_ferry_searches()
+            results["ferry_searches"] = deleted
+            logger.info(f"🗑️ Cleared {deleted} ferry search cache entries")
+
+        if cache_type in ("all", "ferryhopper"):
+            deleted = cache_service.clear_ferryhopper_cache()
+            results["ferryhopper"] = deleted
+            logger.info(f"🗑️ Cleared {deleted} FerryHopper cache entries")
+
+        if cache_type in ("all", "date_prices"):
+            # Clear date prices cache
+            keys = list(cache_service.redis_client.scan_iter(match="date_prices:*")) if cache_service.is_available() else []
+            deleted = cache_service.redis_client.delete(*keys) if keys else 0
+            results["date_prices"] = deleted
+            logger.info(f"🗑️ Cleared {deleted} date prices cache entries")
+
+        total_cleared = sum(results.values())
+        logger.info(f"✅ Cache clear complete: {total_cleared} total entries cleared")
+
+        return {
+            "status": "success",
+            "cache_type": cache_type,
+            "cleared": results,
+            "total_cleared": total_cleared,
+            "message": f"Successfully cleared {total_cleared} cache entries"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to clear cache: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear cache: {str(e)}"
+        )
+
+
 @router.get("/vehicles")
 async def get_vehicles(
     language: str = Query("en", description="Language for descriptions")
@@ -763,6 +946,67 @@ async def get_accommodations():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get accommodations: {str(e)}"
+        )
+
+
+class EstimatePriceRequest(BaseModel):
+    """Request for price estimation with vehicle/extras."""
+    sailing_id: str
+    passengers: List[dict]
+    vehicle: Optional[dict] = None
+    trip_selections: Optional[List[dict]] = None
+
+
+@router.post("/estimate-prices")
+async def estimate_prices(request: EstimatePriceRequest):
+    """
+    Get price estimate for a ferry trip with vehicle/extras.
+
+    This endpoint calls FerryHopper's estimate-prices API to get
+    accurate pricing when adding vehicles, pets, or other extras.
+
+    Returns:
+        Price breakdown including vehicle cost
+    """
+    try:
+        from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+        from app.config import settings
+
+        integration = FerryHopperIntegration(
+            api_key=settings.FERRYHOPPER_API_KEY,
+            base_url=settings.FERRYHOPPER_BASE_URL
+        )
+
+        # Build trip selections if not provided
+        trip_selections = request.trip_selections
+        if not trip_selections:
+            # Default trip selection structure
+            trip_selections = [{
+                "type": "DIRECT",
+                "segments": [{
+                    "segmentIndex": 0,
+                    "passengerAccommodations": [
+                        {"passengerIndex": i, "accommodationCode": "DECK"}
+                        for i in range(len(request.passengers))
+                    ]
+                }]
+            }]
+
+        async with integration:
+            result = await integration.estimate_prices(
+                passengers=request.passengers,
+                trip_selections=trip_selections,
+                vehicle=request.vehicle
+            )
+
+        logger.info(f"💰 Price estimate for sailing {request.sailing_id}: {result}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to estimate prices: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to estimate prices: {str(e)}"
         )
 
 
@@ -1029,10 +1273,13 @@ async def compare_prices(
 ):
     """
     Compare prices across all ferry operators for a specific route.
-    
+
     This endpoint searches all operators for the given route and date,
     then returns a comparison of prices and options.
     """
+    # Validate departure and arrival resolve to different FerryHopper locations
+    validate_different_ports(departure_port, arrival_port)
+
     try:
         operator_results = await ferry_service.compare_prices(
             departure_port=departure_port,
@@ -1117,14 +1364,30 @@ async def get_date_prices(
     - Number of ferry options
     - Availability status
     """
+    # Validate departure and arrival resolve to different FerryHopper locations
+    validate_different_ports(departure_port, arrival_port)
+
     try:
         from datetime import timedelta
         from app.services.cache_service import cache_service
 
+        # For date-prices, resolve virtual ports to a single default port for speed
+        # Virtual ports like TN00 (all Tunisia) would cause multiple API calls per date
+        effective_departure = departure_port.upper()
+        effective_arrival = arrival_port.upper()
+
+        if effective_departure in VIRTUAL_PORT_TO_DEFAULT:
+            effective_departure = VIRTUAL_PORT_TO_DEFAULT[effective_departure]
+            logger.info(f"📅 Date prices: resolved virtual port {departure_port} -> {effective_departure}")
+
+        if effective_arrival in VIRTUAL_PORT_TO_DEFAULT:
+            effective_arrival = VIRTUAL_PORT_TO_DEFAULT[effective_arrival]
+            logger.info(f"📅 Date prices: resolved virtual port {arrival_port} -> {effective_arrival}")
+
         # Check cache first (short TTL to balance performance vs freshness)
         cache_params = {
-            "departure_port": departure_port,
-            "arrival_port": arrival_port,
+            "departure_port": effective_departure,
+            "arrival_port": effective_arrival,
             "center_date": center_date.isoformat(),
             "days_before": days_before,
             "days_after": days_after,
@@ -1181,8 +1444,8 @@ async def get_date_prices(
 
                 # Try to get cached ferry search results first (5-min cache)
                 ferry_search_cache_params = {
-                    "departure_port": departure_port,
-                    "arrival_port": arrival_port,
+                    "departure_port": effective_departure,
+                    "arrival_port": effective_arrival,
                     "departure_date": search_date.isoformat(),
                     "return_date": effective_return_date.isoformat() if effective_return_date else None,
                     "return_departure_port": None,
@@ -1201,8 +1464,8 @@ async def get_date_prices(
                     logger.debug(f"  ✅ Calendar cache HIT for {search_date.isoformat()}")
                 else:
                     results = await ferry_service.search_ferries(
-                        departure_port=departure_port,
-                        arrival_port=arrival_port,
+                        departure_port=effective_departure,
+                        arrival_port=effective_arrival,
                         departure_date=search_date,
                         return_date=effective_return_date,  # Use effective_return_date to avoid date validation error
                         adults=adults,
@@ -1215,8 +1478,8 @@ async def get_date_prices(
                     if results:
                         results_dict = [r.to_dict() for r in results]
                         search_params_for_response = {
-                            "departure_port": departure_port,
-                            "arrival_port": arrival_port,
+                            "departure_port": effective_departure,
+                            "arrival_port": effective_arrival,
                             "departure_date": search_date.isoformat(),
                             "return_date": effective_return_date.isoformat() if effective_return_date else None,
                             "return_departure_port": None,

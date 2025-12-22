@@ -11,17 +11,24 @@ import ferryReducer, {
   updateFerryAvailability,
 } from '../../store/slices/ferrySlice';
 
-// Helper to create a mock ferry result with snake_case (as returned by API)
-const createMockFerry = (overrides = {}) => ({
+// Helper to create a mock ferry result (API returns snake_case but reducer handles both)
+const createMockFerry = (overrides = {}): any => ({
+  // Include both snake_case (API) and camelCase (frontend) for compatibility
   sailing_id: 'CTN-001',
   sailingId: 'CTN-001',
   operator: 'CTN',
+  vesselName: 'Carthage',
   vessel_name: 'Carthage',
+  departurePort: 'TUNIS',
   departure_port: 'TUNIS',
+  arrivalPort: 'CIVITAVECCHIA',
   arrival_port: 'CIVITAVECCHIA',
+  departureTime: '2025-12-16T19:00:00',
   departure_time: '2025-12-16T19:00:00',
+  arrivalTime: '2025-12-17T07:00:00',
   arrival_time: '2025-12-17T07:00:00',
   duration: '12h',
+  prices: { adult: 150, child: 75 },
   base_price: 150,
   available_spaces: {
     passengers: 100,
@@ -35,19 +42,25 @@ const createMockFerry = (overrides = {}) => ({
     { type: 'deck', name: 'Deck Passage', available: 50, price: 0 },
     { type: 'seat', name: 'Seat', available: 30, price: 15 },
   ],
+  cabinTypes: [
+    { type: 'inside_twin', name: 'Inside Twin', available: 10, price: 80 },
+    { type: 'outside_twin', name: 'Outside Twin', available: 5, price: 120 },
+    { type: 'suite', name: 'Suite', available: 3, price: 200 },
+    { type: 'deck', name: 'Deck Passage', available: 50, price: 0 },
+    { type: 'seat', name: 'Seat', available: 30, price: 15 },
+  ],
   ...overrides,
 });
 
 // Helper to create initial state with search results
-const createStateWithResults = (ferries = [createMockFerry()]) => ({
+const createStateWithResults = (ferries = [createMockFerry()]): any => ({
   searchParams: {
-    from: '',
-    to: '',
+    departurePort: '',
+    arrivalPort: '',
     departureDate: '',
-    returnDate: null,
+    returnDate: undefined,
     passengers: { adults: 1, children: 0, infants: 0 },
-    vehicles: 0,
-    vehicleType: 'car',
+    vehicles: [],
   },
   searchResults: ferries,
   isSearching: false,
@@ -63,17 +76,23 @@ const createStateWithResults = (ferries = [createMockFerry()]) => ({
   totalReturnCabinPrice: 0,
   isRoundTrip: false,
   currentStep: 1,
-  booking: null,
-  isBooking: false,
+  currentBooking: null,
+  isCreatingBooking: false,
   bookingError: null,
   selectedMeals: [],
   promoCode: null,
-  vehicles: 0,
-  vehicleDetails: [],
+  promoDiscount: null,
+  promoValidationMessage: null,
+  contactInfo: null,
+  passengers: [],
+  vehicles: [],
+  pets: [],
   ports: [],
   routes: {},
   isLoadingPorts: false,
   hasCancellationProtection: false,
+  isLoading: false,
+  error: null,
 });
 
 describe('ferrySlice - updateFerryAvailability', () => {
@@ -213,7 +232,6 @@ describe('ferrySlice - updateFerryAvailability', () => {
           passengers_booked: 2,
           vehicles_booked: 1,
           cabin_quantity: 1,
-          booking_reference: 'ABC123',
         },
       });
 
@@ -335,7 +353,6 @@ describe('ferrySlice - updateFerryAvailability', () => {
           passengers_freed: 4,
           vehicles_freed: 1,
           cabins_freed: 2,
-          booking_reference: 'XYZ789',
         },
       });
 

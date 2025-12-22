@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { SearchParams, FerryResult, VehicleInfo, PassengerInfo, Port, PORTS } from '../../types/ferry';
+import { SearchParams, FerryResult, VehicleInfo, PassengerInfo, PetInfo, Port, PORTS } from '../../types/ferry';
 import api, { ferryAPI } from '../../services/api';
 
 // ContactInfo type (using snake_case for backend compatibility)
@@ -61,9 +61,10 @@ interface FerryState {
   selectedMeals: any[];
   contactInfo: ContactInfo | null;
 
-  // Passenger and vehicle management
+  // Passenger, vehicle, and pet management
   passengers: PassengerInfo[];
   vehicles: VehicleInfo[];
+  pets: PetInfo[];
 
   // Booking state
   currentBooking: any | null;
@@ -118,6 +119,7 @@ const initialState: FerryState = {
   contactInfo: null,
   passengers: [],
   vehicles: [],
+  pets: [],
   currentBooking: null,
   isCreatingBooking: false,
   bookingError: null,
@@ -197,7 +199,20 @@ export const searchFerries = createAsyncThunk(
         returnDeparturePort: searchParams.returnDeparturePort,
         returnArrivalPort: searchParams.returnArrivalPort,
         passengers: searchParams.passengers.adults + searchParams.passengers.children + searchParams.passengers.infants,
-        vehicles: searchParams.vehicles?.length || 0,
+        // Pass actual vehicles array for FerryHopper pricing (not just count)
+        // Note: Frontend stores dimensions in cm, backend expects meters
+        vehicles: searchParams.vehicles?.map(v => ({
+          type: v.type?.toLowerCase() || 'car',
+          length: (v.length || 450) / 100,  // Convert cm to meters
+          width: (v.width || 180) / 100,    // Convert cm to meters
+          height: (v.height || 150) / 100,  // Convert cm to meters
+        })),
+        // Pass pets array for pricing (triggers /search-quote for vehicle+pet prices)
+        pets: searchParams.pets?.map(p => ({
+          id: p.id,
+          type: p.type,
+          weight_kg: 5,  // Default weight, will be updated in booking
+        })),
         operator: searchParams.operators?.[0],
       });
 
@@ -205,6 +220,16 @@ export const searchFerries = createAsyncThunk(
       return snakeToCamel(response);
     } catch (error: any) {
       // Handle validation errors with user-friendly messages
+      const errorDetail = error.response?.data?.detail || error.message || '';
+
+      // Handle FerryHopper same port error
+      if (errorDetail.includes('Departure port cannot be the same with arrival port') ||
+          errorDetail.includes('resolve to the same location') ||
+          errorDetail.includes('same port') ||
+          errorDetail.includes('same destination')) {
+        return rejectWithValue('Departure and arrival ports cannot be the same. Please select a different destination.');
+      }
+
       if (error.response?.data?.details) {
         const details = error.response.data.details;
         if (Array.isArray(details) && details.length > 0) {
@@ -220,7 +245,7 @@ export const searchFerries = createAsyncThunk(
         }
       }
 
-      return rejectWithValue(error.response?.data?.detail || error.message || 'Failed to search ferries');
+      return rejectWithValue(errorDetail || 'Failed to search ferries');
     }
   }
 );
@@ -350,6 +375,10 @@ const ferrySlice = createSlice({
       // Sync vehicles from searchParams to main state
       if (action.payload.vehicles !== undefined) {
         state.vehicles = action.payload.vehicles;
+      }
+      // Sync pets from searchParams to main state
+      if (action.payload.pets !== undefined) {
+        state.pets = action.payload.pets;
       }
       // Clear old search results when params change
       state.searchResults = [];
@@ -502,6 +531,40 @@ const ferrySlice = createSlice({
       }
     },
 
+    // Pet management
+    addPet: (state, action: PayloadAction<PetInfo>) => {
+      state.pets.push(action.payload);
+      if (state.searchParams.pets) {
+        state.searchParams.pets.push(action.payload);
+      } else {
+        state.searchParams.pets = [action.payload];
+      }
+    },
+
+    updatePet: (state, action: PayloadAction<{ id: string; data: Partial<PetInfo> }>) => {
+      const index = state.pets.findIndex(p => p.id === action.payload.id);
+      if (index !== -1) {
+        state.pets[index] = { ...state.pets[index], ...action.payload.data };
+        if (state.searchParams.pets) {
+          state.searchParams.pets[index] = state.pets[index];
+        }
+      }
+    },
+
+    removePet: (state, action: PayloadAction<string>) => {
+      state.pets = state.pets.filter(p => p.id !== action.payload);
+      if (state.searchParams.pets) {
+        state.searchParams.pets = state.searchParams.pets.filter(p => p.id !== action.payload);
+      }
+    },
+
+    clearPets: (state) => {
+      state.pets = [];
+      if (state.searchParams.pets) {
+        state.searchParams.pets = [];
+      }
+    },
+
     // Reset actions
     resetBooking: (state) => {
       state.currentStep = 1;
@@ -515,6 +578,7 @@ const ferrySlice = createSlice({
       state.totalReturnCabinPrice = 0;
       state.passengers = [];
       state.vehicles = [];
+      state.pets = [];
       state.searchResults = [];
       state.searchError = null;
       state.promoCode = null;
@@ -556,6 +620,7 @@ const ferrySlice = createSlice({
       state.contactInfo = null;
       state.passengers = [];
       state.vehicles = [];
+      state.pets = [];
       state.searchResults = [];
       state.searchError = null;
       state.currentBooking = null;
@@ -750,6 +815,10 @@ export const {
   updateVehicle,
   removeVehicle,
   clearVehicles,
+  addPet,
+  updatePet,
+  removePet,
+  clearPets,
   resetBooking,
   startNewSearch,
   clearCurrentBooking,

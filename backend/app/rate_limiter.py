@@ -30,9 +30,10 @@ def get_client_identifier(request: Request) -> str:
 
 
 # Create limiter instance
+# Higher limits for development/staging - can be reduced in production
 limiter = Limiter(
     key_func=get_client_identifier,
-    default_limits=["200/minute", "1000/hour"],
+    default_limits=["500/minute", "5000/hour"],
     storage_uri=os.getenv("REDIS_URL", "memory://"),
     strategy="fixed-window",
     headers_enabled=True,
@@ -66,6 +67,9 @@ class RateLimits:
 
     # Health check (high limits)
     HEALTH = "100/minute"
+
+    # Static data endpoints (ports, routes) - high limits, data rarely changes
+    STATIC_DATA = "200/minute"
 
     # Default
     DEFAULT = "60/minute"

@@ -37,7 +37,8 @@ class SearchRequest:
         adults: int = 1,
         children: int = 0,
         infants: int = 0,
-        vehicles: Optional[List[Dict]] = None
+        vehicles: Optional[List[Dict]] = None,
+        pets: Optional[List[Dict]] = None
     ):
         self.departure_port = departure_port
         self.arrival_port = arrival_port
@@ -50,11 +51,12 @@ class SearchRequest:
         self.children = children
         self.infants = infants
         self.vehicles = vehicles or []
+        self.pets = pets or []
 
 
 class FerryResult:
     """Ferry search result model."""
-    
+
     def __init__(
         self,
         sailing_id: str,
@@ -66,7 +68,10 @@ class FerryResult:
         vessel_name: str,
         prices: Dict[str, float],
         cabin_types: Optional[List[Dict]] = None,
-        available_spaces: Optional[Dict[str, int]] = None
+        available_spaces: Optional[Dict[str, int]] = None,
+        available_vehicles: Optional[List[Dict]] = None,
+        route_info: Optional[Dict] = None,
+        journey_type: str = "outbound"  # "outbound" or "return" for round trips
     ):
         self.sailing_id = sailing_id
         self.operator = operator
@@ -78,10 +83,13 @@ class FerryResult:
         self.prices = prices
         self.cabin_types = cabin_types or []
         self.available_spaces = available_spaces or {}
+        self.available_vehicles = available_vehicles or []
+        self.route_info = route_info or {}
+        self.journey_type = journey_type  # "outbound" or "return"
 
     def to_dict(self) -> Dict:
         """Convert FerryResult to dictionary for Pydantic validation."""
-        return {
+        result = {
             "sailing_id": self.sailing_id,
             "operator": self.operator,
             "departure_port": self.departure_port,
@@ -91,8 +99,14 @@ class FerryResult:
             "vessel_name": self.vessel_name,
             "prices": self.prices,
             "cabin_types": self.cabin_types,
-            "available_spaces": self.available_spaces
+            "available_spaces": self.available_spaces,
+            "available_vehicles": self.available_vehicles,
+            "journey_type": self.journey_type,  # "outbound" or "return"
         }
+        # Include route_info if it has data
+        if self.route_info:
+            result["route_info"] = self.route_info
+        return result
 
 
 class BookingRequest:

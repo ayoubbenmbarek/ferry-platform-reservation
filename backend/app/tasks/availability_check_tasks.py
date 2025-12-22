@@ -210,7 +210,9 @@ def check_availability_alerts_task(self):
                         logger.debug(f"   Cabin types available: {cabin_types}")
 
                         # Filter out deck/seat types - they are NOT real cabins
-                        real_cabins = [c for c in cabin_types if c.get("type") not in ("deck", "seat", "reclining_seat")] if cabin_types else []
+                        # Include shared/berth/dorm types as these are valid cabin options
+                        base_fare_types = ("deck", "seat", "reclining_seat", "deck_seat", "standard_seat")
+                        real_cabins = [c for c in cabin_types if c.get("type") not in base_fare_types] if cabin_types else []
 
                         # If alert has specific cabin type preference, check that type
                         if alert.cabin_type:
@@ -221,7 +223,14 @@ def check_availability_alerts_task(self):
                                 "outside": "exterior",
                                 "exterior": "exterior",
                                 "balcony": "balcony",
-                                "suite": "suite"
+                                "suite": "suite",
+                                # Shared cabin types (bed in shared cabin)
+                                "shared": "shared",
+                                "berth": "shared",
+                                "dorm": "shared",
+                                "couchette": "shared",
+                                # Pet-friendly cabins
+                                "pet": "pet",
                             }
                             ferry_cabin_type = cabin_type_map.get(alert.cabin_type.lower(), alert.cabin_type.lower())
                             available_cabins = [c for c in real_cabins if c.get("type") == ferry_cabin_type and c.get("available", 0) >= (alert.num_cabins or 1)]

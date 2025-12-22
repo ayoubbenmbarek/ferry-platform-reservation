@@ -22,8 +22,123 @@ from app.services.ferry_integrations.corsica import CorsicaIntegration
 from app.services.ferry_integrations.danel import DanelIntegration
 from app.services.ferry_integrations.mock import MockFerryIntegration
 from app.services.ferry_integrations.ferryhopper import FerryHopperIntegration
+from app.services.ferry_integrations.ferryhopper_mappings import (
+    VOILAFERRY_TO_FERRYHOPPER_PORT_MAP,
+    FALLBACK_PORT_MAP,
+    VIRTUAL_ALL_PORTS_CODES,
+    VIRTUAL_PORT_TO_COUNTRY,
+    VIRTUAL_PORT_TO_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def get_port_country(port_code: str) -> str:
+    """
+    Get the country code for a port based on official FerryHopper codes.
+    Returns 2-letter country code or the port code itself if unknown.
+    """
+    port_upper = port_code.upper().strip()
+
+    # Check virtual all-ports codes first
+    if port_upper in VIRTUAL_PORT_TO_COUNTRY:
+        return VIRTUAL_PORT_TO_COUNTRY[port_upper]
+
+    # Tunisia ports (official FerryHopper codes)
+    if port_upper in {"TUN", "TNZRZ"} or port_upper.startswith("TN"):
+        return "TN"
+    # Italy ports (official FerryHopper codes)
+    if port_upper in {"GOA", "CIV", "PLE", "TPS", "SAL", "NAP", "LIV", "AEL00", "ANC", "BAR", "MLZ", "MSN"}:
+        return "IT"
+    # France ports (official FerryHopper codes)
+    if port_upper in {"MRS", "NCE", "TLN", "AJA", "BIA", "COR00"}:
+        return "FR"
+    # Morocco ports (official FerryHopper codes)
+    if port_upper in {"TNG"}:
+        return "MA"
+    # Spain ports (official FerryHopper codes)
+    if port_upper in {"BRC", "ALG"}:
+        return "ES"
+    # Algeria ports (official FerryHopper codes)
+    if port_upper in {"DZALG"} or port_upper.startswith("DZ"):
+        return "DZ"
+
+    return port_upper
+
+
+def validate_ports_are_different(departure_port: str, arrival_port: str) -> None:
+    """
+    Validate that departure and arrival ports are different.
+    This is a critical check to prevent same-port searches from reaching external APIs.
+
+    Raises:
+        FerryAPIError: If ports resolve to the same location
+    """
+    dep = departure_port.upper().strip()
+    arr = arrival_port.upper().strip()
+
+    logger.info(f"🔍 ferry_service validating ports: departure={dep}, arrival={arr}")
+
+    # Direct equality check
+    if dep == arr:
+        logger.warning(f"⚠️ Same port codes: {dep} == {arr}")
+        raise FerryAPIError(
+            "Departure and arrival ports cannot be the same. Please select a different destination."
+        )
+
+    # Check if either port is a virtual "all ports" code (e.g., TN00, IT00)
+    dep_is_virtual = dep in VIRTUAL_ALL_PORTS_CODES
+    arr_is_virtual = arr in VIRTUAL_ALL_PORTS_CODES
+
+    # Get countries for both ports
+    dep_country = get_port_country(dep)
+    arr_country = get_port_country(arr)
+
+    logger.info(f"🔍 Port countries: {dep} ({dep_country}), {arr} ({arr_country})")
+
+    # If either is a virtual code, check if they're in the same country
+    if dep_is_virtual or arr_is_virtual:
+        if dep_country == arr_country:
+            logger.warning(f"⚠️ Virtual code with same country: {dep} ({dep_country}) -> {arr} ({arr_country})")
+            raise FerryAPIError(
+                f"Cannot search from '{departure_port}' to '{arrival_port}' - "
+                "both are in the same country. Please select a destination in a different country."
+            )
+        # Virtual codes for different countries are OK - they'll be mapped to default ports later
+
+    # Map to FerryHopper codes and check
+    def get_fh_code(port_code: str) -> str:
+        normalized = port_code.upper().strip()
+        # First check if it's a virtual "all ports" code and map to default port
+        if normalized in VIRTUAL_PORT_TO_DEFAULT:
+            return VIRTUAL_PORT_TO_DEFAULT[normalized]
+        if normalized in VOILAFERRY_TO_FERRYHOPPER_PORT_MAP:
+            return VOILAFERRY_TO_FERRYHOPPER_PORT_MAP[normalized]
+        if normalized in FALLBACK_PORT_MAP:
+            return FALLBACK_PORT_MAP[normalized]
+        return normalized
+
+    fh_departure = get_fh_code(dep)
+    fh_arrival = get_fh_code(arr)
+
+    logger.info(f"🔍 FerryHopper mapping: {dep} -> {fh_departure}, {arr} -> {fh_arrival}")
+
+    if fh_departure == fh_arrival:
+        logger.warning(f"⚠️ Ports map to same FerryHopper code: {fh_departure}")
+        raise FerryAPIError(
+            f"Departure port ({departure_port}) and arrival port ({arrival_port}) "
+            "resolve to the same location. Please select a different destination."
+        )
+
+    # Check if both ports are in the same country (additional safety check)
+    if dep_country == arr_country and len(dep_country) == 2:
+        logger.warning(f"⚠️ Same country: {dep_country}")
+        raise FerryAPIError(
+            f"Departure and arrival ports are both in the same country ({dep_country}). "
+            "Please select a destination in a different country."
+        )
+
+    logger.info(f"✅ Port validation passed: {dep} -> {arr}")
 
 
 class FerryService:
@@ -127,6 +242,7 @@ class FerryService:
         children: int = 0,
         infants: int = 0,
         vehicles: Optional[List[Dict]] = None,
+        pets: Optional[List[Dict]] = None,
         operators: Optional[List[str]] = None
     ) -> List[FerryResult]:
         """
@@ -143,11 +259,16 @@ class FerryService:
             children: Number of child passengers (2-11 years)
             infants: Number of infant passengers (0-2 years)
             vehicles: List of vehicles to transport
+            pets: List of pets to transport (with weight_kg for pricing)
             operators: Optional list of specific operators to search (e.g., ["ctn", "gnv"])
 
         Returns:
             Combined list of ferry results from all operators
         """
+        # CRITICAL: Validate ports are different BEFORE calling any integration
+        # This prevents same-port errors from reaching external APIs like FerryHopper
+        validate_ports_are_different(departure_port, arrival_port)
+
         search_request = SearchRequest(
             departure_port=departure_port,
             arrival_port=arrival_port,
@@ -158,7 +279,8 @@ class FerryService:
             adults=adults,
             children=children,
             infants=infants,
-            vehicles=vehicles or []
+            vehicles=vehicles or [],
+            pets=pets or []
         )
 
         # Determine which integrations to search
@@ -441,6 +563,9 @@ class FerryService:
         Returns:
             List of price comparisons from each operator
         """
+        # CRITICAL: Validate ports are different
+        validate_ports_are_different(departure_port, arrival_port)
+
         results = await self.search_ferries(
             departure_port=departure_port,
             arrival_port=arrival_port,

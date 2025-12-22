@@ -666,7 +666,9 @@ class CacheService:
         departure_port: str,
         arrival_port: str,
         departure_date: str,
-        passengers: int
+        passengers: int,
+        vehicles: int = 0,
+        pets: int = 0
     ) -> Optional[Dict[str, Any]]:
         """
         Get cached FerryHopper search results.
@@ -679,6 +681,8 @@ class CacheService:
             arrival_port: Arrival port code
             departure_date: Date string (YYYY-MM-DD)
             passengers: Number of passengers
+            vehicles: Number of vehicles (affects pricing)
+            pets: Number of pets (affects pricing)
 
         Returns:
             Cached search results or None
@@ -687,7 +691,7 @@ class CacheService:
             return None
 
         try:
-            cache_key = f"ferryhopper:search:{departure_port}:{arrival_port}:{departure_date}:{passengers}"
+            cache_key = f"ferryhopper:search:{departure_port}:{arrival_port}:{departure_date}:{passengers}:v{vehicles}:p{pets}"
             cached_data = self.redis_client.get(cache_key)
 
             if cached_data:
@@ -707,7 +711,9 @@ class CacheService:
         departure_date: str,
         passengers: int,
         results: Dict[str, Any],
-        ttl: int = 300  # 5 minutes - short due to availability changes
+        ttl: int = 300,  # 5 minutes - short due to availability changes
+        vehicles: int = 0,
+        pets: int = 0
     ) -> bool:
         """
         Cache FerryHopper search results.
@@ -722,6 +728,8 @@ class CacheService:
             passengers: Number of passengers
             results: Search results
             ttl: Time to live (default 5 minutes)
+            vehicles: Number of vehicles (affects pricing)
+            pets: Number of pets (affects pricing)
 
         Returns:
             True if cached successfully
@@ -730,7 +738,7 @@ class CacheService:
             return False
 
         try:
-            cache_key = f"ferryhopper:search:{departure_port}:{arrival_port}:{departure_date}:{passengers}"
+            cache_key = f"ferryhopper:search:{departure_port}:{arrival_port}:{departure_date}:{passengers}:v{vehicles}:p{pets}"
             self.redis_client.setex(
                 cache_key,
                 ttl,

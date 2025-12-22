@@ -39,10 +39,10 @@ def ferryhopper_integration():
 
 @pytest.fixture
 def sample_search_request():
-    """Create a sample search request."""
+    """Create a sample search request for Tunisia Mediterranean routes."""
     return SearchRequest(
-        departure_port="PIRAEUS",
-        arrival_port="SANTORINI",
+        departure_port="TUN",
+        arrival_port="MRS",
         departure_date=date.today() + timedelta(days=30),
         adults=2,
         children=1,
@@ -904,22 +904,22 @@ class TestFerryHopperMappingService:
         assert "TUNIS" in FALLBACK_PORT_MAP
         assert "MARSEILLE" in FALLBACK_PORT_MAP
         assert "GENOA" in FALLBACK_PORT_MAP
-        assert "PIRAEUS" in FALLBACK_PORT_MAP
-        assert "SANTORINI" in FALLBACK_PORT_MAP
+        assert "TANGIER" in FALLBACK_PORT_MAP
+        assert "BARCELONA" in FALLBACK_PORT_MAP
 
     def test_fallback_port_map_values(self):
         """Test fallback port map values."""
-        assert FALLBACK_PORT_MAP["PIRAEUS"] == "PIR"
-        assert FALLBACK_PORT_MAP["SANTORINI"] == "JTR"
+        assert FALLBACK_PORT_MAP["TANGIER"] == "TNG"
+        assert FALLBACK_PORT_MAP["BARCELONA"] == "BRC"
         assert FALLBACK_PORT_MAP["TUNIS"] == "TUN"
         assert FALLBACK_PORT_MAP["MARSEILLE"] == "MRS"
 
     def test_reverse_port_map_exists(self):
         """Test that reverse port map exists and is populated."""
         assert len(REVERSE_PORT_MAP) > 0
-        # FerryHopper code -> VoilaFerry code
+        # FerryHopper code -> VoilaFerry code (same codes now)
         assert "PLE" in REVERSE_PORT_MAP  # Palermo
-        assert REVERSE_PORT_MAP["PLE"] == "PMO"  # FerryHopper PLE -> VoilaFerry PMO
+        assert REVERSE_PORT_MAP["PLE"] == "PLE"  # Using official FerryHopper codes now
 
 
 class TestMapPortCode:
@@ -928,16 +928,16 @@ class TestMapPortCode:
     @pytest.mark.asyncio
     async def test_map_port_code_from_fallback(self, ferryhopper_integration):
         """Test port mapping uses fallback map."""
-        result = await ferryhopper_integration._map_port_code("PIRAEUS")
+        result = await ferryhopper_integration._map_port_code("MARSEILLE")
 
-        assert result == "PIR"
+        assert result == "MRS"
 
     @pytest.mark.asyncio
     async def test_map_port_code_case_insensitive(self, ferryhopper_integration):
         """Test port mapping is case insensitive."""
-        result = await ferryhopper_integration._map_port_code("piraeus")
+        result = await ferryhopper_integration._map_port_code("marseille")
 
-        assert result == "PIR"
+        assert result == "MRS"
 
     @pytest.mark.asyncio
     async def test_map_port_code_unknown(self, ferryhopper_integration):

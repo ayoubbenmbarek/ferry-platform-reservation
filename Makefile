@@ -1,7 +1,7 @@
 # VoilaFerry Development Makefile
 # Usage: make <target>
 
-.PHONY: help dev up down logs restart build clean test test-backend test-frontend db-migrate db-upgrade shell
+.PHONY: help dev up down logs restart restart-backend build clean test test-backend test-frontend db-migrate db-upgrade shell
 
 # Default target
 help:
@@ -11,6 +11,7 @@ help:
 	@echo "  make up           - Alias for 'make dev'"
 	@echo "  make down         - Stop all services"
 	@echo "  make restart      - Restart all services"
+	@echo "  make restart-backend - Restart backend only"
 	@echo "  make logs         - Follow logs from all services"
 	@echo "  make logs-backend - Follow backend logs only"
 	@echo "  make logs-celery  - Follow celery worker logs"
@@ -42,6 +43,10 @@ down:
 # Restart all services
 restart:
 	$(DC) restart
+
+# Restart backend only
+restart-backend:
+	$(DC) restart backend
 
 # Follow logs
 logs:

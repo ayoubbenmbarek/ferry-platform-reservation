@@ -60,7 +60,7 @@ const SearchPage: React.FC = () => {
       const vehicleLength = urlParams.get('vehicleLength');
       const vehicles: any[] = vehicleType ? [{
         id: 'url-vehicle-1',
-        type: vehicleType.toUpperCase(),
+        type: vehicleType.toLowerCase(),
         length: vehicleLength ? parseInt(vehicleLength) : 450,
         width: 180,
         height: 150,
@@ -285,13 +285,14 @@ const SearchPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Date Price Selector - Show after search is performed */}
         {searchForm.departurePort && searchForm.arrivalPort && searchForm.departureDate && !isSearching && (
-          <div className="mb-8 bg-white rounded-lg shadow-md p-6">
+          <div className="mb-8">
             <DatePriceSelector
               departurePort={searchForm.departurePort}
               arrivalPort={searchForm.arrivalPort}
               selectedDate={searchForm.departureDate}
               adults={searchForm.passengers}
               onDateSelect={handleDateSelect}
+              className="bg-white rounded-lg shadow-sm p-3"
             />
           </div>
         )}
@@ -358,10 +359,17 @@ const SearchPage: React.FC = () => {
         {/* Results List */}
         {!isSearching && !searchError && searchResults.length > 0 && (
           <>
+            {/* Filter to show only outbound ferries - return ferries are selected in BookingPage */}
+            {(() => {
+              const outboundResults = searchResults.filter((ferry: any) =>
+                !ferry.journeyType || ferry.journeyType === 'outbound' || ferry.journey_type === 'outbound'
+              );
+              return (
+                <>
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Available Ferries ({searchResults.length} found)
+                  Available Ferries ({outboundResults.length} found)
                 </h2>
                 <p className="text-gray-600">
                   {searchForm.departurePort} → {searchForm.arrivalPort} on {formatDate(searchForm.departureDate)}
@@ -370,7 +378,7 @@ const SearchPage: React.FC = () => {
               <SaveRouteButton
                 departurePort={searchForm.departurePort}
                 arrivalPort={searchForm.arrivalPort}
-                price={searchResults[0]?.prices?.adult}
+                price={outboundResults[0]?.prices?.adult}
                 variant="compact"
                 onSaveSuccess={() => {
                   // Could show a toast notification here
@@ -379,7 +387,7 @@ const SearchPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {searchResults.map((ferry: any, index: number) => (
+              {outboundResults.map((ferry: any, index: number) => (
                 <div
                   key={index}
                   className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6"
@@ -469,6 +477,9 @@ const SearchPage: React.FC = () => {
                 </div>
               ))}
             </div>
+                </>
+              );
+            })()}
           </>
         )}
 

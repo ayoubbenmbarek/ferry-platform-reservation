@@ -12,103 +12,180 @@ logger = logging.getLogger(__name__)
 
 
 # VoilaFerry port code -> FerryHopper port code mapping
-# This translates VoilaFerry's internal codes to FerryHopper API codes
+# This translates VoilaFerry's internal codes to official FerryHopper API codes
+# ALL codes here are official FerryHopper codes (uppercase)
 VOILAFERRY_TO_FERRYHOPPER_PORT_MAP = {
-    # Tunisia
-    "TUN": "TUN",       # Tunis
-    "LGO": "TUN",       # La Goulette -> maps to Tunis (same port area)
-    "ZAR": "TNZRZ",     # Zarzis
-    # NOTE: Sfax (SFA) is NOT available in FerryHopper
+    # Tunisia - Official FerryHopper codes
+    "TUN": "TUN",       # Tunis (La Goulette)
+    "TNZRZ": "TNZRZ",   # Zarzis
 
-    # Italy
+    # Italy - Official FerryHopper codes
     "GOA": "GOA",       # Genoa
-    "GEN": "GOA",       # Genoa alternate code
-    "CVV": "CIV",       # Civitavecchia -> FerryHopper uses CIV
-    "CIV": "CIV",       # Civitavecchia
-    "PMO": "PLE",       # Palermo -> FerryHopper uses PLE
-    "PAL": "PLE",       # Palermo alternate
-    "PLE": "PLE",       # Palermo FerryHopper code
-    "TPS": "TPS",       # Trapani
+    "CIV": "CIV",       # Civitavecchia (Rome)
+    "PLE": "PLE",       # Palermo, Sicily
+    "TPS": "TPS",       # Trapani, Sicily
     "SAL": "SAL",       # Salerno
-    "NAP": "NAP",       # Naples
+    "NAP": "NAP",       # Naples Calata Porta di Massa
     "LIV": "LIV",       # Livorno
+    "AEL00": "AEL00",   # Aeolian Islands (all ports)
+    "ANC": "ANC",       # Ancona
+    "BAR": "BAR",       # Bari
+    "MLZ": "MLZ",       # Milazzo, Sicily
+    "MSN": "MSN",       # Messina
 
-    # France
+    # France - Official FerryHopper codes
     "MRS": "MRS",       # Marseille
-    "MAR": "MRS",       # Marseille alternate
     "NCE": "NCE",       # Nice
     "TLN": "TLN",       # Toulon
+    "AJA": "AJA",       # Ajaccio, Corsica
+    "BIA": "BIA",       # Bastia, Corsica
+    "COR00": "COR00",   # Corsica (all ports)
 
-    # Greece (common FerryHopper routes)
-    "PIR": "PIR",       # Piraeus
-    "ATH": "ATH00",     # Athens (virtual)
-    "JTR": "JTR",       # Santorini
-    "JNX": "JNX",       # Naxos
-    "RAF": "RAF",       # Rafina
-    "HER": "HER",       # Heraklion
-    "GRA": "PAT",       # Patras -> FerryHopper uses PAT
-    "PAT": "PAT",       # Patras
+    # Morocco - Official FerryHopper codes
+    "TNG": "TNG",       # Tanger Med, Tangier
 
-    # Spain
-    "BCN": "BCN",       # Barcelona
-    "IBZ": "IBZ",       # Ibiza
+    # Spain - Official FerryHopper codes
+    "BCN": "BCN",       # Barcelona (mapped as BRC in FerryHopper)
+    "BRC": "BRC",       # Barcelona official code
+    "ALG": "ALG",       # Algeciras
 
-    # Morocco
-    "TNG": "TNG",       # Tangier Med
+    # Algeria - Official FerryHopper codes
+    "DZALG": "DZALG",   # Algiers
 }
 
 # Ports NOT supported by FerryHopper (will return empty results)
 UNSUPPORTED_PORTS = {"SFA", "SFAX"}
 
-# Fallback for name-based lookups (legacy support)
+# Virtual "all ports" codes - these are country-level groupings
+# Format: XX00 for countries (4 chars), longer codes for regions
+# These get mapped to the main port for that country/region when searching
+VIRTUAL_ALL_PORTS_CODES = {
+    # Country-level virtual codes (4 characters)
+    "TN00", "IT00", "FR00", "GR00", "ES00", "MA00", "DZ00",
+}
+
+# Region-level virtual codes - these exist in FerryHopper
+# They are NOT virtual, they're official FerryHopper region codes
+REGION_ALL_PORTS_CODES = {
+    "AEL00",   # Aeolian Islands (all ports)
+    "COR00",   # Corsica (all ports)
+    "NAP00",   # Naples (all ports)
+    "SAR00",   # Sardinia (all ports)
+    "SIC00",   # Sicily (all ports)
+}
+
+# Map virtual country codes to their country code for validation purposes
+VIRTUAL_PORT_TO_COUNTRY = {
+    "TN00": "TN",  # Tunisia
+    "IT00": "IT",  # Italy
+    "FR00": "FR",  # France
+    "GR00": "GR",  # Greece
+    "ES00": "ES",  # Spain
+    "MA00": "MA",  # Morocco
+    "DZ00": "DZ",  # Algeria
+}
+
+# Map virtual "all ports" codes to the main/default FerryHopper port for that country
+# This allows searching from "Tunisia all ports" by using the main ferry hub
+VIRTUAL_PORT_TO_DEFAULT = {
+    "TN00": "TUN",  # Tunisia all ports -> Tunis (La Goulette)
+    "IT00": "GOA",  # Italy all ports -> Genoa (main ferry hub)
+    "FR00": "MRS",  # France all ports -> Marseille (main ferry hub)
+    "GR00": "PIR",  # Greece all ports -> Piraeus (Athens)
+    "ES00": "BRC",  # Spain all ports -> Barcelona
+    "MA00": "TNG",  # Morocco all ports -> Tangier Med
+    "DZ00": "DZALG", # Algeria all ports -> Algiers
+}
+
+# Fallback for name-based lookups (maps common names to official FerryHopper codes)
 FALLBACK_PORT_MAP = {
+    # Tunisia - name variations
     "TUNIS": "TUN",
     "LA_GOULETTE": "TUN",
+    "LAGOULETTE": "TUN",
+    "LA GOULETTE": "TUN",
+    "GOULETTE": "TUN",
+    "LA-GOULETTE": "TUN",
     "ZARZIS": "TNZRZ",
+
+    # Italy - name variations
     "GENOA": "GOA",
+    "GENOVA": "GOA",
     "CIVITAVECCHIA": "CIV",
     "PALERMO": "PLE",
     "TRAPANI": "TPS",
     "SALERNO": "SAL",
     "NAPOLI": "NAP",
+    "NAPLES": "NAP",
     "LIVORNO": "LIV",
+    "LIVOURNE": "LIV",
+    "ANCONA": "ANC",
+    "BARI": "BAR",
+    "MILAZZO": "MLZ",
+    "MESSINA": "MSN",
+    "AEOLIAN": "AEL00",
+    "AEOLIAN ISLANDS": "AEL00",
+
+    # France - name variations
     "MARSEILLE": "MRS",
+    "MARSEILLES": "MRS",
     "NICE": "NCE",
     "TOULON": "TLN",
-    "PIRAEUS": "PIR",
-    "ATHENS": "ATH00",
-    "SANTORINI": "JTR",
-    "NAXOS": "JNX",
-    "RAFINA": "RAF",
-    "HERAKLION": "HER",
-    "PATRAS": "PAT",
-    "BARCELONA": "BCN",
-    "IBIZA": "IBZ",
+    "AJACCIO": "AJA",
+    "BASTIA": "BIA",
+    "CORSICA": "COR00",
+
+    # Morocco - name variations
+    "TANGIER": "TNG",
+    "TANGER": "TNG",
+    "TANGER MED": "TNG",
+
+    # Spain - name variations
+    "BARCELONA": "BRC",
+    "ALGECIRAS": "ALG",
+
+    # Algeria - name variations
+    "ALGIERS": "DZALG",
 }
 
-# Reverse mapping for FerryHopper -> VoilaFerry
+# Reverse mapping for FerryHopper -> VoilaFerry (same codes, no transformation needed)
+# All VoilaFerry codes now match FerryHopper codes
 REVERSE_PORT_MAP = {
+    # Tunisia
     "TUN": "TUN",
-    "TNZRZ": "ZAR",
+    "TNZRZ": "TNZRZ",
+
+    # Italy
     "GOA": "GOA",
-    "CIV": "CVV",
-    "PLE": "PMO",
+    "CIV": "CIV",
+    "PLE": "PLE",
     "TPS": "TPS",
     "SAL": "SAL",
     "NAP": "NAP",
     "LIV": "LIV",
+    "AEL00": "AEL00",
+    "ANC": "ANC",
+    "BAR": "BAR",
+    "MLZ": "MLZ",
+    "MSN": "MSN",
+
+    # France
     "MRS": "MRS",
     "NCE": "NCE",
     "TLN": "TLN",
-    "PIR": "PIR",
-    "ATH00": "ATH",
-    "JTR": "JTR",
-    "JNX": "JNX",
-    "RAF": "RAF",
-    "HER": "HER",
-    "PAT": "GRA",
-    "BCN": "BCN",
-    "IBZ": "IBZ",
+    "AJA": "AJA",
+    "BIA": "BIA",
+    "COR00": "COR00",
+
+    # Morocco
+    "TNG": "TNG",
+
+    # Spain
+    "BRC": "BRC",
+    "ALG": "ALG",
+
+    # Algeria
+    "DZALG": "DZALG",
 }
 
 # Vehicle type mapping: VoilaFerry -> FerryHopper
@@ -148,7 +225,7 @@ FERRYHOPPER_TO_VOILAFERRY_CABIN_MAP = {
     "AIRPLANE_SEAT": "deck",
     "BUS_SEAT": "deck",
 
-    # Interior cabin types -> interior
+    # Interior cabin types -> interior (private cabin)
     "CABIN": "interior",
     "CABIN_FULL": "interior",
     "CABIN_INSIDE": "interior",
@@ -156,10 +233,25 @@ FERRYHOPPER_TO_VOILAFERRY_CABIN_MAP = {
     "CABIN_2_BED": "interior",
     "CABIN_4_BED": "interior",
     "CABIN_6_BED": "interior",
-    "DORM": "interior",
-    "BERTH": "interior",
-    "COUCHETTE": "interior",
-    "PULLMAN": "interior",
+
+    # Shared cabin/bed types -> shared (bed in shared cabin with same-sex passengers)
+    # PULLMAN = fold-down berth, often in shared cabins
+    "PULLMAN": "shared",
+    "DORM": "shared",
+    "BERTH": "shared",
+    "COUCHETTE": "shared",
+    "BED": "shared",
+    "BED_IN_CABIN": "shared",
+    "SHARED_CABIN": "shared",
+    "DORMITORY": "shared",
+    "BUNK": "shared",
+    "BUNK_BED": "shared",
+    "LIT": "shared",  # French for bed
+    "LIT_CABIN": "shared",
+    "CABIN_BED": "shared",
+    "CABIN_SHARED": "shared",
+    "CABIN_DORM": "shared",
+    "CABIN_BERTH": "shared",
 
     # Exterior cabin types -> exterior
     "CABIN_OUTSIDE": "exterior",
@@ -169,10 +261,13 @@ FERRYHOPPER_TO_VOILAFERRY_CABIN_MAP = {
     "CABIN_SEA_VIEW": "exterior",
     "CABIN_WINDOW": "exterior",
 
-    # Pet cabins -> exterior (special category)
-    "PET_CABIN": "exterior",
-    "PET_CABIN_FULL_WINDOW": "exterior",
-    "PET_CABIN_INSIDE": "interior",
+    # Pet cabins -> pet (special category - allows pets)
+    "PET_CABIN": "pet",
+    "PET_CABIN_FULL_WINDOW": "pet",
+    "PET_CABIN_INSIDE": "pet",
+    "PET_CABIN_OUTSIDE": "pet",
+    "CABIN_PET": "pet",
+    "CABIN_WITH_PET": "pet",
 
     # Balcony types -> balcony
     "CABIN_BALCONY": "balcony",
@@ -207,9 +302,16 @@ def map_ferryhopper_cabin_type(fh_type: str) -> str:
         return "suite"
     if "BALCONY" in normalized:
         return "balcony"
+    # Pet cabins - check before exterior since PET_CABIN_FULL_WINDOW contains WINDOW
+    if "PET" in normalized:
+        return "pet"
     if "WINDOW" in normalized or "OUTSIDE" in normalized or "EXTERIOR" in normalized or "SEA_VIEW" in normalized:
         return "exterior"
-    if "CABIN" in normalized or "BERTH" in normalized or "DORM" in normalized:
+    # Shared cabin/bed types (bed in shared cabin with same-sex passengers)
+    # Include French terms: LIT (bed), PARTAGÉE/PARTAGE (shared)
+    if any(kw in normalized for kw in ["BERTH", "DORM", "COUCHETTE", "SHARED", "BED", "LIT", "PARTAGE", "BUNK"]):
+        return "shared"
+    if "CABIN" in normalized:
         return "interior"
 
     # Default to deck for seats and unknown types

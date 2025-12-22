@@ -4,13 +4,13 @@ Booking modification API endpoints.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from app.database import get_db
 from app.api.deps import get_current_active_user, get_optional_current_user, validate_booking_access
 from app.models.user import User
-from app.models.booking import Booking, BookingPassenger, BookingVehicle
+from app.models.booking import Booking, BookingPassenger, BookingVehicle, BookingStatusEnum
 from app.schemas.modification import (
     ModificationEligibilityResponse,
     QuickUpdateRequest,
@@ -166,6 +166,10 @@ async def quick_update_booking(
 
         # Update booking metadata
         booking.updated_at = datetime.utcnow()
+
+        # Reset expiration timer for pending bookings (give another 30 minutes)
+        if booking.status == BookingStatusEnum.PENDING:
+            booking.expires_at = datetime.utcnow() + timedelta(minutes=30)
 
         # Commit changes
         db.commit()

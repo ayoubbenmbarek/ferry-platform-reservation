@@ -131,6 +131,8 @@ class CabinTypeEnum(enum.Enum):
     - exterior: Outside cabins with window/porthole
     - balcony: Cabins with private balcony
     - suite: Luxury suites and VIP accommodations
+    - shared: Bed in shared cabin (with same-sex passengers)
+    - pet: Pet-friendly cabin (allows pets on board)
 
     Legacy values (SEAT, INSIDE, OUTSIDE) are kept for backward compatibility.
     """
@@ -140,6 +142,8 @@ class CabinTypeEnum(enum.Enum):
     EXTERIOR = "exterior"  # Outside cabin (with window)
     BALCONY = "balcony"  # Cabin with private balcony
     SUITE = "suite"  # Suite/luxury accommodation
+    SHARED = "shared"  # Bed in shared cabin (with same-sex passengers)
+    PET = "pet"  # Pet-friendly cabin (allows pets)
 
     # Legacy values for backward compatibility with existing database records
     SEAT = "SEAT"  # Legacy: maps to DECK

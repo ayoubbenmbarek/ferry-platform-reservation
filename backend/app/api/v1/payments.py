@@ -303,8 +303,20 @@ async def confirm_payment(
             # Update booking status to CONFIRMED
             booking = db.query(Booking).filter(Booking.id == payment.booking_id).first()
             if booking:
-                booking.status = "CONFIRMED"
-                booking.payment_status = "PAID"
+                # Check if operator booking was successful
+                if not booking.operator_booking_reference:
+                    logger.warning(
+                        f"Payment confirmed but operator booking missing for {booking.booking_reference}. "
+                        f"This booking may need manual processing with {booking.operator}."
+                    )
+                    # Mark as PAID but keep operator status separate
+                    booking.payment_status = "PAID"
+                    # Keep status as PENDING until operator booking is confirmed
+                    # This flags it for manual review
+                    booking.status = "PENDING_OPERATOR"
+                else:
+                    booking.status = "CONFIRMED"
+                    booking.payment_status = "PAID"
 
                 # Record promo code usage now that payment is confirmed
                 if booking.promo_code:

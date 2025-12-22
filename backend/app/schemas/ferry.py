@@ -57,6 +57,8 @@ class CabinType(str, Enum):
     BALCONY = "balcony"
     SUITE = "suite"
     DECK = "deck"
+    SHARED = "shared"  # Bed in shared cabin (with same-sex passengers)
+    PET = "pet"  # Pet-friendly cabin (allows pets)
 
 
 class VehicleInfo(BaseModel):
@@ -105,6 +107,14 @@ class CabinInfo(BaseModel):
     amenities: Optional[List[str]] = None
 
 
+class PetInfo(BaseModel):
+    """Pet information for search and booking."""
+    id: Optional[str] = None
+    type: Optional[PetType] = None
+    name: Optional[str] = None
+    weight_kg: Optional[float] = 5.0  # Default 5kg (SMALL)
+
+
 class FerrySearch(BaseModel):
     """Ferry search request schema."""
     departure_port: str
@@ -118,6 +128,7 @@ class FerrySearch(BaseModel):
     children: int = 0
     infants: int = 0
     vehicles: Optional[List[VehicleInfo]] = None
+    pets: Optional[List[PetInfo]] = None  # Pets to transport
     cabins: int = 0  # Number of cabins requested (0 = deck passage, 1-3 = cabin quantity)
     operators: Optional[List[str]] = None
     

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { setSearchParams, resetSearchState, clearVehicles, setIsRoundTrip, startNewSearch, fetchPorts, fetchRoutes } from '../store/slices/ferrySlice';
+import { setSearchParams, resetSearchState, clearVehicles, clearPets, setIsRoundTrip, startNewSearch, fetchPorts, fetchRoutes } from '../store/slices/ferrySlice';
 import { RootState, AppDispatch } from '../store';
+import { PetType } from '../types/ferry';
 import VoiceSearchButton from '../components/VoiceSearch/VoiceSearchButton';
 import { SmartPricingPanel } from '../components/FareCalendar';
 import { ParsedSearchQuery } from '../utils/voiceSearchParser';
@@ -14,7 +15,7 @@ const NewHomePage: React.FC = () => {
   const { t } = useTranslation(['search', 'common']);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { searchParams, isSearching, vehicles, ports } = useSelector((state: RootState) => state.ferry);
+  const { searchParams, isSearching, vehicles, pets, ports } = useSelector((state: RootState) => state.ferry);
 
   // Fetch ports and routes on mount
   useEffect(() => {
@@ -44,6 +45,10 @@ const NewHomePage: React.FC = () => {
     vehiclesList: vehicles && vehicles.length > 0
       ? vehicles.map(v => ({ id: v.id || crypto.randomUUID(), type: v.type || 'car' }))
       : [] as { id: string; type: string }[],
+    // Support multiple pets
+    petsList: pets && pets.length > 0
+      ? pets.map(p => ({ id: p.id || crypto.randomUUID(), type: p.type || PetType.CAT }))
+      : [] as { id: string; type: PetType }[],
   });
 
   // Update form when Redux state changes (e.g., coming back from search page)
@@ -63,9 +68,12 @@ const NewHomePage: React.FC = () => {
         vehiclesList: vehicles && vehicles.length > 0
           ? vehicles.map(v => ({ id: v.id || crypto.randomUUID(), type: v.type || 'car' }))
           : [],
+        petsList: pets && pets.length > 0
+          ? pets.map(p => ({ id: p.id || crypto.randomUUID(), type: p.type || PetType.CAT }))
+          : [],
       });
     }
-  }, [searchParams, vehicles]);
+  }, [searchParams, vehicles, pets]);
 
   // Debug: Log when port values change in form state
   useEffect(() => {
@@ -242,6 +250,10 @@ const NewHomePage: React.FC = () => {
         width: 200,
         height: 200,
       })) : [],
+      pets: form.petsList.length > 0 ? form.petsList.map(p => ({
+        id: p.id,
+        type: p.type,
+      })) : undefined,
     }));
 
     // Set round trip flag
@@ -319,8 +331,14 @@ const NewHomePage: React.FC = () => {
                       value={form.departurePort}
                       onChange={(e) => {
                         const newDeparture = e.target.value;
-                        // Clear arrival port if it becomes the same as new departure
-                        const newArrival = form.arrivalPort === newDeparture ? '' : form.arrivalPort;
+                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                        const isCountryAllPorts = newDeparture.length === 4 && newDeparture.toUpperCase().endsWith('00');
+                        const newDepartureCountry = ports.find(p => p.code === newDeparture)?.countryCode;
+                        const arrivalCountry = ports.find(p => p.code === form.arrivalPort)?.countryCode;
+                        // Clear arrival port if same port OR (country-level all ports and same country)
+                        const shouldClear = form.arrivalPort === newDeparture ||
+                          (isCountryAllPorts && arrivalCountry === newDepartureCountry);
+                        const newArrival = shouldClear ? '' : form.arrivalPort;
                         setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
                       }}
                       className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
@@ -367,27 +385,38 @@ const NewHomePage: React.FC = () => {
                       }`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      <optgroup label="🇹🇳 Tunisia">
-                        {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
-                          <option key={port.code} value={port.code}>
-                            {port.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="🇮🇹 Italy">
-                        {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
-                          <option key={port.code} value={port.code}>
-                            {port.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="🇫🇷 France">
-                        {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
-                          <option key={port.code} value={port.code}>
-                            {port.name}
-                          </option>
-                        ))}
-                      </optgroup>
+                      {/* Filter arrival ports - only hide entire country for country-level "all ports" */}
+                      {(() => {
+                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                        const isCountryAllPorts = form.departurePort.length === 4 && form.departurePort.toUpperCase().endsWith('00');
+                        const departureCountry = ports.find(p => p.code === form.departurePort)?.countryCode;
+                        const hideCountry = (country: string) => isCountryAllPorts && departureCountry === country;
+                        return (
+                          <>
+                            {!hideCountry('TN') && (
+                              <optgroup label="🇹🇳 Tunisia">
+                                {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                                  <option key={port.code} value={port.code}>{port.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {!hideCountry('IT') && (
+                              <optgroup label="🇮🇹 Italy">
+                                {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
+                                  <option key={port.code} value={port.code}>{port.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {!hideCountry('FR') && (
+                              <optgroup label="🇫🇷 France">
+                                {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
+                                  <option key={port.code} value={port.code}>{port.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </>
+                        );
+                      })()}
                     </select>
                     {errors.arrivalPort && (
                       <p className="text-red-500 text-xs mt-1">{errors.arrivalPort}</p>
@@ -457,7 +486,18 @@ const NewHomePage: React.FC = () => {
                           <label className="block text-sm font-semibold text-gray-700 mb-2">{t('search:form.returnFrom')}</label>
                           <select
                             value={form.returnDeparturePort}
-                            onChange={(e) => setForm({ ...form, returnDeparturePort: e.target.value })}
+                            onChange={(e) => {
+                              const newReturnDeparture = e.target.value;
+                              // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                              const isCountryAllPorts = newReturnDeparture.length === 4 && newReturnDeparture.toUpperCase().endsWith('00');
+                              const newReturnDepartureCountry = ports.find(p => p.code === newReturnDeparture)?.countryCode;
+                              const returnArrivalCountry = ports.find(p => p.code === form.returnArrivalPort)?.countryCode;
+                              // Clear return arrival if same port OR (country-level all ports and same country)
+                              const shouldClear = form.returnArrivalPort === newReturnDeparture ||
+                                (isCountryAllPorts && returnArrivalCountry === newReturnDepartureCountry);
+                              const newReturnArrival = shouldClear ? '' : form.returnArrivalPort;
+                              setForm({ ...form, returnDeparturePort: newReturnDeparture, returnArrivalPort: newReturnArrival });
+                            }}
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">Select return departure port</option>
@@ -488,21 +528,38 @@ const NewHomePage: React.FC = () => {
                             className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            <optgroup label="🇹🇳 Tunisia">
-                              {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
-                                <option key={port.code} value={port.code}>{port.name}</option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="🇮🇹 Italy">
-                              {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
-                                <option key={port.code} value={port.code}>{port.name}</option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="🇫🇷 France">
-                              {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
-                                <option key={port.code} value={port.code}>{port.name}</option>
-                              ))}
-                            </optgroup>
+                            {/* Filter arrival ports - only hide entire country for country-level "all ports" */}
+                            {(() => {
+                              // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                              const isCountryAllPorts = form.returnDeparturePort.length === 4 && form.returnDeparturePort.toUpperCase().endsWith('00');
+                              const returnDepartureCountry = ports.find(p => p.code === form.returnDeparturePort)?.countryCode;
+                              const hideCountry = (country: string) => isCountryAllPorts && returnDepartureCountry === country;
+                              return (
+                                <>
+                                  {!hideCountry('TN') && (
+                                    <optgroup label="🇹🇳 Tunisia">
+                                      {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
+                                        <option key={port.code} value={port.code}>{port.name}</option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {!hideCountry('IT') && (
+                                    <optgroup label="🇮🇹 Italy">
+                                      {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
+                                        <option key={port.code} value={port.code}>{port.name}</option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {!hideCountry('FR') && (
+                                    <optgroup label="🇫🇷 France">
+                                      {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
+                                        <option key={port.code} value={port.code}>{port.name}</option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </select>
                           {errors.returnArrivalPort && <p className="text-red-500 text-xs mt-1">{errors.returnArrivalPort}</p>}
                         </div>
@@ -650,7 +707,7 @@ const NewHomePage: React.FC = () => {
                             <option value="caravan">🏕️ {t('search:vehicleTypes.caravan', 'Caravan')}</option>
                             <option value="truck">🚚 {t('search:vehicleTypes.truck', 'Truck')}</option>
                             <option value="jetski">🚤 {t('search:vehicleTypes.jetski', 'Jet Ski')}</option>
-                            <option value="boat">⛵ {t('search:vehicleTypes.boat', 'Boat/Trailer')}</option>
+                            <option value="boat_trailer">⛵ {t('search:vehicleTypes.boat', 'Boat/Trailer')}</option>
                             <option value="bicycle">🚲 {t('search:vehicleTypes.bicycle', 'Bicycle')}</option>
                           </select>
                           <button
@@ -676,6 +733,73 @@ const NewHomePage: React.FC = () => {
                   ) : (
                     <p className="text-sm text-gray-500 italic">
                       {t('search:form.noVehicles', 'No vehicles added. Click "Add Vehicle" to travel with a vehicle.')}
+                    </p>
+                  )}
+                </div>
+
+                {/* Pets Section - Multiple pets support */}
+                <div className="bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-gray-900">
+                      🐾 {t('search:form.travelingWithPet', 'Traveling with a pet?')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newPet = { id: crypto.randomUUID(), type: PetType.DOG };
+                        setForm({ ...form, petsList: [...form.petsList, newPet] });
+                      }}
+                      className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                    >
+                      <span>+</span> {t('search:form.addPet', 'Add Pet')}
+                    </button>
+                  </div>
+
+                  {/* List of pets */}
+                  {form.petsList.length > 0 ? (
+                    <div className="space-y-3">
+                      {form.petsList.map((pet, index) => (
+                        <div key={pet.id} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-green-200">
+                          <span className="text-sm font-medium text-gray-600 min-w-[60px]">
+                            {t('search:form.pet', 'Pet')} {index + 1}
+                          </span>
+                          <select
+                            value={pet.type}
+                            onChange={(e) => {
+                              const updatedList = form.petsList.map(p =>
+                                p.id === pet.id ? { ...p, type: e.target.value as PetType } : p
+                              );
+                              setForm({ ...form, petsList: updatedList });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all text-sm"
+                          >
+                            <option value={PetType.DOG}>🐕 {t('search:petTypes.dog', 'Dog')}</option>
+                            <option value={PetType.CAT}>🐈 {t('search:petTypes.cat', 'Cat')}</option>
+                            <option value={PetType.SMALL_ANIMAL}>🐹 {t('search:petTypes.smallAnimal', 'Small Animal')}</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedList = form.petsList.filter(p => p.id !== pet.id);
+                              setForm({ ...form, petsList: updatedList });
+                              if (updatedList.length === 0) {
+                                dispatch(clearPets());
+                              }
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title={t('search:form.removePet', 'Remove')}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-xs text-green-700 mt-2 bg-green-100 p-2 rounded">
+                        {t('search:form.petCabinNote', 'Note: You will need to select a pet-friendly cabin during booking.')}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">
+                      {t('search:form.noPets', 'No pets added. Click "Add Pet" to travel with your furry friend.')}
                     </p>
                   )}
                 </div>

@@ -141,8 +141,17 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       value={form.departurePort}
                       onChange={(e) => {
                         const newDeparture = e.target.value;
-                        // Clear arrival port if it becomes the same as new departure
-                        const newArrival = form.arrivalPort === newDeparture ? '' : form.arrivalPort;
+                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                        // Region codes are longer (e.g., ITAEO00 for Aeolian Islands)
+                        const isCountryAllPorts = newDeparture.length === 4 && newDeparture.toUpperCase().endsWith('00');
+                        const newDepartureCountry = ports.find(p => p.code === newDeparture)?.countryCode;
+                        const arrivalCountry = ports.find(p => p.code === form.arrivalPort)?.countryCode;
+                        // Clear arrival port if:
+                        // - Same port selected, OR
+                        // - Country-level "all ports" and arrival is in same country
+                        const shouldClearArrival = form.arrivalPort === newDeparture ||
+                          (isCountryAllPorts && arrivalCountry === newDepartureCountry);
+                        const newArrival = shouldClearArrival ? '' : form.arrivalPort;
                         setForm({ ...form, departurePort: newDeparture, arrivalPort: newArrival });
                       }}
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.departurePort ? 'border-red-500' : 'border-gray-300'}`}
@@ -174,21 +183,39 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                       className={`w-full px-4 py-3 border-2 rounded-lg ${errors.arrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      <optgroup label="🇹🇳 Tunisia">
-                        {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
-                          <option key={port.code} value={port.code}>{port.name}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="🇮🇹 Italy">
-                        {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
-                          <option key={port.code} value={port.code}>{port.name}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="🇫🇷 France">
-                        {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
-                          <option key={port.code} value={port.code}>{port.name}</option>
-                        ))}
-                      </optgroup>
+                      {/* Filter arrival ports based on departure selection */}
+                      {(() => {
+                        // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                        const isCountryAllPorts = form.departurePort.length === 4 && form.departurePort.toUpperCase().endsWith('00');
+                        const departureCountry = ports.find(p => p.code === form.departurePort)?.countryCode;
+                        // Only hide entire country if departure is country-level "all ports"
+                        const hideCountry = (country: string) => isCountryAllPorts && departureCountry === country;
+                        return (
+                          <>
+                            {!hideCountry('TN') && (
+                              <optgroup label="🇹🇳 Tunisia">
+                                {ports.filter(p => p.countryCode === 'TN' && p.code !== form.departurePort).map(port => (
+                                  <option key={port.code} value={port.code}>{port.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {!hideCountry('IT') && (
+                              <optgroup label="🇮🇹 Italy">
+                                {ports.filter(p => p.countryCode === 'IT' && p.code !== form.departurePort).map(port => (
+                                  <option key={port.code} value={port.code}>{port.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {!hideCountry('FR') && (
+                              <optgroup label="🇫🇷 France">
+                                {ports.filter(p => p.countryCode === 'FR' && p.code !== form.departurePort).map(port => (
+                                  <option key={port.code} value={port.code}>{port.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </>
+                        );
+                      })()}
                     </select>
                   </div>
                 </div>
@@ -258,8 +285,14 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             value={form.returnDeparturePort}
                             onChange={(e) => {
                               const newReturnDeparture = e.target.value;
-                              // Clear return arrival if it becomes the same
-                              const newReturnArrival = form.returnArrivalPort === newReturnDeparture ? '' : form.returnArrivalPort;
+                              // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                              const isCountryAllPorts = newReturnDeparture.length === 4 && newReturnDeparture.toUpperCase().endsWith('00');
+                              const newReturnDepartureCountry = ports.find(p => p.code === newReturnDeparture)?.countryCode;
+                              const returnArrivalCountry = ports.find(p => p.code === form.returnArrivalPort)?.countryCode;
+                              // Clear return arrival if same port OR (country-level all ports and same country)
+                              const shouldClear = form.returnArrivalPort === newReturnDeparture ||
+                                (isCountryAllPorts && returnArrivalCountry === newReturnDepartureCountry);
+                              const newReturnArrival = shouldClear ? '' : form.returnArrivalPort;
                               setForm({ ...form, returnDeparturePort: newReturnDeparture, returnArrivalPort: newReturnArrival });
                             }}
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnDeparturePort ? 'border-red-500' : 'border-gray-300'}`}
@@ -292,21 +325,38 @@ const SearchFormComponent: React.FC<SearchFormProps> = ({ onSearch, isEditMode =
                             className={`w-full px-4 py-3 border-2 rounded-lg ${errors.returnArrivalPort ? 'border-red-500' : 'border-gray-300'}`}
                           >
                             <option value="">{t('search:form.selectReturnArrivalPort')}</option>
-                            <optgroup label="🇹🇳 Tunisia">
-                              {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
-                                <option key={port.code} value={port.code}>{port.name}</option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="🇮🇹 Italy">
-                              {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
-                                <option key={port.code} value={port.code}>{port.name}</option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="🇫🇷 France">
-                              {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
-                                <option key={port.code} value={port.code}>{port.name}</option>
-                              ))}
-                            </optgroup>
+                            {/* Filter arrival ports - only hide entire country for country-level "all ports" */}
+                            {(() => {
+                              // Country-level "all ports" codes are exactly 4 chars: TN00, IT00, FR00
+                              const isCountryAllPorts = form.returnDeparturePort.length === 4 && form.returnDeparturePort.toUpperCase().endsWith('00');
+                              const returnDepartureCountry = ports.find(p => p.code === form.returnDeparturePort)?.countryCode;
+                              const hideCountry = (country: string) => isCountryAllPorts && returnDepartureCountry === country;
+                              return (
+                                <>
+                                  {!hideCountry('TN') && (
+                                    <optgroup label="🇹🇳 Tunisia">
+                                      {ports.filter(p => p.countryCode === 'TN' && p.code !== form.returnDeparturePort).map(port => (
+                                        <option key={port.code} value={port.code}>{port.name}</option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {!hideCountry('IT') && (
+                                    <optgroup label="🇮🇹 Italy">
+                                      {ports.filter(p => p.countryCode === 'IT' && p.code !== form.returnDeparturePort).map(port => (
+                                        <option key={port.code} value={port.code}>{port.name}</option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {!hideCountry('FR') && (
+                                    <optgroup label="🇫🇷 France">
+                                      {ports.filter(p => p.countryCode === 'FR' && p.code !== form.returnDeparturePort).map(port => (
+                                        <option key={port.code} value={port.code}>{port.name}</option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </select>
                           {errors.returnArrivalPort && <p className="text-red-500 text-sm mt-1">{errors.returnArrivalPort}</p>}
                         </div>
@@ -402,6 +452,30 @@ const NewSearchPage: React.FC = () => {
     ports,
   } = useSelector((state: RootState) => state.ferry);
 
+  // Filter to only show outbound ferries
+  // Check both journey_type field AND route direction (departure port should match search departure)
+  const outboundResults = useMemo(() => {
+    return searchResults.filter((ferry: any) => {
+      // If journey_type is explicitly set to 'return', filter it out
+      if (ferry.journey_type === 'return' || ferry.journeyType === 'return') {
+        return false;
+      }
+
+      // Also filter by route direction as a fallback (in case journey_type is not set in cached data)
+      // Outbound ferry should depart from the search's departure port
+      const ferryDeparture = (ferry.departurePort || ferry.departure_port || '').toUpperCase();
+      const searchDeparture = (searchParams.departurePort || '').toUpperCase();
+
+      // If we have both ports, compare them - outbound should depart from search departure
+      if (ferryDeparture && searchDeparture) {
+        return ferryDeparture === searchDeparture;
+      }
+
+      // If journey_type is 'outbound' or not set, include it
+      return !ferry.journey_type || ferry.journey_type === 'outbound' || ferry.journeyType === 'outbound';
+    });
+  }, [searchResults, searchParams.departurePort]);
+
   // Check if we have valid search params from Redux
   const hasValidSearchParams = Boolean(
     searchParams.departurePort &&
@@ -475,7 +549,7 @@ const NewSearchPage: React.FC = () => {
   const { isConnected: wsConnected } = useAvailabilityWebSocket({
     routes: wsRoutes,
     onUpdate: handleAvailabilityUpdate,
-    autoConnect: !!currentRoute && searchResults.length > 0,
+    autoConnect: !!currentRoute && outboundResults.length > 0,
   });
 
   // Log WebSocket connection status
@@ -572,14 +646,14 @@ const NewSearchPage: React.FC = () => {
 
   // Scroll to results when coming from email link and results are loaded
   useEffect(() => {
-    if (shouldScrollToResults && searchResults.length > 0 && !isSearching && resultsRef.current) {
+    if (shouldScrollToResults && outboundResults.length > 0 && !isSearching && resultsRef.current) {
       // Small delay to ensure DOM is fully rendered
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setShouldScrollToResults(false);
       }, 100);
     }
-  }, [shouldScrollToResults, searchResults.length, isSearching]);
+  }, [shouldScrollToResults, outboundResults.length, isSearching]);
 
   // Update calendar center date only when route or passengers change (NOT when date changes!)
   useEffect(() => {
@@ -628,22 +702,22 @@ const NewSearchPage: React.FC = () => {
 
   // Debug: Log when search results change and find cheapest to highlight
   useEffect(() => {
-    console.log('🔄 Outbound results updated:', searchResults.length, 'ferries');
-    if (searchResults.length > 0) {
-      console.log('First ferry price:', searchResults[0].prices);
+    console.log('🔄 Outbound results updated:', outboundResults.length, 'ferries');
+    if (outboundResults.length > 0) {
+      console.log('First ferry price:', outboundResults[0].prices);
 
       // Find and highlight the cheapest ferry based on total price
-      const cheapestFerry = searchResults.reduce((min, ferry) => {
+      const cheapestFerry = outboundResults.reduce((min, ferry) => {
         const minTotal = calculateTotalPrice(min);
         const currentTotal = calculateTotalPrice(ferry);
         return currentTotal < minTotal ? ferry : min;
-      }, searchResults[0]);
+      }, outboundResults[0]);
 
       console.log('💡 Recommending cheapest outbound ferry:', cheapestFerry.operator, '€' + calculateTotalPrice(cheapestFerry).toFixed(2));
       setRecommendedFerryId(cheapestFerry.sailingId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchResults, searchParams?.passengers]);
+  }, [outboundResults, searchParams?.passengers]);
 
   // Find cheapest return ferry to highlight
   useEffect(() => {
@@ -686,12 +760,12 @@ const NewSearchPage: React.FC = () => {
     const paramsKey = `${searchParams.departurePort}-${searchParams.arrivalPort}-${searchParams.departureDate}`;
 
     // Only search if params changed and we don't have results for these params
-    if (searchResults.length === 0 && !isSearching && searchedParamsRef.current !== paramsKey) {
+    if (outboundResults.length === 0 && !isSearching && searchedParamsRef.current !== paramsKey) {
       searchedParamsRef.current = paramsKey;
       dispatch(searchFerries(searchParams as any));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, searchResults.length, isSearching, dispatch]);
+  }, [searchParams.departurePort, searchParams.arrivalPort, searchParams.departureDate, outboundResults.length, isSearching, dispatch]);
 
   // Warn user before leaving if they have an active booking in progress
   useEffect(() => {
@@ -754,6 +828,9 @@ const NewSearchPage: React.FC = () => {
             cabin_types: r.cabin_types,
             availableSpaces: r.available_spaces,
             available_spaces: r.available_spaces,
+            availableVehicles: r.available_vehicles,
+            available_vehicles: r.available_vehicles,
+            routeInfo: r.route_info,
           })) || [];
 
           setReturnFerryResults(results);
@@ -1021,7 +1098,7 @@ const NewSearchPage: React.FC = () => {
                   <SaveRouteButton
                     departurePort={searchParams.departurePort}
                     arrivalPort={searchParams.arrivalPort}
-                    price={searchResults[0]?.prices?.adult}
+                    price={outboundResults[0]?.prices?.adult}
                     searchDate={searchParams.departureDate}
                   />
                 )}
@@ -1085,7 +1162,7 @@ const NewSearchPage: React.FC = () => {
                   children={searchParams.passengers?.children || 0}
                   infants={searchParams.passengers?.infants || 0}
                   onDateSelect={handleDateSelect}
-                  currentResults={searchResults}
+                  currentResults={outboundResults}
                 />
               ) : null}
             </div>
@@ -1136,14 +1213,14 @@ const NewSearchPage: React.FC = () => {
           )}
 
           {/* Date Header - Show which date results are for */}
-          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length > 0 && (
+          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : outboundResults).length > 0 && (
             <div className="bg-maritime-50 border border-maritime-200 rounded-lg p-4 mb-4">
               <p className="text-sm font-medium text-maritime-800">
                 {t('search:showingResultsFor', {
                   date: formatDate(
                     isSelectingReturn
                       ? (returnFerryResults[0]?.departureTime || searchParams.returnDate || '')
-                      : (searchResults[0]?.departureTime || searchParams.departureDate || '')
+                      : (outboundResults[0]?.departureTime || searchParams.departureDate || '')
                   )
                 })}
               </p>
@@ -1157,9 +1234,9 @@ const NewSearchPage: React.FC = () => {
           {/* Panel is now removed since we have per-ferry badges with notify buttons */}
 
           {/* Results - show return results or outbound results */}
-          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length > 0 && (
+          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : outboundResults).length > 0 && (
             <div className="space-y-4 mb-6">
-              {(isSelectingReturn ? returnFerryResults : searchResults).map((ferry) => {
+              {(isSelectingReturn ? returnFerryResults : outboundResults).map((ferry) => {
                 const isRecommended = isSelectingReturn
                   ? ferry.sailingId === recommendedReturnFerryId
                   : ferry.sailingId === recommendedFerryId;
@@ -1185,6 +1262,14 @@ const NewSearchPage: React.FC = () => {
                           </div>
                         )}
                       </div>
+                      {/* Show actual ports when using "all ports" search */}
+                      {(searchParams.departurePort?.includes('00') || searchParams.arrivalPort?.includes('00')) && (
+                        <div className="text-sm text-gray-700 mb-3 flex items-center gap-2">
+                          <span className="font-medium">{ports.find(p => p.code === ferry.departurePort?.toLowerCase())?.name || ferry.departurePort}</span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-medium">{ports.find(p => p.code === ferry.arrivalPort?.toLowerCase())?.name || ferry.arrivalPort}</span>
+                        </div>
+                      )}
 
                       {/* Availability Badges with Notify Buttons */}
                       <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -1433,7 +1518,7 @@ const NewSearchPage: React.FC = () => {
           )}
 
           {/* No Results */}
-          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : searchResults).length === 0 && !searchError && searchParams && (
+          {!isSearching && !isSearchingReturn && (isSelectingReturn ? returnFerryResults : outboundResults).length === 0 && !searchError && searchParams && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
               <p className="text-yellow-800 font-medium mb-2">
                 {isSelectingReturn ? t('search:noReturnResults') : t('search:noResults')}

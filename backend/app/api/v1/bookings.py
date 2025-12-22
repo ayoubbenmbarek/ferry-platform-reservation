@@ -92,6 +92,7 @@ try:
     )
     from app.services.ferry_service import FerryService
     from app.services.ferry_integrations.base import FerryAPIError
+    from app.services.ferry_integrations.ferryhopper_mappings import map_ferryhopper_cabin_type
     from app.services.invoice_service import invoice_service
     from app.models.meal import BookingMeal
     from app.models.payment import Payment, PaymentStatusEnum
@@ -897,15 +898,24 @@ async def create_booking(
                     db_booking.return_operator_booking_reference = return_confirmation.operator_reference
                 except FerryAPIError as return_error:
                     # If return operator booking fails, log but continue
-                    print(f"Failed to create return operator booking: {str(return_error)}")
+                    logger.warning(f"Failed to create return operator booking: {str(return_error)}")
 
             # Note: Status remains PENDING until payment is completed
             db.commit()
 
         except FerryAPIError as e:
-            # If operator booking fails, keep as pending for manual processing
-            # Status is already PENDING, just commit
+            # If operator booking fails, do NOT send confirmation email
+            # Keep status as PENDING for potential manual retry, but inform user of failure
+            error_msg = str(e)
+            logger.error(f"Operator booking failed: {error_msg}")
             db.commit()
+
+            # Raise an error to inform the user the booking failed
+            # This prevents the confirmation email from being sent
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Booking failed with ferry operator: {error_msg}"
+            )
 
         # Convert to response model manually to handle enum conversions
         db.refresh(db_booking)
@@ -1254,8 +1264,13 @@ async def update_booking(
             # This would require recalculating pricing
             # For now, just update the supplement
             booking.cabin_supplement = booking_update.cabin_selection.supplement_price or 0.0
-        
+
         booking.updated_at = utc_now()
+
+        # Reset expiration timer for pending bookings (give another 30 minutes)
+        if booking.status == BookingStatusEnum.PENDING:
+            booking.expires_at = utc_now() + timedelta(minutes=30)
+
         db.commit()
         db.refresh(booking)
 
@@ -1349,6 +1364,11 @@ async def quick_update_booking(
                         vehicle.has_bike_rack = vehicle_update['hasBikeRack']
 
         booking.updated_at = utc_now()
+
+        # Reset expiration timer for pending bookings (give another 30 minutes)
+        if booking.status == BookingStatusEnum.PENDING:
+            booking.expires_at = utc_now() + timedelta(minutes=30)
+
         db.commit()
 
         return {"success": True, "message": "Booking updated successfully"}
@@ -1439,16 +1459,9 @@ async def get_available_cabins(
                 if acc_type in ["DECK", "LOUNGE", "AIRPLANE_SEAT"] and price == 0:
                     continue
 
-                # Map FerryHopper type to our cabin type
-                cabin_type = "interior"
-                if "OUTSIDE" in acc_type or "EXTERIOR" in acc_type:
-                    cabin_type = "exterior"
-                elif "BALCONY" in acc_type:
-                    cabin_type = "balcony"
-                elif "SUITE" in acc_type:
-                    cabin_type = "suite"
-                elif "DECK" in acc_type or "LOUNGE" in acc_type:
-                    cabin_type = "deck"
+                # Map FerryHopper type to our cabin type using the proper mapping function
+                cabin_type = map_ferryhopper_cabin_type(acc_type)
+                logger.debug(f"Mapped cabin type: {acc_type} -> {cabin_type}")
 
                 # Get availability
                 available = acc.get("availability", 0)
@@ -1463,7 +1476,10 @@ async def get_available_cabins(
 
                 # Check amenities for features
                 amenities_lower = [a.lower() for a in amenities] if amenities else []
-                has_bathroom = any("bathroom" in a or "shower" in a for a in amenities_lower) or cabin_type != "deck"
+                # Private cabins (interior, exterior, balcony, suite, pet) have private bathrooms
+                # Deck and shared cabins typically have shared/no private bathroom
+                has_private_cabin = cabin_type in ("interior", "exterior", "balcony", "suite", "pet")
+                has_bathroom = any("bathroom" in a or "shower" in a for a in amenities_lower) or has_private_cabin
                 has_tv = any("tv" in a or "television" in a for a in amenities_lower)
                 has_wifi = any("wifi" in a or "internet" in a for a in amenities_lower)
                 is_accessible = any("accessible" in a or "disability" in a for a in amenities_lower)

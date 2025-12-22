@@ -21,6 +21,9 @@ export interface AvailabilityUpdate {
       passengers_freed?: number;
       vehicles_booked?: number;
       vehicles_freed?: number;
+      cabin_type?: string;
+      cabin_quantity?: number;
+      cabins_freed?: number;
       booking_reference?: string;
       seats?: {
         total: number;

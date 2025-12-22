@@ -398,9 +398,19 @@ todo:Generate sitemap.xml and robots.txt automatically at build.
 	•	Use <Head> for meta tags + JSON-LD structured data (schema.org/Flight? Or TravelAgency/Offer).
 	•	Set canonical URLs and hreflang if multi-lang (fr/it/en).
 	•	Optimize images using Next Image and externalImageDomains or host images on CDN.
-	•	Cache headers: for static assets long TTL, HTML pages controlled by CDN, use Cache-Control appropriately.
+	•	
+
+todo: add je veux une facture plutot on click this champs will appear
+Nom de la société
+Adresse de l'entreprise
+Ville
+Code postal
+Numéro de TVA
+
+
 
 toddoUtiliser Helm charts officiels (Bitnami, ingress-nginx, cert-manager) pour robustesse.
+todo:add stripe webhook with staging
 todo:should add possibility for people to get notified for cabin in specific route they already reserved even in other company or website, just get alerted for cabin availability
 todo:check refund_type in ferryhopper and how to work with it
 tdo:check health integration list in doc

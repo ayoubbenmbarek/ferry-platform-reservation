@@ -10,6 +10,10 @@ export enum VehicleType {
   CAMPER = 'camper',
   CARAVAN = 'caravan',
   TRUCK = 'truck',
+  TRAILER = 'trailer',
+  JETSKI = 'jetski',
+  BOAT_TRAILER = 'boat_trailer',
+  BICYCLE = 'bicycle',
 }
 
 export enum PassengerType {
@@ -23,6 +27,9 @@ export enum CabinType {
   EXTERIOR = 'exterior',
   SUITE = 'suite',
   DECK = 'deck',
+  SHARED = 'shared',  // Bed in shared cabin (with same-sex passengers)
+  BALCONY = 'balcony',
+  PET = 'pet',  // Pet-friendly cabin (allows pets)
 }
 
 export enum PetType {
@@ -75,6 +82,14 @@ export interface CabinInfo {
   amenities?: string[];
 }
 
+export interface PetInfo {
+  id: string;
+  type: PetType;
+  name?: string;
+  weightKg?: number;
+  carrierProvided?: boolean;
+}
+
 export interface SearchParams {
   departurePort: string;
   arrivalPort: string;
@@ -89,7 +104,21 @@ export interface SearchParams {
     infants: number;
   };
   vehicles: VehicleInfo[];
+  pets?: PetInfo[];  // Optional pet info for search
   operators?: string[];
+}
+
+export interface AvailableVehicle {
+  code: string;
+  type: string;
+  description: string;
+  detailed_description?: string;
+  price: number;
+  currency: string;
+  min_length?: number;
+  max_length?: number;
+  min_height?: number;
+  max_height?: number;
 }
 
 export interface FerryResult {
@@ -108,6 +137,7 @@ export interface FerryResult {
   availableSpaces?: {
     [key: string]: number;
   };
+  availableVehicles?: AvailableVehicle[];
   routeInfo?: any;
 }
 
@@ -179,26 +209,72 @@ export const VEHICLE_PRESETS: Record<VehicleType, { length: number; width: numbe
     label: 'Truck / Lorry',
     icon: '🚛',
   },
+  [VehicleType.TRAILER]: {
+    length: 5.0,
+    width: 2.0,
+    height: 2.0,
+    label: 'Trailer',
+    icon: '🚚',
+  },
+  [VehicleType.JETSKI]: {
+    length: 3.0,
+    width: 1.2,
+    height: 1.0,
+    label: 'Jet Ski',
+    icon: '🚤',
+  },
+  [VehicleType.BOAT_TRAILER]: {
+    length: 6.0,
+    width: 2.2,
+    height: 2.0,
+    label: 'Boat Trailer',
+    icon: '🚤',
+  },
+  [VehicleType.BICYCLE]: {
+    length: 1.8,
+    width: 0.5,
+    height: 1.0,
+    label: 'Bicycle',
+    icon: '🚲',
+  },
 };
 
-// Available ports
+// Available ports - Official FerryHopper codes (lowercase for frontend use)
+// Note: Ports are fetched from API, this is just a fallback
 export const PORTS: Port[] = [
-  // Italy
-  { code: 'genoa', name: 'Genoa', city: 'Genoa', country: 'Italy', countryCode: 'IT' },
-  { code: 'civitavecchia', name: 'Civitavecchia', city: 'Civitavecchia', country: 'Italy', countryCode: 'IT' },
-  { code: 'palermo', name: 'Palermo', city: 'Palermo', country: 'Italy', countryCode: 'IT' },
-  { code: 'salerno', name: 'Salerno', city: 'Salerno', country: 'Italy', countryCode: 'IT' },
-  { code: 'trapani', name: 'Trapani', city: 'Trapani', country: 'Italy', countryCode: 'IT' },
+  // Tunisia - Official FerryHopper codes
+  { code: 'tun', name: 'Tunis (La Goulette)', city: 'Tunis', country: 'Tunisia', countryCode: 'TN' },
+  { code: 'tnzrz', name: 'Zarzis', city: 'Zarzis', country: 'Tunisia', countryCode: 'TN' },
 
-  // France
-  { code: 'marseille', name: 'Marseille', city: 'Marseille', country: 'France', countryCode: 'FR' },
-  { code: 'nice', name: 'Nice', city: 'Nice', country: 'France', countryCode: 'FR' },
-  { code: 'toulon', name: 'Toulon', city: 'Toulon', country: 'France', countryCode: 'FR' },
+  // Italy - Official FerryHopper codes
+  { code: 'goa', name: 'Genoa', city: 'Genoa', country: 'Italy', countryCode: 'IT' },
+  { code: 'civ', name: 'Civitavecchia (Rome)', city: 'Rome', country: 'Italy', countryCode: 'IT' },
+  { code: 'ple', name: 'Palermo', city: 'Palermo', country: 'Italy', countryCode: 'IT' },
+  { code: 'tps', name: 'Trapani', city: 'Trapani', country: 'Italy', countryCode: 'IT' },
+  { code: 'sal', name: 'Salerno', city: 'Salerno', country: 'Italy', countryCode: 'IT' },
+  { code: 'nap', name: 'Naples', city: 'Naples', country: 'Italy', countryCode: 'IT' },
+  { code: 'liv', name: 'Livorno', city: 'Livorno', country: 'Italy', countryCode: 'IT' },
+  { code: 'anc', name: 'Ancona', city: 'Ancona', country: 'Italy', countryCode: 'IT' },
+  { code: 'bar', name: 'Bari', city: 'Bari', country: 'Italy', countryCode: 'IT' },
+  { code: 'mlz', name: 'Milazzo', city: 'Milazzo', country: 'Italy', countryCode: 'IT' },
+  { code: 'msn', name: 'Messina', city: 'Messina', country: 'Italy', countryCode: 'IT' },
 
-  // Tunisia (FerryHopper supported ports only)
-  { code: 'tunis', name: 'La Goulette (Tunis)', city: 'Tunis', country: 'Tunisia', countryCode: 'TN' },
-  { code: 'zarzis', name: 'Zarzis', city: 'Zarzis', country: 'Tunisia', countryCode: 'TN' },
-  // Note: Sfax removed - not supported by FerryHopper for passenger ferries
+  // France - Official FerryHopper codes
+  { code: 'mrs', name: 'Marseille', city: 'Marseille', country: 'France', countryCode: 'FR' },
+  { code: 'nce', name: 'Nice', city: 'Nice', country: 'France', countryCode: 'FR' },
+  { code: 'tln', name: 'Toulon', city: 'Toulon', country: 'France', countryCode: 'FR' },
+  { code: 'aja', name: 'Ajaccio', city: 'Ajaccio', country: 'France', countryCode: 'FR' },
+  { code: 'bia', name: 'Bastia', city: 'Bastia', country: 'France', countryCode: 'FR' },
+
+  // Morocco - Official FerryHopper codes
+  { code: 'tng', name: 'Tanger Med', city: 'Tangier', country: 'Morocco', countryCode: 'MA' },
+
+  // Spain - Official FerryHopper codes
+  { code: 'brc', name: 'Barcelona', city: 'Barcelona', country: 'Spain', countryCode: 'ES' },
+  { code: 'alg', name: 'Algeciras', city: 'Algeciras', country: 'Spain', countryCode: 'ES' },
+
+  // Algeria - Official FerryHopper codes
+  { code: 'dzalg', name: 'Algiers', city: 'Algiers', country: 'Algeria', countryCode: 'DZ' },
 ];
 
 // Passenger age limits

@@ -28,6 +28,9 @@ interface DatePriceSelectorProps {
   currentResults?: any[]; // Optional: current ferry results to sync prices
 }
 
+// Number of days to load at a time (initial + lazy load)
+const DAYS_TO_LOAD = 3;
+
 const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
   departurePort,
   arrivalPort,
@@ -45,9 +48,12 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
   const { t } = useTranslation(['search']);
   const [datePrices, setDatePrices] = useState<DatePrice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState<'left' | 'right' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showFullMonth, setShowFullMonth] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Track the date range we've loaded
+  const loadedRange = useRef<{ earliest: string; latest: string } | null>(null);
 
   // Use provided centerDate or fall back to selectedDate - memoized to prevent re-renders
   const fetchCenterDate = useMemo(() => centerDate || selectedDate, [centerDate, selectedDate]);
@@ -56,9 +62,6 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
   const lastFetchKey = useRef<string>('');
 
   // Fetch date prices when route, passengers, or return date changes
-  // Note: selectedDate and showFullMonth are NOT in dependencies!
-  // - selectedDate: clicking dates won't refetch
-  // - showFullMonth: toggling week/month won't refetch (just filters display)
   useEffect(() => {
     const fetchKey = `${departurePort}-${arrivalPort}-${fetchCenterDate}-${returnDate || 'oneway'}-${adults}-${children}-${infants}`;
 
@@ -69,9 +72,10 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
     }
 
     const tripType = returnDate ? `round-trip (return: ${returnDate})` : 'one-way';
-    console.log(`🔄 Fetching prices centered on: ${fetchCenterDate} (${tripType})`);
+    console.log(`🔄 Fetching initial ${DAYS_TO_LOAD} days centered on: ${fetchCenterDate} (${tripType})`);
     lastFetchKey.current = fetchKey;
-    fetchDatePrices();
+    loadedRange.current = null; // Reset range for new search
+    fetchDatePrices(Math.floor(DAYS_TO_LOAD / 2), Math.floor(DAYS_TO_LOAD / 2), false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [departurePort, arrivalPort, adults, children, infants, returnDate, fetchCenterDate]);
 
@@ -121,23 +125,40 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
-  const fetchDatePrices = async () => {
+  const fetchDatePrices = async (daysBefore: number, daysAfter: number, isLazyLoad: boolean, direction?: 'left' | 'right') => {
     try {
-      setLoading(true);
+      if (isLazyLoad) {
+        setLoadingMore(direction || null);
+      } else {
+        setLoading(true);
+      }
       setError(null);
 
-      // Always fetch full month (±15 days) to avoid refetching when toggling view
-      // Reduced date range to avoid timeout (was 15+15=31 dates, now 7+7=15 dates)
-      // Each date requires a FerryHopper API call which can take 2-5s
-      const daysBefore = 7;
-      const daysAfter = 7;
+      // Determine the center date for the fetch
+      let fetchCenter = fetchCenterDate;
+      if (isLazyLoad && loadedRange.current) {
+        // For lazy loading, fetch from the edge of current range
+        if (direction === 'left') {
+          // Fetch earlier dates - use earliest loaded date as reference
+          const earliest = new Date(loadedRange.current.earliest);
+          earliest.setDate(earliest.getDate() - 1); // Day before earliest
+          fetchCenter = earliest.toISOString().split('T')[0];
+          daysBefore = DAYS_TO_LOAD - 1;
+          daysAfter = 0;
+        } else if (direction === 'right') {
+          // Fetch later dates - use latest loaded date as reference
+          const latest = new Date(loadedRange.current.latest);
+          latest.setDate(latest.getDate() + 1); // Day after latest
+          fetchCenter = latest.toISOString().split('T')[0];
+          daysBefore = 0;
+          daysAfter = DAYS_TO_LOAD - 1;
+        }
+      }
 
-      // Use fetchCenterDate so prices don't change when user clicks different dates
-      // Include returnDate for round-trip pricing context
       const params: any = {
         departure_port: departurePort,
         arrival_port: arrivalPort,
-        center_date: fetchCenterDate,
+        center_date: fetchCenter,
         days_before: daysBefore,
         days_after: daysAfter,
         adults,
@@ -145,15 +166,15 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
         infants,
       };
 
-      // Add return_date if this is a round-trip search
       if (returnDate) {
         params.return_date = returnDate;
       }
 
+      console.log(`📅 Fetching ${daysBefore + daysAfter + 1} days centered on ${fetchCenter}`);
       const response = await api.get('/ferries/date-prices', { params, timeout: 60000 });
 
       // Convert snake_case to camelCase
-      const convertedData = response.data.date_prices.map((dp: any) => ({
+      const newData: DatePrice[] = response.data.date_prices.map((dp: any) => ({
         date: dp.date,
         dayOfWeek: dp.day_of_week,
         dayOfMonth: dp.day_of_month,
@@ -164,17 +185,46 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
         isCenterDate: dp.is_center_date,
       }));
 
-      setDatePrices(convertedData);
+      if (isLazyLoad && datePrices.length > 0) {
+        // Merge new data with existing, avoiding duplicates
+        const existingDates = new Set(datePrices.map(dp => dp.date));
+        const uniqueNewData = newData.filter(dp => !existingDates.has(dp.date));
 
-      // Scroll to selected date after render
-      setTimeout(() => {
-        scrollToSelectedDate();
-      }, 100);
+        // Combine and sort by date
+        const combined = [...datePrices, ...uniqueNewData].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        setDatePrices(combined);
+
+        // Update loaded range
+        if (combined.length > 0) {
+          loadedRange.current = {
+            earliest: combined[0].date,
+            latest: combined[combined.length - 1].date,
+          };
+        }
+      } else {
+        setDatePrices(newData);
+        // Set initial loaded range
+        if (newData.length > 0) {
+          loadedRange.current = {
+            earliest: newData[0].date,
+            latest: newData[newData.length - 1].date,
+          };
+        }
+        // Scroll to selected date after initial render
+        setTimeout(() => {
+          scrollToSelectedDate();
+        }, 100);
+      }
     } catch (err: any) {
       console.error('Error fetching date prices:', err);
-      setError('Failed to load price calendar');
+      if (!isLazyLoad) {
+        setError('Failed to load price calendar');
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(null);
     }
   };
 
@@ -197,8 +247,12 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
   };
 
   const handleScroll = (direction: 'left' | 'right') => {
-    if (!scrollContainerRef.current) return;
+    if (!scrollContainerRef.current || loadingMore) return;
 
+    // Lazy load more dates when scrolling
+    fetchDatePrices(DAYS_TO_LOAD, DAYS_TO_LOAD, true, direction);
+
+    // Also scroll the container
     const container = scrollContainerRef.current;
     const scrollAmount = 300;
 
@@ -256,69 +310,43 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
   }
 
   return (
-    <div className={`relative ${className}`}>
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            {t('search:datePriceSelector.title', 'Select a different date')}
-          </h3>
-          <p className="text-sm text-gray-600">
-            {t('search:datePriceSelector.subtitle', 'Compare prices for nearby dates')}
-          </p>
-          <div className="flex items-start gap-1.5 mt-1.5">
-            <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <p className="text-xs text-amber-700 font-medium">
-              {t('search:datePriceSelector.priceNote', 'Prices shown are approximate. Final price will be displayed after selection.')}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowFullMonth(!showFullMonth)}
-          className="px-4 py-2 text-sm font-medium text-maritime-600 hover:text-maritime-700 hover:bg-maritime-50 rounded-lg transition-colors"
-        >
-          {showFullMonth ? '📅 Show Week' : '📅 View Month'}
-        </button>
+    <div className={`relative w-fit max-w-full mx-auto ${className}`}>
+      {/* Header - compact */}
+      <div className="mb-2 text-center">
+        <span className="text-sm font-medium text-gray-700">
+          {t('search:datePriceSelector.title', 'Select a different date')}
+        </span>
       </div>
 
-      {/* Carousel Container */}
+      {/* Carousel Container - sized to fit content */}
       <div className="relative group">
-        {/* Left Arrow - Always visible on desktop */}
+        {/* Left Arrow - Load earlier dates */}
         <button
           onClick={() => handleScroll('left')}
           type="button"
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition-all hidden md:block"
-          aria-label="Scroll left"
+          disabled={loadingMore === 'left'}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition-all hidden md:flex items-center justify-center disabled:opacity-50"
+          aria-label="Load earlier dates"
         >
-          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          {loadingMore === 'left' ? (
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-maritime-600 rounded-full animate-spin" />
+          ) : (
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          )}
         </button>
 
         {/* Scrollable Date Cards */}
         <div
           ref={scrollContainerRef}
-          className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth px-1 py-2"
+          className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth px-8 py-1 justify-center"
           style={{
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
           }}
         >
-          {datePrices
-            .filter((datePrice) => {
-              // In week view, only show dates within ±3 days of selected date
-              if (!showFullMonth) {
-                const dpDate = new Date(datePrice.date);
-                const selDate = new Date(selectedDate);
-                const daysDiff = Math.abs((dpDate.getTime() - selDate.getTime()) / (1000 * 60 * 60 * 24));
-                return daysDiff <= 3;
-              }
-              // In month view, show all fetched dates
-              return true;
-            })
-            .map((datePrice) => {
+          {datePrices.map((datePrice) => {
               const isSelected = datePrice.date === selectedDate;
               const isPast = new Date(datePrice.date) < new Date(new Date().setHours(0, 0, 0, 0));
 
@@ -335,32 +363,32 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
                 onClick={() => isAvailable && handleDateClick(datePrice.date)}
                 disabled={!isAvailable}
                 className={`
-                  flex-shrink-0 min-w-[100px] p-3 rounded-lg border-2 transition-all
+                  flex-shrink-0 min-w-[80px] p-2 rounded-lg border transition-all
                   ${
                     isSelected
-                      ? 'border-maritime-600 bg-maritime-50 shadow-md scale-105'
+                      ? 'border-maritime-600 bg-maritime-50 shadow-sm'
                       : isAvailable
-                      ? 'border-gray-200 bg-white hover:border-maritime-400 hover:shadow-md cursor-pointer'
+                      ? 'border-gray-200 bg-white hover:border-maritime-400 hover:shadow-sm cursor-pointer'
                       : 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
                   }
                 `}
               >
                 {/* Day of Week */}
                 <div
-                  className={`text-xs font-medium uppercase tracking-wide mb-1 ${
+                  className={`text-[10px] font-medium uppercase tracking-wide ${
                     isSelected
                       ? 'text-maritime-700'
                       : isAvailable
-                      ? 'text-gray-600'
+                      ? 'text-gray-500'
                       : 'text-gray-400'
                   }`}
                 >
-                  {datePrice.dayOfWeek}
+                  {datePrice.dayOfWeek.slice(0, 3)}
                 </div>
 
                 {/* Date */}
                 <div
-                  className={`text-2xl font-bold mb-1 ${
+                  className={`text-lg font-bold ${
                     isSelected
                       ? 'text-maritime-900'
                       : isAvailable
@@ -373,44 +401,29 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
 
                 {/* Month */}
                 <div
-                  className={`text-xs font-medium mb-2 ${
+                  className={`text-[10px] font-medium mb-1 ${
                     isSelected
                       ? 'text-maritime-600'
                       : isAvailable
-                      ? 'text-gray-600'
+                      ? 'text-gray-500'
                       : 'text-gray-400'
                   }`}
                 >
-                  {datePrice.month}
+                  {datePrice.month.slice(0, 3)}
                 </div>
 
                 {/* Price or Status */}
                 {isAvailable && datePrice.lowestPrice ? (
-                  <div>
-                    <div
-                      className={`text-sm font-bold ${
-                        isSelected ? 'text-maritime-700' : 'text-maritime-600'
-                      }`}
-                    >
-                      {formatPrice(datePrice.lowestPrice)}
-                    </div>
-                    <div className="text-xs text-gray-500">per adult</div>
-                    <div className="text-xs text-gray-500">
-                      {datePrice.numFerries} {datePrice.numFerries === 1 ? 'ferry' : 'ferries'}
-                    </div>
+                  <div
+                    className={`text-xs font-bold ${
+                      isSelected ? 'text-maritime-700' : 'text-maritime-600'
+                    }`}
+                  >
+                    {formatPrice(datePrice.lowestPrice)}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-[10px] text-gray-400">
                     {t('search:datePriceSelector.unavailable', 'N/A')}
-                  </div>
-                )}
-
-                {/* Selected Indicator */}
-                {isSelected && (
-                  <div className="mt-2 pt-2 border-t border-maritime-200">
-                    <div className="text-xs font-medium text-maritime-700">
-                      {t('search:datePriceSelector.selected', 'Selected')}
-                    </div>
                   </div>
                 )}
               </button>
@@ -418,24 +431,54 @@ const DatePriceSelector: React.FC<DatePriceSelectorProps> = ({
           })}
         </div>
 
-        {/* Right Arrow - Always visible on desktop */}
+        {/* Right Arrow - Load later dates */}
         <button
           onClick={() => handleScroll('right')}
           type="button"
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition-all hidden md:block"
-          aria-label="Scroll right"
+          disabled={loadingMore === 'right'}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition-all hidden md:flex items-center justify-center disabled:opacity-50"
+          aria-label="Load later dates"
         >
-          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          {loadingMore === 'right' ? (
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-maritime-600 rounded-full animate-spin" />
+          ) : (
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          )}
         </button>
       </div>
 
-      {/* Mobile Scroll Hint */}
-      <div className="md:hidden text-center mt-2">
-        <p className="text-xs text-gray-500">
-          {t('search:datePriceSelector.scrollHint', 'Swipe to see more dates')}
-        </p>
+      {/* Mobile: Tap buttons to load more */}
+      <div className="md:hidden flex justify-center gap-3 mt-2">
+        <button
+          onClick={() => handleScroll('left')}
+          disabled={loadingMore === 'left'}
+          className="flex items-center gap-1 px-3 py-1 text-xs text-maritime-600 bg-maritime-50 rounded hover:bg-maritime-100 disabled:opacity-50"
+        >
+          {loadingMore === 'left' ? (
+            <div className="w-3 h-3 border-2 border-maritime-300 border-t-maritime-600 rounded-full animate-spin" />
+          ) : (
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          )}
+          Earlier
+        </button>
+        <button
+          onClick={() => handleScroll('right')}
+          disabled={loadingMore === 'right'}
+          className="flex items-center gap-1 px-3 py-1 text-xs text-maritime-600 bg-maritime-50 rounded hover:bg-maritime-100 disabled:opacity-50"
+        >
+          Later
+          {loadingMore === 'right' ? (
+            <div className="w-3 h-3 border-2 border-maritime-300 border-t-maritime-600 rounded-full animate-spin" />
+          ) : (
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Hide scrollbar CSS */}

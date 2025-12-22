@@ -139,12 +139,23 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 self._handle_api_error(response)
                 return response.json()
 
-            except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
+            except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ConnectError, httpx.TimeoutException) as e:
                 if attempt < max_retries - 1:
-                    wait_time = (2 ** attempt) + 1
-                    logger.warning(f"FerryHopper connection error, retrying in {wait_time}s: {e}")
+                    # Longer wait for server disconnects (they might be overloaded)
+                    wait_time = (2 ** attempt) + 2  # 3, 6, 10 seconds
+                    logger.warning(f"FerryHopper connection error on GET {endpoint}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}")
                     await asyncio.sleep(wait_time)
                     continue
+                logger.error(f"FerryHopper GET {endpoint} failed after {max_retries} retries: {type(e).__name__}: {e}")
+                raise FerryAPIError(f"FerryHopper request failed: {str(e)}")
+            except Exception as e:
+                # Catch any other unexpected exceptions (including httpcore exceptions)
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + 2
+                    logger.warning(f"FerryHopper unexpected error on GET {endpoint}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                logger.error(f"FerryHopper GET {endpoint} failed with unexpected error: {type(e).__name__}: {e}")
                 raise FerryAPIError(f"FerryHopper request failed: {str(e)}")
 
         raise FerryAPIError("FerryHopper rate limit exceeded after retries")
@@ -178,12 +189,23 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 self._handle_api_error(response)
                 return response.json()
 
-            except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
+            except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ConnectError, httpx.TimeoutException) as e:
                 if attempt < max_retries - 1:
-                    wait_time = (2 ** attempt) + 1
-                    logger.warning(f"FerryHopper connection error, retrying in {wait_time}s: {e}")
+                    # Longer wait for server disconnects (they might be overloaded)
+                    wait_time = (2 ** attempt) + 2  # 3, 6, 10 seconds
+                    logger.warning(f"FerryHopper connection error on POST {endpoint}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}")
                     await asyncio.sleep(wait_time)
                     continue
+                logger.error(f"FerryHopper POST {endpoint} failed after {max_retries} retries: {type(e).__name__}: {e}")
+                raise FerryAPIError(f"FerryHopper search failed: {str(e)}")
+            except Exception as e:
+                # Catch any other unexpected exceptions (including httpcore exceptions)
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + 2
+                    logger.warning(f"FerryHopper unexpected error on POST {endpoint}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                logger.error(f"FerryHopper POST {endpoint} failed with unexpected error: {type(e).__name__}: {e}")
                 raise FerryAPIError(f"FerryHopper search failed: {str(e)}")
 
         raise FerryAPIError("FerryHopper rate limit exceeded after retries")
@@ -219,15 +241,33 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 )
                 return []
 
+            # Check if both ports map to the same FerryHopper code (e.g., La Goulette & Tunis both -> TUN)
+            if departure_code.upper() == arrival_code.upper():
+                logger.warning(
+                    f"Departure and arrival map to same port: {search_request.departure_port} -> {departure_code}, "
+                    f"{search_request.arrival_port} -> {arrival_code}"
+                )
+                raise FerryAPIError(
+                    f"Departure port ({search_request.departure_port}) and arrival port ({search_request.arrival_port}) "
+                    "resolve to the same location. Please select a different destination."
+                )
+
             # Calculate total passengers for cache key
             total_passengers = search_request.adults + search_request.children + search_request.infants
+            # Include vehicle and pet count in cache key for consistency
+            vehicle_count = len(search_request.vehicles) if search_request.vehicles else 0
+            pet_count = len(search_request.pets) if hasattr(search_request, 'pets') and search_request.pets else 0
 
             # Check Redis cache first (Best Practice: cache search results)
+            # Note: Cache key includes vehicle/pet counts for key consistency,
+            # but FerryHopper /search endpoint doesn't filter by them
             cached_results = cache_service.get_ferryhopper_search(
                 departure_port=departure_code,
                 arrival_port=arrival_code,
                 departure_date=search_request.departure_date.isoformat(),
-                passengers=total_passengers
+                passengers=total_passengers,
+                vehicles=vehicle_count,
+                pets=pet_count
             )
 
             if cached_results:
@@ -252,10 +292,25 @@ class FerryHopperIntegration(BaseFerryIntegration):
             if search_request.return_date:
                 search_data["returnDate"] = search_request.return_date.isoformat()
 
-            # Add passengers
+            # Check if we have vehicles or pets
+            has_vehicles = search_request.vehicles and len(search_request.vehicles) > 0
+            has_pets = hasattr(search_request, 'pets') and search_request.pets and len(search_request.pets) > 0
+
+            # Always use /search endpoint (more reliable, covers all carriers)
+            # /search-quote is BETA and doesn't cover all carriers
+            # Vehicle prices are included in the solution's vehicles array
             passengers = self._build_passengers(search_request)
             if passengers:
                 search_data["passengers"] = passengers
+
+            # Log what extras we're searching with
+            if has_vehicles:
+                vehicle = search_request.vehicles[0]
+                vehicle_type = vehicle.get("type", "CAR").upper()
+                logger.info(f"Searching with vehicle: {vehicle_type}")
+
+            if has_pets:
+                logger.info(f"Searching with {len(search_request.pets)} pets")
 
             # Make search request
             response = await self.post("/search", search_data)
@@ -284,7 +339,9 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 departure_date=search_request.departure_date.isoformat(),
                 passengers=total_passengers,
                 results=cache_data,
-                ttl=settings.CACHE_TTL_SECONDS  # 15 minutes (ferry schedules don't change often)
+                ttl=settings.CACHE_TTL_SECONDS,  # 15 minutes (ferry schedules don't change often)
+                vehicles=vehicle_count,
+                pets=pet_count
             )
 
             logger.info(f"FerryHopper search returned {len(results)} results")
@@ -327,7 +384,9 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 vessel_name=data['vessel_name'],
                 prices=data['prices'],
                 cabin_types=data.get('cabin_types', []),
-                available_spaces=data.get('available_spaces', {})
+                available_spaces=data.get('available_spaces', {}),
+                available_vehicles=data.get('available_vehicles', []),
+                journey_type=data.get('journey_type', 'outbound')  # Preserve journey_type from cache
             )
             if 'route_info' in data:
                 result.route_info = data['route_info']
@@ -610,6 +669,38 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
         return passengers
 
+    def _build_passengers_for_quote(self, search_request: SearchRequest) -> List[Dict]:
+        """
+        Build passenger list for FerryHopper /search-quote endpoint.
+
+        This endpoint requires age and isResident fields.
+        Returns prices that include vehicle and pet costs.
+        """
+        passengers = []
+
+        # Add adults (default age 30)
+        for _ in range(search_request.adults):
+            passengers.append({
+                "age": 30,
+                "isResident": False  # Can be overridden if we know passenger residency
+            })
+
+        # Add children (default age 8)
+        for _ in range(search_request.children):
+            passengers.append({
+                "age": 8,
+                "isResident": False
+            })
+
+        # Add infants (default age 1)
+        for _ in range(search_request.infants):
+            passengers.append({
+                "age": 1,
+                "isResident": False
+            })
+
+        return passengers
+
     def _parse_solution(
         self,
         solution: Dict,
@@ -772,6 +863,9 @@ class FerryHopperIntegration(BaseFerryIntegration):
                             route_info["connection_time_formatted"] = self._format_duration(connection_delta)
                             route_info["connection_port"] = arrival_port_name
 
+                    # Determine journey type: trip_idx 0 is outbound, 1+ is return
+                    journey_type = "outbound" if trip_idx == 0 else "return"
+
                     result = FerryResult(
                         sailing_id=sailing_id,
                         operator=owner_company,
@@ -782,11 +876,11 @@ class FerryHopperIntegration(BaseFerryIntegration):
                         vessel_name=vessel_name,
                         prices=prices,
                         cabin_types=cabin_types,
-                        available_spaces=self._calculate_available_spaces(cabin_types, vehicles_supported)
+                        available_spaces=self._calculate_available_spaces(cabin_types, vehicles_supported),
+                        available_vehicles=solution_vehicles,  # Include vehicle types with prices
+                        route_info=route_info,
+                        journey_type=journey_type  # "outbound" or "return" for round trips
                     )
-
-                    # Add route_info as additional attribute
-                    result.route_info = route_info
 
                     # Add booking solution data for later use
                     result.booking_solution = booking_solution
@@ -833,11 +927,23 @@ class FerryHopperIntegration(BaseFerryIntegration):
         """Extract vehicle types and prices from solution."""
         vehicles = []
         for vehicle in solution.get("vehicles", []):
+            # Extract price if available (FerryHopper may include expectedPrice)
+            expected_price = vehicle.get("expectedPrice", {})
+            price_cents = expected_price.get("totalPriceInCents", 0)
+            price = price_cents / 100 if price_cents else 0.0
+
             vehicles.append({
                 "code": vehicle.get("code", ""),
                 "type": vehicle.get("type", ""),
                 "description": vehicle.get("description", ""),
                 "detailed_description": vehicle.get("detailedDescription", ""),
+                "price": price,
+                "currency": expected_price.get("currency", "EUR"),
+                # Vehicle dimensions/specs
+                "min_length": vehicle.get("minLength"),
+                "max_length": vehicle.get("maxLength"),
+                "min_height": vehicle.get("minHeight"),
+                "max_height": vehicle.get("maxHeight"),
             })
         return vehicles
 
@@ -917,6 +1023,10 @@ class FerryHopperIntegration(BaseFerryIntegration):
         cabin_types = []
         accommodations = segment.get("accommodations", [])
 
+        # Log all accommodation types for debugging
+        acc_types = [acc.get("type", "UNKNOWN") for acc in accommodations]
+        logger.debug(f"FerryHopper accommodation types received: {acc_types}")
+
         seen_codes = set()
         for idx, acc in enumerate(accommodations):
             expected_price = acc.get("expectedPrice", {})
@@ -925,6 +1035,8 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
             # Map FerryHopper type to VoilaFerry CabinType enum value
             vf_type = map_ferryhopper_cabin_type(fh_type)
+            if vf_type == "shared":
+                logger.info(f"Mapped shared cabin: {fh_type} -> {vf_type}, desc: {acc.get('description', 'N/A')}")
 
             # Ensure unique cabin code - use "code" if available, else "type", else generate
             cabin_code = acc.get("code") or acc.get("type") or ""
@@ -1209,10 +1321,32 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
         logger.info(f"Trip type: {trip_type}")
 
-        # Build segment selection
+        # Get port codes and operator from solution data (required by FerryHopper API)
+        departure_port_code = solution_data.get("departure_port_code") or segment.get("departurePortCode", "")
+        arrival_port_code = solution_data.get("arrival_port_code") or segment.get("arrivalPortCode", "")
+        owner_company_code = segment.get("ownerCompanyCode", "")
+
+        # Get required fields for FerryHopper booking API
+        departure_datetime = segment.get("departureDateTime", "")
+        vessel = segment.get("vessel", {})
+        vessel_id = vessel.get("vesselID", "") if isinstance(vessel, dict) else ""
+
+        logger.info(f"Segment details - departure: {departure_port_code}, arrival: {arrival_port_code}, "
+                   f"operator: {owner_company_code}, departureDateTime: {departure_datetime}, vesselID: {vessel_id}")
+
+        # Build segment selection with required fields
+        # FerryHopper requires accommodationCodeForAllPassengers (object with code)
+        # instead of selectionsPerPassenger (array)
         segment_selection = {
             "segmentIndex": segment_index,
-            "passengerAccommodations": passenger_accommodations
+            "departurePortCode": departure_port_code,
+            "arrivalPortCode": arrival_port_code,
+            "ownerCompanyCode": owner_company_code,
+            "departureDateTime": departure_datetime,
+            "vesselID": vessel_id,
+            "accommodationCodeForAllPassengers": {
+                "code": selected_acc_code
+            }
         }
 
         # FerryHopper expects tripSelections with type and segments array

@@ -77,12 +77,24 @@ const PaymentPage: React.FC = () => {
     // Get prices from selected ferries
     const adultPrice = selectedFerry?.prices?.adult || 0;
     const childPrice = selectedFerry?.prices?.child || 0;
-    const vehiclePrice = selectedFerry?.prices?.vehicle || 0;
+
+    // Get vehicle price from available_vehicles (FerryHopper) or fall back to prices.vehicle
+    const getVehiclePrice = (ferry: any): number => {
+      const availableVehicles = ferry?.availableVehicles || ferry?.available_vehicles || [];
+      if (availableVehicles.length > 0) {
+        const carVehicle = availableVehicles.find((v: any) => v.type === 'CAR' || v.code?.includes('CAR'));
+        if (carVehicle?.price) return carVehicle.price;
+        if (availableVehicles[0]?.price) return availableVehicles[0].price;
+      }
+      return ferry?.prices?.vehicle || 0;
+    };
+
+    const vehiclePrice = getVehiclePrice(selectedFerry);
 
     // Return ferry prices (if round trip)
     const returnAdultPrice = selectedReturnFerry?.prices?.adult || 0;
     const returnChildPrice = selectedReturnFerry?.prices?.child || 0;
-    const returnVehiclePrice = selectedReturnFerry?.prices?.vehicle || 0;
+    const returnVehiclePrice = getVehiclePrice(selectedReturnFerry);
 
     // Calculate passenger total (including return journey if round trip)
     const passengersTotal = passengers.reduce((sum, p) => {
@@ -773,26 +785,32 @@ const PaymentPage: React.FC = () => {
                 ) : (
                   <>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Passengers ({passengers.length})</span>
-                      <span className="font-medium">€{(passengers.length * 85).toFixed(2)}</span>
+                      <span className="text-gray-600">
+                        {passengers.length} Passenger{passengers.length !== 1 ? 's' : ''}
+                      </span>
+                      <span className="font-medium">€{((selectedFerry?.prices?.adult || 85) * passengers.length).toFixed(2)}</span>
                     </div>
 
                     {vehicles.length > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Vehicles ({vehicles.length})</span>
-                        <span className="font-medium">€{(vehicles.length * 120).toFixed(2)}</span>
+                        <span className="text-gray-600">
+                          {vehicles.length} Vehicle{vehicles.length !== 1 ? 's' : ''}
+                        </span>
+                        <span className="font-medium text-green-600 text-xs">
+                          Included in fare
+                        </span>
                       </div>
                     )}
 
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Tax (10%)</span>
-                      <span className="font-medium">€{(calculateTotal() - calculateTotal() / 1.1).toFixed(2)}</span>
+                      <span className="font-medium">€{(calculateTotal() * 0.1).toFixed(2)}</span>
                     </div>
 
                     <div className="border-t border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between">
                         <span className="text-lg font-bold">{t('payment:orderSummary.total')}</span>
-                        <span className="text-lg font-bold text-blue-600">€{calculateTotal().toFixed(2)}</span>
+                        <span className="text-lg font-bold text-blue-600">€{(calculateTotal() * 1.1).toFixed(2)}</span>
                       </div>
                     </div>
                   </>

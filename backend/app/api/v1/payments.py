@@ -2,7 +2,7 @@
 Payment API endpoints for handling Stripe payments.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
@@ -556,22 +556,43 @@ async def get_stripe_config():
 
 @router.post("/webhook")
 async def stripe_webhook(
-    request: dict,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """
     Handle Stripe webhook events.
     This endpoint receives notifications from Stripe about payment events.
+    Verifies webhook signature for security.
     """
-    from fastapi import Request as FastAPIRequest
-
-    # In production, verify the webhook signature
     webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
     try:
-        # Get the event type
-        event_type = request.get("type")
-        event_data = request.get("data", {}).get("object", {})
+        # Get raw body for signature verification
+        payload = await request.body()
+        sig_header = request.headers.get("stripe-signature")
+
+        # Verify webhook signature if secret is configured
+        if webhook_secret and sig_header:
+            try:
+                event = stripe.Webhook.construct_event(
+                    payload, sig_header, webhook_secret
+                )
+                event_type = event["type"]
+                event_data = event["data"]["object"]
+                logger.info(f"✅ Stripe webhook signature verified for event: {event_type}")
+            except stripe.error.SignatureVerificationError as e:
+                logger.error(f"❌ Webhook signature verification failed: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid webhook signature"
+                )
+        else:
+            # Fallback for development without signature verification
+            import json
+            payload_json = json.loads(payload)
+            event_type = payload_json.get("type")
+            event_data = payload_json.get("data", {}).get("object", {})
+            logger.warning("⚠️ Webhook signature not verified (STRIPE_WEBHOOK_SECRET not set)")
 
         if event_type == "payment_intent.succeeded":
             # Payment was successful
@@ -594,6 +615,7 @@ async def stripe_webhook(
                     booking.payment_status = "PAID"
 
                 db.commit()
+                logger.info(f"💳 Payment {payment_intent_id} succeeded - booking confirmed")
 
         elif event_type == "payment_intent.payment_failed":
             # Payment failed
@@ -610,6 +632,24 @@ async def stripe_webhook(
                 payment.status = PaymentStatusEnum.FAILED
                 payment.failure_message = error_message
                 db.commit()
+                logger.info(f"💳 Payment {payment_intent_id} marked as FAILED")
+
+        elif event_type == "payment_intent.canceled":
+            # Payment was canceled
+            payment_intent_id = event_data.get("id")
+            cancellation_reason = event_data.get("cancellation_reason", "unknown")
+
+            payment = (
+                db.query(Payment)
+                .filter(Payment.stripe_payment_intent_id == payment_intent_id)
+                .first()
+            )
+
+            if payment:
+                payment.status = PaymentStatusEnum.FAILED
+                payment.failure_message = f"Payment canceled: {cancellation_reason}"
+                db.commit()
+                logger.info(f"💳 Payment {payment_intent_id} canceled: {cancellation_reason}")
 
         elif event_type == "charge.refunded":
             # Charge was refunded

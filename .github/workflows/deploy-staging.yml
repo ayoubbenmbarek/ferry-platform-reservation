@@ -159,6 +159,16 @@ jobs:
           kustomize edit set image maritime-reservations/backend=${{ needs.build.outputs.backend_tag }}
           kustomize edit set image maritime-reservations/frontend=${{ needs.build.outputs.frontend_tag }}
 
+      - name: Update secrets
+        run: |
+          # Patch secrets with values from GitHub Secrets
+          # New pods from deploy step will pick up updated secrets automatically
+          kubectl patch secret staging-maritime-secrets \
+            -n maritime-reservations-staging \
+            -p '{"stringData":{
+              "STRIPE_WEBHOOK_SECRET":"${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}"
+            }}' || echo "Secret patch skipped (secret may not exist yet)"
+
       - name: Deploy to staging
         run: |
           kubectl apply -k k8s/overlays/staging

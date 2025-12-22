@@ -132,44 +132,62 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
     return initial;
   });
 
-  // Track if we've restored selections to avoid re-restoring after user changes
-  const hasRestoredOutboundRef = React.useRef(false);
-  const hasRestoredReturnRef = React.useRef(false);
-
   // Restore cabin selections when cabin availability data becomes available
   // This handles the case when initialSelections are provided but cabin data wasn't ready during useState initialization
   useEffect(() => {
-    // Only restore once, and only if we have initial selections and cabin data
-    if (!hasRestoredOutboundRef.current && initialOutboundSelections.length > 0 && ferryCabinAvailability?.length > 0) {
-      const restored: Record<string, number> = {};
-      initialOutboundSelections.forEach(s => {
-        const matchingCabin = ferryCabinAvailability.find((c: FerryCabin) => c?.code && codeToId(c.code) === s.cabinId);
-        if (matchingCabin?.code && s.quantity > 0) {
-          restored[matchingCabin.code] = s.quantity;
-        }
-      });
-      if (Object.keys(restored).length > 0) {
-        hasRestoredOutboundRef.current = true;
-        setOutboundCabinQuantities(restored);
-      }
+    // Skip if no initial selections or no cabin data
+    if (initialOutboundSelections.length === 0 || !ferryCabinAvailability?.length) {
+      return;
     }
+
+    // Use functional update to check current state and restore if empty
+    setOutboundCabinQuantities(current => {
+      const currentHasSelections = Object.values(current).some(q => q > 0);
+
+      // Only restore if current state is empty
+      if (!currentHasSelections) {
+        const restored: Record<string, number> = {};
+        initialOutboundSelections.forEach(s => {
+          const matchingCabin = ferryCabinAvailability.find((c: FerryCabin) => c?.code && codeToId(c.code) === s.cabinId);
+          if (matchingCabin?.code && s.quantity > 0) {
+            restored[matchingCabin.code] = s.quantity;
+          }
+        });
+        if (Object.keys(restored).length > 0) {
+          console.log('[CabinSelector] Restored outbound selections:', restored);
+          return restored;
+        }
+      }
+      return current; // No change needed
+    });
   }, [initialOutboundSelections, ferryCabinAvailability]);
 
   useEffect(() => {
-    // Only restore once, and only if we have initial selections and cabin data
-    if (!hasRestoredReturnRef.current && initialReturnSelections.length > 0 && returnFerryCabinAvailability?.length > 0) {
-      const restored: Record<string, number> = {};
-      initialReturnSelections.forEach(s => {
-        const matchingCabin = returnFerryCabinAvailability.find((c: FerryCabin) => c?.code && codeToId(c.code) === s.cabinId);
-        if (matchingCabin?.code && s.quantity > 0) {
-          restored[matchingCabin.code] = s.quantity;
-        }
-      });
-      if (Object.keys(restored).length > 0) {
-        hasRestoredReturnRef.current = true;
-        setReturnCabinQuantities(restored);
-      }
+    // Skip if no initial selections or no cabin data
+    if (initialReturnSelections.length === 0 || !returnFerryCabinAvailability?.length) {
+      return;
     }
+
+    // Use functional update to check current state and restore if empty
+    setReturnCabinQuantities(current => {
+      const currentHasSelections = Object.values(current).some(q => q > 0);
+
+      // Only restore if current state is empty
+      if (!currentHasSelections) {
+        const restored: Record<string, number> = {};
+        initialReturnSelections.forEach(s => {
+          const matchingCabin = returnFerryCabinAvailability.find((c: FerryCabin) => c?.code && codeToId(c.code) === s.cabinId);
+          if (matchingCabin?.code && s.quantity > 0) {
+            restored[matchingCabin.code] = s.quantity;
+          }
+        });
+        if (Object.keys(restored).length > 0) {
+          console.log('[CabinSelector] Restored return selections:', restored);
+          return restored;
+        }
+      }
+      return current; // No change needed
+    });
   }, [initialReturnSelections, returnFerryCabinAvailability]);
 
   const getCabinIcon = (cabinType: string) => {

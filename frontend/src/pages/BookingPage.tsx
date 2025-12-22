@@ -87,6 +87,8 @@ const BookingPage: React.FC = () => {
   // This ensures that when user goes to payment, a new booking with updated details is created
   useEffect(() => {
     dispatch(clearCurrentBooking());
+    // Also clear localStorage to ensure PaymentPage creates a new booking with current data
+    localStorage.removeItem('pending_booking_id');
   }, [dispatch]);
 
   useEffect(() => {
@@ -340,6 +342,11 @@ const BookingPage: React.FC = () => {
       email: localContactInfo.email,
       phone: localContactInfo.phone,
     }));
+
+    // Clear any existing booking so PaymentPage creates a new one with current selections
+    dispatch(clearCurrentBooking());
+    localStorage.removeItem('pending_booking_id');
+    console.log('[BookingPage] Cleared old booking before navigation to payment');
 
     // Navigate to payment page
     navigate('/payment');

@@ -1297,7 +1297,23 @@ class FerryHopperIntegration(BaseFerryIntegration):
                     "Please search again and select a different sailing."
                 )
 
-        logger.info(f"Selected accommodation: {selected_acc_code}")
+        # Find the full accommodation object to get type and refundType
+        selected_acc = None
+        for acc in accommodations:
+            acc_code = acc.get("code") or acc.get("type")
+            if acc_code == selected_acc_code:
+                selected_acc = acc
+                break
+
+        # Default accommodation type and refund type if not found
+        acc_type = selected_acc.get("type", "DECK") if selected_acc else "DECK"
+        refund_type = selected_acc.get("refundType", "NON_REFUNDABLE") if selected_acc else "NON_REFUNDABLE"
+
+        # Ensure refundType is valid
+        if refund_type not in ["REFUNDABLE", "NON_REFUNDABLE"]:
+            refund_type = "NON_REFUNDABLE"
+
+        logger.info(f"Selected accommodation: {selected_acc_code}, type: {acc_type}, refundType: {refund_type}")
 
         # Build passenger accommodations (all passengers in same accommodation)
         passenger_accommodations = []
@@ -1335,8 +1351,9 @@ class FerryHopperIntegration(BaseFerryIntegration):
                    f"operator: {owner_company_code}, departureDateTime: {departure_datetime}, vesselID: {vessel_id}")
 
         # Build segment selection with required fields
-        # FerryHopper requires accommodationCodeForAllPassengers (object with code)
-        # instead of selectionsPerPassenger (array)
+        # FerryHopper requires BOTH:
+        # 1. accommodationCodeForAllPassengers (object with code, type, refundType)
+        # 2. selectionsPerPassenger (array of passenger selections)
         segment_selection = {
             "segmentIndex": segment_index,
             "departurePortCode": departure_port_code,
@@ -1345,8 +1362,11 @@ class FerryHopperIntegration(BaseFerryIntegration):
             "departureDateTime": departure_datetime,
             "vesselID": vessel_id,
             "accommodationCodeForAllPassengers": {
-                "code": selected_acc_code
-            }
+                "code": selected_acc_code,
+                "type": acc_type,
+                "refundType": refund_type
+            },
+            "selectionsPerPassenger": passenger_accommodations
         }
 
         # FerryHopper expects tripSelections with type and segments array

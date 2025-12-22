@@ -16,6 +16,7 @@ from app.models.user import User
 from app.services.ferry_service import FerryService
 from app.services.email_service import email_service
 from app.services.push_notification_service import push_notification_service
+from celery.exceptions import SoftTimeLimitExceeded
 from app.celery_app import celery_app
 from app.tasks.base_task import PriceAlertTask
 
@@ -25,7 +26,9 @@ logger = logging.getLogger(__name__)
 @celery_app.task(
     base=PriceAlertTask,
     name="app.tasks.price_alert_tasks.check_price_alerts",
-    bind=True
+    bind=True,
+    soft_time_limit=240,  # 4 minutes - graceful shutdown
+    time_limit=300,  # 5 minutes - hard limit
 )
 def check_price_alerts_task(self):
     """
@@ -41,6 +44,11 @@ def check_price_alerts_task(self):
     Runs every 2-4 hours (configured in celery beat schedule)
     """
     db = SessionLocal()
+    # Initialize counters outside try block for use in SoftTimeLimitExceeded handler
+    expired_count = 0
+    notified_count = 0
+    checked_count = 0
+
     try:
         logger.info("💰 Starting price alerts check...")
 
@@ -72,7 +80,7 @@ def check_price_alerts_task(self):
                     PriceAlert.last_checked_at < cooldown_period
                 )
             )
-        ).limit(50).all()  # Process max 50 alerts per run (to avoid API rate limits)
+        ).limit(20).all()  # Process max 20 alerts per run (to avoid API rate limits and timeouts)
 
         if not alerts:
             logger.info("✅ No active price alerts to check")
@@ -92,8 +100,6 @@ def check_price_alerts_task(self):
 
         # 4. Check each alert individually (since each may have different date ranges)
         ferry_service = FerryService()
-        notified_count = 0
-        checked_count = 0
 
         for alert in alerts:
             try:
@@ -101,7 +107,7 @@ def check_price_alerts_task(self):
                 today = datetime.now().date()
 
                 if alert.date_from and alert.date_to:
-                    # User specified a date range - search across all dates in range
+                    # User specified a date range - sample dates to find best price
                     # Skip if date range is in the past
                     if alert.date_to < today:
                         logger.debug(f"Alert {alert.id}: date range is in the past, skipping")
@@ -112,16 +118,31 @@ def check_price_alerts_task(self):
                     start_date = max(alert.date_from, today)
                     end_date = alert.date_to
 
-                    # Search each day in the range and find the best price
+                    # Calculate sample dates - max 5 samples to avoid timeout
+                    # Sample: start, 25%, 50%, 75%, end of range
+                    date_range_days = (end_date - start_date).days
+                    if date_range_days <= 5:
+                        # Small range - check all days
+                        sample_dates = [start_date + timedelta(days=i) for i in range(date_range_days + 1)]
+                    else:
+                        # Large range - sample 5 evenly distributed dates
+                        sample_dates = [
+                            start_date,
+                            start_date + timedelta(days=date_range_days // 4),
+                            start_date + timedelta(days=date_range_days // 2),
+                            start_date + timedelta(days=3 * date_range_days // 4),
+                            end_date,
+                        ]
+
+                    # Search sampled dates and find the best price
                     best_price = 999999
                     best_date = None
 
-                    current_date = start_date
-                    while current_date <= end_date:
+                    for sample_date in sample_dates:
                         search_params = {
                             "departure_port": alert.departure_port,
                             "arrival_port": alert.arrival_port,
-                            "departure_date": current_date,
+                            "departure_date": sample_date,
                             "adults": 1,
                             "children": 0,
                             "infants": 0,
@@ -134,9 +155,7 @@ def check_price_alerts_task(self):
                                 adult_price = result.prices.get('adult', 0)
                                 if adult_price and adult_price > 0 and adult_price < best_price:
                                     best_price = adult_price
-                                    best_date = current_date
-
-                        current_date += timedelta(days=1)
+                                    best_date = sample_date
 
                     current_price = best_price
                     price_date = best_date
@@ -304,6 +323,17 @@ def check_price_alerts_task(self):
             "expired": expired_count
         }
 
+    except SoftTimeLimitExceeded:
+        # Gracefully handle soft time limit - save progress
+        logger.warning(f"⏰ Soft time limit reached. Processed {checked_count} alerts, notified {notified_count}")
+        db.commit()
+        return {
+            "status": "partial",
+            "checked": checked_count,
+            "notified": notified_count,
+            "expired": expired_count,
+            "reason": "soft_time_limit"
+        }
     except Exception as e:
         logger.error(f"Error in price alerts check task: {str(e)}", exc_info=True)
         db.rollback()

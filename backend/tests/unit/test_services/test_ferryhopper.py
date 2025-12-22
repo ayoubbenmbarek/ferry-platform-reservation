@@ -399,8 +399,10 @@ class TestParseSolution:
     def test_parse_solution_extracts_cabin_types(self, ferryhopper_integration, mock_search_response, sample_search_request):
         """Test that cabin types are correctly extracted.
 
-        Cabin prices are for the WHOLE CABIN (not per-person).
-        A cabin with capacity 1-4 has a fixed price regardless of occupancy.
+        FerryHopper returns totalPriceInCents as the TOTAL for all passengers.
+        With 3 passengers (2 adults + 1 child), we divide to get per-cabin price.
+        Deck: 4500 cents / 3 = €15.0 per seat
+        Cabin: 12000 cents / 3 = €40.0 per cabin
         """
         solution = mock_search_response["bookingSolutions"][0]
 
@@ -411,14 +413,14 @@ class TestParseSolution:
 
         # FerryHopper types are mapped to VoilaFerry lowercase types:
         # "DECK" -> "deck", "CABIN" -> "interior"
-        # Cabin prices are total for the cabin (not per-person)
+        # Cabin prices are divided by total passengers (3) to get per-cabin price
         deck = next(c for c in result.cabin_types if c["type"] == "deck")
-        assert deck["price"] == 45.0  # Total cabin/deck price
+        assert deck["price"] == 15.0  # €4500 / 100 / 3 passengers = €15
         assert deck["name"] == "Deck Passage"
         assert deck["original_type"] == "DECK"  # Original type preserved
 
         cabin = next(c for c in result.cabin_types if c["type"] == "interior")
-        assert cabin["price"] == 120.0  # Total cabin price
+        assert cabin["price"] == 40.0  # €12000 / 100 / 3 passengers = €40
         assert cabin["name"] == "2-Bed Cabin"
         assert cabin["original_type"] == "CABIN"  # Original type preserved
 

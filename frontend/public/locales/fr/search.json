@@ -37,7 +37,8 @@
     "from": "🛳️ De",
     "to": "🏁 À",
     "returnFrom": "🔄 Retour Depuis",
-    "returnTo": "🏁 Retour Vers"
+    "returnTo": "🏁 Retour Vers",
+    "directRoutes": "Routes Directes"
   },
   "cabins": {
     "deck": "Passage Pont",

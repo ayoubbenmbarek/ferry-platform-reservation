@@ -539,37 +539,6 @@ To get more metrics, you'd need to add:
 
 
 
-todo:+€165.00
-upgrade per cabin
-1-bed cabin - Wardrobe, A/C
-Inside Cabin • Max 1 person where in the search i see 1-4 person also you have two cabin pet friendly but i see in search only one cabin pet friendly, also the price should be corrected now like price per person are multiplied
-
-Trip Details
-
-  |           |                          |
-  |-----------|--------------------------|
-  | Operator  | GRANDI NAVI VELOCI (GNV) |
-  | Vessel    | LA SUPREMA               |
-  | Departure | Dec 25, 2025 at 23:45    |
-  | Arrival   | Dec 27, 2025 at 00:15    |
-  | Duration  | ~24.5 hours              |
-
-  Prices for 1 Adult
-
-  | Accommodation                 | Price | Availability |
-  |-------------------------------|-------|--------------|
-  | Standard seat                 | €115  | 9            |
-  | Interior cabin (1-4 bed)      | €170  | 9            |
-  | Sea view cabin (1-4 bed)      | €185  | 9            |
-  | Pet-friendly cabin (interior) | €185  | 9            |
-  | Pet-friendly cabin (sea view) | €200  | 9            |
-  | Family suite (sea view)       | €210  | 9            |
-
-  Discounts
-
-  - Infants (0-3 years): FREE (100% discount)
-  - Children (4-11 years): 30% discount
-
 todo:high priority: after search on page meals and cabin, if cabin not exists add notify me button like on booking details, i also receied email cabin evailable but when i enter url i see aucune cabine disponible pour le moment, i know staging db where empty but why i receie email, check availabiity may look for local db?done
 todo:later check availaibility will check from external api
 todo:check every how much time price changed on api and setup TTL on that for cache(instead of 5mn maybe 2 hours or more)

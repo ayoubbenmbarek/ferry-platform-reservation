@@ -35,7 +35,8 @@
     "selectReturnDeparturePort": "Seleziona il porto di partenza del ritorno",
     "selectReturnArrivalPort": "Seleziona il porto di arrivo del ritorno",
     "returnFrom": "🔄 Ritorno Da",
-    "returnTo": "🏁 Ritorno A"
+    "returnTo": "🏁 Ritorno A",
+    "directRoutes": "Rotte Dirette"
   },
   "cabins": {
     "deck": "Passaggio Ponte",

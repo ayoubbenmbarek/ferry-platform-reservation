@@ -1442,7 +1442,18 @@ async def get_available_cabins(
             segment = solution_data.get("segment", {})
             accommodations = solution_data.get("accommodations") or segment.get("accommodations", [])
 
-            logger.info(f"Found {len(accommodations)} accommodations in cached solution for {sailing_id}")
+            # Get total passengers from cached solution or from booking
+            # FerryHopper returns total price for all passengers - we need to divide
+            total_passengers = solution_data.get("total_passengers", 1)
+            if total_passengers < 1:
+                # Fallback: count passengers from booking
+                total_passengers = (
+                    (booking.adults or 0) +
+                    (booking.children or 0) +
+                    (booking.infants or 0)
+                ) or 1
+
+            logger.info(f"Found {len(accommodations)} accommodations in cached solution for {sailing_id}, passengers={total_passengers}")
 
             for idx, acc in enumerate(accommodations):
                 acc_type = acc.get("type", "CABIN").upper()
@@ -1453,11 +1464,10 @@ async def get_available_cabins(
                     acc_code = f"{acc_type}_{capacity}bed_{idx}"
                 acc_name = acc.get("name") or acc.get("description", "")
 
-                # Get price - Cabin prices are for the WHOLE CABIN (not per-person)
-                # A cabin with capacity 1-4 has a fixed price regardless of occupancy
+                # FerryHopper returns total price for ALL passengers - divide to get per-cabin price
                 expected_price = acc.get("expectedPrice", {})
                 price_cents = expected_price.get("totalPriceInCents", 0)
-                price = price_cents / 100  # Total cabin price
+                price = (price_cents / 100) / total_passengers  # Per-cabin price
 
                 # Skip free deck/lounge options for cabin upgrades
                 if acc_type in ["DECK", "LOUNGE", "AIRPLANE_SEAT"] and price == 0:

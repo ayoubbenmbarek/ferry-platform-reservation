@@ -37,7 +37,8 @@
     "from": "🛳️ From",
     "to": "🏁 To",
     "returnFrom": "🔄 Return From",
-    "returnTo": "🏁 Return To"
+    "returnTo": "🏁 Return To",
+    "directRoutes": "Direct Routes"
   },
   "cabins": {
     "deck": "Deck Passage",

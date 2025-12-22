@@ -831,6 +831,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
                         "accommodations": segment_accommodations,  # Available accommodations
                         "departure_port_code": departure_port,
                         "arrival_port_code": arrival_port,
+                        "total_passengers": total_passengers,  # For dividing prices correctly
                     }
 
                     # Build route info for indirect trips (Mandatory if indirect)
@@ -1038,9 +1039,13 @@ class FerryHopperIntegration(BaseFerryIntegration):
         """
         Extract cabin/accommodation types from segment.
 
-        NOTE: Cabin prices are for the WHOLE CABIN (not per-person).
-        A cabin with capacity 1-4 has a fixed price regardless of occupancy.
-        Only base passenger ticket prices are per-person.
+        NOTE: FerryHopper returns `totalPriceInCents` as the TOTAL expected price
+        for ALL passengers in the search using that accommodation type.
+        We divide by total_passengers to get the actual per-cabin/per-seat price.
+
+        Example: Searching with 3 adults:
+        - Seat returns €345 total (€115 × 3) → divide to get €115 per seat
+        - Cabin returns €510 total (€170 × 3) → divide to get €170 per cabin
 
         Implements Integration Health Check:
         - Price per accommodation type (Mandatory)
@@ -1048,7 +1053,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
         Args:
             segment: The trip segment with accommodations
-            total_passengers: Total number of passengers in search (unused for cabin prices)
+            total_passengers: Total number of passengers in search (to divide total price)
         """
         cabin_types = []
         accommodations = segment.get("accommodations", [])
@@ -1081,14 +1086,16 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 cabin_code = f"{cabin_code}_{capacity}_{idx}"
             seen_codes.add(cabin_code)
 
-            # Cabin price is for the WHOLE CABIN, not per-person
-            cabin_price = price_cents / 100
+            # FerryHopper returns total price for all passengers - divide to get per-cabin price
+            if total_passengers < 1:
+                total_passengers = 1
+            cabin_price = (price_cents / 100) / total_passengers
 
             cabin_types.append({
                 "type": vf_type,  # Now uses VoilaFerry enum values
                 "code": cabin_code,
                 "name": description,
-                "price": cabin_price,  # Total cabin price (not per-person)
+                "price": cabin_price,  # Per-cabin price (divided by passengers)
                 "currency": expected_price.get("currency", "EUR"),
                 "available": acc.get("availability", 0),
                 "capacity": capacity,

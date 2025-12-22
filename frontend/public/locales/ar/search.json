@@ -11,7 +11,8 @@
     "vehicles": "Vehicles",
     "searchButton": "Search Ferries",
     "oneWay": "One Way",
-    "roundTrip": "Round Trip"
+    "roundTrip": "Round Trip",
+    "directRoutes": "الخطوط المباشرة"
   },
   "cabins": {
     "deck": "Deck Passage",

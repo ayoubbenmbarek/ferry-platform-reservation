@@ -35,7 +35,8 @@
     "selectReturnDeparturePort": "Wählen Sie den Rückreise-Abfahrtshafen",
     "selectReturnArrivalPort": "Wählen Sie den Rückreise-Ankunftshafen",
     "returnFrom": "🔄 Rückkehr Von",
-    "returnTo": "🏁 Rückkehr Nach"
+    "returnTo": "🏁 Rückkehr Nach",
+    "directRoutes": "Direktverbindungen"
   },
   "cabins": {
     "deck": "Deckpassage",

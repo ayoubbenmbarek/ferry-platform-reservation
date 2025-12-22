@@ -408,38 +408,74 @@ const NewHomePage: React.FC = () => {
                       }`}
                     >
                       <option value="">{t('search:form.selectArrivalPort')}</option>
-                      {/* Filter arrival ports - hide Tunisia for any Tunisia departure (no domestic routes) */}
+                      {/* Filter arrival ports - show direct routes first, hide Tunisia for any Tunisia departure */}
                       {(() => {
                         // Known Tunisia port codes - Tunisia has no domestic ferry routes
                         const TUNISIA_PORTS = ['TN00', 'TUN', 'TNZRZ'];
+
+                        // Direct routes from each port (from FerryHopper API)
+                        const DIRECT_ROUTES: Record<string, string[]> = {
+                          // Tunisia ports
+                          'TUN': ['GOA', 'CIV', 'MRS', 'PLE', 'SAL'],
+                          'TN00': ['GOA', 'CIV', 'MRS', 'PLE', 'SAL'],
+                          'TNZRZ': ['GOA', 'CIV', 'MRS'],
+                          // Italy ports
+                          'GOA': ['TUN', 'TNZRZ', 'PLE', 'TPS'],
+                          'CIV': ['TUN', 'PLE', 'TPS', 'BRC'],
+                          'PLE': ['TUN', 'GOA', 'CIV', 'NAP', 'TPS'],
+                          'SAL': ['TUN', 'PLE', 'TPS'],
+                          'NAP': ['PLE', 'TPS', 'MLZ'],
+                          // France ports
+                          'MRS': ['TUN', 'DZALG', 'AJA', 'BIA'],
+                          // Morocco
+                          'TNG': ['ALG', 'BRC'],
+                        };
+
                         const isTunisiaPort = (code: string) => {
                           if (!code) return false;
                           return TUNISIA_PORTS.includes(code.toUpperCase()) ||
                                  ports.find(p => p.code.toUpperCase() === code.toUpperCase())?.countryCode === 'TN';
                         };
+
+                        // Get direct routes for selected departure port
+                        const directRouteCodes = DIRECT_ROUTES[form.departurePort.toUpperCase()] || [];
+                        const directRoutePorts = directRouteCodes
+                          .map(code => ports.find(p => p.code.toUpperCase() === code))
+                          .filter(Boolean);
+
                         // Hide Tunisia if departing from any Tunisia port
                         const hideTunisia = isTunisiaPort(form.departurePort);
                         return (
                           <>
+                            {/* Direct Routes - show at top when departure is selected */}
+                            {form.departurePort && directRoutePorts.length > 0 && (
+                              <optgroup label={`⭐ ${t('search:form.directRoutes', 'Direct Routes')}`}>
+                                {directRoutePorts.map(port => port && (
+                                  <option key={`direct-${port.code}`} value={port.code}>
+                                    {port.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
                             {!hideTunisia && (
                               <optgroup label="🇹🇳 Tunisia">
-                                {ports.filter(p => isTunisiaPort(p.code) && p.code !== form.departurePort).map(port => (
+                                {ports.filter(p => isTunisiaPort(p.code) && p.code !== form.departurePort && !directRouteCodes.includes(p.code.toUpperCase())).map(port => (
                                   <option key={port.code} value={port.code}>{port.name}</option>
                                 ))}
                               </optgroup>
                             )}
                             <optgroup label="🇮🇹 Italy">
-                              {ports.filter(p => (p.countryCode === 'IT' || p.code.toUpperCase().startsWith('IT')) && p.code !== form.departurePort).map(port => (
+                              {ports.filter(p => (p.countryCode === 'IT' || p.code.toUpperCase().startsWith('IT')) && p.code !== form.departurePort && !directRouteCodes.includes(p.code.toUpperCase())).map(port => (
                                 <option key={port.code} value={port.code}>{port.name}</option>
                               ))}
                             </optgroup>
                             <optgroup label="🇫🇷 France">
-                              {ports.filter(p => (p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')) && p.code !== form.departurePort).map(port => (
+                              {ports.filter(p => (p.countryCode === 'FR' || p.code.toUpperCase().startsWith('FR')) && p.code !== form.departurePort && !directRouteCodes.includes(p.code.toUpperCase())).map(port => (
                                 <option key={port.code} value={port.code}>{port.name}</option>
                               ))}
                             </optgroup>
                             <optgroup label="🇲🇦 Morocco">
-                              {ports.filter(p => (p.countryCode === 'MA' || p.code.toUpperCase() === 'TNG') && p.code !== form.departurePort).map(port => (
+                              {ports.filter(p => (p.countryCode === 'MA' || p.code.toUpperCase() === 'TNG') && p.code !== form.departurePort && !directRouteCodes.includes(p.code.toUpperCase())).map(port => (
                                 <option key={port.code} value={port.code}>{port.name}</option>
                               ))}
                             </optgroup>

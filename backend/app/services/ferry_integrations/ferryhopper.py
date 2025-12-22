@@ -1038,8 +1038,9 @@ class FerryHopperIntegration(BaseFerryIntegration):
         """
         Extract cabin/accommodation types from segment.
 
-        FerryHopper's /search endpoint returns TOTAL prices for all passengers searched.
-        We divide by total_passengers to get per-person pricing for cabin upgrades.
+        NOTE: Cabin prices are for the WHOLE CABIN (not per-person).
+        A cabin with capacity 1-4 has a fixed price regardless of occupancy.
+        Only base passenger ticket prices are per-person.
 
         Implements Integration Health Check:
         - Price per accommodation type (Mandatory)
@@ -1047,14 +1048,10 @@ class FerryHopperIntegration(BaseFerryIntegration):
 
         Args:
             segment: The trip segment with accommodations
-            total_passengers: Total number of passengers in search (to divide total price)
+            total_passengers: Total number of passengers in search (unused for cabin prices)
         """
         cabin_types = []
         accommodations = segment.get("accommodations", [])
-
-        # Ensure we have at least 1 passenger to avoid division by zero
-        if total_passengers < 1:
-            total_passengers = 1
 
         # Log all accommodation types for debugging
         acc_types = [acc.get("type", "UNKNOWN") for acc in accommodations]
@@ -1084,16 +1081,14 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 cabin_code = f"{cabin_code}_{capacity}_{idx}"
             seen_codes.add(cabin_code)
 
-            # FerryHopper returns TOTAL price for all passengers
-            # Divide by total passengers to get per-person cabin price
-            total_price_eur = price_cents / 100
-            per_person_price = round(total_price_eur / total_passengers, 2)
+            # Cabin price is for the WHOLE CABIN, not per-person
+            cabin_price = price_cents / 100
 
             cabin_types.append({
                 "type": vf_type,  # Now uses VoilaFerry enum values
                 "code": cabin_code,
                 "name": description,
-                "price": per_person_price,  # Per-person price, not total
+                "price": cabin_price,  # Total cabin price (not per-person)
                 "currency": expected_price.get("currency", "EUR"),
                 "available": acc.get("availability", 0),
                 "capacity": capacity,
@@ -1102,7 +1097,7 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 "original_type": fh_type,  # Keep original for reference
             })
 
-        logger.debug(f"Extracted {len(cabin_types)} cabin types (passengers: {total_passengers})")
+        logger.debug(f"Extracted {len(cabin_types)} cabin types")
         return cabin_types
 
     def _calculate_available_spaces(self, cabin_types: List[Dict], vehicles_supported: bool) -> Dict:

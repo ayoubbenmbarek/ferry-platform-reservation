@@ -376,7 +376,11 @@ class TestParseSolution:
         assert result.arrival_time.hour == 16
 
     def test_parse_solution_extracts_prices(self, ferryhopper_integration, mock_search_response, sample_search_request):
-        """Test that prices are correctly extracted."""
+        """Test that prices are correctly extracted.
+
+        FerryHopper returns TOTAL prices for all passengers (4500 cents = €45 total).
+        With 3 passengers (2 adults + 1 child), per-person price = €45 / 3 = €15.
+        """
         solution = mock_search_response["bookingSolutions"][0]
 
         results = ferryhopper_integration._parse_solution(solution, sample_search_request)
@@ -384,15 +388,20 @@ class TestParseSolution:
         assert len(results) == 1
         result = results[0]
 
-        # Adult price = 45.00 EUR (4500 cents)
-        assert result.prices["adult"] == 45.0
-        # Child price with 50% discount
-        assert result.prices["child"] == 22.5
+        # sample_search_request has 2 adults + 1 child = 3 passengers
+        # FerryHopper total = 4500 cents = €45, per-person = €45 / 3 = €15
+        assert result.prices["adult"] == 15.0
+        # Child price with 50% discount: €15 * 0.5 = €7.5
+        assert result.prices["child"] == 7.5
         # Infant price with 100% discount (free)
         assert result.prices["infant"] == 0.0
 
     def test_parse_solution_extracts_cabin_types(self, ferryhopper_integration, mock_search_response, sample_search_request):
-        """Test that cabin types are correctly extracted."""
+        """Test that cabin types are correctly extracted.
+
+        Cabin prices are for the WHOLE CABIN (not per-person).
+        A cabin with capacity 1-4 has a fixed price regardless of occupancy.
+        """
         solution = mock_search_response["bookingSolutions"][0]
 
         results = ferryhopper_integration._parse_solution(solution, sample_search_request)
@@ -402,13 +411,14 @@ class TestParseSolution:
 
         # FerryHopper types are mapped to VoilaFerry lowercase types:
         # "DECK" -> "deck", "CABIN" -> "interior"
+        # Cabin prices are total for the cabin (not per-person)
         deck = next(c for c in result.cabin_types if c["type"] == "deck")
-        assert deck["price"] == 45.0
+        assert deck["price"] == 45.0  # Total cabin/deck price
         assert deck["name"] == "Deck Passage"
         assert deck["original_type"] == "DECK"  # Original type preserved
 
         cabin = next(c for c in result.cabin_types if c["type"] == "interior")
-        assert cabin["price"] == 120.0
+        assert cabin["price"] == 120.0  # Total cabin price
         assert cabin["name"] == "2-Bed Cabin"
         assert cabin["original_type"] == "CABIN"  # Original type preserved
 

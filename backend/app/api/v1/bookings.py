@@ -1444,16 +1444,20 @@ async def get_available_cabins(
 
             logger.info(f"Found {len(accommodations)} accommodations in cached solution for {sailing_id}")
 
-            for acc in accommodations:
+            for idx, acc in enumerate(accommodations):
                 acc_type = acc.get("type", "CABIN").upper()
-                # Use "code" if available, fallback to "type" as the accommodation code
-                acc_code = acc.get("code") or acc.get("type", "")
+                capacity = acc.get("capacity", 1)
+                # Generate unique code including capacity to distinguish variants (1-bed, 2-bed, etc.)
+                acc_code = acc.get("code") or ""
+                if not acc_code:
+                    acc_code = f"{acc_type}_{capacity}bed_{idx}"
                 acc_name = acc.get("name") or acc.get("description", "")
 
-                # Get price
+                # Get price - Cabin prices are for the WHOLE CABIN (not per-person)
+                # A cabin with capacity 1-4 has a fixed price regardless of occupancy
                 expected_price = acc.get("expectedPrice", {})
                 price_cents = expected_price.get("totalPriceInCents", 0)
-                price = price_cents / 100
+                price = price_cents / 100  # Total cabin price
 
                 # Skip free deck/lounge options for cabin upgrades
                 if acc_type in ["DECK", "LOUNGE", "AIRPLANE_SEAT"] and price == 0:

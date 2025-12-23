@@ -89,6 +89,14 @@ class FerryResult:
 
     def to_dict(self) -> Dict:
         """Convert FerryResult to dictionary for Pydantic validation."""
+        # Determine overall refund_type from lowest-priced accommodation (default selection)
+        refund_type = "REFUNDABLE"  # Default
+        if self.cabin_types:
+            # Sort by price and get refund_type of cheapest option
+            sorted_cabins = sorted(self.cabin_types, key=lambda x: x.get("price", float("inf")))
+            if sorted_cabins:
+                refund_type = sorted_cabins[0].get("refund_type", "REFUNDABLE")
+
         result = {
             "sailing_id": self.sailing_id,
             "operator": self.operator,
@@ -102,6 +110,7 @@ class FerryResult:
             "available_spaces": self.available_spaces,
             "available_vehicles": self.available_vehicles,
             "journey_type": self.journey_type,  # "outbound" or "return"
+            "refund_type": refund_type,  # REFUNDABLE or NON_REFUNDABLE (from lowest-priced cabin)
         }
         # Include route_info if it has data
         if self.route_info:

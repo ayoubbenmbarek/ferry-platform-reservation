@@ -24,7 +24,7 @@ const PaymentPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { bookingId: existingBookingId } = useParams<{ bookingId: string }>();
   const [searchParams] = useSearchParams();
-  const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip, totalCabinPrice, totalReturnCabinPrice, selectedMeals, hasCancellationProtection, promoDiscount } = useSelector((state: RootState) => state.ferry);
+  const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip, totalCabinPrice, totalReturnCabinPrice, selectedMeals, refundType, promoDiscount } = useSelector((state: RootState) => state.ferry);
 
   // Check for cabin upgrade payment
   const paymentType = searchParams.get('type');
@@ -126,12 +126,8 @@ const PaymentPage: React.FC = () => {
     // Calculate meals total (from Redux state)
     const mealsTotal = selectedMeals?.reduce((sum: number, meal: any) => sum + (meal.price || 0) * (meal.quantity || 1), 0) || 0;
 
-    // Cancellation protection
-    const CANCELLATION_PROTECTION_PRICE = 15.00;
-    const cancellationProtectionTotal = hasCancellationProtection ? CANCELLATION_PROTECTION_PRICE : 0;
-
-    // Subtotal before discount
-    const subtotal = passengersTotal + vehiclesTotal + cabinsTotal + mealsTotal + cancellationProtectionTotal;
+    // Subtotal before discount (no cancellation protection fee - using FerryHopper's native refund policies)
+    const subtotal = passengersTotal + vehiclesTotal + cabinsTotal + mealsTotal;
 
     // Apply promo discount
     const discount = promoDiscount || 0;
@@ -777,8 +773,7 @@ const PaymentPage: React.FC = () => {
                             (bookingDetails.subtotal || 0) -
                             (bookingDetails.cabinSupplement || bookingDetails.cabin_supplement || 0) -
                             (bookingDetails.returnCabinSupplement || bookingDetails.return_cabin_supplement || 0) -
-                            (bookingDetails.meals?.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0) || 0) -
-                            (bookingDetails.hasCancellationProtection || bookingDetails.has_cancellation_protection ? 15 : 0)
+                            (bookingDetails.meals?.reduce((sum: number, m: any) => sum + (m.totalPrice || m.total_price || 0), 0) || 0)
                           ).toFixed(2)}
                         </span>
                       </div>
@@ -803,13 +798,13 @@ const PaymentPage: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Cancellation Protection */}
-                      {(bookingDetails.hasCancellationProtection || bookingDetails.has_cancellation_protection) && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Cancellation Protection</span>
-                          <span className="font-medium">€15.00</span>
-                        </div>
-                      )}
+                      {/* Refund Policy */}
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Refund Policy</span>
+                        <span className={`font-medium ${(bookingDetails.refundType || bookingDetails.refund_type || 'REFUNDABLE') === 'REFUNDABLE' ? 'text-green-600' : 'text-amber-600'}`}>
+                          {(bookingDetails.refundType || bookingDetails.refund_type || 'REFUNDABLE') === 'REFUNDABLE' ? 'Refundable' : 'Non-refundable'}
+                        </span>
+                      </div>
 
                       {/* Subtotal line */}
                       <div className="flex justify-between border-t border-gray-100 pt-2">

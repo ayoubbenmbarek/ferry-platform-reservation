@@ -119,8 +119,8 @@ class BookingCreate(BaseModel):
     # Promo code
     promo_code: Optional[str] = None
 
-    # Cancellation protection
-    has_cancellation_protection: Optional[bool] = False
+    # Refund type from FerryHopper (REFUNDABLE or NON_REFUNDABLE)
+    refund_type: Optional[str] = "REFUNDABLE"
 
     @field_validator('passengers')
     @classmethod
@@ -298,6 +298,7 @@ class BookingCancellation(BaseModel):
     """Booking cancellation schema."""
     reason: Optional[str] = None
     refund_requested: bool = True
+    async_mode: bool = False  # If True, queue cancellation task and return immediately
 
 
 class BookingConfirmation(BaseModel):

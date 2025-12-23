@@ -500,6 +500,174 @@ class FerryHopperIntegration(BaseFerryIntegration):
             logger.error(f"FerryHopper booking failed: {e}", exc_info=True)
             raise FerryAPIError(f"FerryHopper booking failed: {str(e)}")
 
+    async def create_pending_booking(self, booking_request: BookingRequest) -> Dict[str, Any]:
+        """
+        Create a PENDING booking via FerryHopper to hold inventory.
+
+        This is Step 1 of the two-step booking process. It creates a PENDING booking
+        that holds the accommodation/vehicle inventory for a limited time (typically 15 min).
+
+        The booking must be confirmed via confirm_pending_booking() after payment succeeds,
+        or cancelled/left to expire if payment fails.
+
+        Args:
+            booking_request: Booking details including:
+                - sailing_id: FerryHopper sailing ID from search
+                - passengers: List of passenger details
+                - cabin_selection: Selected accommodation (optional)
+                - vehicles: List of vehicles (optional)
+                - contact_info: Contact details
+
+        Returns:
+            Dict with booking_code and price info for later confirmation
+        """
+        try:
+            logger.info(f"🔒 FerryHopper PENDING booking for sailing: {booking_request.sailing_id}")
+
+            # Retrieve cached solution data
+            solution_data = cache_service.get(f"fh_solution:{booking_request.sailing_id}")
+
+            if not solution_data:
+                raise FerryAPIError(
+                    f"Booking solution expired or not found for {booking_request.sailing_id}. "
+                    "Please search again."
+                )
+
+            # Log solution data details for debugging
+            segment = solution_data.get("segment", {})
+            accommodations = solution_data.get("accommodations") or segment.get("accommodations", [])
+            logger.info(f"Retrieved solution data for pending booking: hash={solution_data.get('solution_hash')}, "
+                       f"accommodations_count={len(accommodations)}")
+
+            # Build booking request with proper tripSelections
+            booking_data = self._build_booking_request(booking_request, solution_data)
+
+            logger.debug(f"Pending booking request data: {booking_data}")
+
+            # Step 1 ONLY: Create booking (PENDING state) - holds inventory
+            create_response = await self.post("/booking", booking_data)
+            booking_code = create_response.get("bookingCode")
+
+            if not booking_code:
+                error_msg = create_response.get("message", "No booking code returned")
+                raise FerryAPIError(f"FerryHopper pending booking creation failed: {error_msg}")
+
+            logger.info(f"🔒 FerryHopper PENDING booking created: {booking_code} (inventory held)")
+
+            # Get price for later confirmation
+            price = create_response.get("price", {})
+            total_cents = price.get("totalPriceInCents", 0)
+
+            return {
+                "booking_code": booking_code,
+                "status": "PENDING",
+                "total_price_cents": total_cents,
+                "currency": price.get("currency", "EUR"),
+                "external_reference": create_response.get("externalBookingReference"),
+                "segments": create_response.get("segments", []),
+                "price_breakdown": price,
+            }
+
+        except FerryAPIError:
+            raise
+        except Exception as e:
+            logger.error(f"FerryHopper pending booking failed: {e}", exc_info=True)
+            raise FerryAPIError(f"FerryHopper pending booking failed: {str(e)}")
+
+    async def confirm_pending_booking(self, booking_code: str, total_price_cents: int, currency: str = "EUR") -> BookingConfirmation:
+        """
+        Confirm a PENDING booking after payment succeeds.
+
+        This is Step 2 of the two-step booking process. It confirms the booking
+        and charges the customer through FerryHopper.
+
+        Args:
+            booking_code: FerryHopper booking code from create_pending_booking()
+            total_price_cents: Total price in cents for verification
+            currency: Currency code (default EUR)
+
+        Returns:
+            BookingConfirmation with final status
+        """
+        try:
+            logger.info(f"✅ Confirming FerryHopper PENDING booking: {booking_code}")
+
+            # Confirm booking (this charges the customer via FerryHopper)
+            confirm_data = {
+                "language": "en",
+                "bookingCode": booking_code,
+                "price": {
+                    "totalPriceInCents": total_price_cents,
+                    "currency": currency
+                }
+            }
+
+            confirm_response = await self.post("/booking/confirm", confirm_data)
+            logger.info(f"✅ FerryHopper booking confirmation sent: {booking_code}")
+
+            # Wait for successful status (poll until SUCCESSFUL or FAILED)
+            booking_details = await self._wait_for_booking_success(booking_code)
+
+            booking_status = booking_details.get("bookingStatus", "UNKNOWN")
+
+            return BookingConfirmation(
+                booking_reference=booking_code,
+                operator_reference=booking_code,
+                status="confirmed" if booking_status == "SUCCESSFUL" else "pending",
+                total_amount=total_price_cents / 100,  # Convert cents to EUR
+                currency=currency,
+                confirmation_details={
+                    "ferryhopper_booking_code": booking_code,
+                    "booking_status": booking_status,
+                    "boarding_methods": self._extract_boarding_methods(booking_details),
+                }
+            )
+
+        except FerryAPIError:
+            raise
+        except Exception as e:
+            logger.error(f"FerryHopper booking confirmation failed: {e}", exc_info=True)
+            raise FerryAPIError(f"FerryHopper booking confirmation failed: {str(e)}")
+
+    async def cancel_pending_booking(self, booking_code: str) -> bool:
+        """
+        Cancel a PENDING booking to release held inventory.
+
+        This is used when:
+        - Payment fails or times out
+        - User abandons checkout
+        - Booking expires before payment
+
+        Args:
+            booking_code: FerryHopper booking code
+
+        Returns:
+            True if cancellation was successful
+        """
+        try:
+            logger.info(f"🔓 Releasing FerryHopper PENDING booking: {booking_code}")
+
+            # Use the user-cancellation endpoint to release the inventory
+            cancel_data = {
+                "bookingCode": booking_code,
+            }
+
+            await self.post("/booking/user-cancellation", cancel_data)
+
+            logger.info(f"🔓 FerryHopper PENDING booking released: {booking_code}")
+            return True
+
+        except FerryAPIError as e:
+            error_msg = str(e).lower()
+            # "Booking not found" is acceptable - booking may have auto-expired
+            if "not found" in error_msg or "does not exist" in error_msg:
+                logger.info(f"FerryHopper booking {booking_code} not found (may have auto-expired)")
+                return True
+            raise
+        except Exception as e:
+            logger.error(f"FerryHopper pending booking cancellation failed: {e}", exc_info=True)
+            raise FerryAPIError(f"FerryHopper pending booking cancellation failed: {str(e)}")
+
     async def get_booking_status(self, booking_reference: str) -> Dict[str, Any]:
         """
         Get booking status from FerryHopper.
@@ -585,7 +753,13 @@ class FerryHopperIntegration(BaseFerryIntegration):
             logger.info(f"FerryHopper booking cancelled: {booking_reference}")
             return True
 
-        except FerryAPIError:
+        except FerryAPIError as e:
+            error_msg = str(e).lower()
+            # "Booking not found" means booking doesn't exist in FerryHopper
+            # This is expected for bookings created with restricted API key
+            if "not found" in error_msg or "does not exist" in error_msg:
+                logger.info(f"FerryHopper booking {booking_reference} not found (may have never been created)")
+                raise  # Re-raise so caller can handle appropriately
             raise
         except Exception as e:
             logger.error(f"FerryHopper cancellation failed: {e}", exc_info=True)

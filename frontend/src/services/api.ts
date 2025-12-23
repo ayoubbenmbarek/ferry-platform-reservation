@@ -389,6 +389,22 @@ export const bookingAPI = {
     return snakeToCamel(response.data);
   },
 
+  // Get booking by reference for authenticated users (no email required)
+  getByReferenceAuth: async (reference: string): Promise<Booking> => {
+    const response: AxiosResponse<any> = await api.get(`/bookings/auth/reference/${reference}`);
+    // Convert snake_case to camelCase for the entire booking object including nested arrays
+    const snakeToCamel = (obj: any): any => {
+      if (obj === null || typeof obj !== 'object') return obj;
+      if (Array.isArray(obj)) return obj.map(snakeToCamel);
+      return Object.keys(obj).reduce((acc: any, key: string) => {
+        const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+        acc[camelKey] = snakeToCamel(obj[key]);
+        return acc;
+      }, {});
+    };
+    return snakeToCamel(response.data);
+  },
+
   update: async (id: number, updateData: Partial<BookingData>): Promise<Booking> => {
     const response: AxiosResponse<Booking> = await api.put(`/bookings/${id}`, updateData);
     return response.data;

@@ -79,8 +79,8 @@ interface FerryState {
   promoDiscount: number | null;
   promoValidationMessage: string | null;
 
-  // Cancellation protection
-  hasCancellationProtection: boolean;
+  // Refund type from FerryHopper (REFUNDABLE or NON_REFUNDABLE)
+  refundType: string;
 
   // UI state
   isLoading: boolean;
@@ -127,7 +127,7 @@ const initialState: FerryState = {
   promoCode: null,
   promoDiscount: null,
   promoValidationMessage: null,
-  hasCancellationProtection: false,
+  refundType: 'REFUNDABLE',
   isLoading: false,
   error: null,
 };
@@ -282,7 +282,7 @@ export const createBooking = createAsyncThunk(
         isRoundTrip,
         searchParams,
         promoCode,
-        hasCancellationProtection
+        refundType
       } = state.ferry;
 
       if (!selectedFerry) {
@@ -363,7 +363,7 @@ export const createBooking = createAsyncThunk(
         totalReturnCabinPrice: totalReturnCabinPrice || 0,
         meals: selectedMeals && selectedMeals.length > 0 ? selectedMeals : undefined,
         promoCode: promoCode || undefined,
-        hasCancellationProtection: hasCancellationProtection || false,
+        refundType: refundType || 'REFUNDABLE',
       });
 
       // Debug logging to verify data being sent
@@ -379,7 +379,7 @@ export const createBooking = createAsyncThunk(
         totalCabinPrice: bookingData.total_cabin_price,
         returnCabinSelections: bookingData.return_cabin_selections,
         totalReturnCabinPrice: bookingData.total_return_cabin_price,
-        hasCancellationProtection: bookingData.has_cancellation_protection,
+        refundType: bookingData.refund_type,
       });
 
       // Use axios directly to send snake_case data
@@ -503,8 +503,8 @@ const ferrySlice = createSlice({
       state.promoValidationMessage = null;
     },
 
-    setCancellationProtection: (state, action: PayloadAction<boolean>) => {
-      state.hasCancellationProtection = action.payload;
+    setRefundType: (state, action: PayloadAction<string>) => {
+      state.refundType = action.payload;
     },
 
     setContactInfo: (state, action: PayloadAction<ContactInfo>) => {
@@ -618,7 +618,7 @@ const ferrySlice = createSlice({
       state.promoCode = null;
       state.promoDiscount = null;
       state.promoValidationMessage = null;
-      state.hasCancellationProtection = false;
+      state.refundType = 'REFUNDABLE';
     },
 
     clearError: (state) => {
@@ -660,7 +660,7 @@ const ferrySlice = createSlice({
       state.currentBooking = null;
       state.isCreatingBooking = false;
       state.bookingError = null;
-      state.hasCancellationProtection = false;
+      state.refundType = 'REFUNDABLE';
     },
 
     // Reset all ferry state (used on logout)
@@ -839,7 +839,7 @@ export const {
   setPromoCode,
   setPromoDiscount,
   clearPromoCode,
-  setCancellationProtection,
+  setRefundType,
   setContactInfo,
   addPassenger,
   updatePassenger,

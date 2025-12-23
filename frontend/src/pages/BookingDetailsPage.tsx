@@ -108,21 +108,52 @@ const BookingDetailsPage: React.FC = () => {
         return;
       }
 
-      // Otherwise, fetch from API
+      // Detect if ID is numeric or a booking reference (starts with MR)
+      const isNumericId = /^\d+$/.test(id);
+      const isBookingReference = /^MR[A-Z0-9]+$/i.test(id);
+
       try {
         setIsLoading(true);
-        const response = await bookingAPI.getById(parseInt(id));
+        let response;
+
+        if (isNumericId) {
+          // Fetch by numeric ID (requires auth)
+          response = await bookingAPI.getById(parseInt(id));
+        } else if (isBookingReference) {
+          // Fetch by reference - requires auth
+          if (!isAuthenticated) {
+            // Redirect to find-booking page with the reference pre-filled
+            navigate('/find-booking', { state: { bookingReference: id } });
+            return;
+          }
+          response = await bookingAPI.getByReferenceAuth(id);
+        } else {
+          // Invalid format
+          setError('Invalid booking ID or reference');
+          return;
+        }
+
         // Convert snake_case to camelCase
         setBooking(snakeToCamel(response));
       } catch (err: any) {
-        setError(err.response?.data?.detail || 'Failed to load booking');
+        // 401 errors are handled by the global API interceptor which redirects to login
+        // Only handle other errors here
+        if (err.response?.status === 401) {
+          // The global interceptor will redirect to login, just wait
+          return;
+        }
+        if (err.response?.status === 403) {
+          setError('You do not have access to this booking');
+        } else {
+          setError(err.response?.data?.detail || 'Failed to load booking');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchBooking();
-  }, [id, navigate, location.state, isAuthenticated]);
+  }, [id, navigate, location.state, location.pathname, isAuthenticated]);
 
   if (isLoading) {
     return <RunningBear message="Loading booking details" size="medium" />;

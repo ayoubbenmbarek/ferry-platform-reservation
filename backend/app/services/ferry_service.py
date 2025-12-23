@@ -413,6 +413,168 @@ class FerryService:
             logger.error(f"Booking error for {operator}: {e}", exc_info=True)
             raise FerryAPIError(f"Failed to create booking with {operator}: {str(e)}")
 
+    async def create_pending_booking(
+        self,
+        operator: str,
+        sailing_id: str,
+        passengers: List[Dict],
+        vehicles: Optional[List[Dict]] = None,
+        cabin_selection: Optional[Dict] = None,
+        contact_info: Optional[Dict] = None,
+        special_requests: Optional[str] = None
+    ) -> Dict:
+        """
+        Create a PENDING booking to hold inventory (Step 1 of two-step booking).
+
+        This creates a pending booking that holds the inventory for 15 minutes,
+        allowing the user time to complete payment.
+
+        Args:
+            operator: Operator code (e.g., "ctn", "gnv")
+            sailing_id: Sailing/voyage identifier
+            passengers: List of passenger details
+            vehicles: Optional list of vehicles
+            cabin_selection: Optional cabin preferences
+            contact_info: Contact information
+            special_requests: Special requests or notes
+
+        Returns:
+            Dict with booking_code and price info for later confirmation
+
+        Raises:
+            FerryAPIError: If booking fails
+            ValueError: If operator not found
+        """
+        # Map operator name to integration key
+        operator_key = self.OPERATOR_KEY_MAP.get(operator)
+        if not operator_key:
+            operator_key = "ferryhopper"
+            logger.info(f"Unknown operator '{operator}' - routing to FerryHopper integration")
+        integration = self.integrations.get(operator_key)
+        if not integration:
+            raise ValueError(f"No integration available for operator: {operator}")
+
+        # Check if integration supports pending booking (FerryHopper only)
+        if not hasattr(integration, 'create_pending_booking'):
+            raise FerryAPIError(f"Operator {operator} does not support inventory hold")
+
+        booking_request = BookingRequest(
+            sailing_id=sailing_id,
+            passengers=passengers,
+            vehicles=vehicles or [],
+            cabin_selection=cabin_selection,
+            contact_info=contact_info or {},
+            special_requests=special_requests
+        )
+
+        try:
+            async with integration:
+                result = await integration.create_pending_booking(booking_request)
+                logger.info(f"🔒 PENDING booking created: {result.get('booking_code')} with {operator}")
+                return result
+        except FerryAPIError as e:
+            logger.error(f"Pending booking failed for {operator}: {e.message}")
+            raise
+        except Exception as e:
+            logger.error(f"Pending booking error for {operator}: {e}", exc_info=True)
+            raise FerryAPIError(f"Failed to create pending booking with {operator}: {str(e)}")
+
+    async def confirm_pending_booking(
+        self,
+        operator: str,
+        booking_code: str,
+        total_price_cents: int,
+        currency: str = "EUR"
+    ) -> BookingConfirmation:
+        """
+        Confirm a PENDING booking after payment succeeds (Step 2 of two-step booking).
+
+        Args:
+            operator: Operator code
+            booking_code: Booking code from create_pending_booking
+            total_price_cents: Total price in cents for verification
+            currency: Currency code (default EUR)
+
+        Returns:
+            BookingConfirmation with final status
+
+        Raises:
+            FerryAPIError: If confirmation fails
+        """
+        operator_key = self.OPERATOR_KEY_MAP.get(operator)
+        if not operator_key:
+            operator_key = "ferryhopper"
+        integration = self.integrations.get(operator_key)
+        if not integration:
+            raise ValueError(f"No integration available for operator: {operator}")
+
+        if not hasattr(integration, 'confirm_pending_booking'):
+            raise FerryAPIError(f"Operator {operator} does not support pending booking confirmation")
+
+        try:
+            async with integration:
+                confirmation = await integration.confirm_pending_booking(
+                    booking_code=booking_code,
+                    total_price_cents=total_price_cents,
+                    currency=currency
+                )
+                logger.info(f"✅ PENDING booking confirmed: {booking_code} with {operator}")
+                return confirmation
+        except FerryAPIError as e:
+            logger.error(f"Booking confirmation failed for {operator}: {e.message}")
+            raise
+        except Exception as e:
+            logger.error(f"Booking confirmation error for {operator}: {e}", exc_info=True)
+            raise FerryAPIError(f"Failed to confirm booking with {operator}: {str(e)}")
+
+    async def cancel_pending_booking(
+        self,
+        operator: str,
+        booking_code: str
+    ) -> bool:
+        """
+        Cancel a PENDING booking to release held inventory.
+
+        Used when payment fails, times out, or user abandons checkout.
+
+        Args:
+            operator: Operator code
+            booking_code: Booking code from create_pending_booking
+
+        Returns:
+            True if cancellation successful
+
+        Raises:
+            FerryAPIError: If cancellation fails
+        """
+        operator_key = self.OPERATOR_KEY_MAP.get(operator)
+        if not operator_key:
+            operator_key = "ferryhopper"
+        integration = self.integrations.get(operator_key)
+        if not integration:
+            raise ValueError(f"No integration available for operator: {operator}")
+
+        if not hasattr(integration, 'cancel_pending_booking'):
+            # Fallback to regular cancel_booking for operators without pending support
+            logger.warning(f"Operator {operator} has no pending booking cancellation - using regular cancel")
+            try:
+                async with integration:
+                    return await integration.cancel_booking(booking_code)
+            except Exception:
+                return False
+
+        try:
+            async with integration:
+                result = await integration.cancel_pending_booking(booking_code)
+                logger.info(f"🔓 PENDING booking released: {booking_code} with {operator}")
+                return result
+        except FerryAPIError as e:
+            logger.error(f"Pending booking cancellation failed for {operator}: {e.message}")
+            raise
+        except Exception as e:
+            logger.error(f"Pending booking cancellation error for {operator}: {e}", exc_info=True)
+            raise FerryAPIError(f"Failed to cancel pending booking with {operator}: {str(e)}")
+
     async def get_booking_status(self, operator: str, booking_reference: str) -> Dict:
         """
         Get booking status from operator.
@@ -481,11 +643,90 @@ class FerryService:
                     logger.info(f"Booking cancelled: {booking_reference} with {operator}")
                 return success
         except FerryAPIError as e:
-            logger.error(f"Cancellation failed for {operator}: {e.message}")
+            error_msg = str(e.message).lower() if e.message else ""
+            # "Booking not found" is expected for bookings created with restricted API key
+            if "not found" in error_msg or "does not exist" in error_msg:
+                logger.info(f"Booking {booking_reference} not found in {operator} system (may have never been created)")
+            else:
+                logger.error(f"Cancellation failed for {operator}: {e.message}")
             raise
         except Exception as e:
             logger.error(f"Cancellation error for {operator}: {e}", exc_info=True)
             raise FerryAPIError(f"Failed to cancel booking with {operator}: {str(e)}")
+
+    async def estimate_refund(
+        self,
+        operator: str,
+        booking_reference: str
+    ) -> Dict:
+        """
+        Get refund estimate from operator.
+
+        Args:
+            operator: Operator code
+            booking_reference: Operator's booking reference
+
+        Returns:
+            Dictionary with refund details:
+            - refund_amount: Amount to be refunded (in EUR)
+            - cancellation_fee: Fee charged for cancellation
+            - currency: Currency code
+            - refundable: Whether booking is refundable
+        """
+        operator_key = self.OPERATOR_KEY_MAP.get(operator)
+        if not operator_key:
+            operator_key = "ferryhopper"
+            logger.info(f"Unknown operator '{operator}' - routing to FerryHopper integration")
+
+        integration = self.integrations.get(operator_key)
+        if not integration:
+            raise ValueError(f"No integration available for operator: {operator}")
+
+        try:
+            async with integration:
+                # Check if integration supports estimate_refund
+                if not hasattr(integration, 'estimate_refund'):
+                    logger.warning(f"Integration {operator_key} does not support refund estimates")
+                    return {
+                        "refund_amount": None,
+                        "cancellation_fee": None,
+                        "currency": "EUR",
+                        "refundable": True,  # Assume refundable if we can't check
+                        "estimate_available": False
+                    }
+
+                estimate = await integration.estimate_refund(booking_reference)
+
+                # Parse FerryHopper response format
+                refund_cents = estimate.get("totalPriceInCents", 0)
+                fee_cents = estimate.get("cancellationFee", 0)
+                currency = estimate.get("currency", "EUR")
+
+                return {
+                    "refund_amount": refund_cents / 100 if refund_cents else 0,
+                    "cancellation_fee": fee_cents / 100 if fee_cents else 0,
+                    "currency": currency,
+                    "refundable": refund_cents > 0,
+                    "estimate_available": True,
+                    "raw_response": estimate  # Include raw response for debugging
+                }
+
+        except FerryAPIError as e:
+            error_msg = str(e.message).lower() if e.message else ""
+            if "not found" in error_msg:
+                logger.info(f"Booking {booking_reference} not found for refund estimate (may not exist in operator system)")
+                return {
+                    "refund_amount": None,
+                    "cancellation_fee": None,
+                    "currency": "EUR",
+                    "refundable": True,
+                    "estimate_available": False,
+                    "reason": "Booking not found in operator system"
+                }
+            raise
+        except Exception as e:
+            logger.error(f"Refund estimate error for {operator}: {e}", exc_info=True)
+            raise FerryAPIError(f"Failed to get refund estimate from {operator}: {str(e)}")
 
     async def health_check(self) -> Dict[str, str]:
         """

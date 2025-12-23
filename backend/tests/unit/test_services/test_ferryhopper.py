@@ -905,6 +905,265 @@ class TestHealthCheckAsync:
 
 
 # ============================================================================
+# Pending Booking Tests (Two-Step Inventory Hold)
+# ============================================================================
+
+class TestCreatePendingBookingAsync:
+    """Tests for async create_pending_booking method (Step 1: Hold inventory)."""
+
+    @pytest.mark.asyncio
+    async def test_create_pending_booking_returns_booking_code(
+        self,
+        ferryhopper_integration,
+        sample_booking_request,
+        sample_solution_data
+    ):
+        """Test that create_pending_booking returns booking code and price info."""
+        ferryhopper_integration.session = AsyncMock()
+
+        # Mock booking create response (only step 1 - no confirm)
+        create_response = {
+            "bookingCode": "BK-PENDING-12345",
+            "price": {
+                "totalPriceInCents": 15000,
+                "currency": "EUR"
+            },
+            "externalBookingReference": "EXT-REF-001",
+            "segments": [{"id": "seg-1"}]
+        }
+
+        with patch('app.services.ferry_integrations.ferryhopper.cache_service') as mock_cache:
+            mock_cache.get.return_value = sample_solution_data
+
+            async def mock_post(url, json=None):
+                mock_resp = MagicMock()
+                mock_resp.status_code = 200
+                mock_resp.json.return_value = create_response
+                return mock_resp
+
+            ferryhopper_integration.session.post = mock_post
+
+            result = await ferryhopper_integration.create_pending_booking(sample_booking_request)
+
+            assert result["booking_code"] == "BK-PENDING-12345"
+            assert result["status"] == "PENDING"
+            assert result["total_price_cents"] == 15000
+            assert result["currency"] == "EUR"
+            assert result["external_reference"] == "EXT-REF-001"
+
+    @pytest.mark.asyncio
+    async def test_create_pending_booking_fails_without_solution_data(
+        self,
+        ferryhopper_integration,
+        sample_booking_request
+    ):
+        """Test that create_pending_booking fails when solution data is not cached."""
+        ferryhopper_integration.session = AsyncMock()
+
+        with patch('app.services.ferry_integrations.ferryhopper.cache_service') as mock_cache:
+            mock_cache.get.return_value = None  # No cached solution
+
+            with pytest.raises(FerryAPIError) as exc_info:
+                await ferryhopper_integration.create_pending_booking(sample_booking_request)
+
+            assert "solution expired" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_create_pending_booking_fails_when_no_booking_code_returned(
+        self,
+        ferryhopper_integration,
+        sample_booking_request,
+        sample_solution_data
+    ):
+        """Test that create_pending_booking fails when API doesn't return booking code."""
+        ferryhopper_integration.session = AsyncMock()
+
+        with patch('app.services.ferry_integrations.ferryhopper.cache_service') as mock_cache:
+            mock_cache.get.return_value = sample_solution_data
+
+            async def mock_post(url, json=None):
+                mock_resp = MagicMock()
+                mock_resp.status_code = 200
+                mock_resp.json.return_value = {"message": "Error creating booking"}
+                return mock_resp
+
+            ferryhopper_integration.session.post = mock_post
+
+            with pytest.raises(FerryAPIError) as exc_info:
+                await ferryhopper_integration.create_pending_booking(sample_booking_request)
+
+            assert "pending booking creation failed" in str(exc_info.value).lower()
+
+
+class TestConfirmPendingBookingAsync:
+    """Tests for async confirm_pending_booking method (Step 2: Charge customer)."""
+
+    @pytest.mark.asyncio
+    async def test_confirm_pending_booking_success(self, ferryhopper_integration):
+        """Test that confirm_pending_booking successfully confirms a booking."""
+        ferryhopper_integration.session = AsyncMock()
+
+        confirm_response = {"status": "confirmed"}
+        status_response = {
+            "bookingStatus": "SUCCESSFUL",
+            "booking": {
+                "segments": [
+                    {
+                        "boardingMethod": {
+                            "key": "BOARDING_METHOD_ETICKET",
+                            "url": "https://ticket.example.com",
+                            "identifiers": {"ticketId": "T123"}
+                        }
+                    }
+                ]
+            }
+        }
+
+        call_count = 0
+
+        async def mock_post(url, json=None):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = confirm_response
+            return mock_resp
+
+        async def mock_get(url, params=None):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = status_response
+            return mock_resp
+
+        ferryhopper_integration.session.post = mock_post
+        ferryhopper_integration.session.get = mock_get
+
+        result = await ferryhopper_integration.confirm_pending_booking(
+            booking_code="BK-PENDING-12345",
+            total_price_cents=15000,
+            currency="EUR"
+        )
+
+        assert result.booking_reference == "BK-PENDING-12345"
+        assert result.status == "confirmed"
+        assert result.total_amount == 150.0  # 15000 cents = €150
+
+    @pytest.mark.asyncio
+    async def test_confirm_pending_booking_waits_for_success(self, ferryhopper_integration):
+        """Test that confirm_pending_booking polls until SUCCESSFUL status."""
+        ferryhopper_integration.session = AsyncMock()
+
+        # First call returns PENDING, second returns SUCCESSFUL
+        status_calls = [
+            {"bookingStatus": "PENDING", "booking": {"segments": []}},
+            {"bookingStatus": "SUCCESSFUL", "booking": {"segments": []}}
+        ]
+        call_index = 0
+
+        async def mock_post(url, json=None):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {"status": "confirmed"}
+            return mock_resp
+
+        async def mock_get(url, params=None):
+            nonlocal call_index
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = status_calls[min(call_index, len(status_calls) - 1)]
+            call_index += 1
+            return mock_resp
+
+        ferryhopper_integration.session.post = mock_post
+        ferryhopper_integration.session.get = mock_get
+
+        result = await ferryhopper_integration.confirm_pending_booking(
+            booking_code="BK-PENDING-12345",
+            total_price_cents=15000,
+            currency="EUR"
+        )
+
+        assert result.status == "confirmed"
+        assert call_index >= 2  # Should have polled at least twice
+
+    @pytest.mark.asyncio
+    async def test_confirm_pending_booking_handles_failed_status(self, ferryhopper_integration):
+        """Test that confirm_pending_booking raises error on FAILED status."""
+        ferryhopper_integration.session = AsyncMock()
+
+        async def mock_post(url, json=None):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {"status": "confirmed"}
+            return mock_resp
+
+        async def mock_get(url, params=None):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {"bookingStatus": "FAILED", "booking": {}}
+            return mock_resp
+
+        ferryhopper_integration.session.post = mock_post
+        ferryhopper_integration.session.get = mock_get
+
+        with pytest.raises(FerryAPIError) as exc_info:
+            await ferryhopper_integration.confirm_pending_booking(
+                booking_code="BK-PENDING-12345",
+                total_price_cents=15000,
+                currency="EUR"
+            )
+
+        assert "failed" in str(exc_info.value).lower()
+
+
+class TestCancelPendingBookingAsync:
+    """Tests for async cancel_pending_booking method (Release held inventory)."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_booking_success(self, ferryhopper_integration):
+        """Test that cancel_pending_booking successfully releases inventory."""
+        ferryhopper_integration.session = AsyncMock()
+
+        async def mock_post(url, json=None):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {"success": True}
+            return mock_resp
+
+        ferryhopper_integration.session.post = mock_post
+
+        result = await ferryhopper_integration.cancel_pending_booking("BK-PENDING-12345")
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_booking_returns_true_for_not_found(self, ferryhopper_integration):
+        """Test that cancel_pending_booking returns True when booking not found (expired)."""
+        ferryhopper_integration.session = AsyncMock()
+
+        async def mock_post(url, json=None):
+            raise FerryAPIError("Booking not found")
+
+        ferryhopper_integration.session.post = mock_post
+
+        # Should return True (booking may have auto-expired)
+        result = await ferryhopper_integration.cancel_pending_booking("BK-EXPIRED-12345")
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_booking_raises_on_other_errors(self, ferryhopper_integration):
+        """Test that cancel_pending_booking raises on non-404 errors."""
+        ferryhopper_integration.session = AsyncMock()
+
+        async def mock_post(url, json=None):
+            raise FerryAPIError("Internal server error")
+
+        ferryhopper_integration.session.post = mock_post
+
+        with pytest.raises(FerryAPIError):
+            await ferryhopper_integration.cancel_pending_booking("BK-PENDING-12345")
+
+
+# ============================================================================
 # Port Mapping Tests
 # ============================================================================
 
@@ -980,6 +1239,167 @@ class TestFerryHopperInFerryService:
         from app.services.ferry_service import FerryHopperIntegration
 
         assert FerryHopperIntegration is not None
+
+
+class TestFerryServicePendingBookingMethods:
+    """Tests for FerryService pending booking methods (two-step inventory hold)."""
+
+    @pytest.fixture
+    def ferry_service(self):
+        """Create a FerryService instance for testing."""
+        from app.services.ferry_service import FerryService
+        return FerryService()
+
+    @pytest.mark.asyncio
+    async def test_create_pending_booking_routes_to_ferryhopper(self, ferry_service):
+        """Test that create_pending_booking routes to FerryHopper integration."""
+        mock_integration = MagicMock()
+        mock_integration.create_pending_booking = AsyncMock(return_value={
+            "booking_code": "BK-PENDING-123",
+            "status": "PENDING",
+            "total_price_cents": 10000,
+            "currency": "EUR"
+        })
+
+        # Mock the context manager
+        async def mock_aenter(self):
+            return mock_integration
+        async def mock_aexit(self, *args):
+            pass
+
+        mock_integration.__aenter__ = mock_aenter
+        mock_integration.__aexit__ = mock_aexit
+
+        ferry_service.integrations = {"ferryhopper": mock_integration}
+
+        result = await ferry_service.create_pending_booking(
+            operator="FerryHopper",
+            sailing_id="FH_123",
+            passengers=[{"first_name": "John", "last_name": "Doe", "type": "adult"}],
+            contact_info={"email": "test@test.com"}
+        )
+
+        assert result["booking_code"] == "BK-PENDING-123"
+        mock_integration.create_pending_booking.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_pending_booking_unknown_operator_uses_ferryhopper(self, ferry_service):
+        """Test that unknown operators route to FerryHopper."""
+        mock_integration = MagicMock()
+        mock_integration.create_pending_booking = AsyncMock(return_value={
+            "booking_code": "BK-PENDING-123",
+            "status": "PENDING",
+            "total_price_cents": 10000,
+            "currency": "EUR"
+        })
+
+        async def mock_aenter(self):
+            return mock_integration
+        async def mock_aexit(self, *args):
+            pass
+
+        mock_integration.__aenter__ = mock_aenter
+        mock_integration.__aexit__ = mock_aexit
+
+        ferry_service.integrations = {"ferryhopper": mock_integration}
+
+        result = await ferry_service.create_pending_booking(
+            operator="Unknown Operator",
+            sailing_id="FH_123",
+            passengers=[{"first_name": "John", "last_name": "Doe", "type": "adult"}],
+            contact_info={"email": "test@test.com"}
+        )
+
+        assert result["booking_code"] == "BK-PENDING-123"
+
+    @pytest.mark.asyncio
+    async def test_confirm_pending_booking_calls_integration(self, ferry_service):
+        """Test that confirm_pending_booking calls the integration method."""
+        from app.services.ferry_integrations.base import BookingConfirmation
+
+        mock_confirmation = BookingConfirmation(
+            booking_reference="BK-CONFIRMED-123",
+            operator_reference="BK-CONFIRMED-123",
+            status="confirmed",
+            total_amount=100.0,
+            currency="EUR"
+        )
+
+        mock_integration = MagicMock()
+        mock_integration.confirm_pending_booking = AsyncMock(return_value=mock_confirmation)
+
+        async def mock_aenter(self):
+            return mock_integration
+        async def mock_aexit(self, *args):
+            pass
+
+        mock_integration.__aenter__ = mock_aenter
+        mock_integration.__aexit__ = mock_aexit
+
+        ferry_service.integrations = {"ferryhopper": mock_integration}
+
+        result = await ferry_service.confirm_pending_booking(
+            operator="FerryHopper",
+            booking_code="BK-PENDING-123",
+            total_price_cents=10000,
+            currency="EUR"
+        )
+
+        assert result.booking_reference == "BK-CONFIRMED-123"
+        assert result.status == "confirmed"
+        mock_integration.confirm_pending_booking.assert_called_once_with(
+            booking_code="BK-PENDING-123",
+            total_price_cents=10000,
+            currency="EUR"
+        )
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_booking_calls_integration(self, ferry_service):
+        """Test that cancel_pending_booking calls the integration method."""
+        mock_integration = MagicMock()
+        mock_integration.cancel_pending_booking = AsyncMock(return_value=True)
+
+        async def mock_aenter(self):
+            return mock_integration
+        async def mock_aexit(self, *args):
+            pass
+
+        mock_integration.__aenter__ = mock_aenter
+        mock_integration.__aexit__ = mock_aexit
+
+        ferry_service.integrations = {"ferryhopper": mock_integration}
+
+        result = await ferry_service.cancel_pending_booking(
+            operator="FerryHopper",
+            booking_code="BK-PENDING-123"
+        )
+
+        assert result is True
+        mock_integration.cancel_pending_booking.assert_called_once_with("BK-PENDING-123")
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_booking_fallback_to_regular_cancel(self, ferry_service):
+        """Test that cancel falls back to regular cancel for unsupported integrations."""
+        mock_integration = MagicMock(spec=['cancel_booking', '__aenter__', '__aexit__'])
+        mock_integration.cancel_booking = AsyncMock(return_value=True)
+
+        async def mock_aenter(self):
+            return mock_integration
+        async def mock_aexit(self, *args):
+            pass
+
+        mock_integration.__aenter__ = mock_aenter
+        mock_integration.__aexit__ = mock_aexit
+
+        ferry_service.integrations = {"ferryhopper": mock_integration}
+
+        # Should fall back to cancel_booking since cancel_pending_booking doesn't exist
+        result = await ferry_service.cancel_pending_booking(
+            operator="FerryHopper",
+            booking_code="BK-PENDING-123"
+        )
+
+        assert result is True
 
 
 # ============================================================================

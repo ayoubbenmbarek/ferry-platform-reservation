@@ -325,7 +325,7 @@ class EmailService:
                 'passengers': passengers or [],
                 'has_eticket': eticket_pdf is not None,
                 'base_url': booking_data.get('base_url', self.base_url),
-                'eticket_url': f"{self.base_url}/bookings/{booking_data.get('booking_reference')}/eticket",
+                'eticket_url': f"{self.base_url}/api/v1/bookings/reference/{booking_data.get('booking_reference')}/eticket",
                 'current_year': datetime.now().year,
             }
 

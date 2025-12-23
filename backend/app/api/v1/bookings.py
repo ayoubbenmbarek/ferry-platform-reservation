@@ -676,18 +676,17 @@ async def create_booking(
                     detail=f"Promo code error: {validation.message}"
                 )
 
-        # Add cancellation protection if selected (€15)
-        CANCELLATION_PROTECTION_PRICE = 15.00
-        cancellation_protection_amount = CANCELLATION_PROTECTION_PRICE if getattr(booking_data, 'has_cancellation_protection', False) else 0.0
-        subtotal += cancellation_protection_amount
+        # Note: Cancellation policy is determined by FerryHopper's refundType
+        # No additional cancellation protection fee - we use operator's native policies
 
         # Calculate tax on discounted subtotal (10% for example)
         discounted_subtotal = subtotal - discount_amount
         tax_amount = discounted_subtotal * 0.10
         total_amount = discounted_subtotal + tax_amount
 
-        # Calculate expiration time (30 minutes from now for pending bookings)
-        expires_at = utc_now() + timedelta(minutes=30)
+        # Calculate expiration time (15 minutes from now for pending bookings)
+        # This matches the FerryHopper inventory hold time
+        expires_at = utc_now() + timedelta(minutes=15)
 
         # Create booking record
         db_booking = Booking(
@@ -728,9 +727,10 @@ async def create_booking(
             return_cabin_supplement=return_cabin_supplement,
             special_requests=booking_data.special_requests,
             status=BookingStatusEnum.PENDING,
-            expires_at=expires_at,  # Expires 30 minutes from creation
+            expires_at=expires_at,  # Expires 15 minutes from creation (matches FerryHopper hold)
             extra_data={
-                "has_cancellation_protection": getattr(booking_data, 'has_cancellation_protection', False),
+                # Store refund type from FerryHopper (REFUNDABLE or NON_REFUNDABLE)
+                "refund_type": getattr(booking_data, 'refund_type', 'REFUNDABLE'),
                 "cabin_selections": cabin_selections_data if cabin_selections_data else None,
                 "return_cabin_selections": return_cabin_selections_data if return_cabin_selections_data else None,
             }
@@ -891,9 +891,11 @@ async def create_booking(
         if promo_code_str:
             logger.info(f"Promo code {promo_code_str} applied to booking {db_booking.id} - usage will be recorded after payment")
 
-        # Create booking with ferry operator
+        # Create PENDING booking with ferry operator to hold inventory
+        # This is Step 1 of two-step booking: holds inventory for 15 minutes
+        # Step 2 (confirm) happens after payment succeeds
         try:
-            logger.info(f"🚢 Creating operator booking for {booking_data.operator}, sailing {booking_data.sailing_id}, "
+            logger.info(f"🔒 Creating PENDING operator booking for {booking_data.operator}, sailing {booking_data.sailing_id}, "
                        f"booking_ref={booking_reference}")
             # Prepare cabin data for operator from cabin_selections (FerryHopper API)
             cabin_data = None
@@ -906,7 +908,8 @@ async def create_booking(
                     "price": first_cabin.price
                 }
 
-            operator_confirmation = await ferry_service.create_booking(
+            # Create PENDING booking (holds inventory, does NOT charge yet)
+            pending_result = await ferry_service.create_pending_booking(
                 operator=booking_data.operator,
                 sailing_id=booking_data.sailing_id,
                 passengers=[p.dict() for p in booking_data.passengers],
@@ -916,10 +919,18 @@ async def create_booking(
                 special_requests=booking_data.special_requests
             )
 
-            # Update booking with operator reference
-            db_booking.operator_booking_reference = operator_confirmation.operator_reference
+            # Update booking with operator reference (FerryHopper booking code)
+            db_booking.operator_booking_reference = pending_result.get("booking_code")
 
-            # Create booking with return operator if different return ferry selected
+            # Store pending booking info in extra_data for later confirmation
+            if db_booking.extra_data is None:
+                db_booking.extra_data = {}
+            db_booking.extra_data["operator_booking_pending"] = True  # Flag: needs confirmation after payment
+            db_booking.extra_data["fh_price_cents"] = pending_result.get("total_price_cents")
+            db_booking.extra_data["fh_currency"] = pending_result.get("currency", "EUR")
+            db_booking.extra_data["fh_segments"] = pending_result.get("segments", [])
+
+            # Create PENDING booking with return operator if different return ferry selected
             if db_booking.return_sailing_id and db_booking.return_operator:
                 try:
                     # Prepare return cabin data from return_cabin_selections (FerryHopper API)
@@ -932,7 +943,7 @@ async def create_booking(
                             "price": first_return_cabin.price
                         }
 
-                    return_confirmation = await ferry_service.create_booking(
+                    return_pending_result = await ferry_service.create_pending_booking(
                         operator=db_booking.return_operator,
                         sailing_id=db_booking.return_sailing_id,
                         passengers=[p.dict() for p in booking_data.passengers],
@@ -941,12 +952,15 @@ async def create_booking(
                         contact_info=booking_data.contact_info.dict(),
                         special_requests=booking_data.special_requests
                     )
-                    db_booking.return_operator_booking_reference = return_confirmation.operator_reference
+                    db_booking.return_operator_booking_reference = return_pending_result.get("booking_code")
+                    db_booking.extra_data["return_fh_price_cents"] = return_pending_result.get("total_price_cents")
+                    db_booking.extra_data["return_fh_currency"] = return_pending_result.get("currency", "EUR")
                 except FerryAPIError as return_error:
                     # If return operator booking fails, log but continue
-                    logger.warning(f"Failed to create return operator booking: {str(return_error)}")
+                    logger.warning(f"Failed to create return PENDING operator booking: {str(return_error)}")
 
-            # Note: Status remains PENDING until payment is completed
+            # Note: Status remains PENDING until payment is completed and FerryHopper booking is confirmed
+            logger.info(f"🔒 Inventory held for booking {db_booking.booking_reference} - expires in 15 minutes")
             db.commit()
 
         except FerryAPIError as e:
@@ -1328,9 +1342,9 @@ async def update_booking(
 
         booking.updated_at = utc_now()
 
-        # Reset expiration timer for pending bookings (give another 30 minutes)
+        # Reset expiration timer for pending bookings (give another 15 minutes)
         if booking.status == BookingStatusEnum.PENDING:
-            booking.expires_at = utc_now() + timedelta(minutes=30)
+            booking.expires_at = utc_now() + timedelta(minutes=15)
 
         db.commit()
         db.refresh(booking)
@@ -1426,9 +1440,9 @@ async def quick_update_booking(
 
         booking.updated_at = utc_now()
 
-        # Reset expiration timer for pending bookings (give another 30 minutes)
+        # Reset expiration timer for pending bookings (give another 15 minutes)
         if booking.status == BookingStatusEnum.PENDING:
-            booking.expires_at = utc_now() + timedelta(minutes=30)
+            booking.expires_at = utc_now() + timedelta(minutes=15)
 
         db.commit()
 
@@ -1844,6 +1858,142 @@ async def add_cabin_to_booking(
         )
 
 
+@router.get("/{booking_id}/cancel-estimate")
+async def get_cancellation_estimate(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """
+    Get cancellation refund estimate for a booking.
+
+    Returns the expected refund amount, cancellation fees, and whether
+    cancellation is allowed based on timing restrictions.
+
+    This should be called before cancellation to show the user what to expect.
+    """
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check access permissions
+        if not validate_booking_access(booking_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+
+        # Check if booking can be cancelled
+        if booking.status in [BookingStatusEnum.CANCELLED, BookingStatusEnum.COMPLETED]:
+            return {
+                "can_cancel": False,
+                "reason": f"Booking is already {booking.status.value.lower()}",
+                "refund_estimate": None
+            }
+
+        # Check if departure has already passed
+        from datetime import timezone as tz
+        now_utc = datetime.now(tz.utc)
+
+        if booking.departure_time:
+            departure = booking.departure_time
+            if departure.tzinfo is None:
+                departure = departure.replace(tzinfo=tz.utc)
+
+            if departure < now_utc:
+                return {
+                    "can_cancel": False,
+                    "reason": "Cannot cancel after departure - the ferry has already departed",
+                    "refund_estimate": None
+                }
+
+            # Calculate days until departure
+            days_until_departure = (departure - now_utc).days
+            hours_until_departure = int((departure - now_utc).total_seconds() / 3600)
+        else:
+            days_until_departure = None
+            hours_until_departure = None
+
+        # Check refund type from FerryHopper (REFUNDABLE or NON_REFUNDABLE)
+        refund_type = booking.extra_data.get("refund_type", "REFUNDABLE") if booking.extra_data else "REFUNDABLE"
+        is_refundable = refund_type == "REFUNDABLE"
+
+        # Get operator refund estimate if booking exists with operator
+        operator_estimate = None
+        operator_booking_pending = booking.extra_data.get("operator_booking_pending", False) if booking.extra_data else False
+
+        if booking.operator_booking_reference and not operator_booking_pending:
+            try:
+                operator_estimate = await ferry_service.estimate_refund(
+                    operator=booking.operator,
+                    booking_reference=booking.operator_booking_reference
+                )
+            except Exception as e:
+                logger.warning(f"Failed to get operator refund estimate: {e}")
+                operator_estimate = {
+                    "estimate_available": False,
+                    "reason": str(e)
+                }
+
+        # Calculate Stripe refund (what we actually paid)
+        from app.models.payment import Payment, PaymentStatusEnum as PaymentStatus
+
+        completed_payments = db.query(Payment).filter(
+            Payment.booking_id == booking_id,
+            Payment.status == PaymentStatus.COMPLETED
+        ).all()
+
+        total_paid = sum(float(p.amount) for p in completed_payments if p.amount)
+
+        # Build response - cancellation is always allowed, refund depends on operator policy
+        response = {
+            "can_cancel": True,  # Always allow cancellation
+            "booking_id": booking_id,
+            "booking_reference": booking.booking_reference,
+            "booking_status": booking.status.value,
+            "departure_time": booking.departure_time.isoformat() if booking.departure_time else None,
+            "days_until_departure": days_until_departure,
+            "hours_until_departure": hours_until_departure,
+            "refund_type": refund_type,
+            "is_refundable": is_refundable,
+            "payment_summary": {
+                "total_paid": total_paid,
+                "currency": booking.currency or "EUR",
+                "payments_count": len(completed_payments)
+            },
+            "operator_estimate": operator_estimate,
+            "refund_estimate": {
+                "expected_refund": total_paid if is_refundable else 0,
+                "currency": booking.currency or "EUR",
+                "note": "Refund based on operator policy" if is_refundable else "Non-refundable ticket - no refund available"
+            }
+        }
+
+        # Add operator fee info if available (this overrides expected_refund with actual estimate)
+        if operator_estimate and operator_estimate.get("estimate_available"):
+            response["refund_estimate"]["operator_refund"] = operator_estimate.get("refund_amount")
+            response["refund_estimate"]["cancellation_fee"] = operator_estimate.get("cancellation_fee")
+            # Use operator's actual refund estimate if available
+            if operator_estimate.get("refund_amount") is not None:
+                response["refund_estimate"]["expected_refund"] = operator_estimate.get("refund_amount")
+                response["refund_estimate"]["note"] = f"Refund after cancellation fee: €{operator_estimate.get('cancellation_fee', 0)}"
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get cancellation estimate: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to get cancellation estimate: {str(e)}"
+        )
+
+
 @router.post("/{booking_id}/cancel")
 async def cancel_booking(
     booking_id: int,
@@ -1856,6 +2006,8 @@ async def cancel_booking(
 
     Cancels the booking with the ferry operator, refunds the payment via Stripe, and updates the status.
     Allows both authenticated users and guest users to cancel their bookings.
+
+    Set async_mode=True to queue the cancellation as a background task (returns immediately with task_id).
     """
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
@@ -1892,30 +2044,39 @@ async def cancel_booking(
                     detail="Cannot cancel a booking after departure. The ferry has already departed."
                 )
 
-        # Check 7-day cancellation restriction (unless booking has cancellation protection)
-        # Cancellation protection is stored in booking extra_data field
-        has_cancellation_protection = booking.extra_data.get("has_cancellation_protection", False) if booking.extra_data else False
-        logger.info(f"Booking {booking_id} cancellation check: extra_data={booking.extra_data}, has_protection={has_cancellation_protection}")
+        # Check refund type from FerryHopper (REFUNDABLE or NON_REFUNDABLE)
+        # Cancellation is always allowed, but refund depends on operator's policy
+        refund_type = booking.extra_data.get("refund_type", "REFUNDABLE") if booking.extra_data else "REFUNDABLE"
+        is_refundable = refund_type == "REFUNDABLE"
+        logger.info(f"Booking {booking_id} cancellation: refund_type={refund_type}, is_refundable={is_refundable}")
 
-        if not has_cancellation_protection and booking.departure_time:
-            from datetime import timedelta, timezone
-            # Make sure we compare timezone-aware datetimes
-            now_utc = datetime.now(timezone.utc)
-            departure = booking.departure_time
-            if departure.tzinfo is None:
-                departure = departure.replace(tzinfo=timezone.utc)
-            days_until_departure = (departure - now_utc).days
-            logger.info(f"Days until departure: {days_until_departure}, departure={departure}, now={now_utc}")
+        # Async mode: queue cancellation task and return immediately
+        if cancellation_data.async_mode:
+            from app.tasks.booking_tasks import process_full_cancellation_task
 
-            if days_until_departure < 7:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cancellations are not allowed within 7 days of departure. Your trip departs in {days_until_departure} days. Consider purchasing cancellation protection for future bookings."
-                )
+            initiated_by = str(current_user.id) if current_user else "guest"
+            task = process_full_cancellation_task.delay(
+                booking_id=booking_id,
+                cancellation_reason=cancellation_data.reason,
+                initiated_by=initiated_by
+            )
 
-        # Cancel with ferry operator
-        try:
-            if booking.operator_booking_reference:
+            logger.info(f"Async cancellation queued for booking {booking_id}: task_id={task.id}")
+
+            return {
+                "message": "Cancellation request queued",
+                "booking_id": booking_id,
+                "task_id": task.id,
+                "async": True,
+                "status_url": f"/api/v1/bookings/{booking_id}/cancel-status/{task.id}"
+            }
+
+        # Synchronous mode (default): process cancellation immediately
+        # Cancel with ferry operator (only if booking was actually confirmed with operator)
+        operator_booking_pending = booking.extra_data.get("operator_booking_pending", False) if booking.extra_data else False
+
+        if booking.operator_booking_reference and not operator_booking_pending:
+            try:
                 cancelled = await ferry_service.cancel_booking(
                     operator=booking.operator,
                     booking_reference=booking.operator_booking_reference,
@@ -1923,13 +2084,17 @@ async def cancel_booking(
                 )
 
                 if not cancelled:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Failed to cancel with ferry operator"
-                    )
-        except FerryAPIError as e:
-            # Log the error but continue with local cancellation
-            pass
+                    logger.warning(f"Operator cancellation returned false for {booking.booking_reference}, continuing with local cancellation")
+            except FerryAPIError as e:
+                error_msg = str(e).lower()
+                # "Booking not found" is expected if booking was never created with operator
+                if "not found" in error_msg or "does not exist" in error_msg:
+                    logger.info(f"Booking {booking.booking_reference} not found in operator system (may have never been created), continuing with local cancellation")
+                else:
+                    # Log other errors but continue with local cancellation
+                    logger.warning(f"Operator cancellation failed for {booking.booking_reference}: {e}, continuing with local cancellation")
+        elif operator_booking_pending:
+            logger.info(f"Skipping operator cancellation for {booking.booking_reference} - booking was never confirmed with operator (API limitation)")
 
         # Process refunds for ALL completed payments (includes cabin upgrades paid separately)
         from app.models.payment import Payment, PaymentStatusEnum as PaymentStatus
@@ -2099,6 +2264,68 @@ async def cancel_booking(
         )
 
 
+@router.get("/{booking_id}/cancel-status/{task_id}")
+async def get_cancellation_status(
+    booking_id: int,
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """
+    Get the status of an async cancellation task.
+
+    Use this to poll for completion after starting a cancellation with async_mode=True.
+    """
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check access permissions
+        if not validate_booking_access(booking_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+
+        # Get task result from Celery
+        from celery.result import AsyncResult
+        from app.celery_app import celery_app
+
+        result = AsyncResult(task_id, app=celery_app)
+
+        response = {
+            "booking_id": booking_id,
+            "task_id": task_id,
+            "task_status": result.status,
+            "booking_status": booking.status.value if booking.status else None
+        }
+
+        if result.ready():
+            if result.successful():
+                response["result"] = result.result
+                response["completed"] = True
+            elif result.failed():
+                response["error"] = str(result.result)
+                response["completed"] = True
+                response["failed"] = True
+        else:
+            response["completed"] = False
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get cancellation status: {str(e)}"
+        )
+
+
 @router.get("/{booking_id}/status")
 async def get_booking_status(
     booking_id: int,
@@ -2151,6 +2378,57 @@ async def get_booking_status(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to get booking status: {str(e)}"
+        )
+
+
+@router.get("/auth/reference/{booking_reference}", response_model=BookingResponse)
+async def get_booking_by_reference_auth(
+    booking_reference: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get booking by reference for authenticated users.
+
+    Allows authenticated users to retrieve their booking by reference
+    without email verification. User must own the booking.
+    """
+    try:
+        # Use selectinload to eagerly load relationships
+        booking = db.query(Booking).options(
+            selectinload(Booking.passengers),
+            selectinload(Booking.vehicles),
+            selectinload(Booking.meals),
+            selectinload(Booking.booking_cabins).selectinload(BookingCabin.cabin),
+            selectinload(Booking.cabin),
+            selectinload(Booking.return_cabin),
+        ).filter(
+            Booking.booking_reference == booking_reference
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Check if user owns this booking
+        if booking.user_id != current_user.id and not getattr(current_user, 'is_admin', False):
+            # Also allow if user's email matches contact email
+            if booking.contact_email.lower() != current_user.email.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied - you don't own this booking"
+                )
+
+        return booking_to_response(booking)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to get booking: {str(e)}"
         )
 
 
@@ -2209,8 +2487,6 @@ async def expire_pending_bookings(
     to automatically cancel bookings that haven't been paid within 3 days.
     """
     try:
-        from datetime import datetime
-
         # Find all pending bookings that have expired
         expired_bookings = db.query(Booking).filter(
             Booking.status == BookingStatusEnum.PENDING,

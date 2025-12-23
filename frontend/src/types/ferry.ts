@@ -145,6 +145,8 @@ export interface FerryResult {
   };
   availableVehicles?: AvailableVehicle[];
   routeInfo?: any;
+  refundType?: string;  // REFUNDABLE or NON_REFUNDABLE (from FerryHopper)
+  refund_type?: string; // Snake_case version for API responses
 }
 
 export interface FerrySearchResponse {

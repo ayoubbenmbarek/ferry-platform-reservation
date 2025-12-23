@@ -5,7 +5,7 @@ Payment API endpoints for handling Stripe payments.
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import stripe
 import os
 import logging
@@ -344,6 +344,54 @@ async def confirm_payment(
                     booking.extra_data["operator_booking_pending"] = True
                     booking.extra_data["needs_manual_processing"] = True
                 else:
+                    # Check if FerryHopper booking needs confirmation (Step 2 of two-step booking)
+                    is_pending = booking.extra_data.get("operator_booking_pending", False) if booking.extra_data else False
+
+                    if is_pending and booking.operator_booking_reference:
+                        # Confirm the PENDING FerryHopper booking now that payment succeeded
+                        logger.info(f"✅ Confirming PENDING FerryHopper booking: {booking.operator_booking_reference}")
+                        try:
+                            from app.services.ferry_service import FerryService
+                            ferry_service = FerryService()
+
+                            # Get stored price info from extra_data
+                            fh_price_cents = booking.extra_data.get("fh_price_cents", 0)
+                            fh_currency = booking.extra_data.get("fh_currency", "EUR")
+
+                            # Confirm the outbound booking
+                            confirmation = await ferry_service.confirm_pending_booking(
+                                operator=booking.operator,
+                                booking_code=booking.operator_booking_reference,
+                                total_price_cents=fh_price_cents,
+                                currency=fh_currency
+                            )
+                            logger.info(f"✅ FerryHopper booking confirmed: {confirmation.booking_reference}")
+
+                            # Confirm return booking if exists
+                            if booking.return_operator_booking_reference:
+                                return_fh_price_cents = booking.extra_data.get("return_fh_price_cents", 0)
+                                return_fh_currency = booking.extra_data.get("return_fh_currency", "EUR")
+
+                                return_confirmation = await ferry_service.confirm_pending_booking(
+                                    operator=booking.return_operator or booking.operator,
+                                    booking_code=booking.return_operator_booking_reference,
+                                    total_price_cents=return_fh_price_cents,
+                                    currency=return_fh_currency
+                                )
+                                logger.info(f"✅ FerryHopper return booking confirmed: {return_confirmation.booking_reference}")
+
+                            # Clear the pending flag
+                            booking.extra_data["operator_booking_pending"] = False
+                            booking.extra_data["fh_confirmed_at"] = datetime.now(timezone.utc).isoformat()
+
+                        except Exception as fh_error:
+                            logger.error(f"❌ Failed to confirm FerryHopper booking: {fh_error}")
+                            # Mark for manual processing but don't fail the payment
+                            if booking.extra_data is None:
+                                booking.extra_data = {}
+                            booking.extra_data["fh_confirmation_error"] = str(fh_error)
+                            booking.extra_data["needs_manual_processing"] = True
+
                     booking.status = BookingStatusEnum.CONFIRMED
                     booking.payment_status = "PAID"
 

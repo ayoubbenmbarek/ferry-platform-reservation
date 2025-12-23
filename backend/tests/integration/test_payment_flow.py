@@ -120,41 +120,46 @@ class TestPaymentFlowWithAvailability:
             # Check if publish was called
             assert mock_publish.called or not mock_publish.called  # Soft check
 
+    @pytest.fixture
+    def pending_booking_with_payment(self, db_session: Session, pending_booking):
+        """Create a pending payment record for the pending booking."""
+        from app.models.payment import Payment, PaymentStatusEnum, PaymentMethodEnum
+
+        payment = Payment(
+            booking_id=pending_booking.id,
+            user_id=pending_booking.user_id,
+            stripe_payment_intent_id="pi_fail_test_001",
+            amount=Decimal("550.00"),
+            currency="EUR",
+            status=PaymentStatusEnum.PENDING,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            net_amount=Decimal("530.00"),
+        )
+        db_session.add(payment)
+        db_session.commit()
+        db_session.refresh(pending_booking)
+        return pending_booking
+
     @patch("stripe.PaymentIntent")
     def test_payment_failure_does_not_update_availability(
         self,
         mock_stripe,
         client: TestClient,
         auth_headers,
-        pending_booking,
+        pending_booking_with_payment,
+        db_session,
     ):
         """Test that failed payment does not trigger availability update."""
-        mock_stripe.create.return_value = MagicMock(
-            id="pi_fail_test_001",
-            client_secret="pi_fail_test_001_secret",
-            status="requires_payment_method",
-        )
         mock_stripe.retrieve.return_value = MagicMock(
             id="pi_fail_test_001",
             status="requires_payment_method",
             last_payment_error=MagicMock(message="Card declined"),
         )
 
-        # Create intent
-        client.post(
-            "/api/v1/payments/create-intent",
-            json={
-                "booking_id": pending_booking.id,
-                "amount": 550.00,
-                "currency": "EUR",
-            },
-            headers=auth_headers,
-        )
-
-        # Confirm with failed payment
+        # Confirm with failed payment (payment record already exists)
         response = client.post(
             "/api/v1/payments/confirm/pi_fail_test_001",
-            json={"booking_id": pending_booking.id},
+            json={"booking_id": pending_booking_with_payment.id},
             headers=auth_headers,
         )
 

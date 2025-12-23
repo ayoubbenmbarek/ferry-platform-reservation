@@ -79,15 +79,35 @@ class TestPaymentIntentCreation:
 class TestPaymentConfirmation:
     """Test payment confirmation endpoints."""
 
+    @pytest.fixture
+    def booking_with_payment(self, db_session, test_booking):
+        """Create a test booking with a pending payment record."""
+        from app.models.payment import Payment, PaymentStatusEnum, PaymentMethodEnum
+
+        payment = Payment(
+            booking_id=test_booking.id,
+            user_id=test_booking.user_id,
+            stripe_payment_intent_id="pi_test_12345",
+            amount=Decimal("165.00"),
+            currency="EUR",
+            status=PaymentStatusEnum.PENDING,
+            payment_method=PaymentMethodEnum.CREDIT_CARD,
+            net_amount=Decimal("160.00"),  # After fees
+        )
+        db_session.add(payment)
+        db_session.commit()
+        db_session.refresh(test_booking)
+        return test_booking
+
     @patch("stripe.PaymentIntent")
     def test_confirm_payment_success(
-        self, mock_stripe, client: TestClient, auth_headers, test_booking
+        self, mock_stripe, client: TestClient, auth_headers, booking_with_payment, db_session
     ):
         """Test successful payment confirmation."""
         mock_stripe.retrieve.return_value = MagicMock(
             id="pi_test_12345",
             status="succeeded",
-            amount=33000,
+            amount=16500,
             currency="eur",
             charges=MagicMock(
                 data=[
@@ -104,7 +124,7 @@ class TestPaymentConfirmation:
         response = client.post(
             f"/api/v1/payments/confirm/pi_test_12345",
             json={
-                "booking_id": test_booking.id,
+                "booking_id": booking_with_payment.id,
             },
             headers=auth_headers,
         )
@@ -112,7 +132,7 @@ class TestPaymentConfirmation:
 
     @patch("stripe.PaymentIntent")
     def test_confirm_failed_payment(
-        self, mock_stripe, client: TestClient, auth_headers, test_booking
+        self, mock_stripe, client: TestClient, auth_headers, booking_with_payment, db_session
     ):
         """Test confirming a failed payment."""
         mock_stripe.retrieve.return_value = MagicMock(
@@ -124,7 +144,7 @@ class TestPaymentConfirmation:
         response = client.post(
             f"/api/v1/payments/confirm/pi_test_12345",
             json={
-                "booking_id": test_booking.id,
+                "booking_id": booking_with_payment.id,
             },
             headers=auth_headers,
         )

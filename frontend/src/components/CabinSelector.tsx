@@ -293,36 +293,6 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
     return groups;
   }, [ferryCabins]);
 
-  const getCabinIcon = (cabinType: string, originalType?: string) => {
-    const category = getCabinCategory(cabinType, originalType);
-    return categoryInfo[category]?.icon || '🛏️';
-  };
-
-  const getCabinTypeName = (cabinType: string) => {
-    const type = cabinType.toLowerCase();
-    const names: { [key: string]: string } = {
-      deck: 'Deck Passage',
-      seat: 'Reclining Seat',
-      interior: 'Inside Cabin',
-      inside: 'Inside Cabin',
-      exterior: 'Outside Cabin',
-      outside: 'Outside Cabin',
-      balcony: 'Balcony Cabin',
-      suite: 'Suite',
-      shared: 'Bed in Shared Cabin',
-      berth: 'Bed in Shared Cabin',
-      dorm: 'Bed in Shared Cabin',
-      couchette: 'Bed in Shared Cabin',
-      pet: 'Pet-Friendly Cabin',
-    };
-    return names[type] || cabinType;
-  };
-
-  // Check if cabin type allows pets
-  const isPetCabinType = (cabinType: string): boolean => {
-    return cabinType?.toLowerCase() === 'pet';
-  };
-
   // Check if cabin type is a shared bed (not private cabin)
   const isSharedCabinType = (cabinType: string): boolean => {
     const type = cabinType.toLowerCase();

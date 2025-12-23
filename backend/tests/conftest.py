@@ -155,6 +155,23 @@ def sample_user(db_session: Session) -> User:
 
 
 @pytest.fixture
+def test_user(db_session: Session) -> User:
+    """Create a test user for payment flow tests (alias for sample_user with different email)."""
+    user = User(
+        email="testuser@example.com",
+        hashed_password="$argon2id$v=19$m=65536,t=3,p=4$fakehash",
+        first_name="Test",
+        last_name="User",
+        is_active=True,
+        is_verified=True
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
 def sample_cabin(db_session: Session) -> Cabin:
     """Create a sample cabin for testing."""
     cabin = Cabin(
@@ -597,7 +614,9 @@ def test_booking(db_session: Session, auth_headers: Dict[str, str]) -> Booking:
         tax_amount=Decimal("15.00"),
         total_amount=Decimal("165.00"),
         currency="EUR",
-        status=BookingStatusEnum.PENDING
+        status=BookingStatusEnum.PENDING,
+        # Add operator reference for payment tests (simulates successful operator booking)
+        operator_booking_reference="TEST-CTN-REF-001"
     )
     db_session.add(booking)
     db_session.commit()

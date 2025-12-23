@@ -49,6 +49,8 @@ class TestPaymentFlowWithAvailability:
             currency="EUR",
             status=BookingStatusEnum.PENDING,
             is_round_trip=False,
+            # Add operator reference for payment tests
+            operator_booking_reference="TEST-CTN-FLOW-001",
         )
         db_session.add(booking)
         db_session.commit()
@@ -187,6 +189,7 @@ class TestPaymentWebhookFlow:
             total_amount=Decimal("440.00"),
             currency="EUR",
             status=BookingStatusEnum.PENDING,
+            operator_booking_reference="TEST-CTN-WEBHOOK-001",
         )
         db_session.add(booking)
         db_session.commit()
@@ -289,6 +292,7 @@ class TestRefundFlow:
             total_amount=Decimal("660.00"),
             currency="EUR",
             status=BookingStatusEnum.CONFIRMED,
+            operator_booking_reference="TEST-CTN-REFUND-001",
         )
         db_session.add(booking)
         db_session.commit()
@@ -401,6 +405,7 @@ class TestCancellationWithPayment:
             total_amount=Decimal("495.00"),
             currency="EUR",
             status=BookingStatusEnum.CONFIRMED,
+            operator_booking_reference="TEST-CTN-CANCEL-001",
         )
         db_session.add(booking)
         db_session.commit()
@@ -485,6 +490,7 @@ class TestPaymentRetryFlow:
             total_amount=Decimal("165.00"),
             currency="EUR",
             status=BookingStatusEnum.PENDING,
+            operator_booking_reference="TEST-CTN-RETRY-001",
         )
         db_session.add(booking)
         db_session.commit()

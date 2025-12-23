@@ -72,9 +72,9 @@ class TestExpireOldBookingsTask:
         # Setup: DB returns one expired pending booking
         mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_pending_booking]
 
-        # Mock email service
-        mock_email_service = MagicMock()
-        mock_email_service.send_cancellation_confirmation.return_value = True
+        # Mock email task (async Celery task)
+        mock_email_task = MagicMock()
+        mock_email_task.delay.return_value = MagicMock(id="test-task-id")
 
         # Mock FerryService
         mock_ferry_service_instance = MagicMock()
@@ -82,7 +82,7 @@ class TestExpireOldBookingsTask:
         mock_ferry_service_class = MagicMock(return_value=mock_ferry_service_instance)
 
         with patch('app.database.SessionLocal', return_value=mock_db_session), \
-             patch('app.services.email_service.email_service', mock_email_service), \
+             patch('app.tasks.email_tasks.send_cancellation_email_task', mock_email_task), \
              patch('app.services.ferry_service.FerryService', mock_ferry_service_class):
 
             # Import and call task function directly (not as celery task)
@@ -94,6 +94,8 @@ class TestExpireOldBookingsTask:
             # Verify booking was marked as cancelled
             assert mock_pending_booking.status == BookingStatusEnum.CANCELLED
             assert "15 minutes" in mock_pending_booking.cancellation_reason
+            # Verify email was queued
+            mock_email_task.delay.assert_called_once()
 
     def test_expire_bookings_handles_ferryhopper_release_failure(self, mock_db_session, mock_pending_booking):
         """Test that booking expiration continues even if FerryHopper release fails."""
@@ -101,8 +103,8 @@ class TestExpireOldBookingsTask:
 
         mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_pending_booking]
 
-        mock_email_service = MagicMock()
-        mock_email_service.send_cancellation_confirmation.return_value = True
+        mock_email_task = MagicMock()
+        mock_email_task.delay.return_value = MagicMock(id="test-task-id")
 
         # Mock FerryService that raises an exception
         mock_ferry_service_instance = MagicMock()
@@ -110,7 +112,7 @@ class TestExpireOldBookingsTask:
         mock_ferry_service_class = MagicMock(return_value=mock_ferry_service_instance)
 
         with patch('app.database.SessionLocal', return_value=mock_db_session), \
-             patch('app.services.email_service.email_service', mock_email_service), \
+             patch('app.tasks.email_tasks.send_cancellation_email_task', mock_email_task), \
              patch('app.services.ferry_service.FerryService', mock_ferry_service_class):
 
             from app.tasks.booking_tasks import expire_old_bookings_task
@@ -128,14 +130,14 @@ class TestExpireOldBookingsTask:
 
         mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_pending_booking]
 
-        mock_email_service = MagicMock()
-        mock_email_service.send_cancellation_confirmation.return_value = True
+        mock_email_task = MagicMock()
+        mock_email_task.delay.return_value = MagicMock(id="test-task-id")
 
         # FerryService should NOT be instantiated since booking is not pending
         mock_ferry_service_class = MagicMock()
 
         with patch('app.database.SessionLocal', return_value=mock_db_session), \
-             patch('app.services.email_service.email_service', mock_email_service), \
+             patch('app.tasks.email_tasks.send_cancellation_email_task', mock_email_task), \
              patch('app.services.ferry_service.FerryService', mock_ferry_service_class):
 
             from app.tasks.booking_tasks import expire_old_bookings_task
@@ -165,15 +167,15 @@ class TestExpireOldBookingsTask:
 
         mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_pending_booking_with_return]
 
-        mock_email_service = MagicMock()
-        mock_email_service.send_cancellation_confirmation.return_value = True
+        mock_email_task = MagicMock()
+        mock_email_task.delay.return_value = MagicMock(id="test-task-id")
 
         mock_ferry_service_instance = MagicMock()
         mock_ferry_service_instance.cancel_pending_booking = AsyncMock(return_value=True)
         mock_ferry_service_class = MagicMock(return_value=mock_ferry_service_instance)
 
         with patch('app.database.SessionLocal', return_value=mock_db_session), \
-             patch('app.services.email_service.email_service', mock_email_service), \
+             patch('app.tasks.email_tasks.send_cancellation_email_task', mock_email_task), \
              patch('app.services.ferry_service.FerryService', mock_ferry_service_class):
 
             from app.tasks.booking_tasks import expire_old_bookings_task
@@ -231,15 +233,15 @@ class TestBookingExpirationTime:
         mock_db_session.commit = MagicMock()
         mock_db_session.query.return_value.filter.return_value.all.return_value = [booking]
 
-        mock_email_service = MagicMock()
-        mock_email_service.send_cancellation_confirmation.return_value = True
+        mock_email_task = MagicMock()
+        mock_email_task.delay.return_value = MagicMock(id="test-task-id")
 
         mock_ferry_service_instance = MagicMock()
         mock_ferry_service_instance.cancel_pending_booking = AsyncMock(return_value=True)
         mock_ferry_service_class = MagicMock(return_value=mock_ferry_service_instance)
 
         with patch('app.database.SessionLocal', return_value=mock_db_session), \
-             patch('app.services.email_service.email_service', mock_email_service), \
+             patch('app.tasks.email_tasks.send_cancellation_email_task', mock_email_task), \
              patch('app.services.ferry_service.FerryService', mock_ferry_service_class):
 
             from app.tasks.booking_tasks import expire_old_bookings_task

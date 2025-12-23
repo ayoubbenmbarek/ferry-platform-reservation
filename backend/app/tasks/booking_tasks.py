@@ -499,7 +499,7 @@ def expire_old_bookings_task(self):
     """
     from app.database import SessionLocal
     from app.models.booking import Booking, BookingStatusEnum
-    from app.services.email_service import email_service
+    from app.tasks.email_tasks import send_cancellation_email_task
 
     db = SessionLocal()
 
@@ -583,7 +583,7 @@ def expire_old_bookings_task(self):
             booking.extra_data["operator_booking_pending"] = False
             expired_count += 1
 
-            # Send cancellation email asynchronously
+            # Queue cancellation email asynchronously via Celery
             try:
                 booking_data = {
                     'booking_reference': booking.booking_reference,
@@ -603,22 +603,21 @@ def expire_old_bookings_task(self):
                     'cancelled_at': booking.cancelled_at.isoformat() if booking.cancelled_at else None,
                 }
 
-                if email_service.send_cancellation_confirmation(
+                # Queue email task asynchronously (non-blocking)
+                email_task = send_cancellation_email_task.delay(
                     booking_data=booking_data,
                     to_email=booking.contact_email
-                ):
-                    emails_sent += 1
-                    logger.info(f"  ✅ Sent cancellation email to {booking.contact_email}")
-                else:
-                    logger.warning(f"  ⚠️ Failed to send email to {booking.contact_email}")
+                )
+                emails_sent += 1
+                logger.info(f"  📧 Queued cancellation email to {booking.contact_email} (task: {email_task.id})")
 
             except Exception as email_error:
-                logger.error(f"  ❌ Email error for {booking.booking_reference}: {str(email_error)}")
+                logger.error(f"  ❌ Email queue error for {booking.booking_reference}: {str(email_error)}")
 
         # Commit all changes
         db.commit()
 
-        logger.info(f"✅ Expired {expired_count} pending booking(s), sent {emails_sent} email(s), released {fh_released} FerryHopper hold(s)")
+        logger.info(f"✅ Expired {expired_count} pending booking(s), queued {emails_sent} email(s), released {fh_released} FerryHopper hold(s)")
 
         return {
             'status': 'success',

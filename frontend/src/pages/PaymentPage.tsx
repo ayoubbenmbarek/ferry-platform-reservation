@@ -24,7 +24,7 @@ const PaymentPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { bookingId: existingBookingId } = useParams<{ bookingId: string }>();
   const [searchParams] = useSearchParams();
-  const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip, totalCabinPrice, totalReturnCabinPrice, selectedMeals, refundType, promoDiscount } = useSelector((state: RootState) => state.ferry);
+  const { selectedFerry, selectedReturnFerry, passengers, vehicles, currentBooking, isRoundTrip, totalCabinPrice, totalReturnCabinPrice, selectedMeals, promoDiscount } = useSelector((state: RootState) => state.ferry);
 
   // Check for cabin upgrade payment
   const paymentType = searchParams.get('type');

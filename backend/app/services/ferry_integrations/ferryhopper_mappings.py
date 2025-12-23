@@ -872,38 +872,53 @@ def get_vehicles_for_frontend() -> List[Dict[str, Any]]:
     return vehicles
 
 
-def get_voilaferry_vehicle_options() -> List[Dict[str, str]]:
+def get_vehicle_options_for_frontend() -> List[Dict[str, Any]]:
     """
-    Get VoilaFerry vehicle options for frontend selection.
-    These are user-friendly options that map to FerryHopper codes.
+    Get vehicle options for frontend selection using official FerryHopper data.
+    Organized by vehicle type with user-friendly labels.
 
     Returns:
-        List of vehicle options with value and label
+        List of vehicle options with code, label, type, and details
     """
-    return [
-        # Cars
-        {"value": "small_car", "label": "Small Car (< 3.7m)", "type": "CAR"},
-        {"value": "medium_car", "label": "Medium Car (< 4.25m)", "type": "CAR"},
-        {"value": "large_car", "label": "Large Car (< 5m)", "type": "CAR"},
-        {"value": "suv", "label": "SUV / Jeep", "type": "CAR"},
-        {"value": "van", "label": "Small Van (< 4.5m)", "type": "CAR"},
-        {"value": "large_van", "label": "Large Van (< 6m)", "type": "CAR"},
-        {"value": "car_roof_box", "label": "Car with Roof Box", "type": "CAR"},
+    # Order for display: Cars first, then motorbikes, motorhomes, bicycle
+    ordered_vehicles = [
+        # Cars (most common)
+        ("5", "Small Car", "< 3.7m"),
+        ("1", "Medium Car", "< 4.25m"),
+        ("2", "Large Car", "< 5m"),
+        ("21", "SUV / Jeep", ""),
+        ("20", "Small Van", "< 4.5m"),
+        ("24", "Large Van", "< 6m"),
+        ("22", "Car with Roof Box", ""),
         # Motorbikes
-        {"value": "scooter", "label": "Scooter / Moped (< 50cc)", "type": "MOTORBIKE"},
-        {"value": "small_motorcycle", "label": "Small Motorcycle (< 125cc)", "type": "MOTORBIKE"},
-        {"value": "motorcycle", "label": "Motorcycle (< 250cc)", "type": "MOTORBIKE"},
-        {"value": "large_motorcycle", "label": "Large Motorcycle (> 250cc)", "type": "MOTORBIKE"},
-        {"value": "trike", "label": "Trike / Quad (3-4 wheels)", "type": "MOTORBIKE"},
+        ("18", "Scooter / Moped", "< 50cc"),
+        ("17", "Small Motorcycle", "< 125cc"),
+        ("4", "Motorcycle", "< 250cc"),
+        ("3", "Large Motorcycle", "> 250cc"),
+        ("23", "Trike / Quad", "3-4 wheels"),
         # Motorhomes
-        {"value": "camper_small", "label": "Motorhome (< 5m)", "type": "MOTORHOME"},
-        {"value": "camper", "label": "Motorhome (< 6m)", "type": "MOTORHOME"},
-        {"value": "camper_medium", "label": "Motorhome (< 7m)", "type": "MOTORHOME"},
-        {"value": "camper_large", "label": "Motorhome (< 8m)", "type": "MOTORHOME"},
-        {"value": "camper_xl", "label": "Motorhome (< 9m)", "type": "MOTORHOME"},
+        ("16", "Small Motorhome", "< 5m"),
+        ("6", "Motorhome", "< 6m"),
+        ("7", "Motorhome", "< 7m"),
+        ("8", "Large Motorhome", "< 8m"),
+        ("9", "XL Motorhome", "< 9m"),
+        ("10", "XXL Motorhome", "< 10m"),
         # Bicycle
-        {"value": "bicycle", "label": "Bicycle", "type": "BICYCLE"},
+        ("15", "Bicycle", ""),
     ]
+
+    result = []
+    for code, label, size_info in ordered_vehicles:
+        details = FERRYHOPPER_VEHICLE_CODES.get(code, {})
+        full_label = f"{label} ({size_info})" if size_info else label
+        result.append({
+            "code": code,  # FerryHopper code to use in booking
+            "label": full_label,
+            "type": details.get("type", "CAR"),
+            "description": details.get("description", ""),
+        })
+
+    return result
 
 
 def is_valid_accommodation_code(code: str) -> bool:

@@ -80,6 +80,12 @@ export interface CabinInfo {
   available: number;
   capacity?: number;
   amenities?: string[];
+  // Additional fields from FerryHopper integration
+  code?: string;  // Unique cabin code for distinguishing variants
+  currency?: string;
+  refund_type?: string;  // REFUNDABLE or NON_REFUNDABLE
+  image_url?: string;  // Cabin image URL
+  original_type?: string;  // Original FerryHopper accommodation type
 }
 
 export interface PetInfo {

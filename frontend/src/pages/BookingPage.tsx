@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { setContactInfo, setCabinId, setReturnCabinId, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, setCancellationProtection, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle, clearCurrentBooking } from '../store/slices/ferrySlice';
+import { setContactInfo, setCabinSelections, setReturnCabinSelections, setMeals, setPromoCode, setPromoDiscount, clearPromoCode, setCancellationProtection, addPassenger, updatePassenger, removePassenger, updateVehicle, removeVehicle, clearCurrentBooking } from '../store/slices/ferrySlice';
 import CabinSelector, { CabinTypeSelection } from '../components/CabinSelector';
 import MealSelector from '../components/MealSelector';
 import PassengerForm from '../components/PassengerForm';
@@ -163,20 +163,21 @@ const BookingPage: React.FC = () => {
     // quantity is the total number of cabins selected
     const totalPrice = price;
 
+    // NOTE: Only update LOCAL state here for UI display
+    // Redux is updated by handleMultiCabinSelect which has ALL cabin selections
+    // (CabinSelector calls both onMultiCabinSelect and onCabinSelect)
     if (journey === 'return') {
       setSelectedReturnCabinId(cabinId);
       setReturnCabinPrice(totalPrice);
       setReturnCabinQuantity(quantity);
-      dispatch(setReturnCabinId(cabinId));
     } else {
       setSelectedCabinId(cabinId);
       setCabinPrice(totalPrice);
       setCabinQuantity(quantity);
-      dispatch(setCabinId(cabinId));
     }
 
     // Log for debugging
-    console.log(`Selected ${quantity} cabin(s). Total price: €${totalPrice}`);
+    console.log(`[handleCabinSelect] ${quantity} cabin(s), total: €${totalPrice}`);
   };
 
   // Handle multi-cabin selections with full details for Redux
@@ -348,8 +349,11 @@ const BookingPage: React.FC = () => {
     localStorage.removeItem('pending_booking_id');
     console.log('[BookingPage] Cleared old booking before navigation to payment');
 
-    // Navigate to payment page
-    navigate('/payment');
+    // Use setTimeout to ensure Redux state has been updated before navigation
+    // This prevents a race condition where PaymentPage might read stale currentBooking
+    setTimeout(() => {
+      navigate('/payment');
+    }, 0);
   };
 
   if (!selectedFerry) {

@@ -88,23 +88,36 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
   // Memoize to ensure stable codes across renders
   const ferryCabins = useMemo((): FerryCabin[] => {
     const cabinData = selectedJourney === 'outbound' ? ferryCabinAvailability : returnFerryCabinAvailability;
+
+    // Debug: Log received cabin data
+    console.log('[CabinSelector] Raw cabin data received:', cabinData?.length || 0, 'cabins');
+    if (cabinData?.length > 0) {
+      console.log('[CabinSelector] First 3 cabins:', cabinData.slice(0, 3).map((c: any) => ({
+        type: c.type,
+        name: c.name,
+        capacity: c.capacity,
+        original_type: c.original_type
+      })));
+    }
+
     if (!cabinData || cabinData.length === 0) {
       return [];
     }
-    // Filter to only show actual cabins (not deck seats) with availability
-    // Also ensure each cabin has a unique code
+
+    // Keep ALL cabins - no filtering, just ensure unique codes
     const seenCodes = new Set<string>();
-    return cabinData
-      .filter((cabin: FerryCabin) => cabin.available > 0 || cabin.type !== 'deck')
-      .map((cabin: FerryCabin, index: number) => {
-        // Generate unique code if empty or duplicate
-        let uniqueCode = cabin.code;
-        if (!uniqueCode || seenCodes.has(uniqueCode)) {
-          uniqueCode = `${cabin.type}_${cabin.name}_${index}`;
-        }
-        seenCodes.add(uniqueCode);
-        return { ...cabin, code: uniqueCode };
-      });
+    const result = cabinData.map((cabin: FerryCabin, index: number) => {
+      // Generate unique code if empty or duplicate
+      let uniqueCode = cabin.code;
+      if (!uniqueCode || seenCodes.has(uniqueCode)) {
+        uniqueCode = `${cabin.type}_${cabin.name}_${index}`;
+      }
+      seenCodes.add(uniqueCode);
+      return { ...cabin, code: uniqueCode };
+    });
+
+    console.log('[CabinSelector] Processed cabins:', result.length);
+    return result;
   }, [selectedJourney, ferryCabinAvailability, returnFerryCabinAvailability]);
 
   // Track quantity per cabin code for each journey - initialize from props
@@ -190,32 +203,99 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
     });
   }, [initialReturnSelections, returnFerryCabinAvailability]);
 
-  const getCabinIcon = (cabinType: string) => {
+  // Get category for grouping cabins
+  const getCabinCategory = (cabinType: string, originalType?: string): string => {
     const type = cabinType.toLowerCase();
-    switch (type) {
-      case 'deck':
-      case 'seat':
-        return '🪑';
-      case 'interior':
-      case 'inside':
-        return '🛏️';
-      case 'exterior':
-      case 'outside':
-        return '🪟';
-      case 'balcony':
-        return '🌊';
-      case 'suite':
-        return '👑';
-      case 'shared':
-      case 'berth':
-      case 'dorm':
-      case 'couchette':
-        return '🛌';
-      case 'pet':
-        return '🐾';
-      default:
-        return '🛏️';
+    const original = (originalType || '').toUpperCase();
+
+    if (type === 'deck' || type === 'seat' || original.includes('SEAT') || original.includes('LOUNGE')) {
+      return 'seats';
     }
+    if (type === 'suite' || original.includes('SUITE')) {
+      return 'suites';
+    }
+    if (type === 'pet' || original.includes('PET')) {
+      return 'pet_cabins';
+    }
+    if (type === 'exterior' || type === 'outside' || original.includes('WINDOW')) {
+      return 'outside_cabins';
+    }
+    if (type === 'shared' || type === 'berth' || type === 'dorm' || type === 'couchette') {
+      return 'shared_cabins';
+    }
+    // Default to inside cabins
+    return 'inside_cabins';
+  };
+
+  // Category display info
+  const categoryInfo: { [key: string]: { icon: string; title: string; description: string; color: string } } = {
+    seats: {
+      icon: '🪑',
+      title: 'Seats & Deck Passage',
+      description: 'Standard seating included in your fare',
+      color: 'gray'
+    },
+    inside_cabins: {
+      icon: '🛏️',
+      title: 'Inside Cabins',
+      description: 'Private cabins without windows',
+      color: 'blue'
+    },
+    outside_cabins: {
+      icon: '🪟',
+      title: 'Outside Cabins',
+      description: 'Private cabins with sea view',
+      color: 'cyan'
+    },
+    pet_cabins: {
+      icon: '🐾',
+      title: 'Pet-Friendly Cabins',
+      description: 'Cabins where pets are welcome',
+      color: 'green'
+    },
+    suites: {
+      icon: '👑',
+      title: 'Suites',
+      description: 'Premium cabins with extra amenities',
+      color: 'purple'
+    },
+    shared_cabins: {
+      icon: '🛌',
+      title: 'Shared Cabins',
+      description: 'Beds in shared dormitory cabins',
+      color: 'orange'
+    }
+  };
+
+  // Group cabins by category
+  const groupedCabins = useMemo(() => {
+    const groups: { [key: string]: FerryCabin[] } = {};
+    const categoryOrder = ['seats', 'inside_cabins', 'outside_cabins', 'pet_cabins', 'suites', 'shared_cabins'];
+
+    // Initialize empty groups in order
+    categoryOrder.forEach(cat => { groups[cat] = []; });
+
+    // Group cabins
+    ferryCabins.forEach(cabin => {
+      const category = getCabinCategory(cabin.type, cabin.original_type);
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(cabin);
+    });
+
+    // Sort each group by capacity then price
+    Object.keys(groups).forEach(cat => {
+      groups[cat].sort((a, b) => {
+        if (a.capacity !== b.capacity) return a.capacity - b.capacity;
+        return a.price - b.price;
+      });
+    });
+
+    return groups;
+  }, [ferryCabins]);
+
+  const getCabinIcon = (cabinType: string, originalType?: string) => {
+    const category = getCabinCategory(cabinType, originalType);
+    return categoryInfo[category]?.icon || '🛏️';
   };
 
   const getCabinTypeName = (cabinType: string) => {
@@ -465,135 +545,145 @@ const CabinSelector: React.FC<CabinSelectorProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-        {/* Cabin Options - Using FerryHopper cabin types directly */}
-        {ferryCabins.map((cabin) => {
-          const quantity = cabinQuantities[cabin.code] || 0;
-          const supplement = getCabinSupplement(cabin);
-          const cabinTotalSupplement = supplement * quantity;
-          const isBaseFare = isBaseFareType(cabin.type);
-          const isUnavailable = cabin.available === 0;
-          const maxAvailable = Math.min(cabin.available, 10); // Cap at 10 per type
+      {/* Grouped Cabin Display */}
+      <div className="space-y-6">
+        {Object.entries(groupedCabins).map(([category, cabins]) => {
+          if (cabins.length === 0) return null;
+          const info = categoryInfo[category];
 
           return (
-            <div
-              key={cabin.code}
-              className={`border-2 rounded-lg p-4 transition-all flex flex-col ${
-                isUnavailable
-                  ? 'border-gray-200 bg-gray-50 opacity-60'
-                  : quantity > 0
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-300 hover:border-blue-300'
-              }`}
-            >
-              {/* Header with icon and price */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{getCabinIcon(cabin.type)}</span>
-                  {isUnavailable && (
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
-                      Unavailable
-                    </span>
-                  )}
-                  {cabin.available > 0 && cabin.available <= 5 && (
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-medium">
-                      {cabin.available} left
-                    </span>
-                  )}
-                  {quantity > 0 && (
-                    <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-medium">
-                      {quantity} selected
-                    </span>
-                  )}
-                </div>
-                <div className="text-right">
-                  {isBaseFare ? (
-                    <>
-                      <span className="text-lg font-bold text-green-600">
-                        Included
-                      </span>
-                      <span className="text-xs text-gray-500 block">in base fare</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-lg font-bold text-blue-600">
-                        +€{supplement.toFixed(2)}
-                      </span>
-                      <span className="text-xs text-gray-500 block">
-                        {isSharedCabinType(cabin.type) ? 'upgrade per bed' : 'upgrade per cabin'}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Content area - grows to fill space */}
-              <div className="flex-1">
-                <h4 className="font-semibold">{cabin.name}</h4>
-                <p className="text-xs text-gray-500 mt-1">
-                  {getCabinTypeName(cabin.type)} • Max {cabin.capacity} person{cabin.capacity > 1 ? 's' : ''}
-                </p>
-
-                {/* Shared cabin note */}
-                {isSharedCabinType(cabin.type) && (
-                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
-                    <span>👥</span>
-                    <span>You'll share with other passengers of the same sex</span>
-                  </p>
-                )}
-
-                {/* Pet cabin note */}
-                {isPetCabinType(cabin.type) && (
-                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                    <span>🐾</span>
-                    <span>This cabin allows pets - required if traveling with a pet</span>
-                  </p>
-                )}
-
-                {/* Refund type badge */}
-                {cabin.refund_type && (
-                  <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded ${
-                    cabin.refund_type === 'REFUNDABLE'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {cabin.refund_type === 'REFUNDABLE' ? '✓ Refundable' : 'Non-refundable'}
+            <div key={category} className="border border-gray-200 rounded-xl overflow-hidden">
+              {/* Category Header */}
+              <div className={`px-4 py-3 bg-gradient-to-r ${
+                category === 'seats' ? 'from-gray-50 to-gray-100' :
+                category === 'inside_cabins' ? 'from-blue-50 to-blue-100' :
+                category === 'outside_cabins' ? 'from-cyan-50 to-cyan-100' :
+                category === 'pet_cabins' ? 'from-green-50 to-green-100' :
+                category === 'suites' ? 'from-purple-50 to-purple-100' :
+                'from-orange-50 to-orange-100'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{info.icon}</span>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{info.title}</h4>
+                    <p className="text-xs text-gray-600">{info.description}</p>
+                  </div>
+                  <span className="ml-auto text-sm text-gray-500 bg-white/50 px-2 py-1 rounded">
+                    {cabins.length} option{cabins.length > 1 ? 's' : ''}
                   </span>
-                )}
+                </div>
               </div>
 
-              {/* Quantity Selector - Always at bottom */}
-              <div className="mt-4 pt-3 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Quantity:</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleQuantityChange(cabin.code, Math.max(0, quantity - 1))}
-                      disabled={isUnavailable || quantity === 0}
-                      className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+              {/* Cabin Cards Grid */}
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {cabins.map((cabin) => {
+                  const quantity = cabinQuantities[cabin.code] || 0;
+                  const supplement = getCabinSupplement(cabin);
+                  const cabinTotalSupplement = supplement * quantity;
+                  const isBaseFare = isBaseFareType(cabin.type);
+                  const isUnavailable = cabin.available === 0;
+                  const maxAvailable = Math.min(cabin.available, 10);
+
+                  return (
+                    <div
+                      key={cabin.code}
+                      className={`border-2 rounded-lg overflow-hidden transition-all flex flex-col ${
+                        isUnavailable
+                          ? 'border-gray-200 bg-gray-50 opacity-60'
+                          : quantity > 0
+                          ? 'border-green-500 bg-green-50 shadow-md'
+                          : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                      }`}
                     >
-                      -
-                    </button>
-                    <span className="w-8 text-center font-semibold text-lg">{quantity}</span>
-                    <button
-                      onClick={() => handleQuantityChange(cabin.code, Math.min(maxAvailable, quantity + 1))}
-                      disabled={isUnavailable || quantity >= maxAvailable}
-                      className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                {quantity > 0 && cabinTotalSupplement > 0 && (
-                  <div className="mt-2 text-right text-sm text-green-700 font-medium">
-                    Upgrade: +€{cabinTotalSupplement.toFixed(2)}
-                  </div>
-                )}
-                {quantity > 0 && isBaseFare && (
-                  <div className="mt-2 text-right text-sm text-green-700 font-medium">
-                    ✓ No extra charge
-                  </div>
-                )}
+                      {/* Cabin Image */}
+                      {cabin.image_url && (
+                        <div className="relative h-28 bg-gray-100">
+                          <img
+                            src={cabin.image_url}
+                            alt={cabin.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          {quantity > 0 && (
+                            <div className="absolute top-2 right-2 bg-green-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                              {quantity}×
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="p-3 flex-1 flex flex-col">
+                        {/* Capacity Badge */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
+                            category === 'seats' ? 'bg-gray-100 text-gray-700' :
+                            category === 'suites' ? 'bg-purple-100 text-purple-700' :
+                            category === 'pet_cabins' ? 'bg-green-100 text-green-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            👤 {cabin.capacity} {cabin.capacity === 1 ? 'person' : 'people'}
+                          </span>
+                          {cabin.available > 0 && cabin.available <= 3 && (
+                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
+                              {cabin.available} left!
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Cabin Name */}
+                        <h5 className="font-medium text-sm text-gray-900 line-clamp-2 mb-1">
+                          {cabin.name}
+                        </h5>
+
+                        {/* Price */}
+                        <div className="mt-auto pt-2">
+                          {isBaseFare ? (
+                            <div className="text-green-600 font-semibold text-sm">
+                              ✓ Included in fare
+                            </div>
+                          ) : (
+                            <div className="text-blue-600 font-bold">
+                              +€{supplement.toFixed(0)}
+                              <span className="text-xs font-normal text-gray-500 ml-1">
+                                {isSharedCabinType(cabin.type) ? '/bed' : '/cabin'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quantity Selector */}
+                        <div className="mt-3 pt-2 border-t border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <button
+                              onClick={() => handleQuantityChange(cabin.code, Math.max(0, quantity - 1))}
+                              disabled={isUnavailable || quantity === 0}
+                              className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-gray-600"
+                            >
+                              −
+                            </button>
+                            <span className={`text-lg font-bold ${quantity > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                              {quantity}
+                            </span>
+                            <button
+                              onClick={() => handleQuantityChange(cabin.code, Math.min(maxAvailable, quantity + 1))}
+                              disabled={isUnavailable || quantity >= maxAvailable}
+                              className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+                          {quantity > 0 && cabinTotalSupplement > 0 && (
+                            <div className="mt-1 text-center text-xs text-green-700 font-medium">
+                              +€{cabinTotalSupplement.toFixed(2)} total
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

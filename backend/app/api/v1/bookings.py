@@ -453,6 +453,18 @@ async def create_booking(
     the booking confirmation details.
     """
     try:
+        # Log incoming booking data for debugging
+        now = utc_now()
+        logger.info(f"📝 Creating booking: sailing_id={booking_data.sailing_id}, "
+                   f"passengers={len(booking_data.passengers)}, "
+                   f"total_cabin_price={getattr(booking_data, 'total_cabin_price', 'N/A')}, "
+                   f"departure={booking_data.departure_time}, "
+                   f"now={now}, operator={booking_data.operator}")
+
+        # Log full cabin selections for debugging
+        if booking_data.cabin_selections:
+            logger.info(f"📦 Cabin selections: {booking_data.cabin_selections}")
+
         # Validate departure time is not in the past
         if booking_data.departure_time:
             now = utc_now()
@@ -462,11 +474,13 @@ async def create_booking(
             departure = make_aware(booking_data.departure_time)
 
             if departure < now:
+                logger.error(f"❌ Departure in past: departure={departure}, now={now}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Cannot book a ferry that has already departed"
                 )
             elif departure < min_booking_time:
+                logger.error(f"❌ Less than 1 hour to departure: departure={departure}, min_booking_time={min_booking_time}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Bookings must be made at least 1 hour before departure"
@@ -480,33 +494,56 @@ async def create_booking(
             return_departure = make_aware(booking_data.return_departure_time)
 
             if return_departure < now:
+                logger.error(f"❌ Return departure in past: return_departure={return_departure}, now={now}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Cannot book a return ferry that has already departed"
                 )
             elif return_departure < min_booking_time:
+                logger.error(f"❌ Less than 1 hour to return departure: return_departure={return_departure}, min_booking_time={min_booking_time}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Return bookings must be made at least 1 hour before departure"
                 )
 
-        # Check for existing PENDING booking with same route/time/contact to prevent duplicates
-        # This handles the case where user refreshes page and Redux state is lost
+        # Check for existing PENDING booking with same route/time/contact
+        # If found with DIFFERENT cabin/pricing, cancel the old one and create new
+        # If found with SAME data, return it to prevent true duplicates
         contact_email = booking_data.contact_info.email.lower() if booking_data.contact_info else None
-        if contact_email and booking_data.departure_time:
+        logger.info(f"🔍 Checking for duplicate booking: email={contact_email}, "
+                   f"sailing_id={booking_data.sailing_id}, "
+                   f"departure={booking_data.departure_port}, arrival={booking_data.arrival_port}")
+        if contact_email and booking_data.sailing_id:
+            # First try to find by sailing_id (most accurate for FerryHopper)
             existing_pending = db.query(Booking).filter(
                 Booking.contact_email == contact_email,
-                Booking.departure_port == booking_data.departure_port,
-                Booking.arrival_port == booking_data.arrival_port,
-                Booking.departure_time == booking_data.departure_time,
+                Booking.sailing_id == booking_data.sailing_id,
                 Booking.status == BookingStatusEnum.PENDING.value,
                 Booking.expires_at > utc_now()  # Not expired
             ).first()
 
             if existing_pending:
-                logger.info(f"Found existing pending booking {existing_pending.booking_reference} for same route/time/contact, returning it instead of creating duplicate")
-                # Return the existing pending booking instead of creating a duplicate
-                return booking_to_response(existing_pending)
+                logger.info(f"🔍 Found existing pending booking: {existing_pending.booking_reference} (id={existing_pending.id})")
+                # Check if cabin selections changed - if so, cancel old and create new
+                new_cabin_price = float(getattr(booking_data, 'total_cabin_price', 0) or 0)
+                old_cabin_price = float(existing_pending.cabin_supplement or 0)
+                new_passengers = len(booking_data.passengers)
+                old_passengers = existing_pending.total_passengers or 0
+
+                if abs(new_cabin_price - old_cabin_price) > 0.01 or new_passengers != old_passengers:
+                    # User changed their selection - cancel old booking and create new
+                    logger.info(f"Found existing pending booking {existing_pending.booking_reference} but selections changed "
+                               f"(cabin: {old_cabin_price} -> {new_cabin_price}, pax: {old_passengers} -> {new_passengers}). "
+                               f"Cancelling old and creating new.")
+                    existing_pending.status = BookingStatusEnum.CANCELLED
+                    existing_pending.updated_at = utc_now()
+                    db.commit()
+                    # Continue to create new booking below
+                else:
+                    logger.info(f"✅ Found existing pending booking {existing_pending.booking_reference} with same selections, returning it")
+                    return booking_to_response(existing_pending)
+            else:
+                logger.info("🔍 No existing pending booking found, creating new one")
 
         # Generate unique booking reference
         booking_reference = generate_booking_reference()
@@ -566,6 +603,10 @@ async def create_booking(
         # NOTE: cabin_id is no longer used as FK - we store cabin details in extra_data instead
         cabin_supplement = 0.0
         cabin_selections_data = []  # Store for extra_data
+
+        # Debug: Log received cabin data
+        logger.info(f"🛏️ Cabin data received: total_cabin_price={getattr(booking_data, 'total_cabin_price', 'N/A')}, "
+                   f"cabin_selections={getattr(booking_data, 'cabin_selections', 'N/A')}")
 
         if hasattr(booking_data, 'total_cabin_price') and booking_data.total_cabin_price and booking_data.total_cabin_price > 0:
             # Use pre-calculated multi-cabin total from frontend
@@ -697,7 +738,10 @@ async def create_booking(
         
         db.add(db_booking)
         db.flush()  # Get the booking ID
-        
+        # Commit early so duplicate detection can find this booking from other requests
+        db.commit()
+        logger.info(f"✅ Booking {db_booking.id} committed to DB (ref: {booking_reference})")
+
         # Add passengers
         for passenger_data in booking_data.passengers:
             # Convert passenger type from API enum to database enum
@@ -849,6 +893,8 @@ async def create_booking(
 
         # Create booking with ferry operator
         try:
+            logger.info(f"🚢 Creating operator booking for {booking_data.operator}, sailing {booking_data.sailing_id}, "
+                       f"booking_ref={booking_reference}")
             # Prepare cabin data for operator from cabin_selections (FerryHopper API)
             cabin_data = None
             if hasattr(booking_data, 'cabin_selections') and booking_data.cabin_selections:
@@ -904,18 +950,33 @@ async def create_booking(
             db.commit()
 
         except FerryAPIError as e:
-            # If operator booking fails, do NOT send confirmation email
-            # Keep status as PENDING for potential manual retry, but inform user of failure
+            # If operator booking fails, FAIL the entire booking
+            # We cannot allow customers to pay for tickets that don't exist with the operator
             error_msg = str(e)
-            logger.error(f"Operator booking failed: {error_msg}")
-            db.commit()
+            logger.error(f"❌ Operator booking failed: {error_msg}")
 
-            # Raise an error to inform the user the booking failed
-            # This prevents the confirmation email from being sent
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Booking failed with ferry operator: {error_msg}"
-            )
+            # Delete the booking we created since operator confirmation failed
+            try:
+                db.delete(db_booking)
+                db.commit()
+                logger.info(f"🗑️ Deleted orphan booking {db_booking.booking_reference} due to operator failure")
+            except Exception as delete_error:
+                logger.error(f"Failed to delete orphan booking: {str(delete_error)}")
+                db.rollback()
+
+            # Check if this is a "Trip not found" error from FerryHopper UAT
+            is_uat_error = "trip not found" in error_msg.lower() or "solution expired" in error_msg.lower()
+
+            if is_uat_error:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This trip is no longer available. Please search again for available ferries."
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to confirm booking with ferry operator: {error_msg}"
+                )
 
         # Convert to response model manually to handle enum conversions
         db.refresh(db_booking)

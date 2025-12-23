@@ -492,6 +492,14 @@ async def search_ferries(
             "results": adjusted_results,
             "total_results": len(adjusted_results),
         }
+
+        # Debug: Log cabin counts for each ferry
+        for r in adjusted_results[:3]:  # First 3 results
+            cabin_types = r.get("cabin_types", [])
+            logger.info(f"🛏️ Ferry {r.get('sailing_id', 'unknown')[:30]}...: {len(cabin_types)} cabin types")
+            if cabin_types:
+                logger.info(f"   First 3 cabins: {[(c.get('code', 'NO_CODE')[:20], c.get('original_type', 'NO_TYPE')) for c in cabin_types[:3]]}")
+
         return FerrySearchResponse(**adjusted_response)
         
     except FerryAPIError as e:
@@ -1275,29 +1283,26 @@ async def get_vehicle_types():
     """
     Get list of vehicle types for ferry bookings.
 
-    Returns all vehicle types with user-friendly labels that map
-    to official FerryHopper vehicle codes. Use these values when
-    creating bookings with vehicles.
+    Returns all vehicle types with official FerryHopper codes.
+    Use the 'code' field when creating bookings with vehicles.
 
     Types include:
     - Cars (small, medium, large, SUV, van)
     - Motorbikes (scooter, motorcycle, large motorcycle)
-    - Motorhomes/Campers (various sizes)
+    - Motorhomes (various sizes from 5m to 10m)
     - Bicycle
     """
     try:
         from app.services.ferry_integrations.ferryhopper_mappings import (
-            get_voilaferry_vehicle_options,
-            FERRYHOPPER_VEHICLE_CODES
+            get_vehicle_options_for_frontend
         )
 
-        vehicles = get_voilaferry_vehicle_options()
+        vehicles = get_vehicle_options_for_frontend()
 
         logger.info(f"🚗 Returning {len(vehicles)} vehicle types")
         return {
             "vehicles": vehicles,
             "total": len(vehicles),
-            "ferryhopper_codes": FERRYHOPPER_VEHICLE_CODES,
             "source": "ferryhopper_official"
         }
 

@@ -986,22 +986,43 @@ class FerryHopperIntegration(BaseFerryIntegration):
         accommodations = segment.get("accommodations", [])
 
         if accommodations:
-            # Find the lowest priced accommodation (deck/lounge)
-            lowest_price = float("inf")
+            # Find the lowest priced accommodation (deck/lounge) and extract per-adult price
+            lowest_adult_price = float("inf")
+
             for acc in accommodations:
                 expected_price = acc.get("expectedPrice", {})
-                price_cents = expected_price.get("totalPriceInCents", 0)
-                if price_cents > 0 and price_cents < lowest_price:
-                    lowest_price = price_cents
+                total_price_cents = expected_price.get("totalPriceInCents", 0)
 
-            if lowest_price < float("inf"):
-                # FerryHopper returns TOTAL price for all passengers
-                # Divide by total passengers to get per-person adult price
-                total_price_eur = lowest_price / 100
-                adult_price = total_price_eur / total_passengers
+                if total_price_cents <= 0:
+                    continue
+
+                # Try to get individual adult price from passengerTickets
+                passenger_tickets = acc.get("passengerTickets", [])
+                if passenger_tickets:
+                    # Get prices for adult passengers (highest prices, as children/infants have discounts)
+                    ticket_prices = [
+                        t.get("price", {}).get("totalPriceInCents", 0)
+                        for t in passenger_tickets
+                        if t.get("price", {}).get("totalPriceInCents", 0) > 0
+                    ]
+                    if ticket_prices:
+                        # Adult price is the highest ticket price (no discount applied)
+                        adult_price_cents = max(ticket_prices)
+                        if adult_price_cents < lowest_adult_price:
+                            lowest_adult_price = adult_price_cents
+                        continue
+
+                # Fallback: if no passengerTickets, divide by total passengers
+                # This is less accurate but better than nothing
+                per_person_cents = total_price_cents / total_passengers
+                if per_person_cents < lowest_adult_price:
+                    lowest_adult_price = per_person_cents
+
+            if lowest_adult_price < float("inf"):
+                adult_price = lowest_adult_price / 100
                 prices["adult"] = round(adult_price, 2)
 
-                logger.debug(f"Price calculation: total={total_price_eur}€, passengers={total_passengers}, per_adult={adult_price}€")
+                logger.debug(f"Price calculation: per_adult={adult_price}€ (from {len(accommodations)} accommodations)")
 
                 # Apply discount rates for child/infant
                 child_discount = 0
@@ -1104,7 +1125,10 @@ class FerryHopperIntegration(BaseFerryIntegration):
                 "original_type": fh_type,  # Keep original for reference
             })
 
-        logger.debug(f"Extracted {len(cabin_types)} cabin types")
+        logger.info(f"🛏️ Extracted {len(cabin_types)} cabin types from {len(accommodations)} FerryHopper accommodations")
+        if cabin_types:
+            cabin_summary = [(c["code"], c["type"], c["capacity"]) for c in cabin_types[:5]]
+            logger.info(f"   First 5 cabins: {cabin_summary}")
         return cabin_types
 
     def _calculate_available_spaces(self, cabin_types: List[Dict], vehicles_supported: bool) -> Dict:

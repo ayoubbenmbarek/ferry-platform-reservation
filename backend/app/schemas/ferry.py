@@ -105,6 +105,12 @@ class CabinInfo(BaseModel):
     available: int
     capacity: Optional[int] = None
     amenities: Optional[List[str]] = None
+    # Additional fields from FerryHopper integration
+    code: Optional[str] = None  # Unique cabin code for distinguishing variants
+    currency: Optional[str] = "EUR"
+    refund_type: Optional[str] = None  # REFUNDABLE or NON_REFUNDABLE
+    image_url: Optional[str] = None  # Cabin image URL
+    original_type: Optional[str] = None  # Original FerryHopper accommodation type
 
 
 class PetInfo(BaseModel):

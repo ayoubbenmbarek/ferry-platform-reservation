@@ -15,6 +15,9 @@ import RunningBear from '../components/UI/RunningBear';
 // Initialize Stripe (will be loaded with publishable key from backend)
 let stripePromise: Promise<any> | null = null;
 
+// Module-level flag to prevent duplicate booking creation (survives React StrictMode double-mount)
+let isCreatingBooking = false;
+
 const PaymentPage: React.FC = () => {
   const { t } = useTranslation(['payment', 'common']);
   const navigate = useNavigate();
@@ -139,10 +142,17 @@ const PaymentPage: React.FC = () => {
   };
 
   const initializePayment = useCallback(async () => {
-    // Mark as initializing to prevent duplicate calls
-    if (initializingRef.current || initializedRef.current) {
+    // Module-level flag check (survives React StrictMode double-mount)
+    if (isCreatingBooking) {
+      console.log('[initializePayment] Already creating booking, skipping duplicate call');
       return;
     }
+    // Mark as initializing to prevent duplicate calls
+    if (initializingRef.current || initializedRef.current) {
+      console.log('[initializePayment] Already initialized, skipping');
+      return;
+    }
+    isCreatingBooking = true;
     initializingRef.current = true;
 
     try {
@@ -183,14 +193,28 @@ const PaymentPage: React.FC = () => {
         setBookingId(booking.id);
         setBookingDetails(booking);
       } else if (currentBooking && currentBooking.id) {
-        // Always fetch from backend to get the latest status
-        // (Redux state might be stale if user navigated back after payment)
-        console.log('Fetching current booking from backend to verify status:', currentBooking.id);
-        booking = await bookingAPI.getById(currentBooking.id);
-        setBookingId(booking.id);
-        setBookingDetails(booking);
-        // Store in localStorage for page refresh recovery
-        localStorage.setItem(PENDING_BOOKING_KEY, booking.id.toString());
+        // Verify the currentBooking matches the current search before using it
+        // This prevents using stale bookings from a previous search
+        const currentSailingId = selectedFerry?.sailingId || (selectedFerry as any)?.sailing_id;
+        const bookingSailingId = currentBooking.sailingId || (currentBooking as any)?.sailing_id;
+
+        if (currentSailingId && bookingSailingId && currentSailingId !== bookingSailingId) {
+          console.log('Current booking sailing ID mismatch, creating new booking');
+          console.log('  Booking sailing:', bookingSailingId, '!= Current search:', currentSailingId);
+          localStorage.removeItem(PENDING_BOOKING_KEY);
+          booking = await dispatch(createBooking()).unwrap();
+          setBookingId(booking.id);
+          setBookingDetails(booking);
+          localStorage.setItem(PENDING_BOOKING_KEY, booking.id.toString());
+        } else {
+          // Booking matches current search - fetch latest status from backend
+          console.log('Fetching current booking from backend to verify status:', currentBooking.id);
+          booking = await bookingAPI.getById(currentBooking.id);
+          setBookingId(booking.id);
+          setBookingDetails(booking);
+          // Store in localStorage for page refresh recovery
+          localStorage.setItem(PENDING_BOOKING_KEY, booking.id.toString());
+        }
       } else {
         // Check localStorage for pending booking ID (page refresh recovery)
         const storedBookingId = localStorage.getItem(PENDING_BOOKING_KEY);
@@ -198,14 +222,24 @@ const PaymentPage: React.FC = () => {
           try {
             console.log('Found stored booking ID, fetching from backend:', storedBookingId);
             booking = await bookingAPI.getById(parseInt(storedBookingId));
-            // Only use stored booking if it's still PENDING and not expired
-            if (booking.status === 'PENDING' && new Date(booking.expiresAt || booking.expires_at) > new Date()) {
+
+            // Verify stored booking matches current search (same sailing)
+            const currentSailingId = selectedFerry?.sailingId || (selectedFerry as any)?.sailing_id;
+            const storedSailingId = booking.sailingId || booking.sailing_id;
+            const sailingMatches = !currentSailingId || !storedSailingId || currentSailingId === storedSailingId;
+
+            // Only use stored booking if it's still PENDING, not expired, AND matches current search
+            if (booking.status === 'PENDING' &&
+                new Date(booking.expiresAt || booking.expires_at) > new Date() &&
+                sailingMatches) {
               console.log('Using stored pending booking:', booking.id);
               setBookingId(booking.id);
               setBookingDetails(booking);
             } else {
-              // Stored booking is no longer valid, clear it and create new
-              console.log('Stored booking is no longer pending/valid, clearing and creating new');
+              // Stored booking is no longer valid or doesn't match, create new
+              const reason = !sailingMatches ? 'sailing mismatch' :
+                           booking.status !== 'PENDING' ? 'not pending' : 'expired';
+              console.log(`Stored booking invalid (${reason}), clearing and creating new`);
               localStorage.removeItem(PENDING_BOOKING_KEY);
               booking = await dispatch(createBooking()).unwrap();
               setBookingId(booking.id);
@@ -256,6 +290,15 @@ const PaymentPage: React.FC = () => {
           : (booking.total_amount !== undefined && booking.total_amount !== null
               ? booking.total_amount
               : calculateTotal());
+        console.log('[PaymentPage] Booking total calculation:', {
+          'booking.totalAmount': booking.totalAmount,
+          'booking.total_amount': booking.total_amount,
+          'calculateTotal()': calculateTotal(),
+          'final totalAmount': totalAmount,
+          'booking.subtotal': booking.subtotal,
+          'booking.taxAmount': booking.taxAmount || booking.tax_amount,
+          'booking.cabinSupplement': booking.cabinSupplement || booking.cabin_supplement,
+        });
       }
       setBookingTotal(totalAmount);
 
@@ -319,9 +362,23 @@ const PaymentPage: React.FC = () => {
         return;
       }
 
+      // Handle FerryHopper "Trip not found" error - solution data has expired
+      if (typeof errorMessage === 'string' && (
+        errorMessage.toLowerCase().includes('trip not found') ||
+        errorMessage.toLowerCase().includes('solution expired')
+      )) {
+        console.log('FerryHopper solution expired, prompting user to search again');
+        setError(t('payment:errors.tripExpired', 'Your selected ferry trip is no longer available. Please search again for available trips.'));
+        // Reset on error so user can retry
+        initializingRef.current = false;
+        isCreatingBooking = false;
+        return;
+      }
+
       setError(errorMessage);
       // Reset on error so user can retry
       initializingRef.current = false;
+      isCreatingBooking = false;
     } finally {
       setIsLoading(false);
     }
@@ -331,11 +388,19 @@ const PaymentPage: React.FC = () => {
   // Reset initialization refs when there's no currentBooking (user modified booking details)
   useEffect(() => {
     if (!currentBooking && !existingBookingId) {
-      // Reset refs so a new booking will be created
+      // Reset refs and module-level flag so a new booking will be created
       initializingRef.current = false;
       initializedRef.current = false;
+      isCreatingBooking = false;
     }
   }, [currentBooking, existingBookingId]);
+
+  // Cleanup: reset module-level flag when component unmounts (e.g., user navigates away)
+  useEffect(() => {
+    return () => {
+      isCreatingBooking = false;
+    };
+  }, []);
 
   useEffect(() => {
     // If paying for existing booking, skip ferry/passenger checks

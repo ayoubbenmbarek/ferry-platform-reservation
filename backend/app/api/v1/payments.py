@@ -64,6 +64,24 @@ async def create_payment_intent(
             or (payment_data.metadata is not None and payment_data.metadata.get('type') == 'cabin_upgrade')
         )
 
+        # CRITICAL: Block payment if operator booking was not confirmed
+        # This prevents customers from paying for tickets that don't exist with the ferry operator
+        if not is_cabin_upgrade and not booking.operator_booking_reference:
+            # Check if this is a known API limitation (UAT/test mode)
+            operator_pending = booking.extra_data.get("operator_booking_pending", False) if booking.extra_data else False
+            if operator_pending:
+                logger.error(f"❌ Payment blocked for booking {booking.booking_reference}: Operator booking failed (API limitation)")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This booking could not be confirmed with the ferry operator. Please try searching for a different trip or contact support."
+                )
+            else:
+                logger.error(f"❌ Payment blocked for booking {booking.booking_reference}: No operator booking reference")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Booking confirmation with ferry operator is pending. Please wait or contact support."
+                )
+
         # For cabin upgrades, check if the ferry has already departed
         if is_cabin_upgrade:
             journey_type = payment_data.metadata.get('journey_type', 'outbound') if payment_data.metadata else 'outbound'
@@ -224,14 +242,18 @@ async def confirm_payment(
     """
     Confirm a payment after successful Stripe payment intent.
     """
+    logger.info(f"🔄 Confirming payment for intent: {payment_intent_id}")
     try:
         # Retrieve the payment intent from Stripe with expanded charges
+        logger.info(f"📡 Retrieving payment intent from Stripe...")
         intent = stripe.PaymentIntent.retrieve(
             payment_intent_id,
             expand=['latest_charge']
         )
+        logger.info(f"✅ Stripe intent retrieved: status={intent.status}")
 
         # Find the payment in our database
+        logger.info(f"🔍 Looking for payment record with stripe_payment_intent_id={payment_intent_id}")
         payment = (
             db.query(Payment)
             .filter(Payment.stripe_payment_intent_id == payment_intent_id)
@@ -239,10 +261,12 @@ async def confirm_payment(
         )
 
         if not payment:
+            logger.error(f"❌ Payment not found for intent: {payment_intent_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Payment not found",
             )
+        logger.info(f"✅ Found payment ID={payment.id}, booking_id={payment.booking_id}, status={payment.status}")
 
         # Verify user has permission
         # Allow if: 1) Guest payment (no user), 2) Payment belongs to logged-in user, 3) User is admin
@@ -301,25 +325,30 @@ async def confirm_payment(
                     logger.warning(f"Invalid charge ID received for payment {payment_intent_id}: {charge_id}")
 
             # Update booking status to CONFIRMED
+            logger.info(f"📦 Looking up booking ID={payment.booking_id}")
             booking = db.query(Booking).filter(Booking.id == payment.booking_id).first()
             if booking:
+                logger.info(f"✅ Found booking: ref={booking.booking_reference}, current_status={booking.status}")
                 # Check if operator booking was successful
                 if not booking.operator_booking_reference:
                     logger.warning(
                         f"Payment confirmed but operator booking missing for {booking.booking_reference}. "
                         f"This booking may need manual processing with {booking.operator}."
                     )
-                    # Mark as PAID but keep operator status separate
+                    # Mark as CONFIRMED and PAID, but flag for manual operator processing
+                    booking.status = BookingStatusEnum.CONFIRMED
                     booking.payment_status = "PAID"
-                    # Keep status as PENDING until operator booking is confirmed
-                    # This flags it for manual review
-                    booking.status = "PENDING_OPERATOR"
+                    # Store operator_pending flag in extra_data for admin review
+                    if booking.extra_data is None:
+                        booking.extra_data = {}
+                    booking.extra_data["operator_booking_pending"] = True
+                    booking.extra_data["needs_manual_processing"] = True
                 else:
-                    booking.status = "CONFIRMED"
+                    booking.status = BookingStatusEnum.CONFIRMED
                     booking.payment_status = "PAID"
 
                 # Record promo code usage now that payment is confirmed
-                if booking.promo_code:
+                if booking.promo_code and booking.contact_email:
                     from app.services.promo_code_service import PromoCodeService
                     from app.schemas.promo_code import PromoCodeApplyRequest
 
@@ -328,7 +357,7 @@ async def confirm_payment(
                         apply_request = PromoCodeApplyRequest(
                             code=booking.promo_code,
                             booking_id=booking.id,
-                            original_amount=float(booking.subtotal),
+                            original_amount=float(booking.subtotal) if booking.subtotal else 0.0,
                             email=booking.contact_email.lower(),
                             user_id=booking.user_id
                         )
@@ -391,19 +420,19 @@ async def confirm_payment(
                     "contact_phone": booking.contact_phone,
                     "contact_first_name": booking.contact_first_name,
                     "contact_last_name": booking.contact_last_name,
-                    "total_passengers": booking.total_passengers,
-                    "total_vehicles": booking.total_vehicles,
-                    "subtotal": float(booking.subtotal),
-                    "tax_amount": float(booking.tax_amount) if booking.tax_amount else 0,
-                    "total_amount": float(booking.total_amount),
-                    "currency": booking.currency,
-                    "cabin_supplement": float(booking.cabin_supplement) if booking.cabin_supplement else 0,
-                    "return_cabin_supplement": float(booking.return_cabin_supplement) if booking.return_cabin_supplement else 0,
+                    "total_passengers": booking.total_passengers or 0,
+                    "total_vehicles": booking.total_vehicles or 0,
+                    "subtotal": float(booking.subtotal) if booking.subtotal else 0.0,
+                    "tax_amount": float(booking.tax_amount) if booking.tax_amount else 0.0,
+                    "total_amount": float(booking.total_amount) if booking.total_amount else 0.0,
+                    "currency": booking.currency or "EUR",
+                    "cabin_supplement": float(booking.cabin_supplement) if booking.cabin_supplement else 0.0,
+                    "return_cabin_supplement": float(booking.return_cabin_supplement) if booking.return_cabin_supplement else 0.0,
                 }
                 booking_dict["base_url"] = os.getenv("BASE_URL", "http://localhost:3001")
 
                 payment_dict = {
-                    "amount": float(payment.amount),
+                    "amount": float(payment.amount) if payment.amount else 0.0,
                     "payment_method": payment.payment_method.value if payment.payment_method else "Credit Card",
                     "transaction_id": payment.stripe_charge_id or payment_intent_id,
                     "created_at": payment.created_at,
@@ -414,69 +443,96 @@ async def confirm_payment(
                 }
 
                 # Prepare data for async invoice generation in Celery worker
-                # Get passengers
+                # Get passengers (with None-safe handling)
                 passengers = []
-                for p in booking.passengers:
-                    passengers.append({
-                        'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
-                        'first_name': p.first_name,
-                        'last_name': p.last_name,
-                        'final_price': float(p.final_price)
-                    })
+                try:
+                    for p in booking.passengers:
+                        passengers.append({
+                            'passenger_type': p.passenger_type.value if hasattr(p.passenger_type, 'value') else str(p.passenger_type),
+                            'first_name': p.first_name or '',
+                            'last_name': p.last_name or '',
+                            'final_price': float(p.final_price) if p.final_price is not None else 0.0
+                        })
+                except Exception as e:
+                    logger.warning(f"Error loading passengers for email: {str(e)}")
 
-                # Get vehicles
+                # Get vehicles (with None-safe handling)
                 vehicles = []
-                for v in booking.vehicles:
-                    vehicles.append({
-                        'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
-                        'license_plate': v.license_plate,
-                        'final_price': float(v.final_price)
-                    })
+                try:
+                    for v in booking.vehicles:
+                        vehicles.append({
+                            'vehicle_type': v.vehicle_type.value if hasattr(v.vehicle_type, 'value') else str(v.vehicle_type),
+                            'license_plate': v.license_plate or '',
+                            'final_price': float(v.final_price) if v.final_price is not None else 0.0
+                        })
+                except Exception as e:
+                    logger.warning(f"Error loading vehicles for email: {str(e)}")
 
-                # Get meals
+                # Get meals (with None-safe handling)
                 meals = []
-                for m in booking.meals:
-                    meals.append({
-                        'meal_name': m.meal.name if m.meal else 'Meal',
-                        'quantity': m.quantity,
-                        'unit_price': float(m.unit_price),
-                        'total_price': float(m.total_price)
-                    })
+                try:
+                    for m in booking.meals:
+                        meals.append({
+                            'meal_name': m.meal.name if m.meal else 'Meal',
+                            'quantity': m.quantity or 0,
+                            'unit_price': float(m.unit_price) if m.unit_price is not None else 0.0,
+                            'total_price': float(m.total_price) if m.total_price is not None else 0.0
+                        })
+                except Exception as e:
+                    logger.warning(f"Error loading meals for email: {str(e)}")
 
                 # Queue async email task - PDF will be generated in Celery worker
-                from app.tasks.email_tasks import send_payment_success_email_task
-                send_payment_success_email_task.delay(
-                    booking_data=booking_dict,
-                    payment_data=payment_dict,
-                    to_email=booking.contact_email,
-                    passengers=passengers,
-                    vehicles=vehicles,
-                    meals=meals,
-                    generate_invoice=True  # Generate PDF asynchronously in worker
-                )
-                logger.info(f"✅ Payment success email queued for {booking.contact_email} (invoice will be generated asynchronously)")
+                try:
+                    from app.tasks.email_tasks import send_payment_success_email_task
+                    send_payment_success_email_task.delay(
+                        booking_data=booking_dict,
+                        payment_data=payment_dict,
+                        to_email=booking.contact_email,
+                        passengers=passengers,
+                        vehicles=vehicles,
+                        meals=meals,
+                        generate_invoice=True  # Generate PDF asynchronously in worker
+                    )
+                    logger.info(f"✅ Payment success email queued for {booking.contact_email} (invoice will be generated asynchronously)")
+                except Exception as celery_error:
+                    logger.error(f"Failed to queue email task: {str(celery_error)}", exc_info=True)
+                    # Don't fail payment confirmation if email queuing fails
 
             except Exception as e:
                 # Log email error but don't fail the payment confirmation
                 logger.error(f"Failed to send payment confirmation email for booking {booking.booking_reference if booking else 'unknown'}: {str(e)}", exc_info=True)
 
+        # Prepare safe response values
+        booking_ref = booking.booking_reference if booking else ""
+        payment_amount = float(payment.amount) if payment.amount is not None else 0.0
+        payment_currency = payment.currency or "EUR"
+        payment_status = payment.status.value.lower() if payment.status else "pending"
+        transaction_id = payment.stripe_charge_id or payment_intent_id
+
+        logger.info(f"✅ Payment confirmation complete: payment_id={payment.id}, status={payment_status}, booking_ref={booking_ref}")
+
         return PaymentConfirmation(
             payment_id=payment.id,
-            booking_reference=booking.booking_reference if booking else "",
-            amount=float(payment.amount),
-            currency=payment.currency,
-            status=payment.status.value.lower(),
-            transaction_id=payment.stripe_charge_id or payment_intent_id,
+            booking_reference=booking_ref,
+            amount=payment_amount,
+            currency=payment_currency,
+            status=payment_status,
+            transaction_id=transaction_id,
             receipt_url=receipt_url,
-            confirmation_number=booking.booking_reference if booking else "",
+            confirmation_number=booking_ref,
         )
 
     except stripe.StripeError as e:
+        logger.error(f"❌ Stripe error confirming payment {payment_intent_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Stripe error: {str(e)}",
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
+        logger.error(f"❌ Error confirming payment {payment_intent_id}: {str(e)}", exc_info=True)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -611,7 +667,7 @@ async def stripe_webhook(
                 # Update booking status
                 booking = db.query(Booking).filter(Booking.id == payment.booking_id).first()
                 if booking:
-                    booking.status = "CONFIRMED"
+                    booking.status = BookingStatusEnum.CONFIRMED
                     booking.payment_status = "PAID"
 
                 db.commit()

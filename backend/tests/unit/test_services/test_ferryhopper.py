@@ -1082,28 +1082,28 @@ class TestHelperFunctions:
         for i, priority_code in enumerate(PRIORITY_NATIONALITIES):
             assert all_nationalities[i]["code"] == priority_code
 
-    def test_get_voilaferry_vehicle_options(self):
-        """Test VoilaFerry vehicle options for frontend."""
+    def test_get_vehicle_options_for_frontend(self):
+        """Test vehicle options for frontend using FerryHopper codes."""
         from app.services.ferry_integrations.ferryhopper_mappings import (
-            get_voilaferry_vehicle_options
+            get_vehicle_options_for_frontend
         )
 
-        options = get_voilaferry_vehicle_options()
+        options = get_vehicle_options_for_frontend()
 
         assert len(options) >= 15
 
-        # Check structure
+        # Check structure - uses FerryHopper codes directly
         for opt in options:
-            assert "value" in opt
+            assert "code" in opt  # FerryHopper code (e.g., "1", "5", "21")
             assert "label" in opt
             assert "type" in opt
 
-        # Check specific options exist
-        values = [o["value"] for o in options]
-        assert "small_car" in values
-        assert "medium_car" in values
-        assert "motorcycle" in values
-        assert "bicycle" in values
+        # Check specific FerryHopper codes exist
+        codes = [o["code"] for o in options]
+        assert "5" in codes   # Small car
+        assert "1" in codes   # Medium car
+        assert "4" in codes   # Motorcycle
+        assert "15" in codes  # Bicycle
 
     def test_is_valid_accommodation_code(self):
         """Test accommodation code validation."""

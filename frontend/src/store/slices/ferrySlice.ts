@@ -366,10 +366,34 @@ export const createBooking = createAsyncThunk(
         hasCancellationProtection: hasCancellationProtection || false,
       });
 
+      // Debug logging to verify data being sent
+      console.log('[createBooking] Sending to backend:', {
+        sailingId: bookingData.sailing_id,
+        ferryPrices: bookingData.ferry_prices,
+        returnFerryPrices: bookingData.return_ferry_prices,
+        isRoundTrip: bookingData.is_round_trip,
+        passengers: bookingData.passengers?.length,
+        passengerTypes: bookingData.passengers?.map((p: any) => p.type),
+        vehicles: bookingData.vehicles?.length,
+        cabinSelections: bookingData.cabin_selections,
+        totalCabinPrice: bookingData.total_cabin_price,
+        returnCabinSelections: bookingData.return_cabin_selections,
+        totalReturnCabinPrice: bookingData.total_return_cabin_price,
+        hasCancellationProtection: bookingData.has_cancellation_protection,
+      });
+
       // Use axios directly to send snake_case data
       const response = await api.post('/bookings/', bookingData);
+      console.log('[createBooking] Backend response:', {
+        id: response.data.id,
+        totalAmount: response.data.total_amount,
+        subtotal: response.data.subtotal,
+        taxAmount: response.data.tax_amount,
+        cabinSupplement: response.data.cabin_supplement,
+      });
       return snakeToCamel(response.data);
     } catch (error: any) {
+      console.error('[createBooking] Error:', error.response?.status, error.response?.data?.detail || error.message);
       return rejectWithValue(error.response?.data?.detail || error.message || 'Failed to create booking');
     }
   }
